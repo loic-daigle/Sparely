@@ -47,7 +47,8 @@ fun Double.roundToTwoDecimals(): Double {
 fun Double.formatCurrency(symbol: String = "$", decimals: Int = 2): String {
     val displayValue = if (this > -0.005 && this <= 0.0) 0.0 else this
     val format = "%.${decimals}f"
-    return symbol + String.format(Locale.US, format, displayValue)
+    val formatted = String.format(Locale.US, format, displayValue)
+    return if (formatted.startsWith("-")) "-$symbol${formatted.substring(1)}" else symbol + formatted
 }
 
 @JvmName("formatCurrencyValue")

@@ -133,15 +133,20 @@ class AppFunctions(
         refundMethod: String = "ORIGINAL_PAYMENT",
         reason: String? = null
     ): Result<Unit> = try {
-        repository.recordRefund(
+        val actualRefund = repository.processExpenseRefund(
             expenseId = expenseId,
-            refundedAmount = refundAmount,
+            requestedAmount = refundAmount,
             refundMethod = refundMethod,
             reason = reason ?: "AI refund processing",
             refundedItemIds = emptyList()
         )
-        Log.i(tag, "AI recorded refund of $$refundAmount for expense $expenseId")
-        Result.success(Unit)
+        if (actualRefund != null) {
+            Log.i(tag, "AI recorded refund of $$actualRefund for expense $expenseId")
+            Result.success(Unit)
+        } else {
+            Log.w(tag, "AI refund for expense $expenseId not applied: not found or already fully refunded")
+            Result.failure(IllegalStateException("Expense $expenseId not found or already fully refunded"))
+        }
     } catch (e: Exception) {
         Log.e(tag, "Failed to record refund", e)
         Result.failure(e)

@@ -270,15 +270,18 @@ class SparelyAppFunctions(
      */
     suspend fun recordRefund(request: RecordRefundRequest): String =
         withContext(Dispatchers.IO) {
-            repository.recordRefund(
+            val actualRefund = repository.processExpenseRefund(
                 expenseId = request.expenseId,
-                refundedAmount = request.refundAmount,
-                refundDate = LocalDate.now(),
+                requestedAmount = request.refundAmount,
                 refundMethod = request.refundMethod,
                 reason = request.reason,
                 refundedItemIds = emptyList()
             )
-            "Successfully recorded refund of ${request.refundAmount.formatCurrency()} via ${request.refundMethod}"
+            if (actualRefund != null) {
+                "Successfully recorded refund of ${actualRefund.formatCurrency()} via ${request.refundMethod}"
+            } else {
+                "Could not record refund: expense with ID ${request.expenseId} not found or already fully refunded"
+            }
         }
 
     /**

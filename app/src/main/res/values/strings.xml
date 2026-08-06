@@ -1284,6 +1284,8 @@
     <string name="credit_cards_pay_action_confirm">Pay</string>
     <string name="credit_cards_cancel_action">Cancel</string>
     <string name="credit_cards_billing_day_not_set">Not set</string>
+    <string name="credit_cards_credit_balance_label">Credit</string>
+    <string name="credit_cards_credit_balance_desc">You have a credit balance — no payment due</string>
     <plurals name="credit_cards_count">
         <item quantity="one">%d card</item>
         <item quantity="other">%d cards</item>

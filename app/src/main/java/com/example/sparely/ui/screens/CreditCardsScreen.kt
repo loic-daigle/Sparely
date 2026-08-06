@@ -292,12 +292,13 @@ private fun CreditCardDetailItem(
     onPayBill: () -> Unit
 ) {
     val spacing = MaterialTheme.spacing
+    val isCreditBalance = card.currentBalance < -0.005
     val utilizationColor = when {
         card.isUtilizationHealthy -> MaterialTheme.colorScheme.success
         card.isUtilizationWarning -> MaterialTheme.colorScheme.warning
         else -> MaterialTheme.colorScheme.critical
     }
-    
+
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
@@ -353,22 +354,35 @@ private fun CreditCardDetailItem(
                         card.currentBalance.formatCurrency(),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (card.currentBalance > 0) utilizationColor else MaterialTheme.colorScheme.onSurface
+                        color = when {
+                            isCreditBalance -> MaterialTheme.colorScheme.success
+                            card.currentBalance > 0 -> utilizationColor
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
                     )
-                    Text(
-                        card.utilizationPercent.formatPercent(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = utilizationColor,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (isCreditBalance) {
+                        Text(
+                            stringResource(R.string.credit_cards_credit_balance_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.success,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Text(
+                            card.utilizationPercent.formatPercent(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = utilizationColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
-            
+
             // Utilization Bar
             card.creditLimit?.let { limit ->
                 if (limit > 0) {
                     LinearProgressIndicator(
-                        progress = { card.utilizationPercent.toFloat() },
+                        progress = { card.utilizationPercent.toFloat().coerceIn(0f, 1f) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
@@ -425,21 +439,41 @@ private fun CreditCardDetailItem(
                     
                     // Action Buttons
                     HorizontalDivider(modifier = Modifier.padding(vertical = spacing.xs))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                    ) {
-                        SparelyButton(
-                            onClick = onPayBill,
-                            modifier = Modifier.weight(1f)
+                    if (card.currentBalance > 0.0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                        ) {
+                            SparelyButton(
+                                onClick = onPayBill,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.PAYMENTS,
+                                    contentDescription = null,
+                                    size = 18.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.credit_cards_pay_bill_action))
+                            }
+                        }
+                    } else if (isCreditBalance) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             MaterialSymbolIcon(
                                 icon = MaterialSymbols.PAYMENTS,
                                 contentDescription = null,
-                                size = 18.dp
+                                size = 16.dp,
+                                tint = MaterialTheme.colorScheme.success
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.credit_cards_pay_bill_action))
+                            Text(
+                                stringResource(R.string.credit_cards_credit_balance_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.success,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }

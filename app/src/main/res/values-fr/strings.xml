@@ -1059,6 +1059,8 @@
     <string name="credit_cards_pay_action_confirm">Payer</string>
     <string name="credit_cards_cancel_action">Annuler</string>
     <string name="credit_cards_billing_day_not_set">Non défini</string>
+    <string name="credit_cards_credit_balance_label">Crédit</string>
+    <string name="credit_cards_credit_balance_desc">Vous avez un solde créditeur — aucun paiement dû</string>
     <plurals name="credit_cards_count">
         <item quantity="one">%d carte</item>
         <item quantity="other">%d cartes</item>

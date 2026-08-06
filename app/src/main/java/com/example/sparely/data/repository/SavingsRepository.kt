@@ -1049,6 +1049,61 @@ class SavingsRepository(
         upsertExpense(updated)
     }
 
+    /**
+     * Processes a refund end-to-end: updates the expense's refunded amount (which drives the
+     * credit card balance down via [processExpenseResult], allowing it to go negative if the
+     * card was already paid off), records the audit-trail entry, credits the main account when
+     * the expense wasn't paid by a credit card, and clears any pending tax contributions.
+     *
+     * Returns the actual amount refunded (clamped to what's left to refund), or null if there
+     * was nothing to refund (expense not found, or already fully refunded).
+     */
+    suspend fun processExpenseRefund(
+        expenseId: Long,
+        requestedAmount: Double,
+        refundMethod: String? = null,
+        reason: String? = null,
+        refundedItemIds: List<Long> = emptyList()
+    ): Double? {
+        val expense = expenseDao.findExpenseById(expenseId) ?: return null
+
+        val maxRefundable = expense.amount - expense.refundedAmount
+        val actualRefund = requestedAmount.coerceIn(0.0, maxRefundable)
+        if (actualRefund <= 0.0) return null
+
+        val newTotalRefunded = expense.refundedAmount + actualRefund
+
+        flagExpenseAsRefunded(expenseId, actualRefund, newTotalRefunded)
+
+        recordRefund(
+            expenseId = expenseId,
+            refundedAmount = actualRefund,
+            refundMethod = refundMethod,
+            reason = reason,
+            refundedItemIds = refundedItemIds
+        )
+
+        val paymentMethod = expense.paymentMethodId?.let { paymentMethodDao.getPaymentMethodById(it) }
+        if (paymentMethod?.isCreditCard != true) {
+            val currentBalance = getLatestMainAccountBalance()
+            val newBalance = currentBalance + actualRefund
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = MainAccountTransactionType.DEPOSIT,
+                amount = actualRefund,
+                balanceAfter = newBalance,
+                timestamp = LocalDateTime.now(),
+                description = "Refund for: ${expense.description}",
+                relatedExpenseId = expenseId
+            )
+            insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(newBalance)
+        }
+
+        deletePendingContributionsForExpense(expenseId)
+
+        return actualRefund
+    }
+
     suspend fun deletePendingContributionsForExpense(expenseId: Long) {
         // Find them first to remove frozen funds
         val contributions = smartVaultDao.getContributionsForExpense(expenseId).filter { !it.reconciled }

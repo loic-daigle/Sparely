@@ -1214,58 +1214,11 @@ fun deleteExpense(id: Long) {
 
 fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<Long> = emptyList()) {
     viewModelScope.launch(dispatcher) {
-        val expenseEntity = savingsRepository.findExpenseById(expenseId) ?: return@launch
-        
-        // Validate refund amount
-        val maxRefundable = expenseEntity.amount - expenseEntity.refundedAmount
-        val actualRefund = refundAmount.coerceIn(0.0, maxRefundable)
-        
-        if (actualRefund <= 0.0) return@launch
-        
-        val newTotalRefunded = expenseEntity.refundedAmount + actualRefund
-        
-        // 1. Update Expense Record
-        savingsRepository.flagExpenseAsRefunded(expenseId, actualRefund, newTotalRefunded)
-        
-        // 2. Record the detailed refund entry
-        savingsRepository.recordRefund(
+        savingsRepository.processExpenseRefund(
             expenseId = expenseId,
-            refundedAmount = actualRefund,
+            requestedAmount = refundAmount,
             refundedItemIds = refundedItemIds
         )
-        
-        // 3. Credit Main Account or Credit Card
-        val paymentMethodId = expenseEntity.paymentMethodId
-         val paymentMethod = if (paymentMethodId != null) {
-             savingsRepository.getPaymentMethodById(paymentMethodId)
-         } else null
-         
-         if (paymentMethod?.isCreditCard == true) {
-             // HANDLED BY REPOSITORY
-         } else {
-             val currentBalance = savingsRepository.getLatestMainAccountBalance()
-             val newBalance = currentBalance + actualRefund
-              val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                amount = actualRefund,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = "Refund for: ${expenseEntity.description}",
-                relatedExpenseId = expenseId
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
-         }
-         
-         // 3. Handle Saving Tax
-         // Logic: If fully refunded, cancel all pending tax. 
-         // If partially refunded, cancel proportional tax? Or just keep it simple and cancel all pending?
-         // Let's cancel ALL pending tax for this expense if the refund is significant (> 10%?) or just always.
-         // Decision: If we refund money, the tax obligation is reduced. 
-         // The simplest safe approach is: Cancel ALL pending tax for this expense. 
-         // If the user wants to keep some tax, they can manually add a transfer. 
-         // But usually if I return something I don't want to pay tax on it.
-         savingsRepository.deletePendingContributionsForExpense(expenseId)
     }
 }
 
