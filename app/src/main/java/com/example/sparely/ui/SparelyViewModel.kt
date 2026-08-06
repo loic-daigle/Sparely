@@ -66,7 +66,6 @@ import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.toSmartVault
 import com.example.sparely.domain.model.toSmartVaultSetup
 import com.example.sparely.domain.model.IncomeTrackingMode
-import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.notifications.NotificationScheduler
 import com.example.sparely.workers.VaultAutoDepositScheduler
@@ -204,16 +203,6 @@ class SparelyViewModel(
         return abs(current - candidate) > tolerance
     }
 
-    private fun paychecksPerMonth(schedule: PayScheduleSettings): Double {
-        return when (schedule.interval) {
-            PayInterval.WEEKLY -> 52.0 / 12.0
-            PayInterval.BIWEEKLY -> 26.0 / 12.0
-            PayInterval.SEMI_MONTHLY -> 2.0
-            PayInterval.MONTHLY -> 1.0
-            PayInterval.CUSTOM -> schedule.customDaysBetween?.let { 30.0 / it.coerceAtLeast(1) } ?: 1.0
-        }
-    }
-
     private data class AggregatedFeeds(
         val expenses: List<Expense>,
         val transfers: List<SavingsTransferEntity>,
@@ -308,20 +297,12 @@ class SparelyViewModel(
                 }
                 .map { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
                     val domainExpenses = feed.expenses
-                    
-                    // Automatically detect and ignore statistical anomalies (large one-off expenses)
-                    val amounts = domainExpenses.map { it.amount }
-                    val mean = if (amounts.isNotEmpty()) amounts.average() else 0.0
-                    val stdDev = if (amounts.size > 1) {
-                        val variance = amounts.map { (it - mean) * (it - mean) }.average()
-                        kotlin.math.sqrt(variance)
-                    } else 0.0
-                    
-                    val predictionExpenses = domainExpenses.filter { expense ->
-                        val isAnomaly = stdDev > 0.0 && (expense.amount - mean) / stdDev > 2.5
-                        !expense.isIgnored && !isAnomaly
-                    }
-                    
+
+                    // Automatically exclude ignored expenses and statistical anomalies (large
+                    // one-off expenses) from anything used for burn-rate/month-end predictions.
+                    val predictionExpenses = SmartInsightEngine.filterPredictionExpenses(domainExpenses)
+
+
                     val domainTransfers = feed.transfers.map { it.toDomain() }
                     val analytics = AnalyticsEngine.build(domainExpenses, domainTransfers)
 
@@ -338,6 +319,8 @@ class SparelyViewModel(
                             .filterNot { handledBudgetPrompts.contains(promptKey(it.category, it.month)) }
                     }.orEmpty()
                     val budgetAlerts = budgetSummary?.let { BudgetEngine.generateBudgetAlerts(it, container.context) }.orEmpty()
+                    val budgetForecasts = BudgetEngine.predictMonthEndSpending(activeBudgets, domainExpenses, LocalDate.now())
+                    val preemptiveWarnings = BudgetEngine.generatePreemptiveWarnings(budgetForecasts, LocalDate.now(), container.context)
 
                     val monthlyExpenseEstimate = when {
                         analytics.averageMonthlyExpense > 0.0 -> analytics.averageMonthlyExpense
@@ -433,7 +416,8 @@ class SparelyViewModel(
                             recurringExpenses = feed.recurring,
                             expectedMonthlyIncome = feed.settings.monthlyIncome,
                             nextPayDate = feed.settings.paySchedule.nextPayDate,
-                            nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 }
+                            nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 },
+                            paySchedule = feed.settings.paySchedule
                         )
                     )
 
@@ -476,7 +460,7 @@ class SparelyViewModel(
                         val referencePay = listOf(
                             feed.settings.paySchedule.lastPayAmount,
                             feed.settings.paySchedule.defaultNetPay,
-                            feed.settings.monthlyIncome / (paychecksPerMonth(feed.settings.paySchedule).takeIf { it > 0.0 } ?: 1.0)
+                            feed.settings.monthlyIncome / (IncomeAutomationEngine.paychecksPerMonth(feed.settings.paySchedule).takeIf { it > 0.0 } ?: 1.0)
                         ).firstOrNull { it > 0.0 }
                         if (referencePay != null && referencePay > 0.0) {
                             val automationInput = IncomeAutomationEngine.Input(
@@ -574,6 +558,8 @@ class SparelyViewModel(
                         budgetSummary = budgetSummary,
                         budgetSuggestions = budgetSuggestions,
                         budgetPrompts = budgetPrompts,
+                        budgetForecasts = budgetForecasts,
+                        preemptiveWarnings = preemptiveWarnings,
                         recurringExpenses = feed.recurring,
                         upcomingRecurring = upcomingRecurring,
                         recurringPaidRecords = feed.recurringPaidRecords,
@@ -1288,7 +1274,11 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     suspend fun getExpensesLinkedToAsset(assetId: Long): List<Pair<com.example.sparely.domain.model.Expense, Double>> {
         return savingsRepository.getExpensesLinkedToAsset(assetId)
     }
-    
+
+    suspend fun getAssetCostProjection(assetId: Long, months: Int = 12): com.example.sparely.domain.model.AssetCostProjection? {
+        return savingsRepository.getAssetCostProjection(assetId, months)
+    }
+
     fun dismissVaultArchivePrompt() {
         _uiState.update { it.copy(vaultArchivePrompt = null) }
     }

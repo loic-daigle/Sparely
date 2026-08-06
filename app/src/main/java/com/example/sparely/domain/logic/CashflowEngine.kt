@@ -1,6 +1,7 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringFrequency
 import java.time.LocalDate
@@ -60,6 +61,7 @@ object CashflowEngine {
         val expectedMonthlyIncome: Double,
         val nextPayDate: LocalDate? = null,
         val nextPayAmount: Double? = null,
+        val paySchedule: PayScheduleSettings? = null,
         val lowBalanceThreshold: Double = 100.0,
         val today: LocalDate = LocalDate.now()
     )
@@ -92,6 +94,7 @@ object CashflowEngine {
             monthlyIncome = input.expectedMonthlyIncome,
             nextPayDate = input.nextPayDate,
             nextPayAmount = input.nextPayAmount,
+            paySchedule = input.paySchedule,
             today = input.today
         )
 
@@ -135,6 +138,7 @@ object CashflowEngine {
             expectedMonthlyIncome = input.expectedMonthlyIncome,
             nextPayDate = input.nextPayDate,
             nextPayAmount = input.nextPayAmount,
+            paySchedule = input.paySchedule,
             upcomingObligations = upcomingObligations,
             today = input.today
         )
@@ -228,21 +232,55 @@ object CashflowEngine {
         monthlyIncome: Double,
         nextPayDate: LocalDate?,
         nextPayAmount: Double?,
+        paySchedule: PayScheduleSettings?,
         today: LocalDate
     ): Double {
-        // If we have a specific next pay date and amount, use that
-        if (nextPayDate != null && nextPayAmount != null) {
-            val daysUntilPay = ChronoUnit.DAYS.between(today, nextPayDate).toInt()
-            if (daysUntilPay in 0..30) {
-                // Estimate additional paychecks based on frequency
-                // Assume biweekly for simplicity if we only have one date
-                val additionalPaychecks = (30 - daysUntilPay) / 14
-                return nextPayAmount * (1 + additionalPaychecks)
-            }
+        val payDates = projectPayDates(paySchedule, nextPayDate, nextPayAmount, today, today.plusDays(30))
+        if (payDates.isNotEmpty()) {
+            return payDates.sumOf { it.second }
         }
 
         // Fall back to estimated monthly income
         return monthlyIncome
+    }
+
+    /**
+     * Projects every paycheck landing in [rangeStart, rangeEndExclusive), using the real pay
+     * cadence from [paySchedule] (via [PayScheduleCalculator]) when available. Without a schedule,
+     * only the single known [nextPayDate]/[nextPayAmount] is considered - we don't guess at a
+     * cadence (e.g. assuming biweekly) when we don't actually know it.
+     */
+    private fun projectPayDates(
+        paySchedule: PayScheduleSettings?,
+        nextPayDate: LocalDate?,
+        nextPayAmount: Double?,
+        rangeStart: LocalDate,
+        rangeEndExclusive: LocalDate
+    ): List<Pair<LocalDate, Double>> {
+        val firstPayDate = nextPayDate ?: return emptyList()
+        val firstPayAmount = nextPayAmount ?: return emptyList()
+
+        var date = firstPayDate
+        var amount = firstPayAmount
+        var iterations = 0
+
+        // Advance past a stale pay date using the real schedule, if we have one.
+        while (date.isBefore(rangeStart)) {
+            if (paySchedule == null || iterations >= 24) return emptyList()
+            date = PayScheduleCalculator.computeNextPayDate(paySchedule, date) ?: return emptyList()
+            amount = paySchedule.defaultNetPay.takeIf { it > 0 } ?: amount
+            iterations++
+        }
+
+        val dates = mutableListOf<Pair<LocalDate, Double>>()
+        while (date.isBefore(rangeEndExclusive) && iterations < 48) {
+            dates.add(date to amount)
+            if (paySchedule == null) break // no cadence to project a second paycheck from
+            date = PayScheduleCalculator.computeNextPayDate(paySchedule, date) ?: break
+            amount = paySchedule.defaultNetPay.takeIf { it > 0 } ?: amount
+            iterations++
+        }
+        return dates
     }
 
     private fun detectLowBalanceWarning(
@@ -305,13 +343,18 @@ object CashflowEngine {
         expectedMonthlyIncome: Double,
         nextPayDate: LocalDate?,
         nextPayAmount: Double?,
+        paySchedule: PayScheduleSettings?,
         upcomingObligations: List<UpcomingObligation>,
         today: LocalDate
     ): List<WeeklyProjection> {
         val projections = mutableListOf<WeeklyProjection>()
         var runningBalance = currentBalance
         val weeklyBurn = dailyBurn * 7
-        val weeklyIncome = expectedMonthlyIncome / 4.33 // Approximate weekly income
+        val weeklyIncome = expectedMonthlyIncome / 4.33 // Fallback when no real schedule is known
+
+        // Same pay-date projection used by calculateExpectedIncome, so the 4-week chart and the
+        // 30-day "safe to spend" figure agree on how many paychecks land in the horizon.
+        val payDates = projectPayDates(paySchedule, nextPayDate, nextPayAmount, today, today.plusDays(28))
 
         for (weekNum in 0..3) { // 4 weeks ahead
             val weekStart = today.plusDays((weekNum * 7).toLong())
@@ -322,9 +365,8 @@ object CashflowEngine {
                 .filter { it.dueDate in weekStart..weekEnd }
                 .sumOf { it.amount }
 
-            // Check if pay date falls in this week
-            val payThisWeek = if (nextPayDate != null && nextPayAmount != null) {
-                if (nextPayDate in weekStart..weekEnd) nextPayAmount else 0.0
+            val payThisWeek = if (payDates.isNotEmpty()) {
+                payDates.filter { it.first >= weekStart && it.first < weekEnd }.sumOf { it.second }
             } else {
                 weeklyIncome
             }

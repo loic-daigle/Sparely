@@ -578,19 +578,18 @@ object BudgetEngine {
         val currentMonth = YearMonth.from(today)
         val dayOfMonth = today.dayOfMonth.coerceAtLeast(1)
         val daysInMonth = currentMonth.lengthOfMonth()
-        val daysRemaining = daysInMonth - dayOfMonth
 
         return budgets
             .filter { it.isActive && it.yearMonth == currentMonth }
             .map { budget ->
-                val categoryExpenses = expenses.filter { 
-                    it.category == budget.category && YearMonth.from(it.date) == currentMonth 
+                val categoryExpenses = expenses.filter {
+                    it.category == budget.category && YearMonth.from(it.date) == currentMonth
                 }
                 val spent = categoryExpenses.sumOf { it.amount }
                 val dailyRate = spent / dayOfMonth
-                val predictedTotal = spent + (dailyRate * daysRemaining)
+                val predictedTotal = ProjectionMath.linearMonthEndProjection(spent, dayOfMonth, daysInMonth)
                 val projectedOverspend = (predictedTotal - budget.monthlyLimit).coerceAtLeast(0.0)
-                
+
                 val daysUntilExhausted = if (dailyRate > 0 && budget.monthlyLimit > spent) {
                     ((budget.monthlyLimit - spent) / dailyRate).toInt()
                 } else if (spent >= budget.monthlyLimit) {
@@ -599,12 +598,7 @@ object BudgetEngine {
                     null
                 }
 
-                // Confidence based on how much of the month has passed
-                val confidence = when {
-                    dayOfMonth >= 20 -> SuggestionConfidence.HIGH
-                    dayOfMonth >= 10 -> SuggestionConfidence.MEDIUM
-                    else -> SuggestionConfidence.LOW
-                }
+                val confidence = ProjectionMath.confidenceForDayOfMonth(dayOfMonth)
 
                 BudgetForecast(
                     category = budget.category,

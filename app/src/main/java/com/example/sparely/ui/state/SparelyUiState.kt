@@ -1,5 +1,6 @@
 package com.example.sparely.ui.state
 
+import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
 import com.example.sparely.domain.logic.SpendingPatternEngine
@@ -30,6 +31,8 @@ data class SparelyUiState(
     val budgetSummary: BudgetSummary? = null,
     val budgetSuggestions: List<BudgetSuggestion> = emptyList(),
     val budgetPrompts: List<BudgetOverrunPrompt> = emptyList(),
+    val budgetForecasts: List<BudgetEngine.BudgetForecast> = emptyList(),
+    val preemptiveWarnings: List<BudgetEngine.PreemptiveBudgetWarning> = emptyList(),
     val recurringExpenses: List<RecurringExpense> = emptyList(),
     val upcomingRecurring: List<UpcomingRecurringExpense> = emptyList(),
     val recurringPaidRecords: List<com.example.sparely.data.local.RecurringExpensePaidEntity> = emptyList(),

@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.domain.model.*
+import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SingleLineText
 import com.example.sparely.ui.components.SparelyBottomSheet
@@ -56,6 +57,7 @@ import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.displayName
 import com.sparely.app.R
 @Composable
 fun BudgetScreen(
@@ -147,6 +149,26 @@ fun BudgetScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (uiState.preemptiveWarnings.isNotEmpty()) {
+            items(uiState.preemptiveWarnings, key = { "warning_${it.category.name}_${it.daysUntilIssue}" }) { warning ->
+                PreemptiveWarningBanner(warning)
+            }
+        }
+
+        if (uiState.budgetForecasts.isNotEmpty()) {
+            item {
+                BudgetSectionHeader(
+                    title = stringResource(R.string.budget_forecast_section_title),
+                    subtitle = stringResource(R.string.budget_forecast_section_desc),
+                    icon = MaterialSymbols.TRENDING_UP
+                )
+            }
+
+            items(uiState.budgetForecasts, key = { "forecast_${it.category.name}" }) { forecast ->
+                BudgetForecastCard(forecast)
             }
         }
 
@@ -882,6 +904,138 @@ fun BudgetSuggestionCard(
 }
 
 @Composable
+fun BudgetForecastCard(forecast: BudgetEngine.BudgetForecast) {
+    val colorScheme = MaterialTheme.colorScheme
+    val categoryColor = getCategoryColor(forecast.category)
+    val categoryIcon = getCategoryIcon(forecast.category)
+    val isOverBudget = forecast.projectedOverspend > 0
+    val statusColor = if (isOverBudget) colorScheme.error else colorScheme.success
+    val confidenceColor = when (forecast.confidenceLevel) {
+        SuggestionConfidence.HIGH -> colorScheme.primary
+        SuggestionConfidence.MEDIUM -> colorScheme.secondary
+        SuggestionConfidence.LOW -> colorScheme.onSurfaceVariant
+    }
+
+    ExpressiveCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        containerColor = colorScheme.surfaceContainerHigh
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = categoryColor.copy(alpha = 0.15f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            MaterialSymbolIcon(
+                                icon = categoryIcon,
+                                contentDescription = null,
+                                size = 20.dp,
+                                tint = categoryColor
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = forecast.category.displayName(),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = stringResource(R.string.budget_suggestion_confidence_label, forecast.confidenceLevel.displayName()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = confidenceColor
+                        )
+                    }
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = stringResource(R.string.budget_forecast_predicted_label),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = forecast.predictedMonthEndSpending.formatCurrency(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+            }
+
+            Text(
+                text = if (isOverBudget) {
+                    stringResource(R.string.budget_forecast_projected_overspend, forecast.projectedOverspend.formatCurrency())
+                } else {
+                    stringResource(R.string.budget_forecast_on_pace)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = statusColor
+            )
+
+            forecast.daysUntilBudgetExhausted?.let { days ->
+                Text(
+                    text = stringResource(R.string.budget_forecast_days_until_exhausted, days),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreemptiveWarningBanner(warning: BudgetEngine.PreemptiveBudgetWarning) {
+    val colorScheme = MaterialTheme.colorScheme
+    val (containerColor, contentColor, icon) = when (warning.severity) {
+        AlertType.WARNING -> Triple(colorScheme.errorContainer, colorScheme.onErrorContainer, MaterialSymbols.WARNING)
+        AlertType.SUCCESS -> Triple(colorScheme.successContainer, colorScheme.onSuccessContainer, MaterialSymbols.CHECK)
+        AlertType.INFO -> Triple(colorScheme.surfaceContainerHigh, colorScheme.onSurface, MaterialSymbols.INFO)
+    }
+
+    Surface(
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MaterialSymbolIcon(
+                icon = icon,
+                contentDescription = null,
+                tint = contentColor,
+                size = 20.dp
+            )
+            Text(
+                text = warning.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
 private fun BudgetSectionHeader(
     title: String,
     subtitle: String,
@@ -1248,13 +1402,6 @@ fun EditBudgetDialog(
     }
 }
 
-
-@Composable
-private fun SuggestionConfidence.displayName(): String = when (this) {
-    SuggestionConfidence.HIGH -> stringResource(R.string.confidence_high)
-    SuggestionConfidence.MEDIUM -> stringResource(R.string.confidence_medium)
-    SuggestionConfidence.LOW -> stringResource(R.string.confidence_low)
-}
 
 @Composable
 private fun BudgetHealthStatus.displayName(): String = when (this) {

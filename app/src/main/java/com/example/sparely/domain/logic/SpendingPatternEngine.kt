@@ -2,6 +2,7 @@ package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
+import com.example.sparely.domain.model.SuggestionConfidence
 import com.example.sparely.ui.utils.roundToTwoDecimals
 import com.example.sparely.ui.utils.formatPercent
 import java.time.DayOfWeek
@@ -32,6 +33,7 @@ object SpendingPatternEngine {
         val anomalies: List<SpendingAnomaly>,
         val categoryVelocity: Map<ExpenseCategory, CategoryVelocity>,
         val predictedMonthEndSpending: Double,
+        val predictedMonthEndConfidence: SuggestionConfidence, // How much of the month has elapsed
         val runwayDays: Int // Days until predicted balance hits zero at current rate
     )
 
@@ -76,6 +78,7 @@ object SpendingPatternEngine {
                 anomalies = emptyList(),
                 categoryVelocity = emptyMap(),
                 predictedMonthEndSpending = 0.0,
+                predictedMonthEndConfidence = SuggestionConfidence.LOW,
                 runwayDays = Int.MAX_VALUE
             )
         }
@@ -88,6 +91,7 @@ object SpendingPatternEngine {
         val anomalies = detectAnomalies(expenses, today)
         val velocity = computeCategoryVelocity(expenses, categoryBudgets, today)
         val predictedMonthEnd = predictMonthEndSpending(expenses, today).roundToTwoDecimals()
+        val predictedMonthEndConfidence = ProjectionMath.confidenceForDayOfMonth(today.dayOfMonth)
         val runway = computeRunwayDays(expenses, mainAccountBalance, today)
 
         return SpendingPatternResult(
@@ -101,6 +105,7 @@ object SpendingPatternEngine {
             anomalies = anomalies,
             categoryVelocity = velocity,
             predictedMonthEndSpending = predictedMonthEnd,
+            predictedMonthEndConfidence = predictedMonthEndConfidence,
             runwayDays = runway
         )
     }
@@ -187,27 +192,34 @@ object SpendingPatternEngine {
         val projectionFactor = if (dayOfMonth > 0) daysInMonth.toDouble() / dayOfMonth else 1.0
 
         var topCategory: ExpenseCategory? = null
-        var topChange = 0.0
+        var topChangePercent = 0.0
+        var topCategoryAmount = 0.0
 
         for (category in ExpenseCategory.entries) {
             val current = (currentByCategory[category] ?: 0.0) * projectionFactor
             val last = lastByCategory[category] ?: 0.0
-            if (last > 0) {
-                val change = ((current - last) / last) * 100
-                if (change > topChange) {
-                    topChange = change
-                    topCategory = category
-                }
-            } else if (current > 0) {
-                // New category this month
-                if (current > topChange) {
-                    topChange = current
-                    topCategory = category
-                }
+
+            // changePercent and current live in different unit spaces (percent vs dollars) -
+            // never compare one against the other directly.
+            val changePercent = when {
+                last > 0 -> ((current - last) / last) * 100
+                current > 0 -> Double.MAX_VALUE // brand-new category this month = unbounded growth
+                else -> continue
+            }
+
+            val isNewTopCategory = changePercent > topChangePercent ||
+                (changePercent == topChangePercent && current > topCategoryAmount)
+            if (isNewTopCategory) {
+                topChangePercent = changePercent
+                topCategoryAmount = current
+                topCategory = category
             }
         }
 
-        return Pair(topCategory, topChange)
+        // Report unbounded (brand-new category) growth as a large finite percentage so callers
+        // don't need to special-case Double.MAX_VALUE.
+        val reportedChange = if (topChangePercent == Double.MAX_VALUE) 100.0 else topChangePercent
+        return Pair(topCategory, reportedChange)
     }
 
     private fun findHighSpendingDays(expenses: List<Expense>): List<DayOfWeek> {
@@ -282,7 +294,6 @@ object SpendingPatternEngine {
         val currentMonth = YearMonth.from(today)
         val dayOfMonth = today.dayOfMonth.coerceAtLeast(1)
         val daysInMonth = currentMonth.lengthOfMonth()
-        val daysRemaining = daysInMonth - dayOfMonth
 
         val thisMonthExpenses = expenses.filter { YearMonth.from(it.date) == currentMonth }
         val byCategory = thisMonthExpenses.groupBy { it.category }
@@ -290,7 +301,7 @@ object SpendingPatternEngine {
         return byCategory.mapValues { (category, categoryExpenses) ->
             val totalSpent = categoryExpenses.sumOf { it.amount }.roundToTwoDecimals()
             val dailyRate = (totalSpent / dayOfMonth).roundToTwoDecimals()
-            val projectedTotal = (totalSpent + (dailyRate * daysRemaining)).roundToTwoDecimals()
+            val projectedTotal = ProjectionMath.linearMonthEndProjection(totalSpent, dayOfMonth, daysInMonth).roundToTwoDecimals()
 
             val budget = budgets[category]
             val utilizationRate = budget?.let { if (it > 0) totalSpent / it else null }
@@ -323,8 +334,7 @@ object SpendingPatternEngine {
             .filter { YearMonth.from(it.date) == currentMonth }
             .sumOf { it.amount }
 
-        val dailyRate = thisMonthTotal / dayOfMonth
-        return dailyRate * daysInMonth
+        return ProjectionMath.linearMonthEndProjection(thisMonthTotal, dayOfMonth, daysInMonth)
     }
 
     private fun computeRunwayDays(

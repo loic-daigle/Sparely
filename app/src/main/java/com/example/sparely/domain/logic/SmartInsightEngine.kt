@@ -257,6 +257,22 @@ object SmartInsightEngine {
     }
 
     /**
+     * Filters out ignored expenses and statistical anomalies (amount > 2.5 std devs above the
+     * overall mean), leaving the set that's safe to feed into burn-rate / month-end / trend
+     * predictions without a single large one-off expense skewing them.
+     */
+    fun filterPredictionExpenses(expenses: List<Expense>): List<Expense> {
+        val amounts = expenses.map { it.amount }
+        val mean = if (amounts.isNotEmpty()) amounts.average() else 0.0
+        val stdDev = if (amounts.size > 1) calculateStdDev(amounts, mean) else 0.0
+
+        return expenses.filter { expense ->
+            val isAnomaly = stdDev > 0.0 && (expense.amount - mean) / stdDev > 2.5
+            !expense.isIgnored && !isAnomaly
+        }
+    }
+
+    /**
      * Analyze if there's excess money in the account that could be earning interest.
      */
     fun analyzeIdleMoney(

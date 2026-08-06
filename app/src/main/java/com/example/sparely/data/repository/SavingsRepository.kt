@@ -2130,43 +2130,15 @@ class SavingsRepository(
     }
     */
 
-    /*
-    // TODO: These functions need proper implementation with correct DAO methods
     suspend fun getAssetCostProjection(
         assetId: Long,
         months: Int = 12
     ): com.example.sparely.domain.model.AssetCostProjection? {
-        // Fetch the asset
         val assetEntity = assetDao.getAssetById(assetId) ?: return null
 
-        // Fetch all linked expenses with their allocation percentages
-        val linkedExpensesWithPercentage = assetExpenseLinkDao.getLinksForAsset(assetId).mapNotNull { link ->
-            val expense = expenseDao.observeExpenses().first().find { it.expense.id == link.expenseId }
-            if (expense != null) {
-                Pair(expense.expense.toDomain(), link.percentageAllocated / 100.0)
-            } else {
-                null
-            }
-        }
+        val linkedExpensesWithPercentage = getExpensesLinkedToAsset(assetId)
+        val linkedRecurringWithPercentage = getRecurringExpensesLinkedToAsset(assetId)
 
-        // Fetch all linked recurring expenses with their allocation percentages
-        val linkedRecurringWithPercentage = recurringExpenseDao.getAll()
-            .filter { re ->
-                // Check if this recurring expense has asset allocations
-                try {
-                    val domain = re.toDomain()
-                    domain.assetAllocations.containsKey(assetId)
-                } catch (e: Exception) {
-                    false
-                }
-            }
-            .map { re ->
-                val domain = re.toDomain()
-                val percentage = domain.assetAllocations[assetId] ?: 0.0
-                Pair(domain, percentage)
-            }
-
-        // Use AssetProjectionEngine to calculate projections
         return com.example.sparely.domain.logic.AssetProjectionEngine.calculateAssetProjections(
             asset = assetEntity.toDomain(),
             linkedExpenses = linkedExpensesWithPercentage,
@@ -2184,38 +2156,11 @@ class SavingsRepository(
             if (asset == null) {
                 emit(null)
             } else {
-                // For simplicity, we'll just re-fetch whenever assets change
-                // In a production app, you might want to create a dedicated DAO query for this
-                val linkedExpensesWithPercentage = assetExpenseLinkDao.getLinksForAsset(assetId).mapNotNull { link ->
-                    val expenses = expenseDao.observeExpenses().first()
-                    val expense = expenses.find { it.expense.id == link.expenseId }
-                    if (expense != null) {
-                        Pair(expense.expense.toDomain(), link.percentageAllocated / 100.0)
-                    } else {
-                        null
-                    }
-                }
+                val linkedExpensesWithPercentage = getExpensesLinkedToAsset(assetId)
+                val linkedRecurringWithPercentage = getRecurringExpensesLinkedToAsset(assetId)
 
-                // Get linked recurring expenses
-                val allRecurring = recurringExpenseDao.getAll()
-                val linkedRecurringWithPercentage = allRecurring
-                    .filter { re ->
-                        try {
-                            val domain = re.toDomain()
-                            domain.assetAllocations.containsKey(assetId)
-                        } catch (e: Exception) {
-                            false
-                        }
-                    }
-                    .map { re ->
-                        val domain = re.toDomain()
-                        val percentage = domain.assetAllocations[assetId] ?: 0.0
-                        Pair(domain, percentage)
-                    }
-
-                // Calculate projections
                 val projection = com.example.sparely.domain.logic.AssetProjectionEngine.calculateAssetProjections(
-                    asset = asset.toDomain(),
+                    asset = asset,
                     linkedExpenses = linkedExpensesWithPercentage,
                     linkedRecurringExpenses = linkedRecurringWithPercentage,
                     months = months
@@ -2224,7 +2169,17 @@ class SavingsRepository(
             }
         }
     }
-    */
+
+    private suspend fun getRecurringExpensesLinkedToAsset(
+        assetId: Long
+    ): List<Pair<com.example.sparely.domain.model.RecurringExpense, Double>> {
+        return recurringExpenseDao.getAll()
+            .map { it.toDomain() }
+            .mapNotNull { recurring ->
+                val percentage = recurring.assetAllocations[assetId] ?: return@mapNotNull null
+                recurring to percentage
+            }
+    }
 }
 
 // Extension to convert entity to domain model

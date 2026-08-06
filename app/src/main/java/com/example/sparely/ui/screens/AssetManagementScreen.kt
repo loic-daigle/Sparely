@@ -250,6 +250,7 @@ fun AssetManagementScreen(
     AssetDetailsBottomSheet(
         asset = selectedAssetForDetails,
         linkedExpenses = linkedExpenses,
+        projection = assetProjections[selectedAssetForDetails?.id],
         currencyFormatter = currencyFormatter,
         onDismiss = { selectedAssetForDetails = null }
     )
@@ -739,6 +740,7 @@ private fun AssetBottomSheet(
 private fun AssetDetailsBottomSheet(
     asset: Asset?,
     linkedExpenses: List<Pair<com.example.sparely.domain.model.Expense, Double>>,
+    projection: com.example.sparely.domain.model.AssetCostProjection?,
     currencyFormatter: NumberFormat,
     onDismiss: () -> Unit
 ) {
@@ -761,6 +763,10 @@ private fun AssetDetailsBottomSheet(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp)
             )
+
+            if (projection != null) {
+                com.example.sparely.ui.components.AssetCostProjectionCard(projection = projection)
+            }
 
             Text(
                 "Linked Expenses",

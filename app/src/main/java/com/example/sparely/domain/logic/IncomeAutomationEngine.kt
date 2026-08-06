@@ -98,7 +98,7 @@ object IncomeAutomationEngine {
         return result
     }
 
-    private fun paychecksPerMonth(schedule: PayScheduleSettings): Double {
+    fun paychecksPerMonth(schedule: PayScheduleSettings): Double {
         return when (schedule.interval) {
             PayInterval.WEEKLY -> 52.0 / 12.0
             PayInterval.BIWEEKLY -> 26.0 / 12.0

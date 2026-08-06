@@ -965,6 +965,7 @@ private fun SparelyNavHost(
                 onDeleteAsset = viewModel::deleteAsset,
                 onLoadLinkedExpenses = viewModel::getExpensesLinkedToAsset,
                 onLoadAllExpenses = { uiState.expenses },
+                onLoadAssetCostProjection = viewModel::getAssetCostProjection,
                 onLinkCreatorExpense = { assetId, expenseId ->
                     viewModel.linkCreatorExpenseToAsset(assetId, expenseId, updateAssetPrice = true)
                 },

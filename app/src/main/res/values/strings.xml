@@ -1002,6 +1002,14 @@
     <string name="budget_label_historic_avg">Historic Avg</string>
     <string name="budget_label_profile_target">Profile Target</string>
     <string name="budget_button_create">Create Budget</string>
+
+    <!-- Month-End Forecast -->
+    <string name="budget_forecast_section_title">Month-End Forecast</string>
+    <string name="budget_forecast_section_desc">Where each budget is trending based on this month\'s pace</string>
+    <string name="budget_forecast_predicted_label">Predicted spend</string>
+    <string name="budget_forecast_projected_overspend">Projected to go %1$s over</string>
+    <string name="budget_forecast_days_until_exhausted">Budget exhausted in %1$d day(s)</string>
+    <string name="budget_forecast_on_pace">On pace to stay within budget</string>
     <string name="budget_button_apply">Apply Suggestion</string>
 
     <!-- Recurring Screen -->
@@ -1305,6 +1313,7 @@
     <string name="dashboard_anomaly_detected">%1$d unusual transaction(s) detected</string>
     <string name="dashboard_spending_insights">Spending Insights</string>
     <string name="dashboard_predicted_month_end">Predicted month-end: %1$s</string>
+    <string name="dashboard_predicted_month_end_confidence">%1$s confidence — based on %2$d day(s) of data this month</string>
     
     <!-- Repeat Last Expense -->
     <string name="dashboard_repeat_last">Repeat Last</string>

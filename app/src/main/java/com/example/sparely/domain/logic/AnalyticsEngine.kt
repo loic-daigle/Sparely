@@ -31,17 +31,7 @@ object AnalyticsEngine {
         val totalFun = (expenses.sumOf { it.allocation.funAmount } + funTransfers).roundToTwoDecimals()
         val totalSpent = expenses.sumOf { it.amount }.roundToTwoDecimals()
 
-        val amounts = expenses.map { it.amount }
-        val mean = if (amounts.isNotEmpty()) amounts.average() else 0.0
-        val stdDev = if (amounts.size > 1) {
-            val variance = amounts.map { (it - mean) * (it - mean) }.average()
-            kotlin.math.sqrt(variance)
-        } else 0.0
-        
-        val predictionExpenses = expenses.filter { expense ->
-            val isAnomaly = stdDev > 0.0 && (expense.amount - mean) / stdDev > 2.5
-            !expense.isIgnored && !isAnomaly
-        }
+        val predictionExpenses = SmartInsightEngine.filterPredictionExpenses(expenses)
         val monthlyExpenseAverage = computeAverageMonthlyExpense(predictionExpenses).roundToTwoDecimals()
 
         val chartPoints = buildTrend(expenses)

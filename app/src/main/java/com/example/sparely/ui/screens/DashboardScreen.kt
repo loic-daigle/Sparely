@@ -102,6 +102,8 @@ import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.TotalUsableMoneyBottomSheet
 import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.displayName
+import com.example.sparely.domain.model.SuggestionConfidence
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
@@ -2666,7 +2668,19 @@ private fun SpendingInsightsContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        
+
+        if (patterns.predictedMonthEndConfidence != SuggestionConfidence.HIGH) {
+            Text(
+                text = stringResource(
+                    R.string.dashboard_predicted_month_end_confidence,
+                    patterns.predictedMonthEndConfidence.displayName(),
+                    java.time.LocalDate.now().dayOfMonth
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+
         if (anomalies.isNotEmpty()) {
             Surface(
                 shape = ExpressiveShapes.extraSmall,
