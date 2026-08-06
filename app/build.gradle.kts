@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,9 +7,32 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+// Release signing: reads from keystore.properties (gitignored, not committed) if present,
+// so real credentials never land in source control. Falls back to debug signing when that
+// file is absent, e.g. for local/CI builds that don't need a signed release artifact.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigningConfig = keystorePropertiesFile.exists() &&
+    keystoreProperties.getProperty("storeFile") != null
+
 android {
     namespace = "com.sparely.app"
     compileSdk = 36
+
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.sparely.app"
@@ -32,9 +57,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Using debug signing for testing (not for Play Store distribution)
-            // For production release, create a proper signing config
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with the real release key when keystore.properties is present (see above);
+            // otherwise falls back to debug signing, which is NOT suitable for Play Store upload.
+            signingConfig = if (hasReleaseSigningConfig) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {

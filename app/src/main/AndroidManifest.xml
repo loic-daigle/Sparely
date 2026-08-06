@@ -56,15 +56,10 @@
             android:name="com.example.sparely.notifications.VariableRecurringExpenseReceiver"
             android:exported="false" />
 
-        <!-- AppFunctionService for AI assistant integration -->
-        <service
-            android:name="com.example.sparely.domain.appfunctions.SparelyAppFunctionService"
-            android:exported="true"
-            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE">
-            <intent-filter>
-                <action android:name="androidx.appfunctions.AppFunctionService" />
-            </intent-filter>
-        </service>
+        <!-- AppFunctionService for AI assistant integration: disabled pending an authorization
+             model for destructive/financial calls (unauthenticated delete, unvalidated amounts,
+             a percentage-unit mismatch that could corrupt asset allocations). Kotlin sources are
+             kept but unregistered; re-enable once those issues are addressed. -->
 
         <meta-data
             android:name="preloaded_fonts"

@@ -38,7 +38,7 @@ import androidx.room.TypeConverters
         RecurringExpensePaidEntity::class
     ],
 
-    version = 43,
+    version = 44,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -125,7 +125,8 @@ abstract class SparelyDatabase : RoomDatabase() {
                     MIGRATION_39_40,
                     MIGRATION_40_41,
                     MIGRATION_41_42,
-                    MIGRATION_42_43
+                    MIGRATION_42_43,
+                    MIGRATION_43_44
                 )
                 .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
@@ -1187,6 +1188,53 @@ abstract class SparelyDatabase : RoomDatabase() {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Add isIgnored column to expenses table
                 db.execSQL("ALTER TABLE expenses ADD COLUMN isIgnored INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Migration 43->44: Add missing FK (vaultId -> smart_vaults, CASCADE) to vault_contributions
+        // so deleting a vault cleanly removes its contribution history instead of orphaning it.
+        val MIGRATION_43_44 = object : androidx.room.migration.Migration(43, 44) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                // Drop contributions that already point at a non-existent vault (pre-existing
+                // orphans from before this FK existed) so the new FK constraint isn't violated.
+                db.execSQL(
+                    "DELETE FROM vault_contributions WHERE vaultId IS NOT NULL " +
+                        "AND vaultId NOT IN (SELECT id FROM smart_vaults)"
+                )
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS vault_contributions_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "vaultId INTEGER, " +
+                        "amount REAL NOT NULL, " +
+                        "date INTEGER NOT NULL, " +
+                        "source TEXT NOT NULL, " +
+                        "note TEXT, " +
+                        "reconciled INTEGER NOT NULL, " +
+                        "relatedExpenseId INTEGER, " +
+                        "savingsAccountId INTEGER, " +
+                        "FOREIGN KEY(vaultId) REFERENCES smart_vaults(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY(relatedExpenseId) REFERENCES expenses(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(savingsAccountId) REFERENCES savings_accounts(id) ON DELETE CASCADE" +
+                        ")"
+                )
+
+                db.execSQL(
+                    "INSERT INTO vault_contributions_new (id, vaultId, amount, date, source, note, reconciled, relatedExpenseId, savingsAccountId) " +
+                        "SELECT id, vaultId, amount, date, source, note, reconciled, relatedExpenseId, savingsAccountId FROM vault_contributions"
+                )
+
+                db.execSQL("DROP TABLE vault_contributions")
+                db.execSQL("ALTER TABLE vault_contributions_new RENAME TO vault_contributions")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_vaultId ON vault_contributions(vaultId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_date ON vault_contributions(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_relatedExpenseId ON vault_contributions(relatedExpenseId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_savingsAccountId ON vault_contributions(savingsAccountId)")
+
+                db.execSQL("PRAGMA foreign_keys=ON")
             }
         }
     }

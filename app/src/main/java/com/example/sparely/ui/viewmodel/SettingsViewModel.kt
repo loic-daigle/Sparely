@@ -129,19 +129,21 @@ class SettingsViewModel(
 
     fun updateMainAccountBalance(balance: Double) {
         viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val delta = balance - currentBalance
-            if (abs(delta) > 1e-6) {
-                val transaction = MainAccountTransaction(
-                    type = MainAccountTransactionType.ADJUSTMENT,
-                    amount = abs(delta),
-                    balanceAfter = balance.coerceAtLeast(0.0),
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Manual balance update from settings"
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val delta = balance - currentBalance
+                if (abs(delta) > 1e-6) {
+                    val transaction = MainAccountTransaction(
+                        type = MainAccountTransactionType.ADJUSTMENT,
+                        amount = abs(delta),
+                        balanceAfter = balance.coerceAtLeast(0.0),
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Manual balance update from settings"
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                }
+                preferencesRepository.updateMainAccountBalance(balance.coerceAtLeast(0.0))
             }
-            preferencesRepository.updateMainAccountBalance(balance.coerceAtLeast(0.0))
         }
     }
     

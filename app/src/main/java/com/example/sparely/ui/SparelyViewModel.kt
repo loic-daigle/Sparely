@@ -120,6 +120,21 @@ class SparelyViewModel(
     private val _uiState = MutableStateFlow(SparelyUiState())
     val uiState: StateFlow<SparelyUiState> = _uiState.asStateFlow()
 
+    // Launches on [dispatcher] like viewModelScope.launch(dispatcher), but catches exceptions
+    // thrown by [block] and surfaces them as errorMessage instead of crashing the app. Use this
+    // for money-mutating operations (expenses, vault/main-account balance changes) where an
+    // uncaught Room/DAO exception would otherwise take the whole app down mid-transaction.
+    private fun safeLaunch(block: suspend () -> Unit) = viewModelScope.launch(dispatcher) {
+        try {
+            block()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.e("SparelyViewModel", "Unhandled error in safeLaunch", e)
+            _uiState.update { it.copy(errorMessage = e.message ?: "Something went wrong") }
+        }
+    }
+
     // Brandfetch Search
     private val _brandSearchResults = MutableStateFlow<List<com.example.sparely.data.remote.BrandfetchBrand>>(emptyList())
     val brandSearchResults: StateFlow<List<com.example.sparely.data.remote.BrandfetchBrand>> = _brandSearchResults.asStateFlow()
@@ -973,7 +988,7 @@ class SparelyViewModel(
     }
 
     fun addExpense(input: ExpenseInput, onComplete: () -> Unit = {}) {
-        viewModelScope.launch(dispatcher) {
+        safeLaunch {
             val currentState = _uiState.value
             val settings = currentState.settings
             val recommendedPercentages = when {
@@ -1026,9 +1041,10 @@ class SparelyViewModel(
                 }
             }
 
+            savingsRepository.withMainAccountLock {
             // Get current balance once at the start
             var currentBalance = savingsRepository.getLatestMainAccountBalance()
-            
+
             // Handle vault deduction if specified
             if (input.deductFromVaultId != null) {
                 val vault = currentState.smartVaults.find { it.id == input.deductFromVaultId }
@@ -1155,7 +1171,8 @@ class SparelyViewModel(
                     preferencesRepository.updateMainAccountBalance(newBalance)
                 }
             }
-            
+            }
+
             // Refresh paged list to include new expense
             _uiState.update { it.copy(pagedExpenses = emptyList(), canLoadMoreExpenses = true) }
             loadMoreExpenses()
@@ -1167,8 +1184,8 @@ class SparelyViewModel(
     }
 
 fun deleteExpense(id: Long) {
-    viewModelScope.launch(dispatcher) {
-        val expenseEntity = savingsRepository.findExpenseById(id) ?: return@launch
+    safeLaunch {
+        val expenseEntity = savingsRepository.findExpenseById(id) ?: return@safeLaunch
         _uiState.update { it.copy(lastDeletedExpense = expenseEntity.toDomain()) }
         
         // 1. Revert financial impact
@@ -1189,18 +1206,20 @@ fun deleteExpense(id: Long) {
                  // HANDLED BY REPOSITORY
              } else {
                  // Refund to main account
-                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                 val newBalance = currentBalance + netAmountDeleted
-                  val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                    amount = netAmountDeleted,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Reversal of deleted expense: ${expenseEntity.description}",
-                    relatedExpenseId = null // Set to null since the expense is being deleted
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
+                 savingsRepository.withMainAccountLock {
+                     val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                     val newBalance = currentBalance + netAmountDeleted
+                     val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                        amount = netAmountDeleted,
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Reversal of deleted expense: ${expenseEntity.description}",
+                        relatedExpenseId = null // Set to null since the expense is being deleted
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(newBalance)
+                 }
              }
         }
         
@@ -1213,7 +1232,7 @@ fun deleteExpense(id: Long) {
 }
 
 fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<Long> = emptyList()) {
-    viewModelScope.launch(dispatcher) {
+    safeLaunch {
         savingsRepository.processExpenseRefund(
             expenseId = expenseId,
             requestedAmount = refundAmount,
@@ -1332,15 +1351,15 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     }
 
     fun updateExpenseWithAssets(expense: Expense, assetAllocations: Map<Long, Double>) {
-        viewModelScope.launch(dispatcher) {
-            val oldEntity = savingsRepository.findExpenseById(expense.id) ?: return@launch
+        safeLaunch {
+            val oldEntity = savingsRepository.findExpenseById(expense.id) ?: return@safeLaunch
 
             // 1. Calculate difference in amount
             val oldAmount = oldEntity.amount
             val newAmount = expense.amount
             val diff = newAmount - oldAmount
 
-            if (abs(diff) > 0.001) {
+            if (abs(diff) > 0.001) { savingsRepository.withMainAccountLock {
                 // Amount changed, adjust balances
                 val paymentMethodId = expense.paymentMethodId // Assuming payment method didn't change for now, or use new one
                 val paymentMethod = if (paymentMethodId != null) {
@@ -1417,8 +1436,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                     // We do NOT auto-deduct the tax difference from Main Account in this update flow to keep it safe.
                     // The user will approve the new tax transfer separately.
                 }
-            }
-            
+            } }
+
             // 3. Update the expense record itself
             val entity = expense.toEntity()
             savingsRepository.upsertExpense(entity)
@@ -1453,52 +1472,58 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
     fun depositToMainAccount(amount: Double, description: String, incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val newBalance = currentBalance + amount
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                amount = amount,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = description.take(100),
-                incomeCategory = incomeCategory
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val newBalance = currentBalance + amount
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                    amount = amount,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = description.take(100),
+                    incomeCategory = incomeCategory
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
         }
     }
 
     fun withdrawFromMainAccount(amount: Double, description: String) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
-                amount = amount,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = description.take(100)
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
+                    amount = amount,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = description.take(100)
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
         }
     }
 
     fun adjustMainAccountBalance(newBalance: Double, reason: String) {
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val delta = newBalance - currentBalance
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
-                amount = abs(delta),
-                balanceAfter = newBalance.coerceAtLeast(0.0),
-                timestamp = java.time.LocalDateTime.now(),
-                description = reason.take(100)
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val delta = newBalance - currentBalance
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
+                    amount = abs(delta),
+                    balanceAfter = newBalance.coerceAtLeast(0.0),
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = reason.take(100)
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+            }
         }
     }
 
@@ -1513,7 +1538,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         description: String = "Paycheck"
     ) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
+        safeLaunch {
             val settingsSnapshot = preferencesRepository.getSettingsSnapshot()
             val schedule = settingsSnapshot.paySchedule
             val normalizedAmount = amount.toCurrencyPrecision()
@@ -1542,6 +1567,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
             }
 
             var vaultContributionAmount = 0.0
+            val balanceAfterPaycheck = savingsRepository.withMainAccountLock {
             if (autoDistribute) {
                 val saveRate = if (schedule.dynamicSaveRateEnabled) {
                     automationSaveRate
@@ -1614,12 +1640,14 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                 savingsRepository.insertMainAccountTransaction(vaultTransaction)
                 preferencesRepository.updateMainAccountBalance(currentBalance)
             }
+            currentBalance
+            }
             // Trigger allocation run now that the paycheck and any auto-distributions have been applied
             try {
                 // Use the paycheck date as 'today' for allocation so flows starting next month are prioritized correctly
                 container.smartAllocationService.runMonthlyAllocation(
                     monthlyIncome = settingsSnapshot.monthlyIncome,
-                    mainAccountBalance = currentBalance,
+                    mainAccountBalance = balanceAfterPaycheck,
                     today = payday,
                     mainOverflowAccountId = settingsSnapshot.mainOverflowAccountId
                 )

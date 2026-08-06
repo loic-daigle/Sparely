@@ -121,6 +121,12 @@ data class SmartVaultEntity(
     tableName = "vault_contributions",
     foreignKeys = [
         ForeignKey(
+            entity = SmartVaultEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["vaultId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
             entity = ExpenseEntity::class,
             parentColumns = ["id"],
             childColumns = ["relatedExpenseId"],
