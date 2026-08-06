@@ -53,6 +53,8 @@ object CashflowEngine {
 
     data class ForecastInput(
         val currentBalance: Double,
+        val totalHisaBalance: Double = 0.0,
+        val minMainAccountBalance: Double = 0.0,
         val recentExpenses: List<Expense>,
         val recurringExpenses: List<RecurringExpense>,
         val expectedMonthlyIncome: Double,
@@ -71,9 +73,19 @@ object CashflowEngine {
             .filter { it.daysUntilDue <= 30 }
             .sumOf { it.amount }
 
-        // Safe to spend = current balance - upcoming obligations - buffer
-        val buffer = (input.currentBalance * 0.10).coerceIn(50.0, 500.0) // 10% buffer, min $50, max $500
-        val safeToSpend = (input.currentBalance - totalObligations30Days - buffer).coerceAtLeast(0.0)
+        // Total Liquid Money = Main Account + HISA
+        val totalLiquidMoney = input.currentBalance + input.totalHisaBalance
+        
+        // Reserved Money = Minimum Balance setting
+        val reservedMoney = input.minMainAccountBalance
+
+        // Safe to spend = Total Liquid - Upcoming Obligations - Buffer - Reserved
+        // We use a buffer on the MAIN account specifically to avoid overdrafts there, 
+        // but for "Safe to Spend" global view, we consider HISA as backup.
+        // However, let's keep the buffer logic simpler: 10% of TOTAL liquid.
+        val buffer = (totalLiquidMoney * 0.10).coerceIn(50.0, 500.0) 
+        
+        val safeToSpend = (totalLiquidMoney - totalObligations30Days - buffer - reservedMoney).coerceAtLeast(0.0)
 
         // Calculate expected income in next 30 days
         val incomeIn30Days = calculateExpectedIncome(
@@ -83,11 +95,11 @@ object CashflowEngine {
             today = input.today
         )
 
-        // Project balance in 30 days
+        // Project balance in 30 days (Total Liquid)
         val projectedSpending30Days = dailyBurn * 30
-        val projectedBalance30Days = input.currentBalance + incomeIn30Days - projectedSpending30Days - totalObligations30Days
+        val projectedBalance30Days = totalLiquidMoney + incomeIn30Days - projectedSpending30Days - totalObligations30Days
 
-        // Calculate runway
+        // Calculate runway using TOTAL liquid money
         val effectiveDailyBurn = if (incomeIn30Days > 0) {
             val dailyIncome = incomeIn30Days / 30.0
             (dailyBurn - dailyIncome).coerceAtLeast(0.0)
@@ -95,24 +107,30 @@ object CashflowEngine {
             dailyBurn
         }
         val runwayDays = if (effectiveDailyBurn > 0) {
-            (input.currentBalance / effectiveDailyBurn).toInt()
+            (totalLiquidMoney / effectiveDailyBurn).toInt()
         } else {
             Int.MAX_VALUE
         }
 
         // Check for low balance warning
+        // We use Main Account balance specifically for "Low Main Account Balance" warning if we wanted strictness,
+        // but the user wants "Total Usable Money". 
+        // However, bills behave differently. Usually bills come out of Main.
+        // If Main < 0, it's a problem even if HISA > 0 (unless auto-transfer).
+        // For now, let's use Total Liquid for the "General Health" low balance warning, 
+        // assuming the user moves money if needed.
         val lowBalanceWarning = detectLowBalanceWarning(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney,
             dailyBurn = dailyBurn,
             incomeIn30Days = incomeIn30Days,
             upcomingObligations = upcomingObligations,
-            threshold = input.lowBalanceThreshold,
+            threshold = input.lowBalanceThreshold + reservedMoney, // Warn if we dip into reserved
             today = input.today
         )
 
         // Build weekly projections
         val weeklyProjections = buildWeeklyProjections(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney,
             dailyBurn = dailyBurn,
             expectedMonthlyIncome = input.expectedMonthlyIncome,
             nextPayDate = input.nextPayDate,
@@ -122,7 +140,7 @@ object CashflowEngine {
         )
 
         return CashflowForecast(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney, // Includes main + HISA for consistent graph display
             safeToSpend = safeToSpend,
             projectedBalance30Days = projectedBalance30Days,
             dailyBurnRate = dailyBurn,
@@ -141,13 +159,18 @@ object CashflowEngine {
 
         if (recentExpenses.isEmpty()) return 0.0
 
-        val totalSpent = recentExpenses.sumOf { it.amount }
+        // Filter out one-time large expenses to get accurate burn rate
+        val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(recentExpenses)
+        val uniqueExpenseIds = uniqueExpenses.map { it.expense.id }.toSet()
+        val filteredExpenses = recentExpenses.filter { it.id !in uniqueExpenseIds }
+
+        val totalSpent = filteredExpenses.sumOf { it.amount }
         val daysOfData = ChronoUnit.DAYS.between(
-            recentExpenses.minOfOrNull { it.date } ?: today,
+            filteredExpenses.minOfOrNull { it.date } ?: today,
             today
         ).toInt().coerceAtLeast(1)
 
-        return totalSpent / daysOfData
+        return if (filteredExpenses.isNotEmpty()) totalSpent / daysOfData else 0.0
     }
 
     private fun calculateUpcomingObligations(

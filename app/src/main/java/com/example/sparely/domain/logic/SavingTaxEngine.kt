@@ -16,7 +16,8 @@ object SavingTaxEngine {
         val expenseDate: LocalDate,
         val settings: SparelySettings,
         val vaults: List<SmartVault>,
-        val minimumContribution: Double = 0.0
+        val minimumContribution: Double = 0.0,
+        val currentMainAccountBalance: Double = Double.MAX_VALUE // Default for backward compatibility/testing
     )
 
     data class PlannedContribution(
@@ -37,8 +38,27 @@ object SavingTaxEngine {
 
         // Calculate base amount and round UP to nearest dollar for final transfer amount
         val rawBaseAmount = context.expenseAmount * baseRate
-        val baseAmount = ceil(rawBaseAmount)
+        var baseAmount = ceil(rawBaseAmount)
+        
+        // Check minimum balance protection
+        // We assume 'currentMainAccountBalance' is the balance *after* the expense has been deducted (if applicable).
+        // So we only subtract the potential tax amount.
+        val projectedBalance = context.currentMainAccountBalance - baseAmount
+        val minBalance = context.settings.minMainAccountBalance
+        
+        if (minBalance > 0 && projectedBalance < minBalance) {
+             // Calculate max affordable tax
+             val affordableTax = (context.currentMainAccountBalance - minBalance).coerceAtLeast(0.0)
+             if (affordableTax <= 0) return emptyList()
+             
+             // Cap the base amount
+             if (baseAmount > affordableTax) {
+                 baseAmount = kotlin.math.floor(affordableTax) // Round down to be safe
+             }
+        }
+
         if (baseAmount < context.minimumContribution) return emptyList()
+        if (baseAmount <= 0.01) return emptyList()
 
         val weights = DynamicAllocationEngine.calculateWeights(
             vaults = eligibleVaults,

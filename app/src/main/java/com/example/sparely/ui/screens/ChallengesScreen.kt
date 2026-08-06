@@ -16,11 +16,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SingleLineText
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.format.DateTimeFormatter
@@ -112,12 +114,13 @@ fun ChallengesScreen(
 
 @Composable
 fun ChallengeCard(challenge: SavingsChallenge) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 20.dp
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -161,13 +164,13 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = formatCurrency(challenge.currentAmount),
+                        text = challenge.currentAmount.formatCurrency(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = stringResource(R.string.challenges_target_label, formatCurrency(challenge.targetAmount)),
+                        text = stringResource(R.string.challenges_target_label, challenge.targetAmount.formatCurrency()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
@@ -218,16 +221,14 @@ fun ChallengeCard(challenge: SavingsChallenge) {
             // Next milestone
             challenge.nextMilestone?.let { milestone ->
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ExpressiveCard(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = 12.dp
                 ) {
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
+                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -277,12 +278,13 @@ fun ChallengeCard(challenge: SavingsChallenge) {
 
 @Composable
 private fun ChallengeOverviewCard() {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 20.dp
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column {
             Text(
                 text = stringResource(R.string.challenges_help_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -305,15 +307,15 @@ private fun ChallengeOverviewCard() {
 
 @Composable
 fun CompletedChallengeCard(challenge: SavingsChallenge) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 16.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -340,7 +342,7 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
                 }
             }
             Text(
-                text = formatCurrency(challenge.currentAmount),
+                text = challenge.currentAmount.formatCurrency(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -351,12 +353,13 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
 
 @Composable
 fun AchievementsSection(achievements: List<Achievement>) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -407,15 +410,15 @@ fun AchievementsSection(achievements: List<Achievement>) {
 
 @Composable
 fun EmptyChallengesState(onStartChallenge: () -> Unit) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 32.dp
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             MaterialSymbolIcon(
@@ -451,7 +454,7 @@ fun ChallengeSelectionDialog(
     onDismiss: () -> Unit,
     onSelectChallenge: (ChallengeInput) -> Unit
 ) {
-    AlertDialog(
+    SparelyAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.challenges_choose_title)) },
         text = {
@@ -507,16 +510,16 @@ fun ChallengeOption(
     @androidx.annotation.DrawableRes icon: Int,
     onClick: () -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentPadding = 16.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MaterialSymbolIcon(
@@ -543,4 +546,3 @@ fun ChallengeOption(
     }
 }
 
-private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)

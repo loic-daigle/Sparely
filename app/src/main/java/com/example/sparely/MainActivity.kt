@@ -1,6 +1,7 @@
 package com.example.sparely
 
 import android.Manifest
+
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -17,14 +18,15 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.compose.ui.res.painterResource
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.SparelyTheme
 import kotlinx.coroutines.launch
 import com.example.sparely.ui.SparelyApp
 import com.example.sparely.ui.SparelyViewModel
 import com.example.sparely.ui.SparelyViewModelFactory
-import com.sparely.app.R
 import android.util.Log
+import com.sparely.app.R
 
 private const val TAG = "MainActivity"
 
@@ -74,11 +76,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
                             ) {
-                                androidx.compose.material3.Icon(
-                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.lock_48px),
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.LOCK,
                                     contentDescription = null,
                                     modifier = androidx.compose.ui.Modifier.size(48.dp),
-                                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                                    size = 48.dp
                                 )
                                 androidx.compose.material3.Text(
                                     "Locked",
@@ -230,7 +233,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     }
     
     private fun handleDeepLink(intent: android.content.Intent?) {
-        intent?.getStringExtra("navigate_to")?.let { destination ->
+        val navigateTo = intent?.getStringExtra("navigate_to")
+        if (navigateTo != null) {
+            val destination = when (navigateTo) {
+                "paycheck" -> "dashboard?action=record_income"
+                "vaultDetails" -> {
+                    val vaultId = intent.getLongExtra("vault_id", -1L)
+                    if (vaultId != -1L) "vaultHistory/$vaultId" else "vaults"
+                }
+                "creditCards" -> {
+                    val cardId = intent.getLongExtra("cardId", -1L)
+                    if (cardId != -1L) "creditCards?cardId=$cardId" else "creditCards"
+                }
+                else -> navigateTo
+            }
             deepLinkDestination.value = destination
         }
     }

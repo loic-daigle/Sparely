@@ -3,8 +3,30 @@ package com.example.sparely.domain.model
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.max
+
+/**
+ * Domain model for a transaction on a Savings Account (HISA).
+ */
+data class SavingsAccountTransaction(
+    val id: Long = 0L,
+    val accountId: Long,
+    val type: SavingsAccountTransactionDisplayType,
+    val amount: Double,
+    val balanceAfter: Double,
+    val timestamp: LocalDateTime,
+    val description: String
+)
+
+enum class SavingsAccountTransactionDisplayType {
+    DEPOSIT,        // Manual deposit or transfer in from external
+    WITHDRAWAL,     // Manual withdrawal or transfer out to external
+    INTEREST,       // Interest credit
+    TRANSFER_IN,    // Transfer from Main Account
+    TRANSFER_OUT    // Transfer to Main Account
+}
 
 /**
  * Captures how each expense should be split into savings buckets.
@@ -217,7 +239,18 @@ data class SparelySettings(
     // Credit card utilization-based notification
     val creditCardUtilizationAlertEnabled: Boolean = true,
     val creditCardUtilizationThreshold: Int = 30,  // Default 30%, common recommended threshold
-    val biometricEnabled: Boolean = false
+    val biometricEnabled: Boolean = false,
+    // Smart transfer notification threshold
+    val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
+    // Auto backup settings
+    val autoBackupEnabled: Boolean = false,
+    val autoBackupFrequencyDays: Int = 7,  // Weekly by default
+    val lastAutoBackupTimestamp: Long? = null,
+    // Overflow account settings (HISA/High-Yield Savings)
+    val mainOverflowAccountId: Long? = null,
+    val minMainAccountBalance: Double = 0.0,
+    // Asset creation settings
+    val autoCreateAssetThreshold: Double = 0.0  // 0 = disabled
 ) {
     val isNewUser: Boolean
         get() = joinedDate?.let { java.time.temporal.ChronoUnit.DAYS.between(it, java.time.LocalDate.now()) < 7 } ?: true
@@ -299,22 +332,6 @@ data class SparelySettings(
     fun withExpenseHistoryRetention(retention: ExpenseHistoryRetention): SparelySettings = copy(expenseHistoryRetention = retention)
 }
 
-data class SavingsAccount(
-    val id: Long = 0L,
-    val name: String,
-    val category: SavingsCategory,
-    val institution: String? = null,
-    val accountNumber: String? = null,
-    val currentBalance: Double = 0.0,
-    val targetBalance: Double? = null,
-    val isPrimary: Boolean = false,
-    val reminderFrequencyDays: Int? = null,
-    val reminderEnabled: Boolean = true,
-    val syncProvider: BankSyncProvider? = null,
-    val externalAccountId: String? = null,
-    val lastSyncedAt: Instant? = null,
-    val autoRefreshEnabled: Boolean = false
-)
 
 data class TransferReminderPreference(
     val enabled: Boolean,

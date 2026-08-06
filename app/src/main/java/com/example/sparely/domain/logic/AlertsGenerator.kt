@@ -6,6 +6,7 @@ import com.example.sparely.domain.model.AnalyticsSnapshot
 import com.example.sparely.domain.model.Goal
 import com.example.sparely.domain.model.RecommendationResult
 import com.example.sparely.domain.model.SparelySettings
+import com.example.sparely.ui.utils.formatPercent
 import java.time.LocalDate
 import kotlin.math.abs
 
@@ -25,13 +26,13 @@ object AlertsGenerator {
             if (delta < -0.03) {
                 alerts += AlertMessage(
                     title = "Savings below target",
-                    description = "Set aside ${formatPercent(observedRate)} of spending this month. Target is ${formatPercent(recommendedRate)}.",
+                    description = "Set aside ${observedRate.formatPercent(0)} of spending this month. Target is ${recommendedRate.formatPercent(0)}.",
                     type = AlertType.WARNING
                 )
             } else if (delta > 0.05) {
                 alerts += AlertMessage(
                     title = "Great job staying ahead",
-                    description = "You are reserving ${formatPercent(observedRate)} of spending, above the ${formatPercent(recommendedRate)} guidance.",
+                    description = "You are reserving ${observedRate.formatPercent(0)} of spending, above the ${recommendedRate.formatPercent(0)} guidance.",
                     type = AlertType.SUCCESS
                 )
             }
@@ -44,13 +45,13 @@ object AlertsGenerator {
             if (daysUntil in 0..45 && goal.progressPercent < 0.6) {
                 alerts += AlertMessage(
                     title = "${goal.title} needs attention",
-                    description = "${goal.progressPercent.toPercentString()} complete with ${daysUntil} days left.",
+                    description = "${goal.progressPercent.formatPercent(0)} complete with ${daysUntil} days left.",
                     type = AlertType.WARNING
                 )
             } else if (goal.progressPercent >= 0.85 && !goal.archived) {
                 alerts += AlertMessage(
                     title = "${goal.title} nearly achieved",
-                    description = "${goal.progressPercent.toPercentString()} complete. Keep the streak going!",
+                    description = "${goal.progressPercent.formatPercent(0)} complete. Keep the streak going!",
                     type = AlertType.SUCCESS
                 )
             }
@@ -75,7 +76,4 @@ object AlertsGenerator {
         return alerts
     }
 
-    private fun formatPercent(value: Double): String = String.format("%.0f%%", value.coerceIn(0.0, 1.0) * 100)
-
-    private fun Double.toPercentString(): String = String.format("%.0f%%", this.coerceIn(0.0, 1.0) * 100)
 }

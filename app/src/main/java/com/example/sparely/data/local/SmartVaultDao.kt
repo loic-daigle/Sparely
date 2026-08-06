@@ -54,6 +54,15 @@ interface SmartVaultDao {
     @Query("SELECT * FROM vault_contributions WHERE reconciled = 0 ORDER BY date DESC")
     fun observePendingContributions(): Flow<List<VaultContributionEntity>>
 
+    @Query("SELECT * FROM vault_contributions WHERE reconciled = 0 AND savingsAccountId IS NOT NULL ORDER BY date DESC")
+    fun observePendingHisaContributions(): Flow<List<VaultContributionEntity>>
+
+    @Query("SELECT * FROM vault_contributions WHERE savingsAccountId = :accountId ORDER BY date DESC")
+    suspend fun getContributionsForSavingsAccount(accountId: Long): List<VaultContributionEntity>
+
+    @Query("SELECT * FROM vault_contributions WHERE savingsAccountId = :accountId AND reconciled = 0 ORDER BY date DESC")
+    suspend fun getPendingContributionsForSavingsAccount(accountId: Long): List<VaultContributionEntity>
+
 
     @Query("SELECT * FROM vault_contributions WHERE relatedExpenseId = :expenseId")
     suspend fun getContributionsForExpense(expenseId: Long): List<VaultContributionEntity>

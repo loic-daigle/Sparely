@@ -19,6 +19,7 @@ import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.utils.formatCurrency
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,6 +33,9 @@ fun VaultHistoryScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.vault_history_title, vaultName)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.common_back))
@@ -89,15 +93,15 @@ fun VaultHistoryScreen(
 private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryItem) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
     
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(12.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.small,
+        contentPadding = 16.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val (icon, color) = when (item) {
@@ -131,6 +135,7 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
                          com.example.sparely.domain.model.VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_source_schedule)
                          com.example.sparely.domain.model.VaultContributionSource.MANUAL -> stringResource(R.string.vault_source_manual)
                          com.example.sparely.domain.model.VaultContributionSource.TRANSFER -> stringResource(R.string.vault_adjust_type_transfer)
+                         com.example.sparely.domain.model.VaultContributionSource.INTEREST -> "Interest Earned"
                     }
                     is com.example.sparely.domain.model.HistoryAdjustment -> when (item.adjustment.type) {
                         VaultAdjustmentType.MANUAL_DEPOSIT -> stringResource(R.string.vault_manual_deposit_title)
@@ -172,7 +177,7 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "$${String.format("%.2f", oldBalance)}",
+                            text = oldBalance.formatCurrency(),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium
                         )
@@ -182,7 +187,7 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "$${String.format("%.2f", item.balanceAfter)}",
+                            text = item.balanceAfter.formatCurrency(),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -194,8 +199,8 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
             Column(
                 horizontalAlignment = Alignment.End
             ) {
-                val amountText = if (item.amount > 0) "+$${String.format("%.2f", item.amount)}" 
-                                 else "-$${String.format("%.2f", kotlin.math.abs(item.amount))}"
+                val amountText = if (item.amount > 0) "+${item.amount.formatCurrency()}" 
+                                 else "-${kotlin.math.abs(item.amount).formatCurrency()}"
                 Text(
                     text = amountText,
                     style = MaterialTheme.typography.titleMedium,

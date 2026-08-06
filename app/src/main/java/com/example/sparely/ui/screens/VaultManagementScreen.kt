@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.theme.pill
+import com.example.sparely.ui.components.ExpressiveSectionHeader
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,7 +25,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.window.Dialog
 import com.sparely.app.R
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
@@ -30,6 +32,7 @@ import com.example.sparely.ui.components.SingleLineText
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.components.*
+import com.example.sparely.ui.theme.PoppinsFontFamily
 import java.time.Instant
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -44,16 +47,22 @@ import java.util.Locale
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import kotlin.math.abs
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.ui.theme.PoppinsFontFamily
+import com.example.sparely.ui.theme.ExpressiveMotionTokens
 import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -290,7 +299,7 @@ fun VaultManagementScreen(
         )
     }
 
-    vaultToWithdraw?.let { vault ->
+    vaultToWithdraw?.let { vault: SmartVault ->
         ManualAdjustmentDialog(
             vaultName = vault.name,
             currentBalance = vault.currentBalance,
@@ -304,7 +313,7 @@ fun VaultManagementScreen(
         )
     }
 
-    vaultToDelete?.let { vault ->
+    vaultToDelete?.let { vault: SmartVault ->
         DeleteConfirmationDialog(
             vault = vault,
             onConfirm = {
@@ -319,7 +328,8 @@ fun VaultManagementScreen(
         ConfettiExplosion(onComplete = { showConfetti = false })
     }
     }
-}
+    }
+
 
 @Composable
 private fun OverallProgressCard(
@@ -331,12 +341,10 @@ private fun OverallProgressCard(
     recentExpenses: Double,
     savingsRate: Double
 ) {
-    ElevatedCard(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-        )
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
     ) {
         Column(
             modifier = Modifier
@@ -356,12 +364,12 @@ private fun OverallProgressCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "$${String.format("%.2f", totalBalance)}",
+                        text = totalBalance.formatCurrency(),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = stringResource(R.string.vault_label_of_target, String.format("%.2f", totalTarget)),
+                        text = stringResource(R.string.vault_label_of_target, totalTarget.formatCurrency()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -388,7 +396,7 @@ private fun OverallProgressCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(12.dp)
-                    .clip(RoundedCornerShape(999.dp)),
+                    .clip(ExpressiveShapes.pill),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
             )
@@ -407,14 +415,15 @@ private fun OverallProgressCard(
                     )
                     HealthIndicator(
                         label = stringResource(R.string.vault_health_monthly_spending),
-                        value = "$${String.format("%.0f", recentExpenses)}",
+                        value = recentExpenses.formatCurrency("", 0),
                         isHealthy = recentExpenses < monthlyIncome * 0.5
                     )
                 }
             }
         }
     }
-}
+    }
+
 
 @Composable
 private fun HealthIndicator(
@@ -445,7 +454,8 @@ private fun HealthIndicator(
             )
         }
     }
-}
+    }
+
 
 @Composable
 private fun SectionHeader(
@@ -453,44 +463,31 @@ private fun SectionHeader(
     subtitle: String,
     @DrawableRes icon: Int
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        MaterialSymbolIcon(
-            icon = icon,
-            contentDescription = null,
-            size = 24.dp,
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+    ExpressiveSectionHeader(
+        title = title,
+        subtitle = subtitle,
+        icon = {
+            MaterialSymbolIcon(
+                icon = icon,
+                contentDescription = null,
+                size = 24.dp,
+                tint = MaterialTheme.colorScheme.primary
             )
         }
+    )
     }
-}
+
 
 @Composable
 private fun EmptyVaultsCard(onCreateVault: () -> Unit) {
-    ElevatedCard(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = 32.dp
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -511,21 +508,23 @@ private fun EmptyVaultsCard(onCreateVault: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Button(
+            SparelyButton(
                 onClick = onCreateVault,
-                modifier = Modifier.fillMaxWidth(0.6f)
+                modifier = Modifier.fillMaxWidth(0.6f),
+                icon = {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ADD,
+                        contentDescription = null,
+                        size = 18.dp
+                    )
+                }
             ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.ADD,
-                    contentDescription = null,
-                    size = 18.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.vault_management_add))
             }
         }
     }
-}
+    }
+
 
 @Composable
 private fun EnhancedVaultCard(
@@ -540,7 +539,10 @@ private fun EnhancedVaultCard(
     val progressTarget = if (vault.targetAmount > 0) (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f) else 0f
     val progress by animateFloatAsState(
         targetValue = progressTarget,
-        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        animationSpec = tween(
+            durationMillis = ExpressiveMotionTokens.EmphasizedDurationMillis,
+            easing = ExpressiveMotionTokens.EmphasizedEasing
+        ),
         label = "Progress Animation"
     )
     
@@ -628,12 +630,13 @@ private fun EnhancedVaultCard(
         else -> MaterialSymbols.ACCOUNT_BALANCE_WALLET
     }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp), // Add slight spacing between cards
-        shape = RoundedCornerShape(24.dp), // Softer corners
-        color = colorScheme.surfaceContainerHigh
+            .padding(vertical = 4.dp),
+        shape = ExpressiveShapes.large,
+        containerColor = colorScheme.surfaceContainerHigh,
+        onClick = onEdit ?: {}
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Subtle Gradient Background
@@ -750,7 +753,7 @@ private fun EnhancedVaultCard(
                                 color = colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "$${String.format("%.2f", vault.currentBalance)}",
+                                text = vault.currentBalance.formatCurrency(),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = colorScheme.onSurface
@@ -759,13 +762,13 @@ private fun EnhancedVaultCard(
                         Column(horizontalAlignment = Alignment.End) {
                              if (remaining > 0) {
                                 Text(
-                                    text = stringResource(R.string.vault_label_target_with_amount, String.format("%.0f", vault.targetAmount)),
+                                    text = stringResource(R.string.vault_label_target_with_amount, vault.targetAmount.formatCurrency("", 0)),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                text = "${String.format("%.1f", progress * 100)}%",
+                                text = progress.formatPercent(),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = statusColor
@@ -778,7 +781,7 @@ private fun EnhancedVaultCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(12.dp)
-                            .clip(RoundedCornerShape(999.dp)),
+                            .clip(ExpressiveShapes.pill),
                         color = statusColor,
                         trackColor = statusColor.copy(alpha = 0.2f),
                         strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
@@ -791,7 +794,7 @@ private fun EnhancedVaultCard(
                     ) {
                          if (remaining > 0) {
                              Text(
-                                 text = stringResource(R.string.vault_label_remaining_to_go, String.format("%.2f", remaining)),
+                                 text = stringResource(R.string.vault_label_remaining_to_go, remaining.formatCurrency()),
                                  style = MaterialTheme.typography.bodySmall,
                                  color = colorScheme.onSurfaceVariant,
                                  fontWeight = FontWeight.Medium
@@ -864,38 +867,28 @@ private fun VaultActionButton(
     tint: Color,
     onClick: () -> Unit
 ) {
-    FilledTonalButton(
+    SparelyTonalButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 32.dp),
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = tint.copy(alpha = 0.12f),
-            contentColor = tint
-        )
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        modifier = modifier,
+        containerColor = tint.copy(alpha = 0.12f),
+        contentColor = tint,
+        icon = {
             MaterialSymbolIcon(
                 icon = icon,
                 contentDescription = null,
                 size = 16.dp,
                 tint = tint
             )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
+    ) {
+        Text(
+            text = label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
-}
+    }
+
 
 @Composable
 private fun VaultBadgeChip(
@@ -930,6 +923,7 @@ private fun VaultBadgeChip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("DefaultLocale")
 @Composable
 private fun ManualAdjustmentDialog(
@@ -970,17 +964,18 @@ private fun ManualAdjustmentDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1006,58 +1001,43 @@ private fun ManualAdjustmentDialog(
                 }
 
                 // Affect main account toggle
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(12.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = affectMainLabel,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = affectMainHelper,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = affectMainAccount,
-                            onCheckedChange = { affectMainAccount = it }
-                        )
-                    }
-                }
-
-                // Current balance display
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.vault_current_balance_label),
-                            style = MaterialTheme.typography.labelLarge,
+                            text = affectMainLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = affectMainHelper,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = String.format("%.2f", currentBalance),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
+                    Switch(
+                        checked = affectMainAccount,
+                        onCheckedChange = { affectMainAccount = it }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(R.string.vault_current_balance_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = currentBalance.formatCurrency(""),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 SparelyTextField(
@@ -1155,7 +1135,7 @@ private fun ManualAdjustmentDialog(
                         // Since SparelyButton uses primary color, we can't easily change it to error color without adding a param.
                         // Let's use Button with the shape/style of SparelyButton manually or add a SparelyErrorButton.
                         // For now, I'll use Button but style it to match SparelyButton (height 48, radius 16, bold text).
-                        Button(
+                        SparelyButton(
                             onClick = {
                                 val amount = amountText.toSafeDouble()
                                 if (amount != null && amount > 0 && amount <= currentBalance) {
@@ -1163,60 +1143,60 @@ private fun ManualAdjustmentDialog(
                                     onConfirm(amount, finalReason, affectMainAccount)
                                 }
                             },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            modifier = Modifier.weight(1f),
                             enabled = amountText.toSafeDouble()?.let { 
                                 it > 0 && it <= currentBalance
                             } == true,
-                            shape = RoundedCornerShape(16.dp),
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         ) {
-                             ProvideTextStyle(
-                                value = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Bold // Bolder text
-                                )
-                            ) {
-                                Text(stringResource(R.string.vault_withdraw))
-                            }
+                            Text(stringResource(R.string.vault_withdraw))
                         }
                     }
                 }
-            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeleteConfirmationDialog(
     vault: SmartVault,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             MaterialSymbolIcon(
                 icon = MaterialSymbols.WARNING,
                 contentDescription = null,
-                size = 32.dp,
+                size = 48.dp,
                 tint = MaterialTheme.colorScheme.error
             )
-        },
-        title = {
+            
             Text(
                 text = stringResource(R.string.vault_delete_confirm_title),
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-        },
-        text = {
+
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     text = stringResource(R.string.vault_delete_confirm_message, vault.name),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
                 Surface(
@@ -1254,25 +1234,31 @@ private fun DeleteConfirmationDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SparelyButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.fillMaxWidth(),
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.action_delete))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+                
+                SparelyTonalButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             }
         }
-    )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1294,6 +1280,7 @@ private fun SmartVaultEditorDialog(
                 val interval = schedule.weekInterval ?: 1
                 if (interval >= 2) AutoDepositFrequency.BIWEEKLY else AutoDepositFrequency.WEEKLY
             }
+            VaultScheduleType.DAY_OF_MONTH -> AutoDepositFrequency.MONTHLY
             else -> AutoDepositFrequency.MONTHLY
         }
     }
@@ -1325,6 +1312,7 @@ private fun SmartVaultEditorDialog(
                 ?: ""
         )
     }
+
     var autoDepositFrequency by remember(vault?.id) { mutableStateOf(scheduleToFrequency(existingSchedule)) }
     var autoDepositNextRunDate by remember(vault?.id) {
         mutableStateOf(
@@ -1416,7 +1404,7 @@ private fun SmartVaultEditorDialog(
         DatePickerDialog(
             onDismissRequest = { showTargetDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     val selected = datePickerState.selectedDateMillis
                     targetDate = selected?.let { 
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
@@ -1426,7 +1414,7 @@ private fun SmartVaultEditorDialog(
                 }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTargetDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
+                SparelyTextButton(onClick = { showTargetDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -1439,7 +1427,7 @@ private fun SmartVaultEditorDialog(
         DatePickerDialog(
             onDismissRequest = { showStartPicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     val selected = startPickerState.selectedDateMillis
                     startDate = selected?.let { 
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
@@ -1448,7 +1436,7 @@ private fun SmartVaultEditorDialog(
                 }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showStartPicker = false }) { Text(stringResource(R.string.action_cancel)) }
+                SparelyTextButton(onClick = { showStartPicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = startPickerState)
@@ -1461,7 +1449,7 @@ private fun SmartVaultEditorDialog(
         DatePickerDialog(
             onDismissRequest = { showEndPicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     val selected = endPickerState.selectedDateMillis
                     endDate = selected?.let { 
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
@@ -1471,7 +1459,7 @@ private fun SmartVaultEditorDialog(
                 }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showEndPicker = false }) { Text(stringResource(R.string.action_cancel)) }
+                SparelyTextButton(onClick = { showEndPicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = endPickerState)
@@ -1484,7 +1472,7 @@ private fun SmartVaultEditorDialog(
         DatePickerDialog(
             onDismissRequest = { showScheduleDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     val selected = schedulePickerState.selectedDateMillis
                     autoDepositNextRunDate = selected?.let {
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
@@ -1493,904 +1481,792 @@ private fun SmartVaultEditorDialog(
                 }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showScheduleDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
+                SparelyTextButton(onClick = { showScheduleDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = schedulePickerState)
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        ElevatedCard(
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
             modifier = Modifier
-                .widthIn(min = 360.dp, max = 840.dp)
-                .heightIn(max = 780.dp),
-            shape = RoundedCornerShape(20.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = if (vault == null) stringResource(R.string.vault_editor_add_title) else stringResource(R.string.vault_editor_edit_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.vault_allocation_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = if (vault == null) stringResource(R.string.vault_editor_add_title) else stringResource(R.string.vault_editor_edit_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.vault_allocation_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-                // Goal type selector (prominent position)
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = stringResource(R.string.vault_goal_type),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            GoalTypeCard(
-                                modifier = Modifier.weight(1f),
-                                title = stringResource(R.string.vault_fixed_goal),
-                                description = stringResource(R.string.vault_fixed_goal_desc),
-                                icon = MaterialSymbols.FLAG,
-                                isSelected = !isFlowGoal,
-                                onClick = {
-                                    if (isFlowGoal) {
-                                        targetDate = endDate
-                                        endDate = null
-                                        monthlyNeed = ""
-                                    }
-                                    isFlowGoal = false
-                                }
-                            )
-                            GoalTypeCard(
-                                modifier = Modifier.weight(1f),
-                                title = stringResource(R.string.vault_flow_goal),
-                                description = stringResource(R.string.vault_flow_goal_desc),
-                                icon = MaterialSymbols.REFRESH,
-                                isSelected = isFlowGoal,
-                                onClick = {
-                                    if (!isFlowGoal) {
-                                        endDate = targetDate
-                                        targetDate = null
-                                    }
-                                    isFlowGoal = true
-                                }
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    val icons = listOf(
-                        MaterialSymbols.ACCOUNT_BALANCE_WALLET,
-                        MaterialSymbols.SAVINGS,
-                        MaterialSymbols.DIRECTIONS_CAR,
-                        MaterialSymbols.HOME,
-                        MaterialSymbols.FLIGHT,
-                        MaterialSymbols.SCHOOL,
-                        MaterialSymbols.SHOPPING_BAG,
-                        MaterialSymbols.PETS,
-                        MaterialSymbols.RESTAURANT,
-                        MaterialSymbols.COMPUTER,
-                    )
-                    
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.vault_management_vault_icon_label),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            Modifier.fillMaxWidth().height(56.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            for (iconRes in icons) {
-                                val iconStableName = MaterialSymbols.getNameByIcon(iconRes)
-                                val isSelected = (iconName == null && iconRes == MaterialSymbols.ACCOUNT_BALANCE_WALLET) || (iconName == iconStableName)
-                                Surface(
-                                    modifier = Modifier.size(40.dp).clickable { iconName = iconStableName },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        MaterialSymbolIcon(
-                                            icon = iconRes,
-                                            contentDescription = null,
-                                            size = 24.dp,
-                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
+            // Goal type selector (prominent position)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.vault_goal_type),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GoalTypeCard(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.vault_fixed_goal),
+                        description = stringResource(R.string.vault_fixed_goal_desc),
+                        icon = MaterialSymbols.FLAG,
+                        isSelected = !isFlowGoal,
+                        onClick = {
+                            if (isFlowGoal) {
+                                targetDate = endDate
+                                endDate = null
+                                monthlyNeed = ""
                             }
+                            isFlowGoal = false
                         }
-                    }
-                }
-
-                item {
-                    SparelyTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text(stringResource(R.string.vault_name_label)) },
-                        placeholder = { Text(stringResource(R.string.vault_name_placeholder)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        leadingIcon = {
-                            val displayIcon = MaterialSymbols.getIconByName(iconName) ?: MaterialSymbols.ACCOUNT_BALANCE_WALLET
-                            MaterialSymbolIcon(
-                                icon = displayIcon,
-                                contentDescription = null,
-                                size = 20.dp
-                            )
+                    )
+                    GoalTypeCard(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.vault_flow_goal),
+                        description = stringResource(R.string.vault_flow_goal_desc),
+                        icon = MaterialSymbols.REFRESH,
+                        isSelected = isFlowGoal,
+                        onClick = {
+                            if (!isFlowGoal) {
+                                endDate = targetDate
+                                targetDate = null
+                            }
+                            isFlowGoal = true
                         }
                     )
                 }
+            }
 
-                // Different fields based on goal type
-                if (isFlowGoal) {
-                    item {
-                        SparelyTextField(
-                            value = monthlyNeed,
-                            onValueChange = { monthlyNeed = it.filterCurrencyInput() },
-                            label = { Text(stringResource(R.string.vault_monthly_need)) },
-                            prefix = { Text(stringResource(R.string.currency_prefix)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            supportingText = {
-                                val amount = monthlyNeed.toSafeDouble()
-                                if (amount != null && monthlyIncome > 0) {
-                                    val percent = (amount / monthlyIncome * 100).toInt()
-                                    Text(stringResource(R.string.vault_income_percent, percent))
-                                }
-                            }
-                        )
-                    }
-
-                    item {
-                        FilledTonalButton(
-                            onClick = { showStartPicker = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.CALENDAR_MONTH,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = startDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_start_date)
-                            )
-                        }
-                        if (startDate != null) {
-                            TextButton(
-                                onClick = { startDate = null },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(stringResource(R.string.vault_clear_start_date))
-                            }
-                        }
-                    }
-
-                    item {
-                        FilledTonalButton(
-                            onClick = { showEndPicker = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.CALENDAR_MONTH,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = endDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_end_date)
-                            )
-                        }
-                        if (endDate != null) {
-                            TextButton(
-                                onClick = { endDate = null },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(stringResource(R.string.vault_clear_end_date))
-                            }
-                        }
-                    }
-
-                    // Allow editing current balance for existing flow vaults
-                    if (vault != null) {
-                        item {
-                            SparelyTextField(
-                                value = currentBalance,
-                                onValueChange = { currentBalance = it.filterCurrencyInput() },
-                                label = { Text(stringResource(R.string.vault_current_balance_label)) },
-                                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                supportingText = {
-                                    Text(
-                                        text = stringResource(R.string.vault_balance_edit_note),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            )
-                        }
-                    }
-
-                } else {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SparelyTextField(
-                                value = targetAmount,
-                                onValueChange = { targetAmount = it.filterCurrencyInput() },
-                                label = { Text(stringResource(R.string.vault_target_amount_label)) },
-                                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                            )
- 
-                            if (vault != null) {
-                                SparelyTextField(
-                                    value = currentBalance,
-                                    onValueChange = { currentBalance = it.filterCurrencyInput() },
-                                    label = { Text(stringResource(R.string.vault_current_balance_label)) },
-                                    prefix = { Text(stringResource(R.string.currency_prefix)) },
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        FilledTonalButton(
-                            onClick = { showTargetDatePicker = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.CALENDAR_MONTH,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = targetDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_deadline)
-                            )
-                        }
-                        if (targetDate != null) {
-                            val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), targetDate)
-                            val monthsUntil = ChronoUnit.MONTHS.between(LocalDate.now(), targetDate)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.vault_days_until_deadline, daysUntil, monthsUntil),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                TextButton(onClick = { targetDate = null }) {
-                                    Text(stringResource(R.string.action_clear))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    ExposedDropdownMenuBox(
-                        expanded = typeMenuExpanded,
-                        onExpandedChange = { typeMenuExpanded = it }
-                    ) {
-                        SparelyTextField(
-                            value = type.displayName(),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(R.string.vault_type_label)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = typeMenuExpanded,
-                            onDismissRequest = { typeMenuExpanded = false }
-                        ) {
-                            for (vaultType in listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT, VaultType.SHORT_TERM, VaultType.LONG_TERM)) {
-                                DropdownMenuItem(
-                                    text = { Text(vaultType.displayName()) },
-                                    onClick = {
-                                        type = vaultType
-                                        typeMenuExpanded = false
-                                    },
-                                    leadingIcon = {
-                                        MaterialSymbolIcon(
-                                            icon = when (vaultType) {
-                                                VaultType.EMERGENCY -> MaterialSymbols.LOCAL_FIRE_DEPARTMENT
-                                                VaultType.INVESTMENT -> MaterialSymbols.TRENDING_UP
-                                                VaultType.SHORT_TERM -> MaterialSymbols.ATTACH_MONEY
-                                                VaultType.LONG_TERM -> MaterialSymbols.ROCKET_LAUNCH
-                                                else -> MaterialSymbols.ACCOUNT_BALANCE
-                                            },
-                                            contentDescription = null,
-                                            size = 20.dp
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    ExposedDropdownMenuBox(
-                        expanded = priorityMenuExpanded,
-                        onExpandedChange = { priorityMenuExpanded = it }
-                    ) {
-                        SparelyTextField(
-                            value = priority.displayName(),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(R.string.vault_priority_label)) },
-                            supportingText = {
-                                if (priority != suggestedPriority) {
-                                    Text(stringResource(R.string.vault_suggested_priority, suggestedPriority.displayName()))
-                                }
-                            },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityMenuExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            onClick = { priorityMenuExpanded = true }
-                        )
-                        ExposedDropdownMenu(
-                            expanded = priorityMenuExpanded,
-                            onDismissRequest = { priorityMenuExpanded = false }
-                        ) {
-                            for (vaultPriority in VaultPriority.entries) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(vaultPriority.displayName())
-                                            if (vaultPriority == suggestedPriority) {
-                                                Surface(
-                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                                    shape = RoundedCornerShape(8.dp)
-                                                ) {
-                                                    Text(
-                                                        text = stringResource(R.string.vault_suggested_label),
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        priority = vaultPriority
-                                        priorityMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Financial insights
-                if (monthlyIncome > 0 && totalExistingAllocation > 0) {
-                    item {
+            val icons = listOf(
+                MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                MaterialSymbols.SAVINGS,
+                MaterialSymbols.DIRECTIONS_CAR,
+                MaterialSymbols.HOME,
+                MaterialSymbols.FLIGHT,
+                MaterialSymbols.SCHOOL,
+                MaterialSymbols.SHOPPING_BAG,
+                MaterialSymbols.PETS,
+                MaterialSymbols.RESTAURANT,
+                MaterialSymbols.COMPUTER,
+            )
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.vault_management_vault_icon_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    Modifier.fillMaxWidth().height(56.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (iconRes in icons) {
+                        val iconStableName = MaterialSymbols.getNameByIcon(iconRes)
+                        val isSelected = (iconName == null && iconRes == MaterialSymbols.ACCOUNT_BALANCE_WALLET) || (iconName == iconStableName)
                         Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.size(40.dp).clickable { iconName = iconStableName },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.vault_budget_insight_title),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = stringResource(R.string.vault_budget_insight_desc, totalExistingAllocation),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    SparelyTextField(
-                        value = accountNotes,
-                        onValueChange = { accountNotes = it },
-                        label = { Text(stringResource(R.string.vault_account_notes_label)) },
-                        placeholder = { Text(stringResource(R.string.vault_notes_placeholder_detailed)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = false
-                    )
-                }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.vault_manual_transfer_defaults),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.vault_manual_transfer_defaults_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.vault_deduct_deposits), style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    text = stringResource(R.string.vault_deduct_deposits_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = defaultManualDepositDeductFromMain,
-                                onCheckedChange = { defaultManualDepositDeductFromMain = it }
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.vault_credit_withdrawals), style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    text = stringResource(R.string.vault_credit_withdrawals_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = defaultManualWithdrawalCreditMain,
-                                onCheckedChange = { defaultManualWithdrawalCreditMain = it }
-                            )
-                        }
-                    }
-                }
-
-                // Exclude from automatic allocation toggle
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(stringResource(R.string.vault_exclude_auto_funding), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = stringResource(R.string.vault_exclude_auto_funding_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(checked = excludedFromAutoAllocation, onCheckedChange = { excludedFromAutoAllocation = it })
-                    }
-                }
-
-                // Validation feedback
-                if (!validationResult.isValid) {
-                    item {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Box(contentAlignment = Alignment.Center) {
                                 MaterialSymbolIcon(
-                                    icon = MaterialSymbols.WARNING,
+                                    icon = iconRes,
                                     contentDescription = null,
-                                    size = 20.dp,
-                                    tint = MaterialTheme.colorScheme.error
+                                    size = 24.dp,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    text = validationResult.message,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Auto-deposit editor (small, focused)
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(stringResource(R.string.vault_auto_deposit_schedule), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    text = stringResource(R.string.vault_auto_deposit_schedule_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(checked = autoDepositEnabled, onCheckedChange = { autoDepositEnabled = it })
-                        }
-
-                        if (autoDepositEnabled) {
-                            SparelyTextField(
-                                value = autoDepositAmount,
-                                onValueChange = { autoDepositAmount = it.filterCurrencyInput() },
-                                label = { Text(stringResource(R.string.vault_amount_label)) },
-                                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-
-                            // Frequency chips - using FlowRow for wrapping
-                            androidx.compose.foundation.layout.FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val frequencies = listOf(
-                                    AutoDepositFrequency.DAILY,
-                                    AutoDepositFrequency.WEEKLY,
-                                    AutoDepositFrequency.BIWEEKLY,
-                                    AutoDepositFrequency.MONTHLY,
-                                    AutoDepositFrequency.QUARTERLY
-                                )
-                                frequencies.forEach { freq ->
-                                    SparelyChip(
-                                        selected = autoDepositFrequency == freq,
-                                        onClick = { autoDepositFrequency = freq },
-                                        label = { Text(freq.displayName()) }
-                                    )
-                                }
-                            }
-
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                FilledTonalButton(
-                                    onClick = { showScheduleDatePicker = true },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.CALENDAR_MONTH,
-                                        contentDescription = null,
-                                        size = 18.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(autoDepositNextRunDate.format(dateFormatter))
-                                }
-
-                                ExposedDropdownMenuBox(
-                                    expanded = autoDepositTimeMenuExpanded,
-                                    onExpandedChange = { autoDepositTimeMenuExpanded = it },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    SparelyTextField(
-                                        value = autoDepositNextRunTime.format(timeFormatter),
-                                        onValueChange = {},
-                                        readOnly = true,
-                                        label = { Text(stringResource(R.string.vault_run_time)) },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = autoDepositTimeMenuExpanded) },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                                    )
-                                    ExposedDropdownMenu(
-                                        expanded = autoDepositTimeMenuExpanded,
-                                        onDismissRequest = { autoDepositTimeMenuExpanded = false }
-                                    ) {
-                                        for (option in timeOptions) {
-                                            DropdownMenuItem(
-                                                text = { Text(option.format(timeFormatter)) },
-                                                onClick = {
-                                                    autoDepositNextRunTime = option
-                                                    autoDepositTimeMenuExpanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text(
-                                text = stringResource(R.string.vault_next_run, autoDepositNextRunDate.format(dateFormatter), autoDepositNextRunTime.format(timeFormatter)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.vault_protect_main_balance), style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = stringResource(R.string.vault_protect_main_balance_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = autoDepositOnlyIfBalanceAvailable,
-                                    onCheckedChange = { autoDepositOnlyIfBalanceAvailable = it }
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.vault_reminder_before), style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = stringResource(R.string.vault_reminder_before_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = autoDepositNotifyBefore,
-                                    onCheckedChange = { autoDepositNotifyBefore = it }
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.vault_confirmation_after), style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = stringResource(R.string.vault_heads_up_moves),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = autoDepositNotifyAfter,
-                                    onCheckedChange = { autoDepositNotifyAfter = it }
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.vault_alert_failure), style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = stringResource(R.string.vault_ping_skipped),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = autoDepositNotifyOnFailure,
-                                    onCheckedChange = { autoDepositNotifyOnFailure = it }
-                                )
-                            }
-                        }
-                    }
-                }
-                item {
-                    HorizontalDivider()
-                }
-
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Delete button (only for existing vaults)
-                        if (vault != null && onDelete != null) {
-                            SparelyTextButton(
-                                onClick = onDelete,
-                                modifier = Modifier.fillMaxWidth(),
-                                contentColor = MaterialTheme.colorScheme.error,
-                                icon = {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.DELETE,
-                                        contentDescription = null,
-                                        size = 18.dp,
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            ) {
-                                Text(stringResource(R.string.vault_delete_vault))
-                            }
-                        }
-                        
-                        // Button row - using FlowRow for narrow screen support
-                        androidx.compose.foundation.layout.FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            maxItemsInEachRow = 2
-                        ) {
-                            SparelyTonalButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.weight(1f).widthIn(min = 100.dp)
-                            ) {
-                                Text(stringResource(R.string.action_cancel))
-                            }
-
-
-                            SparelyButton(
-                                onClick = {
-                                    val balance = if (vault != null) currentBalance.toSafeDouble() ?: 0.0 else 0.0
-                                    val monthly = monthlyNeed.toSafeDouble()
-                                    // For flow goals, compute a sensible target: monthly need * number of months
-                                    // Determine the months span (inclusive). Use startDate if available, otherwise today.
-                                    val target = if (isFlowGoal && monthly != null) {
-                                        val start = (startDate ?: LocalDate.now()).withDayOfMonth(1)
-                                        // If endDate provided, use it; otherwise default to a 12-month window starting at start
-                                        val end = (endDate ?: start.plusMonths(11)).withDayOfMonth(1)
-                                        var months = ChronoUnit.MONTHS.between(start, end).toInt() + 1
-                                        months = max(1, months)
-                                        monthly * months
-                                    } else {
-                                        (targetAmount.toSafeDouble() ?: 0.0)
-                                    }
-                                    
-                                    // Smart priority weight calculation
-                                    val weight = when (priority) {
-                                        VaultPriority.CRITICAL -> 4.0
-                                        VaultPriority.HIGH -> 3.0
-                                        VaultPriority.MEDIUM -> 2.0
-                                        VaultPriority.LOW -> 1.0
-                                    }
-
-                                    val existingSchedulesList = vault?.schedules ?: emptyList()
-                                    val preservedSchedules = if (existingSchedule != null) {
-                                        existingSchedulesList.filter { it.id != existingSchedule.id }
-                                    } else {
-                                        existingSchedulesList
-                                    }
-
-                                    val scheduleAmount = autoDepositAmount.toSafeDouble()
-                                    val scheduleType = when (autoDepositFrequency) {
-                                        AutoDepositFrequency.DAILY -> VaultScheduleType.DAILY
-                                        AutoDepositFrequency.WEEKLY, AutoDepositFrequency.BIWEEKLY -> VaultScheduleType.DAY_OF_WEEK
-                                        AutoDepositFrequency.MONTHLY -> VaultScheduleType.DAY_OF_MONTH
-                                        AutoDepositFrequency.QUARTERLY -> VaultScheduleType.QUARTERLY
-                                    }
-                                    val newSchedule = if (autoDepositEnabled) {
-                                        val nextRunAt = LocalDateTime.of(autoDepositNextRunDate, autoDepositNextRunTime)
-                                        VaultSchedule(
-                                            id = existingSchedule?.id ?: 0L,
-                                            vaultId = vault?.id ?: 0L,
-                                            type = scheduleType,
-                                            amount = scheduleAmount?.takeIf { it > 0.0 },
-                                            percentage = null,
-                                            direction = VaultTransferDirection.MAIN_TO_VAULT,
-                                            dayOfMonth = if (scheduleType == VaultScheduleType.DAY_OF_MONTH) autoDepositNextRunDate.dayOfMonth else null,
-                                            dayOfWeek = if (scheduleType == VaultScheduleType.DAY_OF_WEEK) autoDepositNextRunDate.dayOfWeek.value else null,
-                                            weekInterval = when (autoDepositFrequency) {
-                                                AutoDepositFrequency.BIWEEKLY -> 2
-                                                AutoDepositFrequency.WEEKLY -> 1
-                                                AutoDepositFrequency.DAILY,
-                                                AutoDepositFrequency.MONTHLY,
-                                                AutoDepositFrequency.QUARTERLY -> null
-                                            },
-                                            onlyIfBalanceAvailable = autoDepositOnlyIfBalanceAvailable,
-                                            notifyBefore = autoDepositNotifyBefore,
-                                            notifyAfter = autoDepositNotifyAfter,
-                                            notifyOnFailure = autoDepositNotifyOnFailure,
-                                            nextRunAt = nextRunAt,
-                                            lastRunAt = existingSchedule?.lastRunAt,
-                                            enabled = true,
-                                            createdAt = existingSchedule?.createdAt ?: Instant.now(),
-                                            updatedAt = Instant.now()
-                                        )
-                                    } else null
-
-                                    val updatedSchedules = when {
-                                        newSchedule != null -> listOf(newSchedule) + preservedSchedules
-                                        else -> preservedSchedules
-                                    }
-
-                                    val updatedVault = SmartVault(
-                                        id = vault?.id ?: 0L,
-                                        name = name.trim(),
-                                        targetAmount = target,
-                                        currentBalance = balance,
-                                        priority = priority,
-                                        priorityWeight = weight,
-                                        type = type,
-                                        allocationMode = VaultAllocationMode.DYNAMIC_AUTO,
-                                        manualAllocationPercent = null,
-                                        targetDate = if (isFlowGoal) endDate else targetDate,
-                                        startDate = if (isFlowGoal) startDate else null,
-                                        endDate = if (isFlowGoal) endDate else null,
-                                        monthlyNeed = monthly,
-                                        accountNotes = accountNotes.takeIf { it.isNotBlank() },
-                                        allowAutoIncome = !excludedFromAutoAllocation,
-                                        defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
-                                        defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
-                                        schedules = updatedSchedules,
-                                        archived = vault?.archived ?: false,
-                                        iconName = iconName
-                                    )
-                                    onSave(updatedVault)
-                                },
-                                modifier = Modifier.weight(1f).widthIn(min = 100.dp),
-
-                                enabled = validationResult.isValid,
-                                icon = {
-                                    MaterialSymbolIcon(
-                                        icon = if (vault == null) MaterialSymbols.ADD else MaterialSymbols.CHECK,
-                                        contentDescription = null,
-                                        size = 18.dp
-                                    )
-                                }
-                            ) {
-                                Text(if (vault == null) stringResource(R.string.vault_management_add) else stringResource(R.string.vault_save_changes))
                             }
                         }
                     }
                 }
             }
+
+            SparelyTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.vault_name_label)) },
+                placeholder = { Text(stringResource(R.string.vault_name_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = {
+                    val displayIcon = MaterialSymbols.getIconByName(iconName) ?: MaterialSymbols.ACCOUNT_BALANCE_WALLET
+                    MaterialSymbolIcon(
+                        icon = displayIcon,
+                        contentDescription = null,
+                        size = 20.dp
+                    )
+                }
+            )
+
+            // Different fields based on goal type
+            if (isFlowGoal) {
+                SparelyTextField(
+                    value = monthlyNeed,
+                    onValueChange = { monthlyNeed = it.filterCurrencyInput() },
+                    label = { Text(stringResource(R.string.vault_monthly_need)) },
+                    prefix = { Text(stringResource(R.string.currency_prefix)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    supportingText = {
+                        val amount = monthlyNeed.toSafeDouble()
+                        if (amount != null && monthlyIncome > 0) {
+                            val percent = (amount / monthlyIncome * 100).toInt()
+                            Text(stringResource(R.string.vault_income_percent, percent))
+                        }
+                    }
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyTonalButton(
+                        onClick = { showStartPicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.CALENDAR_MONTH,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = startDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_start_date)
+                        )
+                    }
+                    if (startDate != null) {
+                        SparelyTextButton(
+                            onClick = { startDate = null },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.vault_clear_start_date))
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyTonalButton(
+                        onClick = { showEndPicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.CALENDAR_MONTH,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = endDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_end_date)
+                        )
+                    }
+                    if (endDate != null) {
+                        SparelyTextButton(
+                            onClick = { endDate = null },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.vault_clear_end_date))
+                        }
+                    }
+                }
+
+                // Allow editing current balance for existing flow vaults
+                if (vault != null) {
+                    SparelyTextField(
+                        value = currentBalance,
+                        onValueChange = { currentBalance = it.filterCurrencyInput() },
+                        label = { Text(stringResource(R.string.vault_current_balance_label)) },
+                        prefix = { Text(stringResource(R.string.currency_prefix)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        supportingText = {
+                            Text(
+                                text = stringResource(R.string.vault_balance_edit_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
+
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyTextField(
+                        value = targetAmount,
+                        onValueChange = { targetAmount = it.filterCurrencyInput() },
+                        label = { Text(stringResource(R.string.vault_target_amount_label)) },
+                        prefix = { Text(stringResource(R.string.currency_prefix)) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+
+                    if (vault != null) {
+                        SparelyTextField(
+                            value = currentBalance,
+                            onValueChange = { currentBalance = it.filterCurrencyInput() },
+                            label = { Text(stringResource(R.string.vault_current_balance_label)) },
+                            prefix = { Text(stringResource(R.string.currency_prefix)) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyTonalButton(
+                        onClick = { showTargetDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.CALENDAR_MONTH,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = targetDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_deadline)
+                        )
+                    }
+                    if (targetDate != null) {
+                        val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), targetDate)
+                        val monthsUntil = ChronoUnit.MONTHS.between(LocalDate.now(), targetDate)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.vault_days_until_deadline, daysUntil, monthsUntil),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            SparelyTextButton(onClick = { targetDate = null }) {
+                                Text(stringResource(R.string.action_clear))
+                            }
+                        }
+                    }
+                }
+            }
+
+            SparelyExpressiveDropdown(
+                selectedOption = type,
+                label = stringResource(R.string.vault_type_label),
+                options = listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT, VaultType.SHORT_TERM, VaultType.LONG_TERM),
+                onOptionSelected = { type = it },
+                optionLabel = { it.displayName() },
+                optionIcon = { vaultType ->
+                    when (vaultType) {
+                        VaultType.EMERGENCY -> MaterialSymbols.LOCAL_FIRE_DEPARTMENT
+                        VaultType.INVESTMENT -> MaterialSymbols.TRENDING_UP
+                        VaultType.GOAL -> MaterialSymbols.FLAG
+                        VaultType.SHORT_TERM -> MaterialSymbols.ATTACH_MONEY
+                        VaultType.LONG_TERM -> MaterialSymbols.ROCKET_LAUNCH
+                        else -> MaterialSymbols.ACCOUNT_BALANCE
+                    }
+                }
+            )
+
+            SparelyExpressiveDropdown(
+                selectedOption = priority,
+                label = stringResource(R.string.vault_priority_label),
+                options = VaultPriority.entries,
+                onOptionSelected = { priority = it },
+                optionLabel = { it.displayName() },
+                supportingText = { vaultPriority ->
+                    if (vaultPriority != suggestedPriority) {
+                        stringResource(R.string.vault_suggested_priority, suggestedPriority.displayName())
+                    } else null
+                },
+                trailingContent = { vaultPriority ->
+                    if (vaultPriority == suggestedPriority) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.vault_suggested_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            )
+
+            // Financial insights
+            if (monthlyIncome > 0 && totalExistingAllocation > 0) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.vault_budget_insight_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        text = stringResource(R.string.vault_budget_insight_desc, totalExistingAllocation),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            SparelyTextField(
+                value = accountNotes,
+                onValueChange = { accountNotes = it },
+                label = { Text(stringResource(R.string.vault_account_notes_label)) },
+                placeholder = { Text(stringResource(R.string.vault_notes_placeholder_detailed)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = false
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.vault_manual_transfer_defaults),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.vault_manual_transfer_defaults_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.vault_deduct_deposits), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = stringResource(R.string.vault_deduct_deposits_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = defaultManualDepositDeductFromMain,
+                        onCheckedChange = { defaultManualDepositDeductFromMain = it }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.vault_credit_withdrawals), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = stringResource(R.string.vault_credit_withdrawals_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = defaultManualWithdrawalCreditMain,
+                        onCheckedChange = { defaultManualWithdrawalCreditMain = it }
+                    )
+                }
+            }
+
+            // Exclude from automatic allocation toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(stringResource(R.string.vault_exclude_auto_funding), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = stringResource(R.string.vault_exclude_auto_funding_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = excludedFromAutoAllocation, onCheckedChange = { excludedFromAutoAllocation = it })
+            }
+
+            // Validation feedback
+            if (!validationResult.isValid) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.WARNING,
+                            contentDescription = null,
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = validationResult.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+
+            // Auto-deposit editor (small, focused)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(stringResource(R.string.vault_auto_deposit_schedule), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = stringResource(R.string.vault_auto_deposit_schedule_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = autoDepositEnabled, onCheckedChange = { autoDepositEnabled = it })
+                }
+
+                if (autoDepositEnabled) {
+                    SparelyTextField(
+                        value = autoDepositAmount,
+                        onValueChange = { autoDepositAmount = it.filterCurrencyInput() },
+                        label = { Text(stringResource(R.string.vault_amount_label)) },
+                        prefix = { Text(stringResource(R.string.currency_prefix)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    // Frequency chips - using FlowRow for wrapping
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val frequencies = listOf(
+                            AutoDepositFrequency.DAILY,
+                            AutoDepositFrequency.WEEKLY,
+                            AutoDepositFrequency.BIWEEKLY,
+                            AutoDepositFrequency.MONTHLY,
+                            AutoDepositFrequency.QUARTERLY
+                        )
+                        frequencies.forEach { freq ->
+                            SparelyChip(
+                                selected = autoDepositFrequency == freq,
+                                onClick = { autoDepositFrequency = freq },
+                                label = { Text(freq.displayName()) }
+                            )
+                        }
+                    }
+
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SparelyTonalButton(
+                            onClick = { showScheduleDatePicker = true },
+                            modifier = Modifier.weight(1f),
+                            icon = {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.CALENDAR_MONTH,
+                                    contentDescription = null,
+                                    size = 18.dp
+                                )
+                            }
+                        ) {
+                            Text(autoDepositNextRunDate.format(dateFormatter))
+                        }
+
+                        SparelyExpressiveDropdown(
+                            modifier = Modifier.weight(1f),
+                            selectedOption = autoDepositNextRunTime,
+                            label = stringResource(R.string.vault_run_time),
+                            options = timeOptions,
+                            onOptionSelected = { autoDepositNextRunTime = it },
+                            optionLabel = { it.format(timeFormatter) }
+                        )
+                    }
+
+                    Text(
+                        text = stringResource(R.string.vault_next_run, autoDepositNextRunDate.format(dateFormatter), autoDepositNextRunTime.format(timeFormatter)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.vault_protect_main_balance), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = stringResource(R.string.vault_protect_main_balance_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoDepositOnlyIfBalanceAvailable,
+                            onCheckedChange = { autoDepositOnlyIfBalanceAvailable = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.vault_reminder_before), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = stringResource(R.string.vault_reminder_before_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoDepositNotifyBefore,
+                            onCheckedChange = { autoDepositNotifyBefore = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.vault_confirmation_after), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = stringResource(R.string.vault_heads_up_moves),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoDepositNotifyAfter,
+                            onCheckedChange = { autoDepositNotifyAfter = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.vault_alert_failure), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = stringResource(R.string.vault_ping_skipped),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoDepositNotifyOnFailure,
+                            onCheckedChange = { autoDepositNotifyOnFailure = it }
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Delete button (only for existing vaults)
+                if (vault != null && onDelete != null) {
+                    SparelyTextButton(
+                        onClick = onDelete,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentColor = MaterialTheme.colorScheme.error,
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.DELETE,
+                                contentDescription = null,
+                                size = 18.dp,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    ) {
+                        Text(stringResource(R.string.vault_delete_vault))
+                    }
+                }
+                
+                // Button row - using FlowRow for narrow screen support
+                androidx.compose.foundation.layout.FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    maxItemsInEachRow = 2
+                ) {
+                    SparelyTonalButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).widthIn(min = 100.dp)
+                    ) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+
+
+                    SparelyButton(
+                        onClick = {
+                            val balance = if (vault != null) currentBalance.toSafeDouble() ?: 0.0 else 0.0
+                            val monthly = monthlyNeed.toSafeDouble()
+                            // For flow goals, compute a sensible target: monthly need * number of months
+                            // Determine the months span (inclusive). Use startDate if available, otherwise today.
+                            val target = if (isFlowGoal && monthly != null) {
+                                val start = (startDate ?: LocalDate.now()).withDayOfMonth(1)
+                                // If endDate provided, use it; otherwise default to a 12-month window starting at start
+                                val end = (endDate ?: start.plusMonths(11)).withDayOfMonth(1)
+                                var months = ChronoUnit.MONTHS.between(start, end).toInt() + 1
+                                months = max(1, months)
+                                monthly * months
+                            } else {
+                                (targetAmount.toSafeDouble() ?: 0.0)
+                            }
+                            
+                            // Smart priority weight calculation
+                            val weight = when (priority) {
+                                VaultPriority.CRITICAL -> 4.0
+                                VaultPriority.HIGH -> 3.0
+                                VaultPriority.MEDIUM -> 2.0
+                                VaultPriority.LOW -> 1.0
+                            }
+
+                            val existingSchedulesList = vault?.schedules ?: emptyList()
+                            val preservedSchedules = if (existingSchedule != null) {
+                                existingSchedulesList.filter { it.id != existingSchedule.id }
+                            } else {
+                                existingSchedulesList
+                            }
+
+                            val scheduleAmount = autoDepositAmount.toSafeDouble()
+                            val scheduleType = when (autoDepositFrequency) {
+                                AutoDepositFrequency.DAILY -> VaultScheduleType.DAILY
+                                AutoDepositFrequency.WEEKLY, AutoDepositFrequency.BIWEEKLY -> VaultScheduleType.DAY_OF_WEEK
+                                AutoDepositFrequency.MONTHLY -> VaultScheduleType.DAY_OF_MONTH
+                                AutoDepositFrequency.QUARTERLY -> VaultScheduleType.QUARTERLY
+                            }
+                            val newSchedule = if (autoDepositEnabled) {
+                                val nextRunAtValue = LocalDateTime.of(autoDepositNextRunDate, autoDepositNextRunTime)
+                                VaultSchedule(
+                                    id = existingSchedule?.id ?: 0L,
+                                    vaultId = vault?.id ?: 0L,
+                                    type = scheduleType,
+                                    amount = scheduleAmount?.takeIf { it > 0.0 },
+                                    percentage = null,
+                                    direction = VaultTransferDirection.MAIN_TO_VAULT,
+                                    dayOfMonth = if (scheduleType == VaultScheduleType.DAY_OF_MONTH) autoDepositNextRunDate.dayOfMonth else null,
+                                    dayOfWeek = if (scheduleType == VaultScheduleType.DAY_OF_WEEK) autoDepositNextRunDate.dayOfWeek.value else null,
+                                    weekInterval = when (autoDepositFrequency) {
+                                        AutoDepositFrequency.BIWEEKLY -> 2
+                                        AutoDepositFrequency.WEEKLY -> 1
+                                        AutoDepositFrequency.DAILY,
+                                        AutoDepositFrequency.MONTHLY,
+                                        AutoDepositFrequency.QUARTERLY -> null
+                                    },
+                                    onlyIfBalanceAvailable = autoDepositOnlyIfBalanceAvailable,
+                                    notifyBefore = autoDepositNotifyBefore,
+                                    notifyAfter = autoDepositNotifyAfter,
+                                    notifyOnFailure = autoDepositNotifyOnFailure,
+                                    nextRunAt = nextRunAtValue,
+                                    lastRunAt = existingSchedule?.lastRunAt,
+                                    enabled = true,
+                                    createdAt = existingSchedule?.createdAt ?: Instant.now(),
+                                    updatedAt = Instant.now()
+                                )
+                            } else null
+
+                            val updatedSchedules = when {
+                                newSchedule != null -> listOf(newSchedule) + preservedSchedules
+                                else -> preservedSchedules
+                            }
+
+                            val updatedVault = SmartVault(
+                                id = vault?.id ?: 0L,
+                                name = name.trim(),
+                                targetAmount = target,
+                                currentBalance = balance,
+                                priority = priority,
+                                priorityWeight = weight,
+                                type = type,
+                                allocationMode = VaultAllocationMode.DYNAMIC_AUTO,
+                                manualAllocationPercent = null,
+                                targetDate = if (isFlowGoal) endDate else targetDate,
+                                startDate = if (isFlowGoal) startDate else null,
+                                endDate = if (isFlowGoal) endDate else null,
+                                monthlyNeed = monthly,
+                                accountNotes = accountNotes.takeIf { it.isNotBlank() },
+                                allowAutoIncome = !excludedFromAutoAllocation,
+                                defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
+                                defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
+                                schedules = updatedSchedules,
+                                archived = vault?.archived ?: false,
+                                iconName = iconName
+                            )
+                            onSave(updatedVault)
+                        },
+                        modifier = Modifier.weight(1f).widthIn(min = 100.dp),
+
+                        enabled = validationResult.isValid,
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = if (vault == null) MaterialSymbols.ADD else MaterialSymbols.CHECK,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text(if (vault == null) stringResource(R.string.vault_management_add) else stringResource(R.string.vault_save_changes))
+                    }
+                }
+            }
         }
-    }
+            }
 }
+
 
 @Composable
 private fun GoalTypeCard(
@@ -2401,21 +2277,19 @@ private fun GoalTypeCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    ElevatedCard(
+    ExpressiveCard(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surface
-        )
+        containerColor = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer
+        else
+            MaterialTheme.colorScheme.surface,
+        contentPadding = 16.dp
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -2463,6 +2337,7 @@ fun AutoDepositFrequency.displayName(): String = when (this) {
     AutoDepositFrequency.MONTHLY -> stringResource(R.string.vault_frequency_monthly)
     AutoDepositFrequency.QUARTERLY -> stringResource(R.string.vault_frequency_quarterly)
 }
+
 
 private data class ValidationResult(
     val isValid: Boolean,

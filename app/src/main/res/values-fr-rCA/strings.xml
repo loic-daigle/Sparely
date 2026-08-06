@@ -388,6 +388,7 @@
 
     <string name="dashboard_net_saved">Net épargné %1$s</string>
     <string name="dashboard_goal_prefix">Objectif : </string>
+    <string name="dashboard_separator"> • </string>
     <string name="dashboard_smart_saving">Épargne intelligente</string>
     <string name="dashboard_saved_vs_target">%1$s épargné / objectif %2$s</string>
     <string name="dashboard_allocation_guided_mode">Mode guidé – Sparely t’aide à ajuster</string>
@@ -399,8 +400,6 @@
     <string name="dashboard_log_subscriptions_reminders">Enregistre tes abonnements pour recevoir des rappels.</string>
     <string name="dashboard_due_on">Échéance %1$s</string>
     <string name="dashboard_emergency_runway">Fonds d’urgence</string>
-    <string name="dashboard_month_goal">Objectif de %1$.1f mois • %2$s</string>
-    <string name="dashboard_current_cushion">Coussin actuel</string>
     <string name="dashboard_monthly_target">Cible mensuelle</string>
     <string name="dashboard_goal_reached">Objectif atteint! Tu peux continuer pour rester en avance sur l’inflation.</string>
     <string name="dashboard_savings_breakdown">Répartition des économies</string>
@@ -862,4 +861,44 @@
         <item quantity="one">%d carte</item>
         <item quantity="other">%d cartes</item>
     </plurals>
+
+    <!-- Dashboard Screen Extra -->
+    <string name="dashboard_join_challenge">Rejoindre un défi</string>
+    <string name="dashboard_challenge_competitive_desc">Épargne plus vite en te mesurant à tes performances passées</string>
+    <string name="dashboard_balance_drop_soon">Ton solde pourrait baisser bientôt</string>
+    <string name="dashboard_money_sitting_idle">Argent qui dort</string>
+    <string name="dashboard_put_idle_cash_to_work">Fais fructifier ton argent qui dort</string>
+    <string name="dashboard_projected_growth">Croissance projetée</string>
+    <string name="dashboard_est_annual_interest">Est. +%1$s d\'intérêt annuel</string>
+    <string name="dashboard_full_analysis">Analyse complète</string>
+
+    <!-- Dashboard Screen Missed Strings -->
+    <string name="dashboard_active_challenges_title">Défis actifs</string>
+    <string name="dashboard_saving_rate_prefix">Épargne %1$s</string>
+    <string name="dashboard_savings_tab">Épargne</string>
+    <string name="dashboard_vaults_tab">Coffres</string>
+    <string name="dashboard_manage_action">Gérer</string>
+    <string name="dashboard_start_saving_title">Commence à épargner</string>
+    <string name="dashboard_create_hisa_subtitle">Crée un compte d\'épargne à intérêt élevé</string>
+    <string name="dashboard_view_all_action">Voir tout</string>
+    <string name="dashboard_recurring_patterns_found">Modèles récurrents trouvés</string>
+    <string name="dashboard_recurring_cadence_next">Tous les %1$d jours • Prochain : %2$s</string>
+    <string name="dashboard_convert_subscriptions_hint">Touche pour convertir en abonnements</string>
+    <string name="dashboard_up_next">À venir</string>
+    <string name="dashboard_no_upcoming_bills">Aucune facture à venir</string>
+    <string name="dashboard_total_commitment">Engagement total</string>
+    <string name="dashboard_due_date">Échéance %1$s</string>
+    <string name="dashboard_all_bills_paid">Toutes les factures sont payées pour l\'instant !</string>
+    <string name="dashboard_add_subscriptions_hint">Ajoute des abonnements pour suivre les coûts récurrents automatiquement.</string>
+    <string name="dashboard_month_goal">Objectif de %1$d mois</string>
+    <string name="dashboard_current_cushion">Coussin actuel</string>
+    <string name="dashboard_target_amount_label">Cible : %1$s</string>
+    <string name="dashboard_vault_progress_summary">%1$s sur %2$s</string>
+    <string name="savings_accounts_title">Comptes d\'épargne</string>
+
+    <string name="dashboard_financial_health_title">Santé financière</string>
+    <string name="dashboard_tap_for_analysis">Touche pour une analyse complète</string>
+    <string name="dashboard_budget_usage_title">Utilisation du budget</string>
+
+
 </resources>

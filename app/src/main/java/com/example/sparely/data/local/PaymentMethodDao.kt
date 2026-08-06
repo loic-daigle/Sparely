@@ -42,10 +42,10 @@ interface PaymentMethodDao {
     @Query("UPDATE payment_methods SET currentBalance = :balance WHERE id = :id")
     suspend fun updateBalance(id: Long, balance: Double)
 
-    @Query("UPDATE payment_methods SET currentBalance = currentBalance + :amount WHERE id = :id")
+    @Query("UPDATE payment_methods SET currentBalance = ROUND(currentBalance + :amount, 2) WHERE id = :id")
     suspend fun addToBalance(id: Long, amount: Double)
 
-    @Query("UPDATE payment_methods SET currentBalance = currentBalance - :amount, lastPaymentDate = :paymentDate, lastPaymentAmount = :amount WHERE id = :id")
+    @Query("UPDATE payment_methods SET currentBalance = ROUND(currentBalance - :amount, 2), lastPaymentDate = :paymentDate, lastPaymentAmount = :amount WHERE id = :id")
     suspend fun recordPayment(id: Long, amount: Double, paymentDate: LocalDate)
 }
 

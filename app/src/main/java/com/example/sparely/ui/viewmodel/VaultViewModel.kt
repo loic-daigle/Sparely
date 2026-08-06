@@ -28,7 +28,8 @@ data class VaultUiState(
 
 class VaultViewModel(
     private val savingsRepository: SavingsRepository,
-    private val notificationScheduler: com.example.sparely.notifications.NotificationScheduler
+    private val notificationScheduler: com.example.sparely.notifications.NotificationScheduler,
+    private val preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository
 ) : ViewModel() {
 
     val smartVaults: StateFlow<List<SmartVault>> = savingsRepository.observeSmartVaults()
@@ -177,10 +178,93 @@ class VaultViewModel(
         }
     }
     
+    /**
+     * Create a pending contribution for the idle money suggested transfer.
+     * Prioritises HISA transfer: if the user has a mainOverflowAccountId
+     * configured, the contribution targets that savings account (vaultId = null,
+     * savingsAccountId = mainOverflowAccountId) so it is treated as a true HISA
+     * transfer. Falls back to a regular vault contribution when no overflow
+     * account is set.
+     */
+    fun createIdleMoneyPendingTransfer(amount: Double, fallbackVaultId: Long) {
+        if (amount <= 0.0) return
+        viewModelScope.launch {
+            val settings = preferencesRepository.getSettingsSnapshot()
+            val overflowId = settings.mainOverflowAccountId
+
+            // Check for existing pending "Suggested idle money transfer"
+            // to prevent duplicates if clicked multiple times
+            val existing = savingsRepository.getPendingVaultContributions().any {
+                it.source == com.example.sparely.domain.model.VaultContributionSource.TRANSFER &&
+                it.note == "Suggested idle money transfer" &&
+                ((overflowId != null && overflowId != 0L && it.savingsAccountId == overflowId) ||
+                 (fallbackVaultId != 0L && it.vaultId == fallbackVaultId))
+            }
+            if (existing) return@launch
+
+            val contribution = if (overflowId != null && overflowId != 0L) {
+                // HISA transfer – savingsAccountId set, vaultId null
+                VaultContribution(
+                    vaultId = null,
+                    savingsAccountId = overflowId,
+                    amount = amount,
+                    source = com.example.sparely.domain.model.VaultContributionSource.TRANSFER,
+                    note = "Suggested idle money transfer",
+                    reconciled = false
+                )
+            } else if (fallbackVaultId != 0L) {
+                // Fallback: regular vault contribution
+                VaultContribution(
+                    vaultId = fallbackVaultId,
+                    amount = amount,
+                    source = com.example.sparely.domain.model.VaultContributionSource.TRANSFER,
+                    note = "Suggested idle money transfer",
+                    reconciled = false
+                )
+            } else {
+                return@launch
+            }
+
+            val contributionId = savingsRepository.logVaultContribution(contribution)
+            savingsRepository.insertFrozenFund(
+                pendingType = "VAULT_CONTRIBUTION",
+                pendingId = contributionId,
+                amount = amount,
+                description = "Pending idle money transfer"
+            )
+        }
+    }
+
+    /**
+     * Update the amount of a pending contribution.
+     * Use this when the user edits the transfer amount before approving.
+     */
+    fun updatePendingVaultContributionAmount(contributionId: Long, newAmount: Double) {
+        if (newAmount <= 0.0) return
+        viewModelScope.launch {
+            val existing = savingsRepository.getPendingVaultContributions().find { it.id == contributionId }
+            if (existing != null) {
+                // Update contribution
+                val updated = existing.copy(amount = newAmount)
+                savingsRepository.logVaultContribution(updated)
+                
+                // Update associated frozen fund
+                // We remove the old one and add a new one with the updated amount
+                savingsRepository.removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
+                savingsRepository.insertFrozenFund(
+                    pendingType = "VAULT_CONTRIBUTION",
+                    pendingId = contributionId,
+                    amount = newAmount,
+                    description = existing.note
+                )
+            }
+        }
+    }
+
     fun startVaultTransferNotificationWorkflow() {
         viewModelScope.launch {
             // Refactoring NotificationScheduler to take repository is cleaner
-            notificationScheduler.showVaultTransferWorkflow(savingsRepository)
+            notificationScheduler.showVaultTransferWorkflow(savingsRepository, preferencesRepository)
         }
     }
 }
@@ -194,7 +278,8 @@ class VaultViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return VaultViewModel(
                 savingsRepository = container.savingsRepository,
-                notificationScheduler = container.notificationScheduler
+                notificationScheduler = container.notificationScheduler,
+                preferencesRepository = container.preferencesRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

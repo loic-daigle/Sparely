@@ -26,6 +26,7 @@ object NotificationHelper {
     private const val PAYDAY_NOTIFICATION_ID = 4002
     private const val SCHEDULE_SUMMARY_NOTIFICATION_ID = 5001
     private const val CREDIT_CARD_BASE_NOTIFICATION_ID = 6001
+    private const val VARIABLE_RECURRING_NOTIFICATION_ID = 7001
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -205,7 +206,7 @@ object NotificationHelper {
 
     fun showVaultTransferNotification(
         context: Context,
-        vaultId: Long,
+        vaultId: Long?,
         vaultName: String,
         contributions: List<com.example.sparely.domain.model.VaultContribution>,
         currentIndex: Int,
@@ -216,39 +217,25 @@ object NotificationHelper {
         val totalAmount = contributions.sumOf { it.amount }
         val formattedTotal = formatAmount(totalAmount)
         
-        // Build source breakdown
-        val sourceBreakdown = contributions.groupBy { it.source }
-            .map { (source, contribs) ->
-                val sourceAmount = contribs.sumOf { it.amount }
-                val sourceName = when (source) {
-                    com.example.sparely.domain.model.VaultContributionSource.INCOME -> "Income"
-                    com.example.sparely.domain.model.VaultContributionSource.SAVING_TAX -> "Saving tax"
-                    com.example.sparely.domain.model.VaultContributionSource.AUTO_DEPOSIT -> "Auto deposit"
-                    com.example.sparely.domain.model.VaultContributionSource.MANUAL -> "Manual"
-                    com.example.sparely.domain.model.VaultContributionSource.TRANSFER -> "Transfer"
-                }
-                "$sourceName: ${formatAmount(sourceAmount)}"
-            }
-            .joinToString("\n")
+        val title = if (totalVaultCount > 1) {
+            context.getString(R.string.notification_vault_transfer_multi_title, totalVaultCount)
+        } else {
+            context.getString(R.string.notification_vault_transfer_single_title)
+        }
         
         val progressText = if (totalVaultCount > 1) {
-            "Vault ${currentIndex + 1} of $totalVaultCount"
+            " (${currentIndex + 1} of $totalVaultCount)"
         } else {
             ""
         }
         
-        val contentText = buildString {
-            append("Transfer $formattedTotal")
-            if (progressText.isNotEmpty()) {
-                append(" • $progressText")
-            }
-        }
+        val contentText = context.getString(
+            R.string.notification_vault_transfer_message,
+            formattedTotal,
+            vaultName
+        ) + progressText
         
-        val bigText = buildString {
-            append(contentText)
-            append("\n\n")
-            append(sourceBreakdown)
-        }
+        val bigText = contentText
         
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -260,23 +247,26 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
+        val uniqueId = vaultId ?: (contributions.firstOrNull()?.savingsAccountId ?: 0L)
+        val requestCode = (uniqueId % Int.MAX_VALUE).toInt()
+
         val transferredIntent = PendingIntent.getBroadcast(
             context,
-            vaultId.toInt(),
-            VaultTransferNotificationReceiver.createTransferredIntent(context, vaultId),
+            requestCode,
+            VaultTransferNotificationReceiver.createTransferredIntent(context, vaultId, if (vaultId == null) uniqueId else null),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
         val dismissIntent = PendingIntent.getBroadcast(
             context,
-            vaultId.toInt() + 10000,
-            VaultTransferNotificationReceiver.createDismissIntent(context, vaultId),
+            requestCode + 10000,
+            VaultTransferNotificationReceiver.createDismissIntent(context, vaultId, if (vaultId == null) uniqueId else null),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
         val notification = NotificationCompat.Builder(context, VAULT_TRANSFER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
-            .setContentTitle(vaultName)
+            .setContentTitle(title)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -387,6 +377,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("navigate_to", "creditCards")
+                putExtra("cardId", cardId)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -422,6 +413,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("navigate_to", "creditCards")
+                putExtra("cardId", cardId)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -445,8 +437,85 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(notificationId)
     }
 
-    fun formatAmount(amount: Double): String =
-        NumberFormat.getCurrencyInstance().format(amount)
+    fun showVariableRecurringExpenseNotification(
+        context: Context,
+        recurringExpenseId: Long,
+        recurringExpenseName: String,
+        predictedAmount: Double
+    ) {
+        ensureChannels(context)
+        val formattedAmount = formatAmount(predictedAmount)
+        val title = "Confirm bill amount: $recurringExpenseName"
+        val body = "Predicted amount: $formattedAmount. Please confirm the actual amount charged."
+
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            recurringExpenseId.toInt(),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "variableRecurring")
+                putExtra("recurringExpenseId", recurringExpenseId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val editAmountIntent = PendingIntent.getBroadcast(
+            context,
+            (recurringExpenseId % Int.MAX_VALUE).toInt(),
+            com.example.sparely.notifications.VariableRecurringExpenseReceiver.createEditAmountIntent(
+                context,
+                recurringExpenseId
+            ),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val confirmIntent = PendingIntent.getBroadcast(
+            context,
+            (recurringExpenseId % Int.MAX_VALUE).toInt() + 1,
+            com.example.sparely.notifications.VariableRecurringExpenseReceiver.createConfirmIntent(
+                context,
+                recurringExpenseId,
+                predictedAmount
+            ),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, PAYDAY_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle(title)
+            .setContentText("Predicted: $formattedAmount")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                "Confirm",
+                confirmIntent
+            )
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                "Edit Amount",
+                editAmountIntent
+            )
+            .build()
+
+        NotificationManagerCompat.from(context).notify(VARIABLE_RECURRING_NOTIFICATION_ID, notification)
+    }
+
+    fun dismissVariableRecurringNotification(context: Context) {
+        NotificationManagerCompat.from(context).cancel(VARIABLE_RECURRING_NOTIFICATION_ID)
+    }
+
+    fun formatAmount(amount: Double): String {
+        // Avoid negative zero and very small negative values rounding to -0.00
+        val sanitizedAmount = if (amount > -0.005 && amount <= 0.0) 0.0 else amount
+        return NumberFormat.getCurrencyInstance().apply {
+            isGroupingUsed = false
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }.format(sanitizedAmount)
+    }
 
     private fun directionPhrase(schedule: VaultSchedule): String {
         return when (schedule.direction) {

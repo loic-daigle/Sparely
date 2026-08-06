@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="dashboard_unusual_transactions_count">
+        <item quantity="one">%1$d Unusual Transaction</item>
+        <item quantity="other">%1$d Unusual Transactions</item>
+    </plurals>
+    <plurals name="dashboard_challenge_progress_complete">
+        <item quantity="one">%1$s complete</item>
+        <item quantity="other">%1$s complete</item>
+    </plurals>
+    <plurals name="dashboard_credit_cards_count">
+        <item quantity="one">1 Card</item>
+        <item quantity="other">%1$d Cards</item>
+    </plurals>
+    <plurals name="dashboard_more_items_count">
+        <item quantity="one">+ 1 more</item>
+        <item quantity="other">+ %1$d more</item>
+    </plurals>
+    <plurals name="dashboard_payments_due_count">
+        <item quantity="one">1 payment due</item>
+        <item quantity="other">%1$d payments due</item>
+    </plurals>
+    <plurals name="dashboard_month_goal_count">
+        <item quantity="one">1 month goal</item>
+        <item quantity="other">%1$d month goal</item>
+    </plurals>
+</resources>

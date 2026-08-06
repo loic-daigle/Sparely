@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.ExpressiveShapes
 import com.example.sparely.ui.components.*
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import com.example.sparely.ui.utils.filterCurrencyInput
@@ -21,7 +22,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
-import com.example.sparely.ui.components.ExpressiveCard
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,9 @@ import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.model.*
 import com.sparely.app.R
 import java.time.Instant
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -709,12 +713,14 @@ private fun SmartVaultsStep(
                     for (iconRes in icons) {
                         val iconStableName = MaterialSymbols.getNameByIcon(iconRes)
                         val isSelected = (draft.iconName == null && iconRes == MaterialSymbols.ACCOUNT_BALANCE_WALLET) || (draft.iconName == iconStableName)
-                        Surface(
-                            modifier = Modifier.size(36.dp).clickable { onDraftChange(draft.copy(iconName = iconStableName)) },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        ExpressiveCard(
+                            onClick = { onDraftChange(draft.copy(iconName = iconStableName)) },
+                            modifier = Modifier.size(36.dp),
+                            shape = ExpressiveShapes.medium,
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentPadding = 0.dp
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                 MaterialSymbolIcon(
                                     icon = iconRes,
                                     contentDescription = null,
@@ -846,7 +852,7 @@ private fun SmartVaultsStep(
 
                 if (showRemove) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(onClick = onRemove) {
+                    SparelyTextButton(onClick = onRemove) {
                         Text(stringResource(R.string.onboarding_remove_vault))
                     }
                 }
@@ -979,18 +985,20 @@ private fun LivingSituation.displayName(): String = when (this) {
 
 private fun Double.toInputText(defaultWhenZero: String = ""): String {
     if (this <= 0.0) return defaultWhenZero
-    return if (this % 1.0 == 0.0) {
-        toInt().toString()
+    val displayValue = if (this > -0.005 && this <= 0.0) 0.0 else this
+    return if (displayValue % 1.0 == 0.0) {
+        displayValue.toInt().toString()
     } else {
-        String.format(Locale.US, "%.2f", this)
+        displayValue.formatCurrency("", 2)
     }
 }
 
 private fun Double.toPercentageInput(): String {
-    return if (this % 1.0 == 0.0) {
-        toInt().toString()
+    val displayValue = if (this > -0.00005 && this <= 0.0) 0.0 else this
+    return if (displayValue % 1.0 == 0.0) {
+        displayValue.toInt().toString()
     } else {
-        String.format(Locale.US, "%.1f", this)
+        displayValue.formatPercent(1).removeSuffix("%")
     }
 }
 
@@ -1050,11 +1058,10 @@ fun NameStep(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
@@ -1131,12 +1138,13 @@ fun IncomeStep(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        FilledTonalButton(
+        SparelyTonalButton(
             onClick = { showBirthdayPicker = true },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            icon = {
+                MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null)
+            }
         ) {
-            MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
             Text(birthdayLabel)
         }
 
@@ -1149,7 +1157,7 @@ fun IncomeStep(
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )
-            TextButton(
+            SparelyTextButton(
                 onClick = { onBirthdayChange(null) },
                 modifier = Modifier.align(Alignment.End)
             ) {
@@ -1181,10 +1189,9 @@ fun IncomeStep(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -1207,11 +1214,10 @@ fun IncomeStep(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+                .fillMaxWidth(),
             enabled = income.toSafeDouble() != null && isAgeValid
         ) {
             Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
@@ -1229,7 +1235,7 @@ fun IncomeStep(
         DatePickerDialog(
             onDismissRequest = { showBirthdayPicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     val selectedMillis = datePickerState.selectedDateMillis
                     val selectedDate = selectedMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
                     onBirthdayChange(selectedDate)
@@ -1239,7 +1245,7 @@ fun IncomeStep(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showBirthdayPicker = false }) {
+                SparelyTextButton(onClick = { showBirthdayPicker = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             }
@@ -1321,11 +1327,10 @@ fun RiskLevelStep(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text("Continue", style = MaterialTheme.typography.titleMedium)
         }
@@ -1340,17 +1345,12 @@ fun RiskLevelOption(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Card(
+    ExpressiveCard(
         onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) 
-                MaterialTheme.colorScheme.primaryContainer 
-            else 
-                MaterialTheme.colorScheme.surfaceVariant
-        ),
-        border = if (isSelected) 
-            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) 
-        else null
+        containerColor = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier
@@ -1563,9 +1563,9 @@ private fun FinancialSituationStep(
         // Tailored suggestion for young part-time users still living with parents
         val showSmallFundSuggestion = age <= 18 && livingSituation == LivingSituation.WITH_PARENTS && employmentStatus == EmploymentStatus.PART_TIME
         if (showSmallFundSuggestion) {
-            Card(
+            ExpressiveCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
@@ -1575,10 +1575,10 @@ private fun FinancialSituationStep(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(onClick = { onEmergencyFundChange("250") }) {
+                        SparelyTonalButton(onClick = { onEmergencyFundChange("250") }) {
                             Text(stringResource(R.string.onboarding_apply_suggestion, "250"))
                         }
-                        TextButton(onClick = { /* user can still input their own value */ }) {
+                        SparelyTextButton(onClick = { /* user can still input their own value */ }) {
                             Text(stringResource(R.string.onboarding_keep_value))
                         }
                     }
@@ -1740,19 +1740,22 @@ private fun FinancialSituationStep(
             }
         }
 
-        FilledTonalButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
-            MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
+        SparelyTonalButton(
+            onClick = onAddSubscription,
+            modifier = Modifier.fillMaxWidth(),
+            icon = {
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
+            }
+        ) {
             Text(stringResource(R.string.onboarding_add_subscription))
         }
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
@@ -1820,11 +1823,9 @@ fun GoalStep(
         
         val accentColor = MaterialTheme.colorScheme.primary
         val accentContainer = MaterialTheme.colorScheme.primaryContainer
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = accentContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = accentContainer
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -1856,18 +1857,16 @@ fun GoalStep(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onComplete,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = accentColor,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+                .fillMaxWidth(),
+            containerColor = accentColor,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            icon = {
+                MaterialSymbolIcon(icon = MaterialSymbols.ROCKET_LAUNCH, contentDescription = null)
+            }
         ) {
-            MaterialSymbolIcon(icon = MaterialSymbols.ROCKET_LAUNCH, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.onboarding_start_saving), style = MaterialTheme.typography.titleMedium)
         }
     }
@@ -1928,8 +1927,6 @@ private fun CountrySelectionStep(
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 },
-                tonalElevation = if (isSelected) 4.dp else 0.dp,
-                shadowElevation = if (isSelected) 1.dp else 0.dp,
                 contentPadding = 16.dp
             ) {
                 Row(
@@ -1963,11 +1960,10 @@ private fun CountrySelectionStep(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+                .fillMaxWidth(),
             enabled = selectedCountry != null
         ) {
             Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
@@ -2023,11 +2019,9 @@ private fun WelcomeStep(
         
         // Show country-specific welcome message
         countryConfig?.let { config ->
-            Card(
+            ExpressiveCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                containerColor = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -2057,18 +2051,17 @@ private fun WelcomeStep(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        TextButton(onClick = onSkip) {
+        SparelyTextButton(onClick = onSkip) {
             Text(stringResource(R.string.onboarding_skip_setup))
         }
     }

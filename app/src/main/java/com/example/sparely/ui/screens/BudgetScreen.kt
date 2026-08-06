@@ -29,20 +29,33 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SingleLineText
+import com.example.sparely.ui.components.SparelyBottomSheet
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.critical
+import com.example.sparely.ui.theme.criticalContainer
 import com.example.sparely.ui.components.SparelyTextField
 import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.theme.spacing
 import com.example.sparely.ui.theme.getCategoryColor
 import com.example.sparely.ui.theme.getCategoryIcon
+import com.example.sparely.ui.theme.onCriticalContainer
+import com.example.sparely.ui.theme.onSuccessContainer
+import com.example.sparely.ui.theme.onWarningContainer
+import com.example.sparely.ui.theme.success
+import com.example.sparely.ui.theme.successContainer
+import com.example.sparely.ui.theme.warning
+import com.example.sparely.ui.theme.warningContainer
+import com.example.sparely.ui.components.SparelyExpressiveDropdown
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.abs
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
 import com.sparely.app.R
 @Composable
 fun BudgetScreen(
@@ -125,8 +138,8 @@ fun BudgetScreen(
                             Text(
                                 text = stringResource(
                                     R.string.budget_exceeds_income_desc,
-                                    formatCurrency(totalBudgets),
-                                    formatCurrency(monthlyIncome)
+                                    totalBudgets.formatCurrency(),
+                                    monthlyIncome.formatCurrency()
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
@@ -247,10 +260,11 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
     val spacing = MaterialTheme.spacing
     
     // Modern Flat Card with Donut Chart
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentPadding = 0.dp
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -269,7 +283,7 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                         text = stringResource(R.string.budget_remaining_and_days, formatCurrency(summary.totalRemaining), YearMonth.now().lengthOfMonth() - LocalDate.now().dayOfMonth),
+                         text = stringResource(R.string.budget_remaining_and_days, summary.totalRemaining.formatCurrency(), YearMonth.now().lengthOfMonth() - LocalDate.now().dayOfMonth),
                          style = MaterialTheme.typography.titleMedium,
                          color = MaterialTheme.colorScheme.primary
                     )
@@ -314,13 +328,13 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatCurrency(summary.totalSpent),
+                        text = summary.totalSpent.formatCurrency(),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.budget_spent_of, formatCurrency(summary.totalBudget)),
+                        text = stringResource(R.string.budget_spent_of, summary.totalBudget.formatCurrency()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -357,7 +371,7 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                                 overflow = TextOverflow.Ellipsis
                             )
                              Text(
-                                text = formatPercent(catStatus.percentageUsed),
+                                text = catStatus.percentageUsed.formatPercent(),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -398,7 +412,7 @@ private fun BudgetDonutChart(
             val sweepAngle = ((status.spent / total) * 360f).toFloat()
             if (sweepAngle > 0) {
                 drawArc(
-                    color = getCategoryColor(status.category),
+                    color = getCategoryColor(status.category, colorScheme),
                     startAngle = startAngle,
                     sweepAngle = sweepAngle,
                     useCenter = false,
@@ -425,20 +439,21 @@ fun CategoryBudgetCard(
     val categoryIcon = getCategoryIcon(status.category)
     
     val statusColor = when (status.status) {
-        BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50) // Green for healthy
-        BudgetHealthStatus.WARNING -> Color(0xFFFFA726) // Orange for warning
-        BudgetHealthStatus.CRITICAL -> Color(0xFFEF5350) // Red-ish for critical
-        BudgetHealthStatus.OVER_BUDGET -> colorScheme.error
+        BudgetHealthStatus.HEALTHY -> colorScheme.success
+        BudgetHealthStatus.WARNING -> colorScheme.warning
+        BudgetHealthStatus.CRITICAL -> colorScheme.critical
+        BudgetHealthStatus.OVER_BUDGET -> colorScheme.critical
     }
     
     val progressValue = status.percentageUsed.toFloat().coerceIn(0f, 1f)
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(24.dp),
-        color = colorScheme.surfaceContainerHigh
+        containerColor = colorScheme.surfaceContainerHigh,
+        contentPadding = 0.dp
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Subtle Gradient Background
@@ -530,7 +545,7 @@ fun CategoryBudgetCard(
                                 color = colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = formatCurrency(status.spent),
+                                text = status.spent.formatCurrency(),
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = statusColor
@@ -543,7 +558,7 @@ fun CategoryBudgetCard(
                                 color = colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = formatCurrency(status.limit),
+                                text = status.limit.formatCurrency(),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = colorScheme.onSurface
@@ -570,16 +585,16 @@ fun CategoryBudgetCard(
                 ) {
                     Text(
                         text = if (status.isOverBudget) {
-                            stringResource(R.string.budget_over_by, formatCurrency(status.spent - status.limit))
+                            stringResource(R.string.budget_over_by, (status.spent - status.limit).formatCurrency())
                         } else {
-                            stringResource(R.string.budget_remaining_and_days, formatCurrency(status.remaining), status.daysRemainingInMonth)
+                            stringResource(R.string.budget_remaining_and_days, status.remaining.formatCurrency(), status.daysRemainingInMonth)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (status.isOverBudget) colorScheme.error else colorScheme.onSurfaceVariant
                     )
 
                     Text(
-                        text = formatPercent(status.percentageUsed),
+                        text = status.percentageUsed.formatPercent(),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = statusColor
@@ -641,8 +656,8 @@ fun BudgetSuggestionCard(
         difference == null && currentBudget == null -> stringResource(R.string.budget_suggestion_new)
         difference == null -> stringResource(R.string.budget_suggestion_matches)
         abs(difference) < 1.0 -> stringResource(R.string.budget_suggestion_similar)
-        difference > 0 -> stringResource(R.string.budget_suggestion_increase, formatCurrency(abs(difference)))
-        else -> stringResource(R.string.budget_suggestion_reduce, formatCurrency(abs(difference)))
+        difference > 0 -> stringResource(R.string.budget_suggestion_increase, abs(difference).formatCurrency())
+        else -> stringResource(R.string.budget_suggestion_reduce, abs(difference).formatCurrency())
     }
     val differenceColor = when {
         difference == null -> colorScheme.tertiary
@@ -657,12 +672,13 @@ fun BudgetSuggestionCard(
         SuggestionConfidence.LOW -> colorScheme.onSurfaceVariant
     }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(24.dp),
-        color = colorScheme.surfaceContainerHigh
+        containerColor = colorScheme.surfaceContainerHigh,
+        contentPadding = 0.dp
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Subtle Gradient Background
@@ -757,7 +773,7 @@ fun BudgetSuggestionCard(
                         color = colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatCurrency(suggestion.suggestedLimit),
+                        text = suggestion.suggestedLimit.formatCurrency(),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = colorScheme.primary
@@ -776,7 +792,7 @@ fun BudgetSuggestionCard(
                             color = colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = currentBudget?.let { formatCurrency(it.monthlyLimit) } ?: stringResource(R.string.budget_label_not_set),
+                            text = currentBudget?.monthlyLimit?.formatCurrency() ?: stringResource(R.string.budget_label_not_set),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -788,7 +804,7 @@ fun BudgetSuggestionCard(
                             color = colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = formatCurrency(suggestion.historicalAverage),
+                            text = suggestion.historicalAverage.formatCurrency(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -800,7 +816,7 @@ fun BudgetSuggestionCard(
                             color = colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = formatCurrency(suggestion.profileTarget),
+                            text = suggestion.profileTarget.formatCurrency(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -909,19 +925,26 @@ private fun BudgetSectionHeader(
 
 @Composable
 fun StatusBadge(status: BudgetHealthStatus) {
+    val containerColor = when (status) {
+        BudgetHealthStatus.HEALTHY -> MaterialTheme.colorScheme.successContainer
+        BudgetHealthStatus.WARNING -> MaterialTheme.colorScheme.warningContainer
+        BudgetHealthStatus.CRITICAL -> MaterialTheme.colorScheme.criticalContainer
+        BudgetHealthStatus.OVER_BUDGET -> MaterialTheme.colorScheme.criticalContainer
+    }
+    val contentColor = when (status) {
+        BudgetHealthStatus.HEALTHY -> MaterialTheme.colorScheme.onSuccessContainer
+        BudgetHealthStatus.WARNING -> MaterialTheme.colorScheme.onWarningContainer
+        BudgetHealthStatus.CRITICAL -> MaterialTheme.colorScheme.onCriticalContainer
+        BudgetHealthStatus.OVER_BUDGET -> MaterialTheme.colorScheme.onCriticalContainer
+    }
     Surface(
-        color = when (status) {
-            BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
-            BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
-            BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
-            BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
-        },
+        color = containerColor,
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(
             text = status.displayName(),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
+            color = contentColor,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
     }
@@ -1021,94 +1044,71 @@ fun AddBudgetDialog(
 ) {
     var selectedCategory by remember { mutableStateOf(ExpenseCategory.GROCERIES) }
     var amount by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.budget_set_budget_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+            Text(
+                text = stringResource(R.string.budget_set_budget_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+                SparelyExpressiveDropdown(
+                    modifier = Modifier.fillMaxWidth(),
+                    selectedOption = selectedCategory,
+                    label = stringResource(R.string.onboarding_financial_category_label),
+                    options = ExpenseCategory.entries,
+                    onOptionSelected = { category ->
+                        selectedCategory = category
+                    },
+                    optionLabel = { category ->
+                        category.displayName()
+                    },
+                    optionIcon = { category ->
+                        getCategoryIcon(category)
+                    }
                 )
 
-                Column {
-                    Text(
-                        text = stringResource(R.string.onboarding_financial_category_label),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it }
-                    ) {
-                        SparelyTextField(
-                            value = selectedCategory.displayName(),
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            for (category in ExpenseCategory.entries) {
-                                DropdownMenuItem(
-                                    text = { Text(category.displayName()) },
-                                    onClick = {
-                                        selectedCategory = category
-                                        expanded = false
-                                    }
-                                )
+            SparelyTextField(
+                value = amount,
+                onValueChange = { amount = it.filterCurrencyInput() },
+                label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
+                prefix = { Text("$") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SparelyTonalButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+                SparelyButton(
+                    onClick = {
+                        amount.toSafeDouble()?.let { limitAmount ->
+                            if (limitAmount > 0) {
+                                onConfirm(BudgetInput(selectedCategory, limitAmount))
                             }
                         }
-                    }
-                }
-
-                SparelyTextField(
-                    value = amount,
-                    onValueChange = { amount = it.filterCurrencyInput() },
-                    label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
-                    prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    },
+                    enabled = amount.toSafeDouble()?.let { it > 0 } == true,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    SparelyButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                    SparelyButton(
-                        onClick = {
-                            amount.toSafeDouble()?.let { limitAmount ->
-                                if (limitAmount > 0) {
-                                    onConfirm(BudgetInput(selectedCategory, limitAmount))
-                                }
-                            }
-                        },
-                        enabled = amount.toSafeDouble()?.let { it > 0 } == true,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.budget_set_budget_title))
-                    }
+                    Text(stringResource(R.string.action_save))
                 }
             }
         }
@@ -1126,144 +1126,128 @@ fun EditBudgetDialog(
     var amount by remember { mutableStateOf(budget.monthlyLimit.toString()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
-    if (showDeleteConfirmation) {
-        // Show inline delete confirmation
-        Dialog(onDismissRequest = { showDeleteConfirmation = false }) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        if (showDeleteConfirmation) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.WARNING,
-                            contentDescription = null,
-                            size = 32.dp,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = stringResource(R.string.budget_delete_confirmation_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Text(
-                        text = stringResource(R.string.budget_delete_confirmation_desc, budget.category.displayName()),
-                        style = MaterialTheme.typography.bodyLarge
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.WARNING,
+                        contentDescription = null,
+                        size = 32.dp,
+                        tint = MaterialTheme.colorScheme.error
                     )
-
                     Text(
-                        text = stringResource(R.string.budget_delete_undone),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SparelyButton(
-                            onClick = { showDeleteConfirmation = false },
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ) {
-                            Text(stringResource(R.string.cancel))
-                        }
-
-                        SparelyButton(
-                            onClick = onDelete,
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ) {
-                            Text(stringResource(R.string.delete))
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        Dialog(onDismissRequest = onDismiss) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.budget_edit_budget_title, budget.category.displayName()),
-                        style = MaterialTheme.typography.titleLarge,
+                        text = stringResource(R.string.budget_delete_confirmation_title),
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
+                }
 
-                    SparelyTextField(
-                        value = amount,
-                        onValueChange = { amount = it.filterCurrencyInput() },
-                        label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
-                        prefix = { Text("$") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
+                Text(
+                    text = stringResource(R.string.budget_delete_confirmation_desc, budget.category.displayName()),
+                    style = MaterialTheme.typography.bodyLarge
+                )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Text(
+                    text = stringResource(R.string.budget_delete_undone),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyTonalButton(
+                        onClick = { showDeleteConfirmation = false },
+                        modifier = Modifier.weight(1f)
                     ) {
-                        SparelyButton(
-                            onClick = { showDeleteConfirmation = true },
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.error
-                        ) {
-                            Text(stringResource(R.string.delete))
-                        }
-                        SparelyButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ) {
-                            Text(stringResource(R.string.cancel))
-                        }
+                        Text(stringResource(R.string.cancel))
                     }
 
                     SparelyButton(
-                        onClick = {
-                            amount.toSafeDouble()?.let { value ->
-                                if (value > 0) {
-                                    onConfirm(value)
-                                }
-                            }
-                        },
-                        enabled = amount.toSafeDouble()?.let { it > 0 } == true,
-                        modifier = Modifier.fillMaxWidth()
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
                     ) {
-                        Text(stringResource(R.string.save))
+                        Text(stringResource(R.string.delete))
                     }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.budget_edit_budget_title, budget.category.displayName()),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                SparelyTextField(
+                    value = amount,
+                    onValueChange = { amount = it.filterCurrencyInput() },
+                    label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
+                    prefix = { Text("$") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyTonalButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.weight(1f),
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.error
+                    ) {
+                        Text(stringResource(R.string.delete))
+                    }
+                    SparelyTonalButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+
+                SparelyButton(
+                    onClick = {
+                        amount.toSafeDouble()?.let { value ->
+                            if (value > 0) {
+                                onConfirm(value)
+                            }
+                        }
+                    },
+                    enabled = amount.toSafeDouble()?.let { it > 0 } == true,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.save))
                 }
             }
         }
     }
 }
 
-private fun formatCurrency(value: Double): String = "$" + String.format("%,.0f", value)
-private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 2.0) * 100)
 
 @Composable
 private fun SuggestionConfidence.displayName(): String = when (this) {
@@ -1286,6 +1270,7 @@ private fun BudgetHealthStatus.displayName(): String = when (this) {
 // Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
 // (It's defined as a public function there, so we can use it directly)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeleteBudgetConfirmationDialog(
     budget: CategoryBudget,
@@ -1295,97 +1280,95 @@ private fun DeleteBudgetConfirmationDialog(
     val categoryColor = getCategoryColor(budget.category)
     val categoryIcon = getCategoryIcon(budget.category)
     
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.WARNING,
+                    contentDescription = null,
+                    size = 32.dp,
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = stringResource(R.string.budget_delete_confirmation_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.budget_delete_warning_desc, budget.category.displayName()),
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Surface(
+                color = categoryColor.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     MaterialSymbolIcon(
-                        icon = MaterialSymbols.WARNING,
+                        icon = categoryIcon,
                         contentDescription = null,
-                        size = 32.dp,
-                        tint = MaterialTheme.colorScheme.error
+                        size = 24.dp,
+                        tint = categoryColor
                     )
-                    Text(
-                        text = stringResource(R.string.budget_delete_confirmation_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Text(
-                    text = stringResource(R.string.budget_delete_warning_desc, budget.category.displayName()),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-
-                Surface(
-                    color = categoryColor.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = categoryIcon,
-                            contentDescription = null,
-                            size = 24.dp,
-                            tint = categoryColor
+                    Column {
+                        Text(
+                            text = budget.category.displayName(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Column {
-                            Text(
-                                text = budget.category.displayName(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.budget_monthly_limit_stat, formatCurrency(budget.monthlyLimit)),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.budget_monthly_limit_stat, budget.monthlyLimit.formatCurrency()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
+            }
 
-                Text(
-                    text = stringResource(R.string.budget_delete_undone_extended),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Text(
+                text = stringResource(R.string.budget_delete_undone),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SparelyTonalButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    SparelyButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ) {
-                        Text(stringResource(R.string.cancel))
-                    }
+                    Text(stringResource(R.string.cancel))
+                }
 
-                    SparelyButton(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ) {
-                        Text(stringResource(R.string.delete))
-                    }
+                SparelyButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ) {
+                    Text(stringResource(R.string.delete))
                 }
             }
         }

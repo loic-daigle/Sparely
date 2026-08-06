@@ -12,6 +12,10 @@ import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,13 +25,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.sparely.domain.model.SavingsAccount
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
 import com.sparely.app.R
+import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.components.SparelyTextField
+import com.example.sparely.ui.utils.formatCurrency
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,10 +44,12 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun VaultTransfersScreen(
     vaults: List<SmartVault>,
+    savingsAccounts: List<SavingsAccount> = emptyList(),
     pendingContributions: List<VaultContribution>,
     onApproveContribution: (Long) -> Unit,
     onApproveGroup: (List<Long>) -> Unit = { ids -> ids.forEach(onApproveContribution) },
     onCancelContribution: (Long) -> Unit = {},
+    onUpdateContributionAmount: (Long, Double) -> Unit = { _, _ -> },
     onStartNotificationWorkflow: () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
@@ -55,7 +66,7 @@ fun VaultTransfersScreen(
                 }
             } else {
                 item {
-                    SummaryCard(pendingContributions, vaults)
+                    SummaryCard(pendingContributions, vaults, savingsAccounts)
                 }
                 
                 item {
@@ -77,12 +88,24 @@ fun VaultTransfersScreen(
                 val grouped = pendingContributions.groupBy { it.vaultId }
                 items(grouped.entries.toList(), key = { it.key ?: -1L }) { (vaultId, contributionsForVault) ->
                     val vault = vaults.find { it.id == vaultId }
+                    // Resolve display name: for HISA transfers (vaultId==null) look up the savings account
+                    val displayName = if (vault != null) {
+                        vault.name
+                    } else {
+                        val accountId = contributionsForVault.firstOrNull()?.savingsAccountId
+                        savingsAccounts.find { it.id == accountId }?.name
+                            ?: stringResource(R.string.vault_transfers_unknown_vault)
+                    }
+                    val isHisaTransfer = vaultId == null && contributionsForVault.any { it.savingsAccountId != null }
                     AggregatedPendingContributionCard(
                         vault = vault,
+                        displayName = displayName,
+                        isHisaTransfer = isHisaTransfer,
                         contributions = contributionsForVault,
                         onApproveAll = { ids -> onApproveGroup(ids) },
                         onApproveIndividual = onApproveContribution,
-                        onCancelIndividual = onCancelContribution
+                        onCancelIndividual = onCancelContribution,
+                        onUpdateAmount = onUpdateContributionAmount
                     )
                 }
             }
@@ -97,10 +120,10 @@ fun VaultTransfersScreen(
 
 @Composable
 private fun EmptyStateCard() {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(24.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = ExpressiveShapes.large
     ) {
         Column(
             modifier = Modifier
@@ -110,7 +133,7 @@ private fun EmptyStateCard() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(24.dp),
+                shape = ExpressiveShapes.medium,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                 modifier = Modifier.size(80.dp)
             ) {
@@ -144,18 +167,19 @@ private fun EmptyStateCard() {
 @Composable
 private fun SummaryCard(
     pendingContributions: List<VaultContribution>,
-    vaults: List<SmartVault>
+    vaults: List<SmartVault>,
+    savingsAccounts: List<SavingsAccount> = emptyList()
 ) {
     val totalPending = pendingContributions.sumOf { it.amount }
     val vaultBreakdown = pendingContributions
         .groupBy { it.vaultId }
         .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
     
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primary, // Hero style
+        containerColor = MaterialTheme.colorScheme.primary, // Hero style
         contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = RoundedCornerShape(24.dp)
+        shape = ExpressiveShapes.large
     ) {
         Column(
             modifier = Modifier
@@ -170,7 +194,7 @@ private fun SummaryCard(
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                 )
                 Text(
-                    text = String.format("$%.2f", totalPending),
+                    text = totalPending.formatCurrency(),
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -181,19 +205,23 @@ private fun SummaryCard(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 vaultBreakdown.entries.take(4).forEach { (vaultId, amount) ->
                     val vault = vaults.find { it.id == vaultId }
-                    if (vault != null) {
+                    // Resolve name: vault name or savings account name for HISA transfers
+                    val entryName = vault?.name
+                        ?: pendingContributions.firstOrNull { it.vaultId == vaultId }?.savingsAccountId
+                            ?.let { accountId -> savingsAccounts.find { it.id == accountId }?.name }
+                    if (entryName != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = vault.name,
+                                text = entryName,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = String.format("$%.2f", amount),
+                                text = amount.formatCurrency(),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -216,22 +244,40 @@ private fun SummaryCard(
 @Composable
 private fun AggregatedPendingContributionCard(
     vault: SmartVault?,
+    displayName: String = vault?.name ?: "Unknown",
+    isHisaTransfer: Boolean = false,
     contributions: List<VaultContribution>,
     onApproveAll: (List<Long>) -> Unit,
     onApproveIndividual: (Long) -> Unit,
-    onCancelIndividual: (Long) -> Unit = {}
+    onCancelIndividual: (Long) -> Unit = {},
+    onUpdateAmount: (Long, Double) -> Unit = { _, _ -> }
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showConfirmAll by remember { mutableStateOf(false) }
+    var editingContributionId by remember { mutableStateOf<Long?>(null) }
+    
+    if (editingContributionId != null) {
+        val contribution = contributions.find { it.id == editingContributionId }
+        if (contribution != null) {
+            EditAmountDialog(
+                initialAmount = contribution.amount,
+                onDismiss = { editingContributionId = null },
+                onConfirm = { newAmount ->
+                    onUpdateAmount(contribution.id, newAmount)
+                    editingContributionId = null
+                }
+            )
+        }
+    }
 
     val totalAmount = contributions.sumOf { it.amount }
     val formatter = DateTimeFormatter.ofPattern("MMM dd")
     val sources = contributions.groupBy { it.source }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = ExpressiveShapes.medium
     ) {
         Column(
             modifier = Modifier
@@ -247,13 +293,13 @@ private fun AggregatedPendingContributionCard(
                  Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                      // Vault Icon / Placeholder
                      Surface(
-                         shape = RoundedCornerShape(16.dp),
+                         shape = ExpressiveShapes.small,
                          color = MaterialTheme.colorScheme.surface, 
                          modifier = Modifier.size(56.dp)
                      ) {
                          Box(contentAlignment = Alignment.Center) {
                              MaterialSymbolIcon(
-                                 icon = MaterialSymbols.SAVINGS,
+                                 icon = if (isHisaTransfer) MaterialSymbols.ACCOUNT_BALANCE else MaterialSymbols.SAVINGS,
                                  contentDescription = null,
                                  tint = MaterialTheme.colorScheme.primary,
                                  size = 28.dp
@@ -262,7 +308,7 @@ private fun AggregatedPendingContributionCard(
                      }
                      Column {
                         Text(
-                            text = vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
+                            text = displayName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -274,7 +320,7 @@ private fun AggregatedPendingContributionCard(
                     }
                  }
                 Text(
-                    text = String.format("$%.2f", totalAmount),
+                    text = totalAmount.formatCurrency(),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -291,13 +337,14 @@ private fun AggregatedPendingContributionCard(
                         VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_transfers_source_auto_deposit)
                         VaultContributionSource.MANUAL -> stringResource(R.string.vault_transfers_source_manual)
                         VaultContributionSource.TRANSFER -> stringResource(R.string.vault_transfers_source_transfer)
+                        VaultContributionSource.INTEREST -> "Interest"
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = ExpressiveShapes.extraSmall
                     ) {
                         Text(
-                            text = "$sourceLabel: ${String.format("$%.2f", sourceTotal)}",
+                            text = "$sourceLabel: ${sourceTotal.formatCurrency()}",
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -353,12 +400,15 @@ private fun AggregatedPendingContributionCard(
                              }
                              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                  Text(
-                                     text = String.format("$%.2f", contribution.amount),
+                                     text = contribution.amount.formatCurrency(),
                                      style = MaterialTheme.typography.bodyMedium,
                                      fontWeight = FontWeight.Bold
                                  )
                                  IconButton(onClick = { onApproveIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
                                      MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = "Approve", size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                                 }
+                                 IconButton(onClick = { editingContributionId = contribution.id }, modifier = Modifier.size(32.dp)) {
+                                     MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit Amount", size = 20.dp, tint = MaterialTheme.colorScheme.primary)
                                  }
                                  IconButton(onClick = { onCancelIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
                                      MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = "Cancel", size = 20.dp, tint = MaterialTheme.colorScheme.error)
@@ -372,13 +422,13 @@ private fun AggregatedPendingContributionCard(
     }
 
     if (showConfirmAll) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showConfirmAll = false },
             title = { Text(stringResource(R.string.vault_transfers_confirm_title)) },
             text = {
                 Text(stringResource(
                     R.string.vault_transfers_confirm_desc,
-                    String.format("$%.2f", totalAmount),
+                    totalAmount.formatCurrency(),
                     vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
                     contributions.size
                 ))
@@ -404,10 +454,10 @@ private fun AggregatedPendingContributionCard(
 
 @Composable
 private fun InstructionsCard() {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(24.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = ExpressiveShapes.large
     ) {
         Column(
             modifier = Modifier
@@ -420,7 +470,7 @@ private fun InstructionsCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                   shape = RoundedCornerShape(12.dp),
+                   shape = ExpressiveShapes.small,
                    color = MaterialTheme.colorScheme.tertiaryContainer,
                    modifier = Modifier.size(40.dp)
                 ) {
@@ -477,10 +527,10 @@ private fun InstructionStep(number: String, text: String) {
 
 @Composable
 private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = RoundedCornerShape(24.dp)
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        shape = ExpressiveShapes.large
     ) {
         Row(
             modifier = Modifier
@@ -510,4 +560,45 @@ private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
             )
         }
     }
+}
+
+@Composable
+private fun EditAmountDialog(
+    initialAmount: Double,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    var amountText by remember { mutableStateOf(initialAmount.toString()) }
+    
+    SparelyAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Amount") },
+        text = {
+            SparelyTextField(
+                value = amountText,
+                onValueChange = { amountText = it },
+                label = { Text("Amount") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+         confirmButton = {
+            SparelyTextButton(
+                onClick = {
+                    val newAmount = amountText.toDoubleOrNull()
+                    if (newAmount != null && newAmount > 0) {
+                        onConfirm(newAmount)
+                    }
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            SparelyTextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

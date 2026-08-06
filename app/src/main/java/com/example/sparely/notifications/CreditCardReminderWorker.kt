@@ -77,7 +77,7 @@ class CreditCardReminderWorker(
     private fun calculateNextBillingDate(today: LocalDate, billingDay: Int): LocalDate {
         val safeBillingDay = billingDay.coerceIn(1, 28)
         var dueDate = today.withDayOfMonth(safeBillingDay)
-        if (dueDate.isBefore(today) || dueDate.isEqual(today)) {
+        if (dueDate.isBefore(today)) {
             dueDate = dueDate.plusMonths(1)
         }
         return dueDate

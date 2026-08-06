@@ -11,6 +11,7 @@ import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultSchedule
 import com.example.sparely.domain.model.VaultScheduleType
 import com.example.sparely.domain.model.VaultTransferDirection
+import com.example.sparely.domain.model.predictNextAmount
 import com.example.sparely.notifications.NotificationHelper
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -43,6 +44,7 @@ class VaultAutoDepositWorker(
                 challengeDao = database.challengeDao(),
                 achievementDao = database.achievementDao(),
                 savingsAccountDao = database.savingsAccountDao(),
+                savingsAccountTransactionDao = database.savingsAccountTransactionDao(),
                 smartVaultDao = database.smartVaultDao(),
                 mainAccountDao = database.mainAccountDao(),
                 frozenFundDao = database.frozenFundDao(),
@@ -51,6 +53,13 @@ class VaultAutoDepositWorker(
                 paymentMethodDao = database.paymentMethodDao(),
                 creditCardPaymentDao = database.creditCardPaymentDao(),
                 expenseItemDao = database.expenseItemDao(),
+                expenseRefundDao = database.expenseRefundDao(),
+                assetDao = database.assetDao(),
+                assetExpenseLinkDao = database.assetExpenseLinkDao(),
+                wishlistDao = database.wishlistDao(),
+                wishlistSavingsDao = database.wishlistSavingsDao(),
+                pendingVariableRecurringExpenseDao = database.pendingVariableRecurringExpenseDao(),
+                recurringExpensePaidDao = database.recurringExpensePaidDao(),
                 preferencesRepository = preferencesRepository,
                 database = database
             )
@@ -134,43 +143,20 @@ class VaultAutoDepositWorker(
         preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository,
         today: LocalDate
     ) {
+        val now = LocalDateTime.now()
         val recurringEntities = database.recurringExpenseDao().getAll()
-        val dueRecurring = recurringEntities.mapNotNull { entity ->
-            if (!entity.isActive) return@mapNotNull null
-            val last = entity.lastProcessedDate ?: entity.startDate.minusDays(1)
-            val daysSince = ChronoUnit.DAYS.between(last, today)
-            val isDue = when (entity.frequency) {
-                RecurringFrequency.DAILY -> daysSince >= 1
-                RecurringFrequency.WEEKLY -> daysSince >= 7
-                RecurringFrequency.BIWEEKLY -> daysSince >= 14
-                RecurringFrequency.MONTHLY -> {
-                    // Check if at least one month has passed AND the day of month is on/after the due day
-                    val startDayOfMonth = entity.startDate.dayOfMonth
-                    val monthsDiff = (today.year - last.year) * 12 + (today.monthValue - last.monthValue)
-                    // Handle shorter months: use the last day if start day exceeds month length
-                    val dueDay = minOf(startDayOfMonth, YearMonth.from(today).lengthOfMonth())
-                    monthsDiff >= 1 && today.dayOfMonth >= dueDay
-                }
-                RecurringFrequency.QUARTERLY -> {
-                    // Check if at least 3 months have passed AND the day of month is on/after the due day
-                    val startDayOfMonth = entity.startDate.dayOfMonth
-                    val monthsDiff = (today.year - last.year) * 12 + (today.monthValue - last.monthValue)
-                    val dueDay = minOf(startDayOfMonth, YearMonth.from(today).lengthOfMonth())
-                    monthsDiff >= 3 && today.dayOfMonth >= dueDay
-                }
-                RecurringFrequency.YEARLY -> {
-                    // Check if at least one year has passed AND the day/month is on/after the due date
-                    val startMonth = entity.startDate.monthValue
-                    val startDay = entity.startDate.dayOfMonth
-                    if (today.year <= last.year) {
-                        false
-                    } else {
-                        val dueDay = minOf(startDay, YearMonth.from(today).lengthOfMonth())
-                        today.monthValue > startMonth || (today.monthValue == startMonth && today.dayOfMonth >= dueDay)
-                    }
-                }
+        val dueRecurring = recurringEntities.mapNotNull { entityRow ->
+            if (!entityRow.isActive) return@mapNotNull null
+
+            val domain = entityRow.toDomain()
+            val nextRun = domain.nextRunAt ?: domain.startDate.atTime(9, 0)
+
+            // It's due if current time is on or after nextRun
+            if (!now.isBefore(nextRun)) {
+                entityRow
+            } else {
+                null
             }
-            if (isDue) entity else null
         }
 
         if (dueRecurring.isEmpty()) return
@@ -180,9 +166,30 @@ class VaultAutoDepositWorker(
         val vaults = repository.observeSmartVaults().first()
 
         dueRecurring.forEach { re ->
+            val domain = re.toDomain()
             val executeAuto = re.executeAutomatically
-            if (executeAuto) {
-                // Use the full expense processing logic (mirrors SparelyViewModel.addExpense)
+
+            // Special handling for variable amount + auto-execute
+            if (re.isVariableAmount && executeAuto) {
+                // Send notification and create pending entry instead of directly processing
+                val predictedAmount = domain.predictNextAmount()
+                NotificationHelper.showVariableRecurringExpenseNotification(
+                    context = applicationContext,
+                    recurringExpenseId = re.id,
+                    recurringExpenseName = re.description,
+                    predictedAmount = predictedAmount
+                )
+
+                // Insert into pending table for user to confirm
+                database.pendingVariableRecurringExpenseDao().insert(
+                    com.example.sparely.data.local.PendingVariableRecurringExpenseEntity(
+                        recurringExpenseId = re.id,
+                        predictedAmount = predictedAmount,
+                        createdAt = now
+                    )
+                )
+            } else if (executeAuto) {
+                // Regular non-variable auto-execute
                 repository.processRecurringExpensePayment(
                     recurringEntity = re,
                     processDate = today,
@@ -191,6 +198,7 @@ class VaultAutoDepositWorker(
                 )
                 repository.updateRecurringExpenseProcessed(re.id, today)
             } else {
+                // Not auto-execute - create frozen fund
                 repository.insertFrozenFund(
                     pendingType = "RECURRING_PAYMENT",
                     pendingId = re.id,

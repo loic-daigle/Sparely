@@ -50,6 +50,9 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
 }
 
 kapt {
@@ -87,8 +90,14 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.androidx.ui)
     implementation(libs.places)
+    implementation(libs.androidx.compose.foundation)
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // AppFunctions - Expose functions to AI assistants
+    implementation("androidx.appfunctions:appfunctions:1.0.0-alpha08")
+    implementation("androidx.appfunctions:appfunctions-service:1.0.0-alpha08")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

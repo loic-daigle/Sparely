@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.PaymentMethod
 import com.example.sparely.domain.model.PaymentMethodType
+import com.example.sparely.ui.theme.warning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,40 +60,32 @@ fun PaymentMethodSelector(
             expanded = expanded,
             onExpandedChange = { expanded = it }
         ) {
-            OutlinedTextField(
+            SparelyDropdownAnchor(
                 value = selectedMethod?.name ?: "Select payment method",
                 onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                leadingIcon = selectedMethod?.let { method -> 
-                    {
-                        PaymentMethodIcon(method = method)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                shape = RoundedCornerShape(12.dp),
-                textStyle = MaterialTheme.typography.bodyMedium
+                expanded = expanded,
+                label = "Payment Method",
+                leadingIcon = selectedMethod?.let { method -> { PaymentMethodIcon(method = method) } },
+                modifier = Modifier.fillMaxWidth()
             )
 
-            ExposedDropdownMenu(
+            SparelyDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
                 paymentMethods.forEach { method ->
-                    DropdownMenuItem(
+                    SparelyDropdownMenuItem(
                         text = { 
                             Column {
                                 Text(method.name)
                                 if (method.isCreditCard) {
-                                    val utilization = (method.utilizationPercent * 100).toInt()
+                                    val utilizationPercentStr = method.utilizationPercent.formatPercent()
                                     Text(
-                                        "Balance: $${String.format("%.2f", method.currentBalance)} ($utilization%)",
+                                        "Balance: ${method.currentBalance.formatCurrency()} ($utilizationPercentStr used)",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = when {
                                             method.isUtilizationHealthy -> MaterialTheme.colorScheme.onSurfaceVariant
-                                            method.isUtilizationWarning -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                            method.isUtilizationWarning -> MaterialTheme.colorScheme.warning
                                             else -> MaterialTheme.colorScheme.error
                                         }
                                     )
@@ -98,6 +93,7 @@ fun PaymentMethodSelector(
                             }
                         },
                         leadingIcon = { PaymentMethodIcon(method = method) },
+                        isSelected = method == selectedMethod,
                         onClick = {
                             onMethodSelected(method)
                             expanded = false
@@ -106,10 +102,13 @@ fun PaymentMethodSelector(
                 }
                 
                 if (paymentMethods.isNotEmpty()) {
-                    androidx.compose.material3.HorizontalDivider()
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                 }
                 
-                DropdownMenuItem(
+                SparelyDropdownMenuItem(
                     text = { Text("Manage methods") },
                     leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null) },
                     onClick = {
@@ -141,7 +140,7 @@ fun PaymentMethodSelector(
                         ) {
                             Text("Current Balance", style = MaterialTheme.typography.bodySmall)
                             Text(
-                                "$${String.format("%.2f", method.currentBalance)}",
+                                method.currentBalance.formatCurrency(),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -151,7 +150,7 @@ fun PaymentMethodSelector(
                         ) {
                             Text("Available Credit", style = MaterialTheme.typography.bodySmall)
                             Text(
-                                "$${String.format("%.2f", method.availableCredit)}",
+                                method.availableCredit.formatCurrency(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -163,11 +162,11 @@ fun PaymentMethodSelector(
                             Text("Current Utilization", style = MaterialTheme.typography.bodySmall)
                             val utilizationColor = when {
                                 method.isUtilizationHealthy -> MaterialTheme.colorScheme.primary
-                                method.isUtilizationWarning -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                method.isUtilizationWarning -> MaterialTheme.colorScheme.warning
                                 else -> MaterialTheme.colorScheme.error
                             }
                             Text(
-                                "${String.format("%.1f", currentUtilization * 100)}%",
+                                currentUtilization.formatPercent(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = utilizationColor
                             )
@@ -178,11 +177,11 @@ fun PaymentMethodSelector(
                             Spacer(modifier = Modifier.size(4.dp))
                             val projectedColor = when {
                                 projectedUtilization <= 0.30 -> MaterialTheme.colorScheme.primary
-                                projectedUtilization <= 0.50 -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                projectedUtilization <= 0.50 -> MaterialTheme.colorScheme.warning
                                 else -> MaterialTheme.colorScheme.error
                             }
                             Text(
-                                "⚠️ After this expense: ${String.format("%.1f", projectedUtilization * 100)}% utilization",
+                                "⚠️ After this expense: ${projectedUtilization.formatPercent()} utilization",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = projectedColor
                             )
@@ -200,7 +199,7 @@ fun PaymentMethodSelector(
                                 color = if (method.isUtilizationDanger) 
                                     MaterialTheme.colorScheme.error 
                                 else 
-                                    androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                    MaterialTheme.colorScheme.warning
                             )
                         }
                         

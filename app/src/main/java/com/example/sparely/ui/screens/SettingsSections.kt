@@ -11,6 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.*
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
@@ -18,7 +20,9 @@ import com.example.sparely.ui.utils.toSafeDouble
 import com.sparely.app.R
 import java.time.Instant
 import java.time.ZoneOffset
+import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -27,6 +31,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsMainAccountCard(
     monthlyIncomeText: String,
@@ -36,12 +41,20 @@ fun SettingsMainAccountCard(
     onMainAccountBalanceTextChange: (String) -> Unit,
     onUpdateBalance: () -> Unit,
     includeTax: Boolean,
-    onIncludeTaxToggle: (Boolean) -> Unit
+    onIncludeTaxToggle: (Boolean) -> Unit,
+    minMainAccountBalanceText: String,
+    onMinMainAccountBalanceTextChange: (String) -> Unit,
+    onUpdateMinBalance: () -> Unit,
+    smartVaults: List<SmartVault>,
+    savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount>,
+    mainOverflowAccountId: Long?,
+    onMainOverflowAccountIdChange: (Long?) -> Unit,
+    onManageSavingsAccounts: () -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_income_tax_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -84,9 +97,91 @@ fun SettingsMainAccountCard(
             ) {
                 Text(stringResource(R.string.settings_main_account_update_balance))
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+             // Minimum Balance
+            SparelyTextField(
+                value = minMainAccountBalanceText,
+                onValueChange = { onMinMainAccountBalanceTextChange(it.filterCurrencyInput()) },
+                label = { Text("Minimum Balance Protection") },
+                prefix = { Text("$") },
+                supportingText = { Text("Saving Tax & Transfers will stop if balance falls below this.") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
+            SparelyTonalButton(
+                onClick = onUpdateMinBalance,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Update Minimum Balance")
+            }
+
+            HorizontalDivider()
+
+            // HISA Overflow
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("High Interest Account (Overflow)", style = MaterialTheme.typography.titleSmall)
+                    SparelyTextButton(onClick = onManageSavingsAccounts) {
+                        Text("Manage")
+                    }
+                }
+                Text(
+                    "Excess funds after allocations will be sent here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                
+                var expanded by remember { mutableStateOf(false) }
+                val selectedVaultName = savingsAccounts.find { it.id == mainOverflowAccountId }?.name ?: "None"
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                ) {
+                    SparelyDropdownAnchor(
+                        value = selectedVaultName,
+                        onValueChange = {},
+                        expanded = expanded,
+                        label = "Select HISA Vault",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SparelyDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        SparelyDropdownMenuItem(
+                            text = { Text("None") },
+                            isSelected = mainOverflowAccountId == null,
+                            onClick = {
+                                onMainOverflowAccountIdChange(null)
+                                expanded = false
+                            },
+                        )
+                        savingsAccounts.forEach { account ->
+                            SparelyDropdownMenuItem(
+                                text = { Text(account.name) },
+                                isSelected = mainOverflowAccountId == account.id,
+                                onClick = {
+                                    onMainOverflowAccountIdChange(account.id)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -110,10 +205,10 @@ fun SettingsSmartSavingsCard(
     activeSavingTaxRate: Double,
     onDynamicSavingTaxToggle: (Boolean) -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_vault_automation_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -155,7 +250,7 @@ fun SettingsSmartSavingsCard(
                 (savingTaxRatePercent / 100f).toDouble()
             }
 
-            fun formatPer(v: Double): String = String.format("%.1f%%", v * 100)
+            fun formatPer(v: Double): String = v.formatPercent(1)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -213,6 +308,167 @@ fun SettingsSmartSavingsCard(
 }
 
 @Composable
+fun SettingsSmartTransferCard(
+    minimumAmount: Double,
+    onMinimumAmountChange: (Double) -> Unit,
+    currencySymbol: String = "$"
+) {
+    var amountText by remember(minimumAmount) { 
+        mutableStateOf(if (minimumAmount > 0) minimumAmount.toString() else "") 
+    }
+    
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.settings_smart_transfer_title), 
+                style = MaterialTheme.typography.titleSmall, 
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(R.string.settings_smart_transfer_minimum_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            SparelyTextField(
+                value = amountText,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filterCurrencyInput()
+                    amountText = filtered
+                },
+                label = { Text(stringResource(R.string.settings_smart_transfer_minimum_label)) },
+                prefix = { Text(currencySymbol) },
+                placeholder = { Text(stringResource(R.string.settings_smart_transfer_minimum_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            SparelyTonalButton(
+                onClick = { 
+                    val amount = amountText.toSafeDouble() ?: 0.0
+                    onMinimumAmountChange(amount.coerceAtLeast(0.0))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.action_save))
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsAutoBackupCard(
+    autoBackupEnabled: Boolean,
+    autoBackupFrequencyDays: Int,
+    lastAutoBackupTimestamp: Long?,
+    onAutoBackupEnabledChange: (Boolean, Int) -> Unit,
+    onBackupNowClick: () -> Unit
+) {
+    var selectedFrequency by remember(autoBackupFrequencyDays) { mutableStateOf(autoBackupFrequencyDays) }
+
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.settings_auto_backup_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(R.string.settings_auto_backup_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Automatic backups are stored locally on your device and can be restored anytime.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.settings_auto_backup_enable), style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = autoBackupEnabled,
+                    onCheckedChange = { enabled ->
+                        onAutoBackupEnabledChange(enabled, selectedFrequency)
+                    }
+                )
+            }
+
+            if (autoBackupEnabled) {
+                Text(stringResource(R.string.settings_auto_backup_frequency_label), style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyChip(
+                        selected = selectedFrequency == 1,
+                        onClick = {
+                            selectedFrequency = 1
+                            onAutoBackupEnabledChange(true, 1)
+                        },
+                        label = { Text(stringResource(R.string.settings_auto_backup_frequency_daily)) }
+                    )
+                    SparelyChip(
+                        selected = selectedFrequency == 7,
+                        onClick = {
+                            selectedFrequency = 7
+                            onAutoBackupEnabledChange(true, 7)
+                        },
+                        label = { Text(stringResource(R.string.settings_auto_backup_frequency_weekly)) }
+                    )
+                    SparelyChip(
+                        selected = selectedFrequency == 30,
+                        onClick = {
+                            selectedFrequency = 30
+                            onAutoBackupEnabledChange(true, 30)
+                        },
+                        label = { Text(stringResource(R.string.settings_auto_backup_frequency_monthly)) }
+                    )
+                }
+            }
+
+            // Last backup info
+            val lastBackupText = if (lastAutoBackupTimestamp != null) {
+                val instant = java.time.Instant.ofEpochMilli(lastAutoBackupTimestamp)
+                val dateTime = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a")
+                stringResource(R.string.settings_auto_backup_last_backup, dateTime.format(formatter))
+            } else {
+                stringResource(R.string.settings_auto_backup_last_backup, stringResource(R.string.settings_auto_backup_never))
+            }
+
+            Text(
+                text = lastBackupText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            SparelyTonalButton(
+                onClick = onBackupNowClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Trigger Backup Now")
+            }
+
+            Text(
+                text = stringResource(R.string.settings_auto_backup_location),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun SettingsBudgetCard(
     autoModeEnabled: Boolean,
     onAutoToggle: (Boolean) -> Unit,
@@ -224,12 +480,12 @@ fun SettingsBudgetCard(
     onInvestChange: (Float) -> Unit,
     onFunChange: (Float) -> Unit
 ) {
-    fun formatPer(v: Double): String = String.format("%.0f%%", v * 100)
+    fun formatPer(v: Double): String = v.formatPercent(0)
     
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -277,10 +533,10 @@ fun SettingsSecurityCard(
     onBiometricEnabledChange: (Boolean) -> Unit,
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_security_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -334,45 +590,69 @@ fun SettingsDataCard(
 ) {
     var brandfetchKey by remember(brandfetchClientId) { mutableStateOf(brandfetchClientId ?: "") }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_data_privacy_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = stringResource(R.string.settings_backup_info),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            SparelyTonalButton(
-                onClick = onExportBackupClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.UPLOAD_FILE), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.settings_export_backup))
+
+            // Backup & Restore Section
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_backup_info),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SparelyTonalButton(
+                        onClick = onExportBackupClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.UPLOAD_FILE), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.settings_export_backup), fontSize = MaterialTheme.typography.labelSmall.fontSize)
+                    }
+
+                    SparelyTonalButton(
+                        onClick = onImportBackupClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.DOWNLOAD), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.settings_restore_backup), fontSize = MaterialTheme.typography.labelSmall.fontSize)
+                    }
+                }
             }
-            
-            SparelyTonalButton(
-                onClick = onExportCsvClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.CSV), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.settings_export_csv))
-            }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
-            SparelyTonalButton(
-                onClick = onImportBackupClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.DOWNLOAD), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.settings_restore_backup))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Export Data Section
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Export Expenses",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Export your expense history as a spreadsheet for analysis or records",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                SparelyTonalButton(
+                    onClick = onExportCsvClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.CSV), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.settings_export_csv))
+                }
             }
             
             
@@ -385,21 +665,21 @@ fun SettingsDataCard(
                 expanded = retentionExpanded,
                 onExpandedChange = { retentionExpanded = it }
             ) {
-                SparelyTextField(
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                SparelyDropdownAnchor(
                     value = settings.expenseHistoryRetention.label,
                     onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.settings_history_retention_all).substringBefore(" ")) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = retentionExpanded) }
+                    expanded = retentionExpanded,
+                    label = stringResource(R.string.settings_history_retention_all).substringBefore(" "),
+                    modifier = Modifier.fillMaxWidth()
                 )
-                ExposedDropdownMenu(
+                SparelyDropdownMenu(
                     expanded = retentionExpanded,
                     onDismissRequest = { retentionExpanded = false }
                 ) {
                     ExpenseHistoryRetention.entries.forEach { retention ->
-                         DropdownMenuItem(
+                         SparelyDropdownMenuItem(
                              text = { Text(retention.label) },
+                             isSelected = settings.expenseHistoryRetention == retention,
                              onClick = {
                                  onExpenseHistoryRetentionChange(retention)
                                  retentionExpanded = false
@@ -455,35 +735,39 @@ fun SettingsDataCard(
             var showResetConfirmation by remember { mutableStateOf(false) }
 
             if (showResetConfirmation) {
-                AlertDialog(
+                SparelyAlertDialog(
                     onDismissRequest = { showResetConfirmation = false },
                     title = { Text(stringResource(R.string.settings_reset_history_confirm_title)) },
                     text = { Text(stringResource(R.string.settings_reset_history_confirm_message)) },
                     confirmButton = {
-                        TextButton(
+                        SparelyButton(
                             onClick = {
                                 onResetHistory(false)
                                 showResetConfirmation = false
-                            }
+                            },
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         ) {
-                            Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.action_delete))
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showResetConfirmation = false }) {
+                        SparelyTextButton(onClick = { showResetConfirmation = false }) {
                             Text(stringResource(R.string.action_cancel))
                         }
                     }
                 )
             }
 
-            Button(
+            SparelyButton(
                 onClick = { showResetConfirmation = true },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+                icon = {
+                    Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.DELETE), contentDescription = null, modifier = Modifier.size(20.dp))
+                }
             ) {
-                Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.DELETE), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.settings_reset_history))
             }
         }

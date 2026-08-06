@@ -20,9 +20,12 @@ class CurrencyFormatter(private val regionalSettings: RegionalSettings) {
      * Example: "$1,234.56", "€1.234,56", "¥1,234"
      */
     fun format(amount: Double): String {
+        // Avoid negative zero and very small negative values rounding to -0.00
+        val sanitizedAmount = if (amount > -0.005 && amount <= 0.0) 0.0 else amount
         val formatter = NumberFormat.getCurrencyInstance(locale)
         formatter.currency = currency
-        return formatter.format(amount)
+        formatter.isGroupingUsed = true // Default to true for readable formatted output
+        return formatter.format(sanitizedAmount)
     }
     
     /**
@@ -30,14 +33,12 @@ class CurrencyFormatter(private val regionalSettings: RegionalSettings) {
      * Example: "1,234.56", "1.234,56"
      */
     fun formatWithoutSymbol(amount: Double): String {
+        // Avoid negative zero and very small negative values rounding to -0.00
+        val sanitizedAmount = if (amount > -0.005 && amount <= 0.0) 0.0 else amount
         val symbols = DecimalFormatSymbols(locale)
-        val pattern = if (amount.rem(1.0) == 0.0) {
-            "#,##0"
-        } else {
-            "#,##0.00"
-        }
-        val formatter = DecimalFormat(pattern, symbols)
-        return formatter.format(amount)
+        val formatter = DecimalFormat("0.00", symbols)
+        formatter.isGroupingUsed = true
+        return formatter.format(sanitizedAmount)
     }
     
     /**

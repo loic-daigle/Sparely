@@ -23,6 +23,12 @@ interface RecurringExpenseDao {
     @Query("SELECT * FROM recurring_expenses")
     suspend fun getAll(): List<RecurringExpenseEntity>
 
+    @Query("SELECT * FROM recurring_expenses WHERE id = :id")
+    suspend fun getById(id: Long): RecurringExpenseEntity?
+
+    @androidx.room.Update
+    suspend fun update(entity: RecurringExpenseEntity)
+
     @Query("DELETE FROM recurring_expenses")
     suspend fun clear()
 }

@@ -39,6 +39,11 @@ enum class ExpenseCategory {
     OTHER
 }
 
+enum class ExpenseType {
+    PRODUCT,
+    SERVICE
+}
+
 enum class IncomeCategory {
     SALARY,
     FREELANCE,
@@ -144,4 +149,9 @@ fun IncomeCategory.displayName(): String = when (this) {
     IncomeCategory.GIFT -> "Gift"
     IncomeCategory.INVESTMENT -> "Investment"
     IncomeCategory.OTHER -> "Other"
+}
+
+fun ExpenseType.displayName(): String = when (this) {
+    ExpenseType.PRODUCT -> "Product"
+    ExpenseType.SERVICE -> "Service"
 }

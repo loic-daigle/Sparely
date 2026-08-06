@@ -23,7 +23,8 @@ data class ExpenseItemEntity(
     val name: String,
     val quantity: Int = 1,
     val unitPrice: Double,
-    val totalPrice: Double = quantity * unitPrice
+    val totalPrice: Double = quantity * unitPrice,
+    val type: String = "PRODUCT" // PRODUCT or SERVICE
 )
 
 data class ExpenseWithItemsRelation(

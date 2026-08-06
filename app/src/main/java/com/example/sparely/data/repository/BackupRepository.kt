@@ -41,7 +41,7 @@ class BackupRepository(
         val recurring = savingsRepository.observeRecurringExpenses().first()
         val transactions = savingsRepository.observeMainAccountTransactions().first()
         val frozenFunds = savingsRepository.observeFrozenFunds().first()
-        
+
         // Ensure we fetch lists, defaulting to empty if null/error (though repository methods shouldn't return null)
         val challenges = savingsRepository.getAllChallenges()
         val achievements = savingsRepository.getAllAchievements()
@@ -54,7 +54,14 @@ class BackupRepository(
         val paymentMethods = savingsRepository.observePaymentMethods().first()
         val creditCardPayments = savingsRepository.getAllCreditCardPayments()
         val expenseItems = savingsRepository.getAllExpenseItems()
-        
+
+        // New: Assets, wishlists, and refunds
+        val assets = savingsRepository.getActiveAssets()
+        val assetExpenseLinks = savingsRepository.getAllAssetExpenseLinks()
+        val wishlists = savingsRepository.getActiveWishlists()
+        val wishlistSavings = savingsRepository.getAllWishlistSavings()
+        val expenseRefunds = savingsRepository.getAllExpenseRefunds()
+
         val backup = BackupData(
             settings = settings,
             vaults = vaults,
@@ -74,9 +81,14 @@ class BackupRepository(
             mainAccountBalance = mainAccountBalance,
             paymentMethods = paymentMethods,
             creditCardPayments = creditCardPayments,
-            expenseItems = expenseItems
+            expenseItems = expenseItems,
+            assets = assets,
+            assetExpenseLinks = assetExpenseLinks,
+            wishlists = wishlists,
+            wishlistSavings = wishlistSavings,
+            expenseRefunds = expenseRefunds
         )
-        
+
         gson.toJson(backup)
     }
 
@@ -110,6 +122,12 @@ class BackupRepository(
                 savingsRepository.clearPaymentMethods()
                 savingsRepository.clearCreditCardPayments()
                 savingsRepository.clearExpenseItems()
+                // New: Clear assets, wishlists, and refunds
+                savingsRepository.clearAssets()
+                savingsRepository.clearAssetExpenseLinks()
+                savingsRepository.clearWishlists()
+                savingsRepository.clearWishlistSavings()
+                savingsRepository.clearExpenseRefunds()
                 android.util.Log.d("BackupRepository", "Cleared existing data")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to clear existing data", e)
@@ -264,7 +282,36 @@ class BackupRepository(
                 android.util.Log.e("BackupRepository", "Failed to restore expense items", e)
                 throw e
             }
-            
+
+            // 9. Assets & Asset Links (may be null in older backups)
+            try {
+                backup.assets.orEmpty().forEach { savingsRepository.upsertAsset(it) }
+                backup.assetExpenseLinks.orEmpty().forEach { savingsRepository.insertAssetExpenseLink(it) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.assets?.size ?: 0} assets, ${backup.assetExpenseLinks?.size ?: 0} asset links")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore assets/links", e)
+                throw e
+            }
+
+            // 10. Wishlists & Wishlist Savings (may be null in older backups)
+            try {
+                backup.wishlists.orEmpty().forEach { savingsRepository.upsertWishlist(it) }
+                backup.wishlistSavings.orEmpty().forEach { savingsRepository.insertWishlistSavings(it) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.wishlists?.size ?: 0} wishlists, ${backup.wishlistSavings?.size ?: 0} wishlist savings")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore wishlists", e)
+                throw e
+            }
+
+            // 11. Expense Refunds (may be null in older backups)
+            try {
+                backup.expenseRefunds.orEmpty().forEach { savingsRepository.recordRefund(it.expenseId, it.refundedAmount, it.refundDate, it.refundMethod, it.reason, it.refundedItemIds) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.expenseRefunds?.size ?: 0} expense refunds")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore expense refunds", e)
+                throw e
+            }
+
             android.util.Log.d("BackupRepository", "Restore complete!")
         }
     }

@@ -13,13 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -40,10 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.example.sparely.domain.model.Store
 import com.example.sparely.domain.model.StoreInput
+import com.example.sparely.ui.components.SparelyBottomSheet
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import kotlinx.coroutines.launch
 
 /**
@@ -122,10 +118,7 @@ fun SearchableStoreSelector(
                     onStoreSelected(null)
                     onSearchQueryChange("") // Clear search when clearing selection
                 }) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear store"
-                    )
+                    MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = "Clear store")
                 }
             }
         } else {
@@ -151,7 +144,7 @@ fun SearchableStoreSelector(
                                 onSearchQueryChange("")
                                 onBrandSearch("")
                             }) {
-                                Icon(Icons.Default.Clear, "Clear search")
+                                MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = "Clear search")
                             }
                         } else {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -159,15 +152,15 @@ fun SearchableStoreSelector(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor(MenuAnchorType.PrimaryEditable)
                 )
                 
-                ExposedDropdownMenu(
+                SparelyDropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {
                     // Option to clear/skip
-                    DropdownMenuItem(
+                    SparelyDropdownMenuItem(
                         text = {
                             Column {
                                 Text("None")
@@ -178,6 +171,7 @@ fun SearchableStoreSelector(
                                 )
                             }
                         },
+                        isSelected = selectedStore == null && searchQuery.isEmpty(),
                         onClick = {
                             onStoreSelected(null)
                             onSearchQueryChange("")
@@ -187,20 +181,15 @@ fun SearchableStoreSelector(
                     
                     // Filtered local stores
                     if (filteredStores.isNotEmpty()) {
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    text = "Your Stores",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            onClick = {},
-                            enabled = false
+                        Text(
+                            text = "Your Stores",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                         
                         filteredStores.forEach { store ->
-                            DropdownMenuItem(
+                            SparelyDropdownMenuItem(
                                 text = { 
                                     Column {
                                         Text(store.name)
@@ -226,8 +215,8 @@ fun SearchableStoreSelector(
                                             },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
+                                            MaterialSymbolIcon(
+                                                icon = MaterialSymbols.EDIT,
                                                 contentDescription = "Edit store",
                                                 modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -242,8 +231,8 @@ fun SearchableStoreSelector(
                                             },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
+                                            MaterialSymbolIcon(
+                                                icon = MaterialSymbols.DELETE,
                                                 contentDescription = "Delete store",
                                                 modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.error
@@ -251,6 +240,7 @@ fun SearchableStoreSelector(
                                         }
                                     }
                                 },
+                                isSelected = selectedStore?.id == store.id,
                                 onClick = {
                                     onStoreSelected(store)
                                     onSearchQueryChange("")
@@ -263,20 +253,15 @@ fun SearchableStoreSelector(
                     
                     // Remote brand results
                     if (brandSearchResults.isNotEmpty() && searchQuery.isNotBlank()) {
-                         DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    text = "Found on Brandfetch",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            onClick = {},
-                            enabled = false
-                        )
+                         Text(
+                             text = "Found on Brandfetch",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.primary,
+                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                         )
                         
                         brandSearchResults.forEach { brand ->
-                            DropdownMenuItem(
+                            SparelyDropdownMenuItem(
                                 text = { 
                                     Column {
                                         Text(brand.name ?: "Unknown")
@@ -298,7 +283,7 @@ fun SearchableStoreSelector(
                                             contentScale = ContentScale.Crop
                                         )
                                     } else {
-                                        Icon(Icons.Default.Store, null)
+                                        MaterialSymbolIcon(icon = MaterialSymbols.STORE, contentDescription = null)
                                     }
                                 },
                                 onClick = {
@@ -316,19 +301,14 @@ fun SearchableStoreSelector(
                         }
                     } else if (searchQuery.isNotBlank() && stores.none { it.name.equals(searchQuery, ignoreCase = true) }) {
                         // Create new manually
-                         DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    text = "Don't see it?",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                             onClick = {},
-                            enabled = false
-                        )
+                         Text(
+                             text = "Don't see it?",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.primary,
+                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                         )
                         
-                        DropdownMenuItem(
+                        SparelyDropdownMenuItem(
                             text = {
                                 Column {
                                     Text("Add \"$searchQuery\"")
@@ -340,8 +320,8 @@ fun SearchableStoreSelector(
                                 }
                             },
                             leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.ADD,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -445,8 +425,8 @@ private fun DefaultStoreIcon(size: Int) {
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Store,
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.STORE,
             contentDescription = null,
             modifier = Modifier.size((size * 0.6f).dp),
             tint = MaterialTheme.colorScheme.primary
@@ -455,8 +435,9 @@ private fun DefaultStoreIcon(size: Int) {
 }
 
 /**
- * Dialog for adding a new store with optional website URL.
+ * Bottom sheet for adding a new store with optional website URL.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddStoreDialog(
     storeName: String,
@@ -466,7 +447,7 @@ private fun AddStoreDialog(
 ) {
     var name by remember { mutableStateOf(storeName) }
     // Auto-generate initial URL from store name, or use provided initial URL
-    var websiteUrl by remember(initialWebsiteUrl, storeName) { 
+    var websiteUrl by remember(initialWebsiteUrl, storeName) {
         mutableStateOf(
             if (initialWebsiteUrl.isNotBlank()) {
                 initialWebsiteUrl
@@ -475,81 +456,82 @@ private fun AddStoreDialog(
             } else {
                 ""
             }
-        ) 
+        )
     }
     var userEditedUrl by remember { mutableStateOf(false) }
-    
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Text(
+                text = "Add New Store",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            SparelyTextField(
+                value = name,
+                onValueChange = { newName ->
+                    name = newName
+                    // Auto-update URL only if user hasn't manually edited it
+                    if (!userEditedUrl && newName.isNotBlank()) {
+                        websiteUrl = "${newName.trim().lowercase().replace(" ", "")}.com"
+                    }
+                },
+                label = { Text("Store Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            SparelyTextField(
+                value = websiteUrl,
+                onValueChange = {
+                    websiteUrl = it
+                    userEditedUrl = true // Mark as manually edited
+                },
+                label = { Text("Website URL (optional)") },
+                placeholder = { Text("e.g., amazon.com") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                text = "Adding a website URL will display the store's logo automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Add New Store",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                
-                SparelyTextField(
-                    value = name,
-                    onValueChange = { newName ->
-                        name = newName
-                        // Auto-update URL only if user hasn't manually edited it
-                        if (!userEditedUrl && newName.isNotBlank()) {
-                            websiteUrl = "${newName.trim().lowercase().replace(" ", "")}.com"
+                SparelyTextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Cancel")
+                }
+                SparelyButton(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            onConfirm(
+                                StoreInput(
+                                    name = name.trim(),
+                                    websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
+                                )
+                            )
                         }
                     },
-                    label = { Text("Store Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                SparelyTextField(
-                    value = websiteUrl,
-                    onValueChange = { 
-                        websiteUrl = it
-                        userEditedUrl = true // Mark as manually edited
-                    },
-                    label = { Text("Website URL (optional)") },
-                    placeholder = { Text("e.g., amazon.com") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Text(
-                    text = "Adding a website URL will display the store's logo automatically.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.weight(1f),
+                    enabled = name.isNotBlank()
                 ) {
-                    SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancel")
-                    }
-                    SparelyButton(
-                        onClick = {
-                            if (name.isNotBlank()) {
-                                onConfirm(
-                                    StoreInput(
-                                        name = name.trim(),
-                                        websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
-                                    )
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = name.isNotBlank()
-                    ) {
-                        Text("Add")
-                    }
+                    Text("Add")
                 }
             }
         }
@@ -557,8 +539,9 @@ private fun AddStoreDialog(
 }
 
 /**
- * Dialog for editing an existing store.
+ * Bottom sheet for editing an existing store.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditStoreDialog(
     store: Store,
@@ -567,69 +550,70 @@ private fun EditStoreDialog(
 ) {
     var name by remember { mutableStateOf(store.name) }
     var websiteUrl by remember { mutableStateOf(store.websiteUrl ?: "") }
-    
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Text(
+                text = "Edit Store",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            SparelyTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Store Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            SparelyTextField(
+                value = websiteUrl,
+                onValueChange = { websiteUrl = it },
+                label = { Text("Website URL (optional)") },
+                placeholder = { Text("e.g., amazon.com") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                text = "The website URL is used to fetch the store's logo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Edit Store",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                
-                SparelyTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Store Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                SparelyTextField(
-                    value = websiteUrl,
-                    onValueChange = { websiteUrl = it },
-                    label = { Text("Website URL (optional)") },
-                    placeholder = { Text("e.g., amazon.com") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Text(
-                    text = "The website URL is used to fetch the store's logo.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                SparelyTextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancel")
-                    }
-                    SparelyButton(
-                        onClick = {
-                            if (name.isNotBlank()) {
-                                onConfirm(
-                                    store.copy(
-                                        name = name.trim(),
-                                        websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
-                                    )
+                    Text("Cancel")
+                }
+                SparelyButton(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            onConfirm(
+                                store.copy(
+                                    name = name.trim(),
+                                    websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
                                 )
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = name.isNotBlank()
-                    ) {
-                        Text("Save")
-                    }
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = name.isNotBlank()
+                ) {
+                    Text("Save")
                 }
             }
         }

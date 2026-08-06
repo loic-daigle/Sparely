@@ -17,15 +17,15 @@ interface MainAccountDao {
     suspend fun insertTransactionVaultCrossRef(crossRef: TransactionVaultContributionCrossRef)
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC")
+    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC, id DESC")
     fun observeAllTransactions(): Flow<List<MainAccountTransactionDetails>>
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC LIMIT :limit")
+    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC, id DESC LIMIT :limit")
     suspend fun getRecentTransactions(limit: Int = 50): List<MainAccountTransactionDetails>
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM main_account_transactions WHERE timestamp >= :since ORDER BY timestamp DESC")
+    @Query("SELECT * FROM main_account_transactions WHERE timestamp >= :since ORDER BY timestamp DESC, id DESC")
     suspend fun getTransactionsSince(since: LocalDateTime): List<MainAccountTransactionDetails>
 
     @androidx.room.Transaction
@@ -33,7 +33,7 @@ interface MainAccountDao {
     suspend fun getTransactionById(id: Long): MainAccountTransactionDetails?
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC LIMIT 1")
+    @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC, id DESC LIMIT 1")
     suspend fun getLatestTransaction(): MainAccountTransactionDetails?
 
     @Query("DELETE FROM main_account_transactions WHERE id = :id")
@@ -42,6 +42,6 @@ interface MainAccountDao {
     @Query("DELETE FROM main_account_transactions")
     suspend fun deleteAllTransactions()
 
-    @Query("SELECT IFNULL(SUM(CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAWAL' THEN -amount WHEN type = 'EXPENSE' THEN -amount WHEN type = 'VAULT_CONTRIBUTION' THEN -amount WHEN type = 'ADJUSTMENT' THEN amount WHEN type = 'CREDIT_CARD_PAYMENT' THEN -amount ELSE 0 END), 0.0) FROM main_account_transactions")
+    @Query("SELECT IFNULL(SUM(CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAWAL' THEN -amount WHEN type = 'EXPENSE' THEN -amount WHEN type = 'VAULT_CONTRIBUTION' THEN -amount WHEN type = 'ADJUSTMENT' THEN amount WHEN type = 'CREDIT_CARD_PAYMENT' THEN -amount WHEN type = 'HISA_TRANSFER' THEN amount ELSE 0 END), 0.0) FROM main_account_transactions")
     suspend fun calculateBalanceFromTransactions(): Double
 }

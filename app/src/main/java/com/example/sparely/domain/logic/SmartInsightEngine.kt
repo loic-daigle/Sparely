@@ -4,11 +4,14 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultType
+import com.example.sparely.domain.model.balanceAfterMonths
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.math.max
 
 /**
  * Engine for generating smart insights including recurring pattern detection,
@@ -58,8 +61,18 @@ object SmartInsightEngine {
         val excessAmount: Double,
         val suggestedTransferAmount: Double,
         val suggestedVault: SmartVault?,
-        val projectedMonthlyInterest: Double,
-        val projectedAnnualInterest: Double
+        val estimatedMonthlyInterest: Double,
+        val estimatedAnnualInterest: Double,
+        val estimatedMonthlySavings: Double = 0.0,
+        val growthProjections: Map<Int, Double> = emptyMap() // Months -> Projected Balance
+    )
+
+    data class LowBalanceInsight(
+        val currentBalance: Double,
+        val minRequiredBalance: Double,
+        val shortfall: Double,
+        val suggestedSourceVaultId: Long?,
+        val suggestedSourceVaultName: String?
     )
 
     data class SeasonalInsight(
@@ -136,7 +149,7 @@ object SmartInsightEngine {
         val coefficientOfVariation = if (avgInterval > 0) stdDev / avgInterval else 1.0
         val confidence = (1.0 - coefficientOfVariation.coerceIn(0.0, 1.0)).coerceIn(0.0, 1.0)
 
-        val averageAmount = cluster.map { it.amount }.average()
+        val averageAmount = cluster.map { it.amount }.average().roundToTwoDecimals()
         val lastSeen = sorted.last().date
 
         // Predict next occurrence
@@ -151,7 +164,7 @@ object SmartInsightEngine {
             PatternFrequency.BIWEEKLY -> 2.17
             PatternFrequency.MONTHLY -> 1.0
         }
-        val monthlyImpact = averageAmount * occurrencesPerMonth
+        val monthlyImpact = (averageAmount * occurrencesPerMonth).roundToTwoDecimals()
 
         return RecurringPatternInsight(
             description = sorted.first().description, // Use original description
@@ -250,6 +263,9 @@ object SmartInsightEngine {
         currentBalance: Double,
         expenses: List<Expense>,
         vaults: List<SmartVault>,
+        minMainAccountBalance: Double = 0.0,
+        monthlyIncome: Double = 0.0,
+        mainOverflowAccountId: Long? = null,
         defaultApy: Double = DEFAULT_APY
     ): IdleMoneyInsight? {
         if (currentBalance <= 0) return null
@@ -257,43 +273,71 @@ object SmartInsightEngine {
         // Calculate average monthly expenses from last 3 months
         val threeMonthsAgo = LocalDate.now().minusMonths(3)
         val recentExpenses = expenses.filter { !it.date.isBefore(threeMonthsAgo) }
-        
+
         if (recentExpenses.isEmpty()) return null
 
-        val monthlyExpenses = recentExpenses.groupBy { YearMonth.from(it.date) }
-            .mapValues { (_, monthExpenses) -> monthExpenses.sumOf { it.amount } }
+        // Filter out one-time large expenses to get accurate average
+        val uniqueExpenses = detectUniqueExpenses(recentExpenses)
+        val uniqueExpenseIds = uniqueExpenses.map { it.expense.id }.toSet()
+        val filteredExpenses = recentExpenses.filter { it.id !in uniqueExpenseIds }
+
+        val monthlyExpenses = filteredExpenses.groupBy { YearMonth.from(it.date) }
+            .mapValues { (_, monthExpenses) -> monthExpenses.sumOf { it.amount }.roundToTwoDecimals() }
             .values.toList()
 
         val avgMonthlyExpenses = if (monthlyExpenses.isNotEmpty()) {
-            monthlyExpenses.average()
+            monthlyExpenses.average().roundToTwoDecimals()
         } else {
             return null
         }
 
-        // Recommended reserve = 1.5x monthly expenses
-        val recommendedReserve = avgMonthlyExpenses * IDLE_MONEY_MULTIPLIER
-        val excessAmount = (currentBalance - recommendedReserve).coerceAtLeast(0.0)
+        // Recommended reserve = 1.5x monthly expenses OR user defined min balance, whichever is higher
+        val recommendedReserve = max(avgMonthlyExpenses * IDLE_MONEY_MULTIPLIER, minMainAccountBalance).roundToTwoDecimals()
+        val excessAmount = (currentBalance - recommendedReserve).coerceAtLeast(0.0).roundToTwoDecimals()
 
         // Only suggest transfer if excess is significant
         if (excessAmount < MIN_IDLE_TRANSFER) return null
 
         // Round suggested transfer to nearest $25
-        val suggestedTransfer = (excessAmount / 25.0).toInt() * 25.0
+        val suggestedTransfer = ((excessAmount / 25.0).toInt() * 25.0).roundToTwoDecimals()
 
         // Find best vault for transfer (prefer high-yield, then by priority)
         val suggestedVault = vaults
             .filter { !it.archived }
             .sortedWith(
-                compareByDescending<SmartVault> { it.type == VaultType.HIGH_YIELD_SAVINGS }
+                compareByDescending<SmartVault> { it.id == mainOverflowAccountId }
+                    .thenByDescending { it.type == VaultType.HIGH_YIELD_SAVINGS }
                     .thenByDescending { it.annualPercentageYield ?: 0.0 }
                     .thenByDescending { it.priority.ordinal }
             )
             .firstOrNull()
 
         // Calculate projected interest
-        val effectiveApy = suggestedVault?.annualPercentageYield ?: defaultApy
-        val projectedAnnual = suggestedTransfer * (effectiveApy / 100.0)
-        val projectedMonthly = projectedAnnual / 12.0
+        val effectiveApy = suggestedVault?.effectiveApy ?: defaultApy
+        val projectedAnnual = (suggestedTransfer * (effectiveApy / 100.0)).roundToTwoDecimals()
+        val projectedMonthly = (projectedAnnual / 12.0).roundToTwoDecimals()
+
+        // Compound interest projections (Balance after 6, 12, 24 months)
+        val estimatedMonthlySavings = (monthlyIncome - avgMonthlyExpenses).coerceAtLeast(0.0).roundToTwoDecimals()
+        val growthProjections = mutableMapOf<Int, Double>()
+        val startBalanceForProjection = (suggestedVault?.currentBalance ?: 0.0) + suggestedTransfer
+        
+        listOf(6, 12, 24).forEach { months ->
+            val projectedVal = if (suggestedVault != null) {
+                suggestedVault.copy(currentBalance = startBalanceForProjection)
+                    .balanceAfterMonths(months, estimatedMonthlySavings).roundToTwoDecimals()
+            } else {
+                // Simple monthly compounding fallback if no vault
+                var bal = startBalanceForProjection
+                val monthlyRate = effectiveApy / 100.0 / 12.0
+                repeat(months) {
+                    bal += estimatedMonthlySavings
+                    bal *= (1 + monthlyRate)
+                }
+                bal.roundToTwoDecimals()
+            }
+            growthProjections[months] = projectedVal
+        }
 
         return IdleMoneyInsight(
             currentBalance = currentBalance,
@@ -302,8 +346,10 @@ object SmartInsightEngine {
             excessAmount = excessAmount,
             suggestedTransferAmount = suggestedTransfer,
             suggestedVault = suggestedVault,
-            projectedMonthlyInterest = projectedMonthly,
-            projectedAnnualInterest = projectedAnnual
+            estimatedMonthlyInterest = projectedMonthly,
+            estimatedAnnualInterest = projectedAnnual,
+            estimatedMonthlySavings = estimatedMonthlySavings,
+            growthProjections = growthProjections
         )
     }
 
@@ -366,25 +412,63 @@ object SmartInsightEngine {
     }
 
     /**
+     * Detect if main account balance is below minimum and suggest top-up.
+     */
+    fun detectLowBalance(
+        currentBalance: Double,
+        minMainAccountBalance: Double,
+        vaults: List<SmartVault>,
+        mainOverflowAccountId: Long?
+    ): LowBalanceInsight? {
+        if (minMainAccountBalance <= 0.0) return null
+        if (currentBalance >= minMainAccountBalance) return null
+
+        val shortfall = minMainAccountBalance - currentBalance
+        
+        // Find best source vault (HISA main first, then any HISA)
+        val sourceVault = if (mainOverflowAccountId != null) {
+            vaults.find { it.id == mainOverflowAccountId }
+        } else {
+            vaults.filter { !it.archived && it.currentBalance >= shortfall }
+                .maxByOrNull { it.currentBalance }
+                ?: vaults.filter { !it.archived && it.type == VaultType.HIGH_YIELD_SAVINGS }
+                    .maxByOrNull { it.currentBalance }
+        }
+
+        return LowBalanceInsight(
+            currentBalance = currentBalance,
+            minRequiredBalance = minMainAccountBalance,
+            shortfall = shortfall,
+            suggestedSourceVaultId = sourceVault?.id,
+            suggestedSourceVaultName = sourceVault?.name
+        )
+    }
+
+    /**
      * Combined analysis that returns all insights at once.
      */
     data class SmartInsightBundle(
         val recurringPatterns: List<RecurringPatternInsight>,
         val uniqueExpenses: List<UniqueExpenseInsight>,
         val idleMoneyInsight: IdleMoneyInsight?,
-        val seasonalInsights: List<SeasonalInsight>
+        val seasonalInsights: List<SeasonalInsight>,
+        val lowBalanceInsight: LowBalanceInsight? = null
     )
 
     fun analyzeAll(
         expenses: List<Expense>,
         currentBalance: Double,
-        vaults: List<SmartVault>
+        vaults: List<SmartVault>,
+        minMainAccountBalance: Double = 0.0,
+        monthlyIncome: Double = 0.0,
+        mainOverflowAccountId: Long? = null
     ): SmartInsightBundle {
         return SmartInsightBundle(
             recurringPatterns = detectRecurringPatterns(expenses),
             uniqueExpenses = detectUniqueExpenses(expenses),
-            idleMoneyInsight = analyzeIdleMoney(currentBalance, expenses, vaults),
-            seasonalInsights = getSeasonalInsights(expenses)
+            idleMoneyInsight = analyzeIdleMoney(currentBalance, expenses, vaults, minMainAccountBalance, monthlyIncome, mainOverflowAccountId),
+            seasonalInsights = getSeasonalInsights(expenses),
+            lowBalanceInsight = detectLowBalance(currentBalance, minMainAccountBalance, vaults, mainOverflowAccountId)
         )
     }
 }

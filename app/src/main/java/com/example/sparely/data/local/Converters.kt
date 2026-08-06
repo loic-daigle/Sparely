@@ -2,7 +2,10 @@ package com.example.sparely.data.local
 
 import androidx.room.TypeConverter
 import com.example.sparely.domain.model.AchievementCategory
+import com.example.sparely.domain.model.AmountHistoryEntry
 import com.example.sparely.domain.model.AutoDepositFrequency
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.example.sparely.domain.model.BankSyncProvider
 import com.example.sparely.domain.model.ChallengeType
 import com.example.sparely.domain.model.ExpenseCategory
@@ -124,4 +127,36 @@ class Converters {
 
     @TypeConverter
     fun toMainAccountTransactionType(type: MainAccountTransactionType?): String? = type?.name
+
+    @TypeConverter
+    fun fromSavingsAccountTransactionType(value: String?): SavingsAccountTransactionType? = value?.let { SavingsAccountTransactionType.valueOf(it) }
+
+    @TypeConverter
+    fun toSavingsAccountTransactionType(type: SavingsAccountTransactionType?): String? = type?.name
+
+    private val gson = Gson()
+
+    @TypeConverter
+    fun fromAmountHistoryJson(value: String?): List<AmountHistoryEntry>? {
+        if (value == null) return null
+        val type = object : TypeToken<List<AmountHistoryEntry>>() {}.type
+        return gson.fromJson(value, type)
+    }
+
+    @TypeConverter
+    fun toAmountHistoryJson(history: List<AmountHistoryEntry>?): String? {
+        return gson.toJson(history)
+    }
+
+    @TypeConverter
+    fun fromAssetAllocationJson(value: String?): Map<Long, Double>? {
+        if (value == null) return null
+        val type = object : TypeToken<Map<Long, Double>>() {}.type
+        return gson.fromJson(value, type)
+    }
+
+    @TypeConverter
+    fun toAssetAllocationJson(allocations: Map<Long, Double>?): String? {
+        return gson.toJson(allocations)
+    }
 }

@@ -93,9 +93,27 @@ class NotificationScheduler(context: Context) {
         NotificationHelper.dismissPaydayReminder(appContext)
     }
 
-    suspend fun showVaultTransferWorkflow(savingsRepository: com.example.sparely.data.repository.SavingsRepository) {
+    suspend fun showVaultTransferWorkflow(
+        savingsRepository: com.example.sparely.data.repository.SavingsRepository,
+        preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository? = null
+    ) {
         val pendingContributions = savingsRepository.getPendingVaultContributions()
         if (pendingContributions.isEmpty()) {
+            NotificationHelper.dismissVaultTransferNotification(appContext)
+            return
+        }
+        
+        // Get minimum amount setting
+        val minimumAmount = preferencesRepository?.getSettingsSnapshot()?.smartTransferMinimumAmount ?: 0.0
+        
+        // Filter contributions by minimum amount
+        val filteredContributions = if (minimumAmount > 0) {
+            pendingContributions.filter { it.amount >= minimumAmount }
+        } else {
+            pendingContributions
+        }
+        
+        if (filteredContributions.isEmpty()) {
             NotificationHelper.dismissVaultTransferNotification(appContext)
             return
         }
@@ -104,7 +122,7 @@ class NotificationScheduler(context: Context) {
         val prefs = appContext.getSharedPreferences("vault_transfer_workflow", android.content.Context.MODE_PRIVATE)
         prefs.edit().putInt("completed_count", 0).apply()
         
-        val groupedByVault = pendingContributions.groupBy { it.vaultId }
+        val groupedByVault = filteredContributions.groupBy { it.vaultId }
         if (groupedByVault.isEmpty()) return
         
         // Show notification for first vault

@@ -1,6 +1,7 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Goal
+import com.example.sparely.ui.utils.formatCurrency
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
@@ -62,15 +63,14 @@ object GoalEngine {
         } else null
 
         val message = when (status) {
-            GoalFeasibilityStatus.IMPOSSIBLE -> "You need ${formatMoney(requiredMonthly)}/mo but only have ${formatMoney(monthlyAvailableAmount)}. Extend the date?"
-            GoalFeasibilityStatus.STRETCH -> "It's tight. You need ${formatMoney(requiredMonthly)}/mo, which is most of your spare cash."
+            GoalFeasibilityStatus.IMPOSSIBLE -> "You need ${requiredMonthly.formatCurrency("", 0)}/mo but only have ${monthlyAvailableAmount.formatCurrency("", 0)}. Extend the date?"
+            GoalFeasibilityStatus.STRETCH -> "It's tight. You need ${requiredMonthly.formatCurrency("", 0)}/mo, which is most of your spare cash."
             GoalFeasibilityStatus.ON_TRACK -> "On track! You're contributing enough to finish by the deadline."
-            GoalFeasibilityStatus.AT_RISK -> "You need ${formatMoney(requiredMonthly)}/mo to hit the date, but currently adding ${formatMoney(currentMonthlyContribution)}."
+            GoalFeasibilityStatus.AT_RISK -> "You need ${requiredMonthly.formatCurrency("", 0)}/mo to hit the date, but currently adding ${currentMonthlyContribution.formatCurrency("", 0)}."
             else -> "Feasible."
         }
 
         return FeasibilityReport(status, requiredMonthly, projectedCompletion, message)
     }
 
-    private fun formatMoney(amount: Double): String = "$" + String.format("%.0f", amount)
 }

@@ -3,6 +3,7 @@ package com.example.sparely.domain.logic
 import com.example.sparely.domain.model.AnalyticsSnapshot
 import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.PayScheduleSettings
+import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.SparelySettings
 import kotlin.math.max
@@ -78,15 +79,15 @@ object IncomeAutomationEngine {
         val recommendedSavingTaxRate = buildSavingTaxRate(recommendedSaveRate, residualRatio, expenseCoverageRatio, incomeStability)
 
         val rationale = mutableListOf<String>()
-        rationale += "Monthly income baseline: ${"%,.0f".format(projectedMonthlyIncome)}"
-        rationale += "Average monthly expenses: ${"%,.0f".format(monthlyExpenses)}"
-        rationale += "Residual buffer: ${"%,.0f".format(residual)}"
+        rationale += "Monthly income baseline: ${"%.0f".format(projectedMonthlyIncome)}"
+        rationale += "Average monthly expenses: ${"%.0f".format(monthlyExpenses)}"
+        rationale += "Residual buffer: ${"%.0f".format(residual)}"
         rationale += "Income stability: ${incomeStability.name.lowercase().replace("_", " ")}"
         if (incomeVariance > 0) {
-            rationale += "Income variance: ${String.format("%.1f%%", incomeVariance)}"
+            rationale += "Income variance: ${incomeVariance.formatPercent()}"
         }
-        rationale += "Applied save rate: ${String.format("%.1f%%", recommendedSaveRate * 100)}"
-        rationale += "Saving tax skim: ${String.format("%.1f%%", recommendedSavingTaxRate * 100)}"
+        rationale += "Applied save rate: ${recommendedSaveRate.formatPercent()}"
+        rationale += "Saving tax skim: ${recommendedSavingTaxRate.formatPercent()}"
 
         val result = Recommendation(
             saveRate = recommendedSaveRate.coerceIn(0.0, 1.0),

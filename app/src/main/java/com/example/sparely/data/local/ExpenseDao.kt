@@ -41,6 +41,19 @@ interface ExpenseDao {
     @Query("DELETE FROM expenses WHERE date < :date")
     suspend fun deleteExpensesBefore(date: LocalDate): Int
 
+    @androidx.room.Transaction
+    @Query("SELECT * FROM expenses ORDER BY date DESC, id DESC LIMIT :limit OFFSET :offset")
+    suspend fun getExpensesPaged(limit: Int, offset: Int): List<ExpenseWithItemsRelation>
+
+    @Query("SELECT COUNT(*) FROM expenses")
+    suspend fun countTotalExpenses(): Int
+
+    @androidx.room.Transaction
+    // Assuming storeId is the link, or maybe storeName if no FK. Let's check ExpenseEntity first.
+    // If I see ExpenseEntity has storeId, I use storeId.
+    @Query("SELECT * FROM expenses WHERE storeId = :storeId ORDER BY date DESC, id DESC")
+    suspend fun getExpensesForStore(storeId: Long): List<ExpenseWithItemsRelation>
+
     @Query("SELECT COUNT(*) FROM expenses WHERE date < :date")
     suspend fun countExpensesBefore(date: LocalDate): Int
 }

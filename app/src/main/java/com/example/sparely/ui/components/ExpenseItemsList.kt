@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -24,6 +20,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.ExpenseItem
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDoubleOrZero
 import com.sparely.app.R
@@ -61,7 +60,7 @@ fun ExpenseItemsList(
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
             Text("Add Item")
         }
     }
@@ -84,7 +83,11 @@ private fun ExpenseItemRow(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
                 IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove Item", tint = MaterialTheme.colorScheme.error)
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.DELETE,
+                        contentDescription = "Remove Item",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -92,22 +95,41 @@ private fun ExpenseItemRow(
                     value = if (item.quantity > 0) item.quantity.toString() else "",
                     onValueChange = { 
                         val qty = it.filter { char -> char.isDigit() }.toIntOrNull() ?: 0
-                        onUpdate(item.copy(quantity = qty, totalPrice = qty * item.unitPrice))
+                        val currentTotal = when {
+                            item.totalPrice > 0 -> item.totalPrice
+                            item.unitPrice > 0 -> item.unitPrice * qty
+                            else -> 0.0
+                        }
+                        val eachPrice = if (qty > 0) currentTotal / qty else item.unitPrice
+                        onUpdate(item.copy(quantity = qty, unitPrice = eachPrice, totalPrice = currentTotal))
                     },
                     label = { Text("Qty") },
                     modifier = Modifier.weight(0.3f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 SparelyTextField(
-                    value = if (item.unitPrice > 0.0) item.unitPrice.toString() else "",
-                    onValueChange = {
-                        val price = it.filterCurrencyInput().toSafeDoubleOrZero()
-                        onUpdate(item.copy(unitPrice = price, totalPrice = item.quantity * price))
+                    value = when {
+                        item.totalPrice > 0.0 -> item.totalPrice.formatCurrency("")
+                        item.unitPrice > 0.0 -> (item.unitPrice * item.quantity.coerceAtLeast(1)).formatCurrency("")
+                        else -> ""
                     },
-                    label = { Text("Price") },
+                    onValueChange = {
+                        val totalPrice = it.filterCurrencyInput().toSafeDoubleOrZero()
+                        val qty = item.quantity.coerceAtLeast(1)
+                        val eachPrice = if (qty > 0) totalPrice / qty else totalPrice
+                        onUpdate(item.copy(unitPrice = eachPrice, totalPrice = totalPrice))
+                    },
+                    label = { Text("Total price") },
                     modifier = Modifier.weight(0.7f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     prefix = { Text("$") }
+                )
+            }
+            if (item.quantity > 1 && item.totalPrice > 0) {
+                Text(
+                    text = "≈ " + item.unitPrice.formatCurrency() + " each",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
