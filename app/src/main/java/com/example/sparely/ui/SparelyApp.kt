@@ -686,7 +686,7 @@ private fun SparelyNavHost(
                 pendingVaultContributions = vaultUiState.pendingVaultContributions,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
                 onRepeatLastExpense = { expense ->
-                    viewModel.setPrefillExpense(expense)
+                    viewModel.setPrefillExpense(expense.copy(id = 0L))
                     navController.navigate(SparelyDestination.ExpenseEntry.route)
                 },
                 onNavigateToHistory = { navController.navigate(SparelyDestination.History.route) },
