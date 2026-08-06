@@ -38,7 +38,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/The-Young-Maker/Sparely.git
+   git clone https://github.com/loic-daigle/Sparely.git
    cd Sparely
    ```
 
@@ -114,13 +114,13 @@ Sparely stores all data locally on your device. No data is sent to external serv
 ## 🐛 Known Issues
 
 - This is an early release - some features may have bugs
-- See [Issues](https://github.com/The-Young-Maker/Sparely/issues) for known problems
+- See [Issues](https://github.com/loic-daigle/Sparely/issues) for known problems
 
 ## 📞 Support
 
-- 🐛 [Report a bug](https://github.com/The-Young-Maker/Sparely/issues/new?template=bug_report.md)
-- 💡 [Request a feature](https://github.com/The-Young-Maker/Sparely/issues/new?template=feature_request.md)
-- 💬 [Discussions](https://github.com/The-Young-Maker/Sparely/discussions)
+- 🐛 [Report a bug](https://github.com/loic-daigle/Sparely/issues/new?template=bug_report.md)
+- 💡 [Request a feature](https://github.com/loic-daigle/Sparely/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/loic-daigle/Sparely/discussions)
 
 ## 🙏 Acknowledgments
 
