@@ -38,7 +38,7 @@ import androidx.room.TypeConverters
         RecurringExpensePaidEntity::class
     ],
 
-    version = 44,
+    version = 45,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -126,7 +126,8 @@ abstract class SparelyDatabase : RoomDatabase() {
                     MIGRATION_40_41,
                     MIGRATION_41_42,
                     MIGRATION_42_43,
-                    MIGRATION_43_44
+                    MIGRATION_43_44,
+                    MIGRATION_44_45
                 )
                 .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
@@ -1235,6 +1236,12 @@ abstract class SparelyDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_savingsAccountId ON vault_contributions(savingsAccountId)")
 
                 db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        val MIGRATION_44_45 = object : androidx.room.migration.Migration(44, 45) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN necessity TEXT")
             }
         }
     }

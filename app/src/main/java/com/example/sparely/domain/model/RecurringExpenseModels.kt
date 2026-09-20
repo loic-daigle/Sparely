@@ -40,8 +40,12 @@ data class RecurringExpense(
     // Line items support (new for feature parity with expenses)
     val items: List<ExpenseItem> = emptyList(),
     // Asset allocations support (new for feature parity with expenses)
-    val assetAllocations: Map<Long, Double> = emptyMap() // assetId -> percentageAllocated
-)
+    val assetAllocations: Map<Long, Double> = emptyMap(), // assetId -> percentageAllocated
+    // Explicit user choice; null means "derive from category"
+    val necessityOverride: Necessity? = null
+) {
+    val necessity: Necessity get() = necessityOverride ?: category.defaultNecessity()
+}
 
 /**
  * Tracks historical amounts for variable recurring expenses.
@@ -93,7 +97,8 @@ data class RecurringExpenseInput(
     // Line items support (new for feature parity with expenses)
     val items: List<ExpenseItem> = emptyList(),
     // Asset allocations support (new for feature parity with expenses)
-    val assetAllocations: Map<Long, Double> = emptyMap() // assetId -> percentageAllocated
+    val assetAllocations: Map<Long, Double> = emptyMap(), // assetId -> percentageAllocated
+    val necessityOverride: Necessity? = null
 )
 
 /**

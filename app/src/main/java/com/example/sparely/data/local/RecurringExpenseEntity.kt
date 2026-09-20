@@ -72,5 +72,7 @@ data class RecurringExpenseEntity(
     val nextRunAt: java.time.LocalDateTime? = null,
     val type: String = "PRODUCT", // PRODUCT or SERVICE
     // JSON-serialized map of assetId -> percentage allocation for linked assets
-    val assetAllocationsJson: String? = null
+    val assetAllocationsJson: String? = null,
+    // Necessity enum name; null means "derive from category"
+    val necessity: String? = null
 )

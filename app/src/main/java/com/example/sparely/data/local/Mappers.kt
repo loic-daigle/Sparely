@@ -97,7 +97,8 @@ fun RecurringExpenseEntity.toDomain(): RecurringExpense {
             com.example.sparely.domain.model.ExpenseType.PRODUCT
         },
         items = emptyList(), // Items will be loaded separately via DAO relationship
-        assetAllocations = assetAllocations
+        assetAllocations = assetAllocations,
+        necessityOverride = necessity?.let { runCatching { com.example.sparely.domain.model.Necessity.valueOf(it) }.getOrNull() }
     )
 }
 
@@ -130,7 +131,8 @@ fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity
     estimatedAmount = estimatedAmount,
     nextRunAt = nextRunAt,
     type = type.name,
-    assetAllocationsJson = if (assetAllocations.isNotEmpty()) gson.toJson(assetAllocations) else null
+    assetAllocationsJson = if (assetAllocations.isNotEmpty()) gson.toJson(assetAllocations) else null,
+    necessity = necessityOverride?.name
 )
 
 fun ChallengeMilestoneEntity.toDomain(): ChallengeMilestone = ChallengeMilestone(

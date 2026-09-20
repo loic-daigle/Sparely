@@ -14,6 +14,7 @@ import com.example.sparely.domain.logic.AlertsGenerator
 import com.example.sparely.domain.logic.AnalyticsEngine
 import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.domain.logic.ChallengeEngine
+import com.example.sparely.domain.logic.RecurringInference
 import com.example.sparely.domain.logic.FinancialHealthEngine
 import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.domain.logic.SavingsAdvisor
@@ -296,7 +297,7 @@ class SparelyViewModel(
                     )
                 }
                 .map { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
-                    val domainExpenses = feed.expenses
+                    val domainExpenses = RecurringInference.annotate(feed.expenses, feed.recurring)
 
                     // Automatically exclude ignored expenses and statistical anomalies (large
                     // one-off expenses) from anything used for burn-rate/month-end predictions.
@@ -449,7 +450,8 @@ class SparelyViewModel(
                         mainOverflowAccountId = feed.settings.mainOverflowAccountId
                     )
                     val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(
-                        expenses = predictionExpenses
+                        expenses = predictionExpenses,
+                        reportWithinDays = 60
                     )
 
                     val automationActive = feed.settings.paySchedule.dynamicSaveRateEnabled || feed.settings.dynamicSavingTaxEnabled
@@ -656,7 +658,8 @@ class SparelyViewModel(
                     nextRunAt = input.nextRunAt,
                     type = input.type,
                     items = input.items,
-                    assetAllocations = input.assetAllocations
+                    assetAllocations = input.assetAllocations,
+                    necessityOverride = input.necessityOverride
                 )
                 savingsRepository.upsertRecurringExpense(expense)
             }
@@ -958,7 +961,8 @@ class SparelyViewModel(
                 manualPercentages = input.manualPercentages,
                 storeId = input.storeId,
                 paymentMethodId = input.paymentMethodId,
-                nextRunAt = input.nextRunAt
+                nextRunAt = input.nextRunAt,
+                necessityOverride = input.necessityOverride
             )
             savingsRepository.upsertRecurringExpense(expense)
 

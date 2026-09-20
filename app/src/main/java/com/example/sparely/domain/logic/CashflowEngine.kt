@@ -1,6 +1,7 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.Necessity
 import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringFrequency
@@ -23,6 +24,9 @@ object CashflowEngine {
         val projectedBalance30Days: Double,
         val dailyBurnRate: Double,
         val runwayDays: Int, // Days until balance hits zero
+        val essentialObligations30Days: Double = 0.0,
+        val discretionaryObligations30Days: Double = 0.0,
+        val essentialsCoveredDays: Int? = null, // Days until money can't cover essential bills; null = covered for the horizon
         val lowBalanceWarning: LowBalanceWarning?,
         val upcomingObligations: List<UpcomingObligation>,
         val weeklyProjections: List<WeeklyProjection>
@@ -42,7 +46,8 @@ object CashflowEngine {
         val amount: Double,
         val dueDate: LocalDate,
         val daysUntilDue: Int,
-        val isRecurring: Boolean
+        val isRecurring: Boolean,
+        val necessity: Necessity = Necessity.IMPORTANT
     )
 
     data class WeeklyProjection(
@@ -149,6 +154,16 @@ object CashflowEngine {
             projectedBalance30Days = projectedBalance30Days,
             dailyBurnRate = dailyBurn,
             runwayDays = runwayDays,
+            essentialObligations30Days = upcomingObligations
+                .filter { it.necessity == Necessity.ESSENTIAL }.sumOf { it.amount },
+            discretionaryObligations30Days = upcomingObligations
+                .filter { it.necessity == Necessity.DISCRETIONARY }.sumOf { it.amount },
+            essentialsCoveredDays = firstDayEssentialsUncovered(
+                liquid = totalLiquidMoney,
+                obligations = upcomingObligations,
+                payDates = projectPayDates(input.paySchedule, input.nextPayDate, input.nextPayAmount, input.today, input.today.plusDays(30)),
+                today = input.today
+            ),
             lowBalanceWarning = lowBalanceWarning,
             upcomingObligations = upcomingObligations,
             weeklyProjections = weeklyProjections
@@ -157,7 +172,18 @@ object CashflowEngine {
 
     // === Helper Functions ===
 
-    private fun calculateDailyBurnRate(expenses: List<Expense>, today: LocalDate): Double {
+    /**
+     * Discretionary burn only: recurring-logged expenses are excluded because they're projected
+     * separately as upcoming obligations (counting both would double count them). With 2+ completed
+     * months of history we use the long-history baseline; otherwise the last 30 days.
+     */
+    private fun calculateDailyBurnRate(allExpenses: List<Expense>, today: LocalDate): Double {
+        val expenses = allExpenses.filter { !it.countsAsRecurring }
+        val baseline = ProjectionMath.historyBaseline(expenses, today)
+        if (baseline.hasEnoughHistory && ProjectionMath.historyBeatsLinear(allExpenses, today)) {
+            return baseline.discretionaryDailyRate
+        }
+
         val cutoff = today.minusDays(30)
         val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
 
@@ -195,7 +221,8 @@ object CashflowEngine {
                         amount = expense.amount,
                         dueDate = nextDue,
                         daysUntilDue = daysUntil,
-                        isRecurring = true
+                        isRecurring = true,
+                        necessity = expense.necessity
                     )
                 )
             }
@@ -281,6 +308,28 @@ object CashflowEngine {
             iterations++
         }
         return dates
+    }
+
+    /**
+     * Assumes all discretionary spending stops, so only essential bills draw down [liquid] while
+     * paychecks add to it. Returns the first day money can't cover an essential bill, or null.
+     */
+    private fun firstDayEssentialsUncovered(
+        liquid: Double,
+        obligations: List<UpcomingObligation>,
+        payDates: List<Pair<LocalDate, Double>>,
+        today: LocalDate
+    ): Int? {
+        var balance = liquid
+        for (day in 0..30) {
+            val date = today.plusDays(day.toLong())
+            balance += payDates.filter { it.first == date }.sumOf { it.second }
+            balance -= obligations
+                .filter { it.necessity == Necessity.ESSENTIAL && it.dueDate == date }
+                .sumOf { it.amount }
+            if (balance < 0) return day
+        }
+        return null
     }
 
     private fun detectLowBalanceWarning(

@@ -193,7 +193,9 @@ object SmartInsightEngine {
      */
     fun detectUniqueExpenses(
         expenses: List<Expense>,
-        lookbackDays: Int = 180
+        lookbackDays: Int = 180,
+        // Statistics use the full lookback; this only limits which purchases are reported.
+        reportWithinDays: Int = lookbackDays
     ): List<UniqueExpenseInsight> {
         if (expenses.size < 10) return emptyList()
 
@@ -244,7 +246,9 @@ object SmartInsightEngine {
             }
         }
 
+        val reportCutoff = LocalDate.now().minusDays(reportWithinDays.toLong())
         return uniqueExpenses
+            .filter { !it.expense.date.isBefore(reportCutoff) }
             .distinctBy { it.expense.id }
             .sortedByDescending { it.expense.amount }
             .take(5)

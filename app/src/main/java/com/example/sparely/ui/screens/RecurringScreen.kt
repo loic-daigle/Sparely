@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.Asset
 import com.example.sparely.domain.model.ExpenseCategory
+import com.example.sparely.domain.model.Necessity
+import com.example.sparely.domain.model.defaultNecessity
 import com.example.sparely.domain.model.ExpenseItem
 import com.example.sparely.domain.model.ExpenseType
 import com.example.sparely.domain.model.SmartVault
@@ -256,7 +258,8 @@ fun RecurringExpensesScreen(
                             isVariableAmount = input.isVariableAmount,
                             type = input.type,
                             items = input.items,
-                            assetAllocations = input.assetAllocations
+                            assetAllocations = input.assetAllocations,
+                            necessityOverride = input.necessityOverride
                         )
                     )
                 }
@@ -729,6 +732,7 @@ private fun RecurringExpenseDialog(
     var isVariableAmount by remember { mutableStateOf(expense?.isVariableAmount ?: false) }
     var selectedAssetAllocations by remember { mutableStateOf<Map<Long, Double>>(prefillInput?.assetAllocations ?: emptyMap()) }
     var assetSelectorExpanded by remember { mutableStateOf(false) }
+    var necessityOverride by remember { mutableStateOf(expense?.necessityOverride ?: prefillInput?.necessityOverride) }
 
     // Store selection state
     var selectedStore by remember(stores, expense?.storeId) {
@@ -829,6 +833,21 @@ private fun RecurringExpenseDialog(
 
                     // Category (Required)
                     CategorySelector(selected = category, onSelect = { category = it }, isRequired = true)
+
+                    // Necessity: how essential is this bill (defaults from category)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("How essential is it?", style = MaterialTheme.typography.labelLarge)
+                        val effectiveNecessity = necessityOverride ?: category.defaultNecessity()
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Necessity.values().forEach { option ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = effectiveNecessity == option,
+                                    onClick = { necessityOverride = option },
+                                    label = { Text(option.displayName()) }
+                                )
+                            }
+                        }
+                    }
 
                     // Type (Product/Service)
                     ExpenseTypeSelector(selected = expenseType, onSelect = { expenseType = it }, isRequired = false, modifier = Modifier.fillMaxWidth())
@@ -1330,7 +1349,8 @@ private fun RecurringExpenseDialog(
                             isVariableAmount = isVariableAmount,
                             type = expenseType,
                             items = expenseItems.toList(),
-                            assetAllocations = selectedAssetAllocations
+                            assetAllocations = selectedAssetAllocations,
+                            necessityOverride = necessityOverride
                         )
                         onConfirm(input, expense)
                     },

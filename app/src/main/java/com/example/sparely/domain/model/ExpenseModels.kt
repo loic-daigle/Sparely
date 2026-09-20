@@ -26,8 +26,13 @@ data class Expense(
     val orderNumber: String? = null,
     val items: List<ExpenseItem> = emptyList(),
     val type: ExpenseType = ExpenseType.PRODUCT,
-    val isIgnored: Boolean = false
-)
+    val isIgnored: Boolean = false,
+    // Derived, never stored: set by RecurringInference for bills that weren't logged via a recurring entry
+    val looksRecurring: Boolean = false
+) {
+    /** True for expenses logged from a recurring entry and for ones that clearly behave like a bill. */
+    val countsAsRecurring: Boolean get() = isRecurring || looksRecurring
+}
 
 /**
  * User input payload when creating a new expense entry.
