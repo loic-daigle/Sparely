@@ -1079,5 +1079,51 @@
     <string name="vault_projected_monthly_interest">Intérêts mensuels prévus : %1$s</string>
     <string name="vault_projected_annual_interest">Intérêts annuels prévus : %1$s</string>
     <string name="vault_accrued_interest">Intérêts gagnés : %1$s</string>
+    <!-- Refonte du tableau de bord -->
+    <string name="dashboard_greeting_morning">Bonjour</string>
+    <string name="dashboard_greeting_afternoon">Bon après-midi</string>
+    <string name="dashboard_greeting_evening">Bonsoir</string>
+    <string name="dashboard_quick_log">Ajouter</string>
+    <string name="dashboard_quick_repeat">Répéter</string>
+    <string name="dashboard_needs_attention">À surveiller</string>
+    <string name="dashboard_this_month">Ce mois-ci</string>
+    <string name="dashboard_savings_progress">Progression de l\'épargne</string>
+    <string name="dashboard_view_activity">Voir l\'activité</string>
+    <string name="dashboard_runway_healthy">Aucun manque prévu</string>
+    <string name="dashboard_forecast_title">Prévision de trésorerie sur 4 semaines</string>
+    <string name="dashboard_forecast_empty">Ajoutez vos revenus et dépenses récurrentes pour des prévisions détaillées</string>
+    <string name="dashboard_week_of">Semaine du %1$s</string>
+    <string name="dashboard_attention_low_balance">Le solde pourrait descendre à %1$s dans %2$d jours</string>
+    <string name="dashboard_attention_bill_due">%1$s · %2$s dû %3$s</string>
+    <string name="dashboard_due_today">aujourd\'hui</string>
+    <string name="dashboard_due_tomorrow">demain</string>
+    <string name="dashboard_due_in_days">dans %1$d jours</string>
+    <string name="dashboard_more_bills">+%1$d de plus</string>
+    <string name="dashboard_vaults_empty_title">Créez votre premier coffre</string>
+    <string name="dashboard_vaults_empty_description">Les coffres mettent de l\'argent de côté pour vos objectifs et grandissent automatiquement à chaque paie.</string>
+    <string name="dashboard_vaults_empty_action">Nouveau coffre</string>
+    <string name="dashboard_month_goal_text">Objectif de %1$s mois</string>
+    <string name="dashboard_total_balance">Solde total</string>
+    <string name="dashboard_top_growing_category">Catégorie en plus forte hausse</string>
+    <string name="dashboard_unusual_transactions">Transactions inhabituelles</string>
+    <string name="dashboard_times_typical">%1$.1f× la normale</string>
+    <string name="dashboard_view_full_insights">Voir toutes les analyses</string>
+    <string name="dashboard_expand">Développer</string>
+    <string name="dashboard_collapse">Réduire</string>
+    <plurals name="dashboard_attention_pending_transfers">
+        <item quantity="one">%d transfert de coffre en attente de confirmation</item>
+        <item quantity="other">%d transferts de coffre en attente de confirmation</item>
+    </plurals>
+    <plurals name="dashboard_attention_over_budget">
+        <item quantity="one">%d catégorie de budget dépasse sa limite</item>
+        <item quantity="other">%d catégories de budget dépassent leur limite</item>
+    </plurals>
+    <plurals name="dashboard_upcoming_bills_count">
+        <item quantity="one">%d facture à venir</item>
+        <item quantity="other">%d factures à venir</item>
+    </plurals>
+    <plurals name="dashboard_more_vaults_count">
+        <item quantity="one">+%d autre coffre</item>
+        <item quantity="other">+%d autres coffres</item>
+    </plurals>
 </resources>
-

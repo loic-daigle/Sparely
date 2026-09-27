@@ -1262,4 +1262,51 @@
     <string name="vault_projected_monthly_interest">Projected monthly interest: %1$s</string>
     <string name="vault_projected_annual_interest">Projected annual interest: %1$s</string>
     <string name="vault_accrued_interest">Interest earned: %1$s</string>
+    <!-- Dashboard redesign -->
+    <string name="dashboard_greeting_morning">Good morning</string>
+    <string name="dashboard_greeting_afternoon">Good afternoon</string>
+    <string name="dashboard_greeting_evening">Good evening</string>
+    <string name="dashboard_quick_log">Log</string>
+    <string name="dashboard_quick_repeat">Repeat</string>
+    <string name="dashboard_needs_attention">Needs attention</string>
+    <string name="dashboard_this_month">This month</string>
+    <string name="dashboard_savings_progress">Savings progress</string>
+    <string name="dashboard_view_activity">View activity</string>
+    <string name="dashboard_runway_healthy">No shortfall ahead</string>
+    <string name="dashboard_forecast_title">4-week cashflow forecast</string>
+    <string name="dashboard_forecast_empty">Add income and recurring expenses for detailed projections</string>
+    <string name="dashboard_week_of">Week of %1$s</string>
+    <string name="dashboard_attention_low_balance">Balance may drop to %1$s in %2$d days</string>
+    <string name="dashboard_attention_bill_due">%1$s · %2$s due %3$s</string>
+    <string name="dashboard_due_today">today</string>
+    <string name="dashboard_due_tomorrow">tomorrow</string>
+    <string name="dashboard_due_in_days">in %1$d days</string>
+    <string name="dashboard_more_bills">+%1$d more</string>
+    <string name="dashboard_vaults_empty_title">Create your first vault</string>
+    <string name="dashboard_vaults_empty_description">Vaults set money aside for goals and grow automatically with each paycheck.</string>
+    <string name="dashboard_vaults_empty_action">New vault</string>
+    <string name="dashboard_month_goal_text">%1$s-month goal</string>
+    <string name="dashboard_total_balance">Total balance</string>
+    <string name="dashboard_top_growing_category">Top growing category</string>
+    <string name="dashboard_unusual_transactions">Unusual transactions</string>
+    <string name="dashboard_times_typical">%1$.1f× typical</string>
+    <string name="dashboard_view_full_insights">View full insights</string>
+    <string name="dashboard_expand">Expand</string>
+    <string name="dashboard_collapse">Collapse</string>
+    <plurals name="dashboard_attention_pending_transfers">
+        <item quantity="one">%d vault transfer waiting for confirmation</item>
+        <item quantity="other">%d vault transfers waiting for confirmation</item>
+    </plurals>
+    <plurals name="dashboard_attention_over_budget">
+        <item quantity="one">%d budget category is over its limit</item>
+        <item quantity="other">%d budget categories are over their limit</item>
+    </plurals>
+    <plurals name="dashboard_upcoming_bills_count">
+        <item quantity="one">%d bill coming up</item>
+        <item quantity="other">%d bills coming up</item>
+    </plurals>
+    <plurals name="dashboard_more_vaults_count">
+        <item quantity="one">+%d more vault</item>
+        <item quantity="other">+%d more vaults</item>
+    </plurals>
 </resources>
