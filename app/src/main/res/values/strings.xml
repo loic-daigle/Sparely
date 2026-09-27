@@ -1474,4 +1474,9 @@
     <string name="dashboard_collapse">Collapse</string>
     <string name="dashboard_see_breakdown">See breakdown</string>
     <string name="dashboard_assets_description">Track physical and financial assets and their valuations</string>
+    <string name="history_filters_count">Filters · %1$d</string>
+    <string name="history_show_more">Show more</string>
+    <string name="history_total_spent_period">Spent · %1$s</string>
+    <string name="history_empty_filtered_title">No matching expenses</string>
+    <string name="history_empty_filtered_desc">Try another period or category, or clear your filters.</string>
 </resources>

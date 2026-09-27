@@ -1171,4 +1171,9 @@
     <string name="dashboard_collapse">Réduire</string>
     <string name="dashboard_see_breakdown">Voir le détail</string>
     <string name="dashboard_assets_description">Suivez vos biens physiques et financiers et leur valeur</string>
+    <string name="history_filters_count">Filtres · %1$d</string>
+    <string name="history_show_more">Afficher plus</string>
+    <string name="history_total_spent_period">Dépensé · %1$s</string>
+    <string name="history_empty_filtered_title">Aucune dépense correspondante</string>
+    <string name="history_empty_filtered_desc">Essayez une autre période ou catégorie, ou effacez vos filtres.</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
@@ -141,14 +142,31 @@ fun HistoryScreen(
     }
 
     val showQuickResults = searchQuery.isNotBlank() && filteredExpenses.isNotEmpty()
+    val showSummary = filteredExpenses.isNotEmpty()
+    val showStoreStats = storeStats.isNotEmpty() && !isFiltering
+    val activeFilterCount = listOf(
+        categoryFilter != null,
+        dateFilter != DateRangeFilter.ALL_TIME
+    ).count { it }
 
+    fun clearFilters() {
+        searchQuery = ""
+        categoryFilter = null
+        dateFilter = DateRangeFilter.ALL_TIME
+        customStartDate = null
+        customEndDate = null
+    }
+
+    // Mirrors the item order of the LazyColumn below so we can scroll to a given expense.
+    // Keep in sync when adding or removing items.
     fun findExpenseIndex(expenseId: Long): Int? {
         var index = 0 // search bar
         if (showQuickResults) index += 1
-        index += 1 // filter row
-        if (storeStats.isNotEmpty()) index += 1
+        index += 1 // filter chips row
+        if (showSummary) index += 1
+        if (showStoreStats) index += 1
         groupedExpenses.forEach { (_, dailyExpenses) ->
-            index += 1 // header for the date
+            index += 1 // sticky date header
             dailyExpenses.forEach { expense ->
                 if (expense.id == expenseId) return index
                 index += 1
@@ -173,13 +191,17 @@ fun HistoryScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                // Use a single tonal background instead of a gradient
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .background(MaterialTheme.colorScheme.background),
+            // Content padding (not Modifier.padding) so cards scroll edge-to-edge without clipping
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp,
+                bottom = if (isSelectionMode) 112.dp else 96.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                // Search Bar
+            item(key = "search") {
                 SparelyTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -207,11 +229,11 @@ fun HistoryScreen(
                 )
             }
             if (showQuickResults) {
-                item {
+                item(key = "quick_results") {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, ExpressiveShapes.medium)
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -220,7 +242,7 @@ fun HistoryScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        val quickResultShape = RoundedCornerShape(12.dp)
+                        val quickResultShape = ExpressiveShapes.small
                         filteredExpenses.take(4).forEach { expense ->
                             Surface(
                                 modifier = Modifier
@@ -228,7 +250,6 @@ fun HistoryScreen(
                                     .clip(quickResultShape),
                                 shape = quickResultShape,
                                 color = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 1.dp,
                                 onClick = {
                                     expandedExpenseId = expense.id
                                     highlightedExpenseId = expense.id
@@ -241,7 +262,7 @@ fun HistoryScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
@@ -265,109 +286,87 @@ fun HistoryScreen(
                     }
                 }
             }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+            item(key = "filters") {
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Filter button
-                    SparelyChip(
-                        selected = showFilterSheet,
-                        onClick = { showFilterSheet = true },
-                        label = { Text(stringResource(R.string.history_filters)) },
-                        leadingIcon = {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.LIST,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                        }
-                    )
-                    
-                    // Horizontal scroll for quick filters
-                    androidx.compose.foundation.lazy.LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        item {
-                            SparelyChip(
-                                selected = dateFilter == DateRangeFilter.THIS_MONTH,
-                                onClick = { dateFilter = DateRangeFilter.THIS_MONTH },
-                                label = { Text(stringResource(R.string.history_filter_this_month)) }
-                            )
-                        }
-                        item {
-                            SparelyChip(
-                                selected = dateFilter == DateRangeFilter.LAST_30_DAYS,
-                                onClick = { dateFilter = DateRangeFilter.LAST_30_DAYS },
-                                label = { Text(DateRangeFilter.LAST_30_DAYS.displayName()) }
-                            )
-                        }
-                        item {
-                            SparelyChip(
-                                selected = dateFilter == DateRangeFilter.YEAR_TO_DATE,
-                                onClick = { dateFilter = DateRangeFilter.YEAR_TO_DATE },
-                                label = { Text(stringResource(R.string.history_filter_this_year)) }
-                            )
-                        }
-                        if (categoryFilter != null) {
-                            item {
-                                SparelyChip(
-                                    selected = true,
-                                    onClick = { categoryFilter = null },
-                                    label = { Text(categoryFilter!!.displayName()) },
-                                    leadingIcon = {
-                                        MaterialSymbolIcon(
-                                            icon = getCategoryIcon(categoryFilter!!),
-                                            contentDescription = null,
-                                            size = 16.dp
-                                        )
+                    item {
+                        SparelyChip(
+                            selected = activeFilterCount > 0,
+                            onClick = { showFilterSheet = true },
+                            label = {
+                                Text(
+                                    if (activeFilterCount > 0) {
+                                        stringResource(R.string.history_filters_count, activeFilterCount)
+                                    } else {
+                                        stringResource(R.string.history_filters)
                                     }
                                 )
+                            },
+                            leadingIcon = {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.LIST,
+                                    contentDescription = null,
+                                    size = 18.dp
+                                )
+                            }
+                        )
+                    }
+                    // Quick period chips: tapping the active one clears it back to "All time"
+                    items(
+                        listOf(DateRangeFilter.THIS_MONTH, DateRangeFilter.LAST_30_DAYS, DateRangeFilter.YEAR_TO_DATE)
+                    ) { filter ->
+                        val isSelected = dateFilter == filter
+                        SparelyChip(
+                            selected = isSelected,
+                            onClick = {
+                                dateFilter = if (isSelected) DateRangeFilter.ALL_TIME else filter
+                                customStartDate = null
+                                customEndDate = null
+                            },
+                            label = { Text(filter.displayName()) }
+                        )
+                    }
+                    categoryFilter?.let { category ->
+                        item {
+                            SparelyChip(
+                                selected = true,
+                                onClick = { categoryFilter = null },
+                                label = { Text(category.displayName()) },
+                                leadingIcon = {
+                                    MaterialSymbolIcon(
+                                        icon = getCategoryIcon(category),
+                                        contentDescription = null,
+                                        size = 16.dp
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    if (isFiltering) {
+                        item {
+                            SparelyTextButton(onClick = ::clearFilters) {
+                                Text(stringResource(R.string.history_clear_filters))
                             }
                         }
                     }
                 }
             }
 
-            if (isFiltering) {
-                item {
-                    SparelyTextButton(
-                        onClick = {
-                            searchQuery = ""
-                            categoryFilter = null
-                            dateFilter = DateRangeFilter.ALL_TIME
-                            customStartDate = null
-                            customEndDate = null
-                        },
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = null, size = 16.dp)
-                            Text(stringResource(R.string.history_clear_filters))
-                        }
-                    }
-                }
-            }
-
-            
             // Summary Insight Card
-            if (filteredExpenses.isNotEmpty()) {
-                item {
+            if (showSummary) {
+                item(key = "summary") {
                     ModernSummaryCard(
-                        analytics = AnalyticsSnapshot(
-                            totalSpent = filteredExpenses.sumOf { it.amount }
-                        ),
                         filteredExpenses = filteredExpenses,
                         dateFilter = dateFilter
                     )
                 }
             }
-            
-            // Store Analytics Card - only show if there are expenses with stores and NOT redundant with summary
-            if (storeStats.isNotEmpty() && !isFiltering) {
-                item {
+
+            // Store Analytics Card - only when browsing everything, to avoid repeating the summary
+            if (showStoreStats) {
+                item(key = "store_stats") {
                     StoreAnalyticsCard(
                         storeStats = storeStats,
                         totalSpent = filteredExpenses.sumOf { it.amount },
@@ -375,9 +374,9 @@ fun HistoryScreen(
                     )
                 }
             }
-            
+
             groupedExpenses.forEach { (date, dailyExpenses) ->
-                stickyHeader {
+                stickyHeader(key = "header_$date") {
                     HistoryDateHeader(date = date, dailyTotal = dailyExpenses.sumOf { it.amount })
                 }
                 items(dailyExpenses, key = { it.id }) { expense ->
@@ -426,32 +425,29 @@ fun HistoryScreen(
                 }
             }
 
-            // Loading Indicator for Infinite Scroll
-            // "Show More" Button for Pagination
+            // "Show more" for pagination when browsing all expenses
             if (!isFiltering && canLoadMore) {
-                item {
-                    Box(
+                item(key = "load_more") {
+                    SparelyTonalButton(
+                        onClick = onLoadMore,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 8.dp)
                     ) {
-                        SparelyButton(
-                            onClick = onLoadMore,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Show More Expenses")
-                        }
+                        Text(stringResource(R.string.history_show_more))
                     }
                 }
             }
 
-            if (listToDisplay.isEmpty()) { // Changed from filteredExpenses to listToDisplay
-                item {
-                    EmptyHistoryNotice()
+            if (listToDisplay.isEmpty()) {
+                item(key = "empty") {
+                    EmptyHistoryNotice(
+                        isFiltering = isFiltering,
+                        onClearFilters = ::clearFilters,
+                        onAddExpense = onAddExpense
+                    )
                 }
             }
-            item { Spacer(modifier = Modifier.height(if (isSelectionMode) 100.dp else 80.dp)) }
         }
         
         // Bulk Action Bar - shown when in selection mode
@@ -641,11 +637,7 @@ private fun HistoryFilterBottomSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf(
-                        DateRangeFilter.THIS_MONTH,
-                        DateRangeFilter.LAST_30_DAYS,
-                        DateRangeFilter.LAST_90_DAYS
-                    ).forEach { filter ->
+                    DateRangeFilter.entries.forEach { filter ->
                         val isSelected = dateFilter == filter
                         SparelyChip(
                             selected = isSelected,
@@ -689,7 +681,7 @@ private fun HistoryFilterBottomSheet(
                                             onCustomStartDateChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) 
                                         }
                                         showStartPicker = false
-                                    }) { Text("OK") }
+                                    }) { Text(stringResource(R.string.common_done)) }
                                 }
                             ) { DatePicker(state = state) }
                         }
@@ -703,7 +695,7 @@ private fun HistoryFilterBottomSheet(
                                             onCustomEndDateChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) 
                                         }
                                         showEndPicker = false
-                                    }) { Text("OK") }
+                                    }) { Text(stringResource(R.string.common_done)) }
                                 }
                             ) { DatePicker(state = state) }
                         }
@@ -731,7 +723,14 @@ private fun HistoryFilterBottomSheet(
                         SparelyChip(
                             selected = categoryFilter == category,
                             onClick = { onCategorySelected(category) },
-                            label = { Text(category.displayName()) }
+                            label = { Text(category.displayName()) },
+                            leadingIcon = {
+                                MaterialSymbolIcon(
+                                    icon = getCategoryIcon(category),
+                                    contentDescription = null,
+                                    size = 16.dp
+                                )
+                            }
                         )
                     }
                 }
@@ -742,7 +741,6 @@ private fun HistoryFilterBottomSheet(
 
 @Composable
 private fun ModernSummaryCard(
-    analytics: AnalyticsSnapshot,
     filteredExpenses: List<Expense>,
     dateFilter: DateRangeFilter
 ) {
@@ -761,99 +759,103 @@ private fun ModernSummaryCard(
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = ExpressiveShapes.large
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-                
-                // Graph Section (Spending Trend)
-                if (filteredExpenses.isNotEmpty()) {
-                    SpendingGraph(expenses = filteredExpenses, dateFilter = dateFilter)
-                    Spacer(modifier = Modifier.height(16.dp))
+            // Headline numbers first, chart second
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.history_total_spent_period, dateFilter.displayName()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SingleLineText(
+                        text = totalFilteredSpent.formatCurrency(),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.history_transactions_count,
+                            filteredExpenses.size,
+                            filteredExpenses.size
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = stringResource(R.string.history_savings),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = totalFilteredReserve.formatCurrency(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
 
+            // Savings rate with progress
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.history_total_spent),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        text = stringResource(R.string.history_savings_rate),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.TRENDING_UP,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = totalFilteredSpent.formatCurrency(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = stringResource(R.string.history_savings),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                         Text(
-                            text = totalFilteredReserve.formatCurrency(),
-                            style = MaterialTheme.typography.titleLarge,
+                            text = savingsRate.formatPercent(),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-                
-                
-                // Savings Rate with progress
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.history_savings_rate),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = savingsRate.formatPercent(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    LinearProgressIndicator(
-                        progress = { animatedRate.coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-                    )
-                }
+                LinearProgressIndicator(
+                    progress = { animatedRate.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    strokeCap = StrokeCap.Round,
+                )
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            SpendingGraph(expenses = filteredExpenses, dateFilter = dateFilter)
         }
     }
+}
 
 @Composable
 fun SpendingGraph(expenses: List<Expense>, dateFilter: DateRangeFilter) {
@@ -1392,19 +1394,58 @@ private fun AllocationChip(
 }
 
 @Composable
-private fun EmptyHistoryNotice() {
+private fun EmptyHistoryNotice(
+    isFiltering: Boolean,
+    onClearFilters: () -> Unit,
+    onAddExpense: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 24.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(stringResource(R.string.history_empty_title), style = MaterialTheme.typography.titleSmall)
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            MaterialSymbolIcon(
+                icon = if (isFiltering) MaterialSymbols.SEARCH else MaterialSymbols.RECEIPT,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                size = 32.dp
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.history_empty_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = stringResource(if (isFiltering) R.string.history_empty_filtered_title else R.string.history_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
+        Text(
+            text = stringResource(if (isFiltering) R.string.history_empty_filtered_desc else R.string.history_empty_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (isFiltering) {
+            SparelyTonalButton(onClick = onClearFilters) {
+                Text(stringResource(R.string.history_clear_filters))
+            }
+        } else {
+            SparelyButton(
+                onClick = onAddExpense,
+                icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
+            ) {
+                Text(stringResource(R.string.dashboard_log_purchase))
+            }
+        }
     }
 }
 

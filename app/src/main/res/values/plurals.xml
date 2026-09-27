@@ -36,4 +36,8 @@
         <item quantity="one">+%d more vault</item>
         <item quantity="other">+%d more vaults</item>
     </plurals>
+    <plurals name="history_transactions_count">
+        <item quantity="one">%d transaction</item>
+        <item quantity="other">%d transactions</item>
+    </plurals>
 </resources>
