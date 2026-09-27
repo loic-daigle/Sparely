@@ -1178,4 +1178,11 @@
     <string name="history_empty_filtered_desc">Essayez une autre période ou catégorie, ou effacez vos filtres.</string>
     <string name="vault_completed_goals">Objectifs atteints</string>
     <string name="vault_balance_edited_note">Solde modifié dans les paramètres du coffre</string>
+    <string name="settings_group_profile">Profil</string>
+    <string name="settings_group_region_security">Région et sécurité</string>
+    <string name="settings_group_income_accounts">Revenus et comptes</string>
+    <string name="settings_group_saving_automation">Épargne et automatisation</string>
+    <string name="settings_group_payment_methods">Moyens de paiement</string>
+    <string name="settings_group_notifications">Notifications</string>
+    <string name="settings_group_data_backup">Données et sauvegarde</string>
 </resources>

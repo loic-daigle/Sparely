@@ -1481,4 +1481,11 @@
     <string name="history_empty_filtered_desc">Try another period or category, or clear your filters.</string>
     <string name="vault_completed_goals">Completed Goals</string>
     <string name="vault_balance_edited_note">Balance edited in vault settings</string>
+    <string name="settings_group_profile">Profile</string>
+    <string name="settings_group_region_security">Region &amp; security</string>
+    <string name="settings_group_income_accounts">Income &amp; accounts</string>
+    <string name="settings_group_saving_automation">Saving &amp; automation</string>
+    <string name="settings_group_payment_methods">Payment methods</string>
+    <string name="settings_group_notifications">Notifications</string>
+    <string name="settings_group_data_backup">Data &amp; backup</string>
 </resources>

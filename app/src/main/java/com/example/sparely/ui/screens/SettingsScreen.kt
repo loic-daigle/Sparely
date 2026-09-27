@@ -64,6 +64,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -231,9 +234,10 @@ fun SettingsScreen(
         uri?.let { onExportExpensesToCsv(it, context, expenses, stores) }
     }
 
-    var selectedTab by remember { mutableStateOf(SettingsTab.General) }
-
-
+    // Saveable so the chosen tab survives rotation and returning from sub-screens
+    var selectedTab by rememberSaveable { mutableStateOf(SettingsTab.General) }
+    // One scroll position per tab, so switching tabs doesn't open mid-page
+    val tabScrollStates = SettingsTab.entries.associateWith { rememberScrollState() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTab.ordinal) {
@@ -251,12 +255,13 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(tabScrollStates.getValue(selectedTab))
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 when (selectedTab) {
                     SettingsTab.General -> {
+                        SettingsGroupLabel(stringResource(R.string.settings_group_profile))
                         ProfileCard(
                             displayName = displayName,
                             onDisplayNameChange = {
@@ -341,6 +346,7 @@ fun SettingsScreen(
                             onAgeChange(updated)
                         })
 
+                        SettingsGroupLabel(stringResource(R.string.settings_group_region_security))
                         RegionalSettingsCard(
                             settings = settings,
                             onRegionalSettingsChange = onRegionalSettingsChange
@@ -354,6 +360,7 @@ fun SettingsScreen(
                     }
 
                     SettingsTab.Finances -> {
+                        SettingsGroupLabel(stringResource(R.string.settings_group_income_accounts))
                         IncomeSettingsCard(
                             schedule = settings.paySchedule,
                             activeSaveRate = activeSaveRate,
@@ -380,6 +387,7 @@ fun SettingsScreen(
                             onManageSavingsAccounts = onManageSavingsAccounts
                         )
 
+                        SettingsGroupLabel(stringResource(R.string.settings_group_saving_automation))
                         SettingsSmartSavingsCard(
                             settings = settings,
                             selectedAllocationMode = selectedAllocationMode,
@@ -422,7 +430,12 @@ fun SettingsScreen(
                         )
 
                         LaunchedEffect(emergency, invest, funPercent, autoModeEnabled) {
-                            if (!autoModeEnabled) {
+                            val current = settings.defaultPercentages
+                            val changed = emergency.toDouble() != current.emergency ||
+                                invest.toDouble() != current.invest ||
+                                funPercent.toDouble() != current.`fun`
+                            // Only persist real edits; this effect also runs whenever the tab opens
+                            if (!autoModeEnabled && changed) {
                                 onPercentagesChange(
                                     SavingsPercentages(
                                         emergency = emergency.toDouble(),
@@ -434,6 +447,7 @@ fun SettingsScreen(
                             }
                         }
 
+                        SettingsGroupLabel(stringResource(R.string.settings_group_payment_methods))
                         PaymentMethodsSettingsCard(
                             paymentMethods = paymentMethods,
                             onAdd = onAddPaymentMethod,
@@ -443,6 +457,7 @@ fun SettingsScreen(
                     }
 
                     SettingsTab.System -> {
+                        SettingsGroupLabel(stringResource(R.string.settings_group_notifications))
                         ReminderCard(
                             remindersEnabled = remindersEnabled,
                             reminderHour = reminderHour,
@@ -478,6 +493,7 @@ fun SettingsScreen(
                             }
                         }
 
+                        SettingsGroupLabel(stringResource(R.string.settings_group_data_backup))
                         SettingsDataCard(
                             settings = settings,
                             expensesSize = expenses.size,
@@ -511,7 +527,6 @@ fun SettingsScreen(
                             onMinimumAmountChange = onSmartTransferMinimumChange
                         )
                     }
-                    else -> {}  // Assets tab navigates away via LaunchedEffect
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -2272,3 +2287,16 @@ private fun PaymentMethodsSettingsCard(
     }
 }
 
+/** Small uppercase-style label that groups related settings cards within a tab. */
+@Composable
+private fun SettingsGroupLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .padding(start = 4.dp, top = 8.dp)
+            .semantics { heading() }
+    )
+}
