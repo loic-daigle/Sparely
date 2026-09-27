@@ -43,11 +43,9 @@ jobs:
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-
-    - name: Install Android SDK components
-      run: |
-        sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-        sdkmanager --list_installed
+      with:
+        # The default ('tools platform-tools') fails: the legacy 'tools' package no longer exists.
+        packages: 'platform-tools platforms;android-36'
 
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
