@@ -1479,4 +1479,6 @@
     <string name="history_total_spent_period">Spent · %1$s</string>
     <string name="history_empty_filtered_title">No matching expenses</string>
     <string name="history_empty_filtered_desc">Try another period or category, or clear your filters.</string>
+    <string name="vault_completed_goals">Completed Goals</string>
+    <string name="vault_balance_edited_note">Balance edited in vault settings</string>
 </resources>

@@ -14,11 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.example.sparely.ui.theme.ExpressiveShapes
 import com.example.sparely.ui.theme.pill
+import com.example.sparely.ui.theme.success
+import com.example.sparely.ui.theme.warning
 import com.example.sparely.ui.components.ExpressiveSectionHeader
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -93,9 +96,9 @@ fun VaultManagementScreen(
         vaults.filter { !it.archived }
     }
 
-    // Financial health indicators
-    val totalVaultBalance = remember(vaults) { vaults.sumOf { it.currentBalance } }
-    val totalTargetAmount = remember(vaults) { vaults.sumOf { it.targetAmount } }
+    // Financial health indicators (archived vaults are hidden, so keep them out of the totals too)
+    val totalVaultBalance = remember(sortedVaults) { sortedVaults.sumOf { it.currentBalance } }
+    val totalTargetAmount = remember(sortedVaults) { sortedVaults.sumOf { it.targetAmount } }
     val overallProgress = remember(totalVaultBalance, totalTargetAmount) {
         if (totalTargetAmount > 0) (totalVaultBalance / totalTargetAmount * 100).toInt() else 0
     }
@@ -126,44 +129,37 @@ fun VaultManagementScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showCreateDialog = true },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                icon = {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
                         contentDescription = stringResource(R.string.vault_management_create_desc),
                         size = 24.dp
                     )
-                    Text(stringResource(R.string.vault_management_add), style = MaterialTheme.typography.labelLarge)
-                }
-            }
+                },
+                text = { Text(stringResource(R.string.vault_management_add)) },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Extra bottom padding so the last card can scroll clear of the FAB
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header removed to use global TopAppBar
-
-
             // Overall progress card
-            if (vaults.isNotEmpty()) {
-                item {
+            if (sortedVaults.isNotEmpty()) {
+                item(key = "overview") {
                     OverallProgressCard(
                         totalBalance = totalVaultBalance,
                         totalTarget = totalTargetAmount,
                         overallProgress = overallProgress,
-                        vaultCount = vaults.size,
+                        vaultCount = sortedVaults.size,
                         monthlyIncome = monthlyIncome,
                         recentExpenses = recentMonthlyExpenses,
                         savingsRate = savingsRate
@@ -176,17 +172,21 @@ fun VaultManagementScreen(
                     EmptyVaultsCard(onCreateVault = { showCreateDialog = true })
                 }
             } else {
-                // Group vaults by urgency for better organization
-                val urgentVaults = sortedVaults.filter { 
-                    it.targetDate?.let { date -> ChronoUnit.DAYS.between(LocalDate.now(), date) <= 90 } == true
+                // Group vaults for better organization. Groups are mutually exclusive (each vault
+                // appears once): a vault in two groups would reuse its item key and crash the list.
+                val today = LocalDate.now()
+                val completedVaults = sortedVaults.filter { it.targetAmount > 0 && it.currentBalance >= it.targetAmount }
+                val openVaults = sortedVaults - completedVaults.toSet()
+                val urgentVaults = openVaults.filter {
+                    it.targetDate?.let { date -> ChronoUnit.DAYS.between(today, date) <= 90 } == true
                 }
-                val activeVaults = sortedVaults.filter { 
-                    it.monthlyNeed != null && it.startDate?.let { date -> date <= LocalDate.now() } == true
+                val activeVaults = (openVaults - urgentVaults.toSet()).filter {
+                    it.monthlyNeed != null && it.startDate?.let { date -> date <= today } == true
                 }
-                val plannedVaults = sortedVaults - urgentVaults.toSet() - activeVaults.toSet()
+                val plannedVaults = openVaults - urgentVaults.toSet() - activeVaults.toSet()
 
                 if (urgentVaults.isNotEmpty()) {
-                    item {
+                    item(key = "header_urgent") {
                         SectionHeader(
                             title = stringResource(R.string.vault_urgent_goals),
                             subtitle = stringResource(R.string.vault_urgent_goals_count, urgentVaults.size),
@@ -206,7 +206,7 @@ fun VaultManagementScreen(
                 }
 
                 if (activeVaults.isNotEmpty()) {
-                    item {
+                    item(key = "header_active") {
                         SectionHeader(
                             title = stringResource(R.string.vault_active_flow_goals),
                             subtitle = stringResource(R.string.vault_active_flow_goals_count, activeVaults.size),
@@ -226,7 +226,7 @@ fun VaultManagementScreen(
                 }
 
                 if (plannedVaults.isNotEmpty()) {
-                    item {
+                    item(key = "header_planned") {
                         SectionHeader(
                             title = stringResource(R.string.vault_planned_goals),
                             subtitle = stringResource(R.string.vault_planned_goals_count, plannedVaults.size),
@@ -234,6 +234,26 @@ fun VaultManagementScreen(
                         )
                     }
                     items(plannedVaults, key = { it.id }) { vault ->
+                        EnhancedVaultCard(
+                            vault = vault,
+                            onEdit = { vaultToEdit = vault },
+                            onDelete = { vaultToDelete = vault },
+                            onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                            onViewHistory = onViewHistory?.let { { it(vault.id) } }
+                        )
+                    }
+                }
+
+                if (completedVaults.isNotEmpty()) {
+                    item(key = "header_completed") {
+                        SectionHeader(
+                            title = stringResource(R.string.vault_completed_goals),
+                            subtitle = pluralStringResource(R.plurals.vault_completed_goals_count, completedVaults.size, completedVaults.size),
+                            icon = MaterialSymbols.CHECK_CIRCLE
+                        )
+                    }
+                    items(completedVaults, key = { it.id }) { vault ->
                         EnhancedVaultCard(
                             vault = vault,
                             onEdit = { vaultToEdit = vault },
@@ -263,6 +283,7 @@ fun VaultManagementScreen(
     }
 
     vaultToEdit?.let { vault ->
+        val balanceEditedNote = stringResource(R.string.vault_balance_edited_note)
         SmartVaultEditorDialog(
             vault = vault,
             existingVaults = vaults,
@@ -271,7 +292,7 @@ fun VaultManagementScreen(
                 // Detect if balance changed and record it in history
                 val balanceDelta = updatedVault.currentBalance - vault.currentBalance
                 if (balanceDelta != 0.0 && onBalanceOverride != null) {
-                    onBalanceOverride(vault.id, updatedVault.currentBalance, "Balance edited in vault settings")
+                    onBalanceOverride(vault.id, updatedVault.currentBalance, balanceEditedNote)
                 }
                 onUpdateVault(updatedVault)
                 vaultToEdit = null
@@ -344,12 +365,10 @@ private fun OverallProgressCard(
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         shape = ExpressiveShapes.large,
-        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        containerColor = MaterialTheme.colorScheme.primaryContainer
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -415,7 +434,7 @@ private fun OverallProgressCard(
                     )
                     HealthIndicator(
                         label = stringResource(R.string.vault_health_monthly_spending),
-                        value = recentExpenses.formatCurrency("", 0),
+                        value = recentExpenses.formatCurrency(decimals = 0),
                         isHealthy = recentExpenses < monthlyIncome * 0.5
                     )
                 }
@@ -439,7 +458,7 @@ private fun HealthIndicator(
             icon = if (isHealthy) MaterialSymbols.CHECK_CIRCLE else MaterialSymbols.WARNING,
             contentDescription = null,
             size = 16.dp,
-            tint = if (isHealthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+            tint = if (isHealthy) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.warning
         )
         Column {
             Text(
@@ -601,14 +620,14 @@ private fun EnhancedVaultCard(
 
     // Smart status indicator
     val statusColor = when {
-        progress >= 1.0f -> MaterialTheme.colorScheme.primary // Completed
+        progressTarget >= 1.0f -> colorScheme.success // Completed
         isOverdue -> MaterialTheme.colorScheme.error // Overdue
-        isUrgent -> MaterialTheme.colorScheme.secondary // Urgent
+        isUrgent -> colorScheme.warning // Urgent
         else -> colorScheme.primary
     }
     
     val statusText = when {
-        progress >= 1.0f -> stringResource(R.string.vault_status_goal_reached)
+        progressTarget >= 1.0f -> stringResource(R.string.vault_status_goal_reached)
         isOverdue -> stringResource(R.string.vault_status_overdue)
         isUrgent -> stringResource(R.string.vault_status_urgent, daysUntilTarget ?: 0)
         vault.monthlyNeed != null && vault.startDate?.let { it <= LocalDate.now() } == true -> stringResource(R.string.vault_status_active_flow)
@@ -616,7 +635,7 @@ private fun EnhancedVaultCard(
     }
     
     val statusIcon = when {
-        progress >= 1.0f -> MaterialSymbols.CHECK
+        progressTarget >= 1.0f -> MaterialSymbols.CHECK
         isOverdue -> MaterialSymbols.WARNING
         isUrgent -> MaterialSymbols.WARNING
         else -> null
@@ -636,6 +655,7 @@ private fun EnhancedVaultCard(
             .padding(vertical = 4.dp),
         shape = ExpressiveShapes.large,
         containerColor = colorScheme.surfaceContainerHigh,
+        contentPadding = 0.dp,
         onClick = onEdit ?: {}
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -696,11 +716,13 @@ private fun EnhancedVaultCard(
                             }
                         }
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = vault.name,
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -790,14 +812,15 @@ private fun EnhancedVaultCard(
                     // Forecast & Remaining
                     Row(
                          modifier = Modifier.fillMaxWidth(),
-                         horizontalArrangement = Arrangement.SpaceBetween
+                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start)
                     ) {
                          if (remaining > 0) {
                              Text(
                                  text = stringResource(R.string.vault_label_remaining_to_go, remaining.formatCurrency()),
                                  style = MaterialTheme.typography.bodySmall,
                                  color = colorScheme.onSurfaceVariant,
-                                 fontWeight = FontWeight.Medium
+                                 fontWeight = FontWeight.Medium,
+                                 modifier = Modifier.weight(1f)
                              )
                          }
                          
