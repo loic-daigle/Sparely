@@ -1022,7 +1022,8 @@ private fun SparelyNavHost(
                             notes = input.notes,
                             orderNumber = input.orderNumber,
                             type = input.type,
-                            items = input.items
+                            items = input.items,
+                            isIgnored = input.isIgnored
                         )
                         updatedExpense?.let {
                             viewModel.updateExpenseWithAssets(it, input.assetAllocations)

@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.res.stringResource
+import com.sparely.app.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,18 +56,18 @@ fun QuickTemplateSelector(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Quick Templates",
+            text = stringResource(R.string.expense_entry_quick_templates),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
 
-        FlowRow(
+        // Single scrollable row keeps the form short instead of wrapping onto many lines
+        LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            QuickTemplates.ALL.forEach { template ->
+            items(QuickTemplates.ALL) { template ->
                 SparelyChip(
                     selected = false,
                     onClick = { onTemplateSelected(template) },

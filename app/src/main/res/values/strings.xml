@@ -1488,4 +1488,25 @@
     <string name="settings_group_payment_methods">Payment methods</string>
     <string name="settings_group_notifications">Notifications</string>
     <string name="settings_group_data_backup">Data &amp; backup</string>
+    <string name="expense_entry_section_basics">Basics</string>
+    <string name="expense_entry_section_payment">Payment</string>
+    <string name="expense_entry_section_allocations">Savings &amp; asset allocations</string>
+    <string name="expense_entry_section_allocations_help">Configure how savings are allocated and link assets to this expense</string>
+    <string name="expense_entry_section_details">Additional information</string>
+    <string name="expense_entry_section_details_help">Optional notes and order information</string>
+    <string name="expense_entry_section_items">Itemized receipt</string>
+    <string name="expense_entry_section_items_help">Break down the expense into individual items</string>
+    <string name="expense_entry_quick_templates">Quick templates</string>
+    <string name="expense_entry_pick_date">Pick date</string>
+    <string name="expense_entry_error_description">Add a short description</string>
+    <string name="expense_entry_fix_errors">Fix the highlighted fields to save</string>
+    <string name="expense_entry_link_assets_title">Link to assets</string>
+    <string name="expense_entry_no_assets_linked">No assets linked to this expense</string>
+    <string name="expense_entry_remove_asset">Remove asset</string>
+    <string name="expense_entry_asset_allocation">Allocation</string>
+    <string name="expense_entry_add_asset">Add asset</string>
+    <string name="expense_entry_create_asset">New asset</string>
+    <string name="expense_entry_link_asset_dialog_title">Link asset to expense</string>
+    <string name="expense_entry_exclude_predictions_title">Exclude from predictions</string>
+    <string name="expense_entry_exclude_predictions_desc">Turn this on for rare, large purchases (like a car) so they don\'t skew your predictions and recommendations.</string>
 </resources>

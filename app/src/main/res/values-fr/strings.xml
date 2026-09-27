@@ -1185,4 +1185,25 @@
     <string name="settings_group_payment_methods">Moyens de paiement</string>
     <string name="settings_group_notifications">Notifications</string>
     <string name="settings_group_data_backup">Données et sauvegarde</string>
+    <string name="expense_entry_section_basics">L\'essentiel</string>
+    <string name="expense_entry_section_payment">Paiement</string>
+    <string name="expense_entry_section_allocations">Épargne et répartition des biens</string>
+    <string name="expense_entry_section_allocations_help">Configurez la répartition de l\'épargne et liez des biens à cette dépense</string>
+    <string name="expense_entry_section_details">Informations supplémentaires</string>
+    <string name="expense_entry_section_details_help">Notes et numéro de commande facultatifs</string>
+    <string name="expense_entry_section_items">Reçu détaillé</string>
+    <string name="expense_entry_section_items_help">Détaillez la dépense article par article</string>
+    <string name="expense_entry_quick_templates">Modèles rapides</string>
+    <string name="expense_entry_pick_date">Choisir une date</string>
+    <string name="expense_entry_error_description">Ajoutez une courte description</string>
+    <string name="expense_entry_fix_errors">Corrigez les champs en surbrillance pour enregistrer</string>
+    <string name="expense_entry_link_assets_title">Lier à des biens</string>
+    <string name="expense_entry_no_assets_linked">Aucun bien lié à cette dépense</string>
+    <string name="expense_entry_remove_asset">Retirer le bien</string>
+    <string name="expense_entry_asset_allocation">Répartition</string>
+    <string name="expense_entry_add_asset">Ajouter un bien</string>
+    <string name="expense_entry_create_asset">Nouveau bien</string>
+    <string name="expense_entry_link_asset_dialog_title">Lier un bien à la dépense</string>
+    <string name="expense_entry_exclude_predictions_title">Exclure des prévisions</string>
+    <string name="expense_entry_exclude_predictions_desc">Activez ceci pour les achats rares et importants (comme une voiture) afin de ne pas fausser vos prévisions et recommandations.</string>
 </resources>
