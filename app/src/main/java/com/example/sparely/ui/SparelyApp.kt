@@ -245,7 +245,14 @@ private fun SparelyScaffold(
             if (currentDestination?.route != SparelyDestination.Dashboard.route && 
                 currentDestination?.route != SparelyDestination.SavingsHistory.route &&
                 currentDestination?.route != SparelyDestination.VaultHistory.route) {
-                SparelyTopBar(currentDestination, navController)
+                // The expense form doubles as the editor; say so when editing an existing expense
+                val isEditingExpense = currentDestination?.route == SparelyDestination.ExpenseEntry.route &&
+                    (uiState.prefillExpense?.id ?: 0L) > 0L
+                SparelyTopBar(
+                    currentDestination = currentDestination,
+                    navController = navController,
+                    titleOverride = if (isEditingExpense) stringResource(R.string.expense_entry_edit_title) else null
+                )
             }
         },
         bottomBar = {
@@ -560,9 +567,15 @@ private fun SparelyScaffold(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SparelyTopBar(currentDestination: NavDestination?, navController: NavHostController) {
+private fun SparelyTopBar(
+    currentDestination: NavDestination?,
+    navController: NavHostController,
+    titleOverride: String? = null
+) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
-    val title = destination?.labelRes?.let { stringResource(it) } ?: stringResource(R.string.app_name)
+    val title = titleOverride
+        ?: destination?.labelRes?.let { stringResource(it) }
+        ?: stringResource(R.string.app_name)
     val isTopLevel = destination != null && destination in bottomBarDestinations
     CenterAlignedTopAppBar(
         title = { 

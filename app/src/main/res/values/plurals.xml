@@ -44,4 +44,8 @@
         <item quantity="one">%d goal fully funded</item>
         <item quantity="other">%d goals fully funded</item>
     </plurals>
+    <plurals name="history_card_items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
 </resources>

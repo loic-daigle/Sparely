@@ -1206,4 +1206,14 @@
     <string name="expense_entry_link_asset_dialog_title">Lier un bien à la dépense</string>
     <string name="expense_entry_exclude_predictions_title">Exclure des prévisions</string>
     <string name="expense_entry_exclude_predictions_desc">Activez ceci pour les achats rares et importants (comme une voiture) afin de ne pas fausser vos prévisions et recommandations.</string>
+    <string name="history_card_selected">Sélectionné</string>
+    <string name="history_card_recurring">Récurrent</string>
+    <string name="history_card_refunded_badge">Remboursé</string>
+    <string name="history_card_partial_refund_badge">Remb. partiel</string>
+    <string name="history_card_saved_percent">%1$s épargné</string>
+    <string name="history_card_refunded_amount">Remboursé %1$s</string>
+    <string name="history_card_partially_refunded_amount">Remboursement partiel : %1$s</string>
+    <string name="history_action_duplicate">Dupliquer</string>
+    <string name="history_action_refund">Rembourser</string>
+    <string name="expense_entry_edit_title">Modifier la dépense</string>
 </resources>

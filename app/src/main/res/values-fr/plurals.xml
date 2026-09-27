@@ -44,4 +44,8 @@
         <item quantity="one">%d objectif entièrement financé</item>
         <item quantity="other">%d objectifs entièrement financés</item>
     </plurals>
+    <plurals name="history_card_items_count">
+        <item quantity="one">%d article</item>
+        <item quantity="other">%d articles</item>
+    </plurals>
 </resources>

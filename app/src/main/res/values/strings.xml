@@ -1509,4 +1509,14 @@
     <string name="expense_entry_link_asset_dialog_title">Link asset to expense</string>
     <string name="expense_entry_exclude_predictions_title">Exclude from predictions</string>
     <string name="expense_entry_exclude_predictions_desc">Turn this on for rare, large purchases (like a car) so they don\'t skew your predictions and recommendations.</string>
+    <string name="history_card_selected">Selected</string>
+    <string name="history_card_recurring">Recurring</string>
+    <string name="history_card_refunded_badge">Refunded</string>
+    <string name="history_card_partial_refund_badge">Partly refunded</string>
+    <string name="history_card_saved_percent">%1$s saved</string>
+    <string name="history_card_refunded_amount">Refunded %1$s</string>
+    <string name="history_card_partially_refunded_amount">Partially refunded: %1$s</string>
+    <string name="history_action_duplicate">Duplicate</string>
+    <string name="history_action_refund">Refund</string>
+    <string name="expense_entry_edit_title">Edit expense</string>
 </resources>

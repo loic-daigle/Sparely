@@ -111,6 +111,8 @@ object MaterialSymbols {
     val STORE = SHOPPING_BAG
     var SEARCH = R.drawable.search_48px
     var AUTORENEW = R.drawable.autorenew_48px
+    val CONTENT_COPY = R.drawable.content_copy_48px
+    val UNDO = R.drawable.undo_48px
     val UPLOAD_FILE = R.drawable.upload_file_48px
     val CSV = R.drawable.list_48px
 

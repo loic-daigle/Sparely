@@ -156,6 +156,14 @@ fun ExpenseEntryScreen(
     var assetSelectorExpanded by remember { mutableStateOf(false) }
     var isIgnored by remember { mutableStateOf(prefillExpense?.isIgnored ?: false) }
 
+    // Asset links for an edited expense load asynchronously; adopt them when they arrive so saving
+    // doesn't wipe existing links (unless the user already linked assets themselves)
+    androidx.compose.runtime.LaunchedEffect(prefillAssetAllocations) {
+        if (selectedAssetAllocations.isEmpty()) {
+            selectedAssetAllocations = prefillAssetAllocations
+        }
+    }
+
     // Asset creation state
     var showCreateAssetDialog by remember { mutableStateOf(false) }
     var assetCreationName by remember { mutableStateOf("") }
