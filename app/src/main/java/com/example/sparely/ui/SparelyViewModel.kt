@@ -14,6 +14,7 @@ import com.example.sparely.domain.logic.AlertsGenerator
 import com.example.sparely.domain.logic.AnalyticsEngine
 import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.domain.logic.ChallengeEngine
+import com.example.sparely.domain.logic.RecurringInference
 import com.example.sparely.domain.logic.FinancialHealthEngine
 import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.domain.logic.SavingsAdvisor
@@ -27,6 +28,7 @@ import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SpendingPatternEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
 import com.example.sparely.domain.model.Achievement
+import com.example.sparely.domain.model.Asset
 import com.example.sparely.domain.model.ExpenseHistoryRetention
 import com.example.sparely.domain.model.AlertMessage
 import com.example.sparely.domain.model.AlertType
@@ -65,7 +67,6 @@ import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.toSmartVault
 import com.example.sparely.domain.model.toSmartVaultSetup
 import com.example.sparely.domain.model.IncomeTrackingMode
-import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.notifications.NotificationScheduler
 import com.example.sparely.workers.VaultAutoDepositScheduler
@@ -79,6 +80,8 @@ import com.example.sparely.ui.state.SparelyUiState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -117,6 +120,21 @@ class SparelyViewModel(
     private val _uiState = MutableStateFlow(SparelyUiState())
     val uiState: StateFlow<SparelyUiState> = _uiState.asStateFlow()
 
+    // Launches on [dispatcher] like viewModelScope.launch(dispatcher), but catches exceptions
+    // thrown by [block] and surfaces them as errorMessage instead of crashing the app. Use this
+    // for money-mutating operations (expenses, vault/main-account balance changes) where an
+    // uncaught Room/DAO exception would otherwise take the whole app down mid-transaction.
+    private fun safeLaunch(block: suspend () -> Unit) = viewModelScope.launch(dispatcher) {
+        try {
+            block()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.e("SparelyViewModel", "Unhandled error in safeLaunch", e)
+            _uiState.update { it.copy(errorMessage = e.message ?: "Something went wrong") }
+        }
+    }
+
     // Brandfetch Search
     private val _brandSearchResults = MutableStateFlow<List<com.example.sparely.data.remote.BrandfetchBrand>>(emptyList())
     val brandSearchResults: StateFlow<List<com.example.sparely.data.remote.BrandfetchBrand>> = _brandSearchResults.asStateFlow()
@@ -140,6 +158,37 @@ class SparelyViewModel(
         _brandSearchResults.value = emptyList()
     }
 
+    fun loadMoreExpenses() {
+        if (_uiState.value.isLoadingMoreExpenses || !_uiState.value.canLoadMoreExpenses) return
+        
+        _uiState.update { it.copy(isLoadingMoreExpenses = true) }
+        viewModelScope.launch(dispatcher) {
+            val currentSize = _uiState.value.pagedExpenses.size
+            val newExpenses = savingsRepository.getExpensesPaged(limit = 20, offset = currentSize)
+            _uiState.update {
+                it.copy(
+                    pagedExpenses = it.pagedExpenses + newExpenses,
+                    isLoadingMoreExpenses = false,
+                    canLoadMoreExpenses = newExpenses.size == 20
+                )
+            }
+        }
+    }
+
+    fun selectStore(store: Store) {
+        _uiState.update { it.copy(selectedStore = store, isStoreHistoryLoading = true) }
+        viewModelScope.launch(dispatcher) {
+            val history = savingsRepository.getExpensesForStore(store.id)
+            _uiState.update {
+                it.copy(selectedStoreHistory = history, isStoreHistoryLoading = false)
+            }
+        }
+    }
+
+    fun clearSelectedStore() {
+        _uiState.update { it.copy(selectedStore = null, selectedStoreHistory = emptyList()) }
+    }
+
     // Brandfetch Search
 
 
@@ -155,34 +204,30 @@ class SparelyViewModel(
         return abs(current - candidate) > tolerance
     }
 
-    private fun paychecksPerMonth(schedule: PayScheduleSettings): Double {
-        return when (schedule.interval) {
-            PayInterval.WEEKLY -> 52.0 / 12.0
-            PayInterval.BIWEEKLY -> 26.0 / 12.0
-            PayInterval.SEMI_MONTHLY -> 2.0
-            PayInterval.MONTHLY -> 1.0
-            PayInterval.CUSTOM -> schedule.customDaysBetween?.let { 30.0 / it.coerceAtLeast(1) } ?: 1.0
-        }
-    }
-
     private data class AggregatedFeeds(
         val expenses: List<Expense>,
         val transfers: List<SavingsTransferEntity>,
         val settings: SparelySettings,
         val vaults: List<SmartVault> = emptyList(),
+        val savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
+        val assets: List<Asset> = emptyList(),
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
         val challenges: List<SavingsChallenge> = emptyList(),
         val achievements: List<Achievement> = emptyList(),
         val stores: List<Store> = emptyList(),
         val paymentMethods: List<PaymentMethod> = emptyList(),
-        val creditCardPayments: List<com.example.sparely.domain.model.CreditCardPayment> = emptyList()
+        val creditCardPayments: List<com.example.sparely.domain.model.CreditCardPayment> = emptyList(),
+        val recurringPaidRecords: List<com.example.sparely.data.local.RecurringExpensePaidEntity> = emptyList()
     )
 
     init {
+        // Initial load for paged expenses
+        loadMoreExpenses()
+
         viewModelScope.launch(dispatcher) {
             preferencesRepository.refreshAgeFromBirthday()
-            // Initialize auto-deposit scheduling
+            // ... (rest of init)
             val autoDepositsEnabled = preferencesRepository.getAutoDepositsEnabled()
             val checkHour = preferencesRepository.getAutoDepositCheckHour()
             vaultAutoDepositScheduler.schedule(autoDepositsEnabled, checkHour)
@@ -203,29 +248,38 @@ class SparelyViewModel(
                     settings = settings
                 )
             }
-                .combine(savingsRepository.observeSmartVaults()) { feed, vaults ->
+                .combine(savingsRepository.observeSmartVaults()) { feed: AggregatedFeeds, vaults: List<SmartVault> ->
                     feed.copy(vaults = vaults)
                 }
-                .combine(savingsRepository.observeBudgets()) { feed, budgets ->
+                .combine(savingsRepository.observeBudgets()) { feed: AggregatedFeeds, budgets: List<CategoryBudget> ->
                     feed.copy(budgets = budgets)
                 }
-                .combine(savingsRepository.observeRecurringExpenses()) { feed, recurring ->
+                .combine(savingsRepository.observeSavingsAccounts()) { feed: AggregatedFeeds, accounts: List<com.example.sparely.domain.model.SavingsAccount> ->
+                    feed.copy(savingsAccounts = accounts)
+                }
+                .combine(savingsRepository.observeActiveAssets()) { feed: AggregatedFeeds, assets: List<Asset> ->
+                    feed.copy(assets = assets)
+                }
+                .combine(savingsRepository.observeRecurringExpenses()) { feed: AggregatedFeeds, recurring: List<RecurringExpense> ->
                     feed.copy(recurring = recurring)
                 }
-                .combine(savingsRepository.observeChallenges()) { feed, challenges ->
+                .combine(savingsRepository.observeChallenges()) { feed: AggregatedFeeds, challenges: List<SavingsChallenge> ->
                     feed.copy(challenges = challenges)
                 }
-                .combine(savingsRepository.observeAchievements()) { feed, achievements ->
+                .combine(savingsRepository.observeAchievements()) { feed: AggregatedFeeds, achievements: List<Achievement> ->
                     feed.copy(achievements = achievements)
                 }
-                .combine(savingsRepository.observeStores()) { feed, stores ->
+                .combine(savingsRepository.observeStores()) { feed: AggregatedFeeds, stores: List<Store> ->
                     feed.copy(stores = stores)
                 }
-                .combine(savingsRepository.observePaymentMethods()) { feed, methods ->
+                .combine(savingsRepository.observePaymentMethods()) { feed: AggregatedFeeds, methods: List<PaymentMethod> ->
                     feed.copy(paymentMethods = methods)
                 }
-                .combine(savingsRepository.observeCreditCardPayments()) { feed, payments ->
+                .combine(savingsRepository.observeCreditCardPayments()) { feed: AggregatedFeeds, payments: List<com.example.sparely.domain.model.CreditCardPayment> ->
                     feed.copy(creditCardPayments = payments)
+                }
+                .combine(savingsRepository.observeRecurringExpensePaidRecords()) { feed: AggregatedFeeds, records: List<com.example.sparely.data.local.RecurringExpensePaidEntity> ->
+                    feed.copy(recurringPaidRecords = records)
                 }
                 .combine(preferencesRepository.onboardingCompletedFlow) { feed, onboardingCompleted ->
                     feed to onboardingCompleted
@@ -243,7 +297,13 @@ class SparelyViewModel(
                     )
                 }
                 .map { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
-                    val domainExpenses = feed.expenses
+                    val domainExpenses = RecurringInference.annotate(feed.expenses, feed.recurring)
+
+                    // Automatically exclude ignored expenses and statistical anomalies (large
+                    // one-off expenses) from anything used for burn-rate/month-end predictions.
+                    val predictionExpenses = SmartInsightEngine.filterPredictionExpenses(domainExpenses)
+
+
                     val domainTransfers = feed.transfers.map { it.toDomain() }
                     val analytics = AnalyticsEngine.build(domainExpenses, domainTransfers)
 
@@ -254,12 +314,14 @@ class SparelyViewModel(
                     } else {
                         null
                     }
-                    val budgetSuggestions = BudgetEngine.suggestBudgetAdjustments(activeBudgets, domainExpenses, feed.settings, context = container.context)
+                    val budgetSuggestions = BudgetEngine.suggestBudgetAdjustments(activeBudgets, predictionExpenses, feed.settings, context = container.context)
                     val budgetPrompts = budgetSummary?.let {
                         BudgetEngine.detectBudgetPrompts(it, domainExpenses, budgetSuggestions, feed.settings)
                             .filterNot { handledBudgetPrompts.contains(promptKey(it.category, it.month)) }
                     }.orEmpty()
                     val budgetAlerts = budgetSummary?.let { BudgetEngine.generateBudgetAlerts(it, container.context) }.orEmpty()
+                    val budgetForecasts = BudgetEngine.predictMonthEndSpending(activeBudgets, domainExpenses, LocalDate.now())
+                    val preemptiveWarnings = BudgetEngine.generatePreemptiveWarnings(budgetForecasts, LocalDate.now(), container.context)
 
                     val monthlyExpenseEstimate = when {
                         analytics.averageMonthlyExpense > 0.0 -> analytics.averageMonthlyExpense
@@ -340,44 +402,56 @@ class SparelyViewModel(
                         analytics = analytics
                     )
 
+
+                    // Calculate Total Liquid Money
+                    val totalHisaBalance = feed.savingsAccounts.filter { !it.archived }.sumOf { it.currentBalance }
+                    val totalUsableMoney = feed.settings.mainAccountBalance + totalHisaBalance
+
                     // Compute cashflow forecast for Safe to Spend display
                     val cashflowForecast = CashflowEngine.forecast(
                         CashflowEngine.ForecastInput(
                             currentBalance = feed.settings.mainAccountBalance,
-                            recentExpenses = domainExpenses,
+                            totalHisaBalance = totalHisaBalance,
+                            minMainAccountBalance = feed.settings.minMainAccountBalance,
+                            recentExpenses = predictionExpenses,
                             recurringExpenses = feed.recurring,
                             expectedMonthlyIncome = feed.settings.monthlyIncome,
                             nextPayDate = feed.settings.paySchedule.nextPayDate,
-                            nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 }
+                            nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 },
+                            paySchedule = feed.settings.paySchedule
                         )
                     )
 
                     // Compute spending pattern analysis for anomaly detection and trends
                     val categoryBudgetMap = activeBudgets.associate { it.category to it.monthlyLimit }
                     val spendingPatterns = SpendingPatternEngine.analyze(
-                        expenses = domainExpenses,
+                        expenses = predictionExpenses,
                         mainAccountBalance = feed.settings.mainAccountBalance,
                         categoryBudgets = categoryBudgetMap
                     )
 
                     val totalVaultBalance = feed.vaults.sumOf { it.currentBalance }
                     val smartSavingSummary = buildSmartSavingSummary(feed.settings, analytics, recommendation)
-                    val detectedRecurring = detectRecurringTransactions(domainExpenses)
+                    val detectedRecurring = detectRecurringTransactions(domainExpenses).pruneStaleRecurring(feed.recurring)
                     
                     // Smart Insight Engine computations
                     val recurringPatterns = SmartInsightEngine.detectRecurringPatterns(
-                        expenses = domainExpenses
+                        expenses = predictionExpenses
                     )
                     val seasonalInsights = SmartInsightEngine.getSeasonalInsights(
-                        expenses = domainExpenses
+                        expenses = predictionExpenses
                     )
                     val idleMoneyInsight = SmartInsightEngine.analyzeIdleMoney(
                         currentBalance = feed.settings.mainAccountBalance,
-                        expenses = domainExpenses,
-                        vaults = feed.vaults
+                        expenses = predictionExpenses,
+                        vaults = feed.vaults,
+                        minMainAccountBalance = feed.settings.minMainAccountBalance,
+                        monthlyIncome = feed.settings.monthlyIncome,
+                        mainOverflowAccountId = feed.settings.mainOverflowAccountId
                     )
                     val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(
-                        expenses = domainExpenses
+                        expenses = predictionExpenses,
+                        reportWithinDays = 60
                     )
 
                     val automationActive = feed.settings.paySchedule.dynamicSaveRateEnabled || feed.settings.dynamicSavingTaxEnabled
@@ -388,7 +462,7 @@ class SparelyViewModel(
                         val referencePay = listOf(
                             feed.settings.paySchedule.lastPayAmount,
                             feed.settings.paySchedule.defaultNetPay,
-                            feed.settings.monthlyIncome / (paychecksPerMonth(feed.settings.paySchedule).takeIf { it > 0.0 } ?: 1.0)
+                            feed.settings.monthlyIncome / (IncomeAutomationEngine.paychecksPerMonth(feed.settings.paySchedule).takeIf { it > 0.0 } ?: 1.0)
                         ).firstOrNull { it > 0.0 }
                         if (referencePay != null && referencePay > 0.0) {
                             val automationInput = IncomeAutomationEngine.Input(
@@ -452,6 +526,16 @@ class SparelyViewModel(
                          .thenBy { if (it.targetAmount > 0) it.currentBalance / it.targetAmount else 0.0 }
                     )
 
+                    // Preserve transient state from previous UI state
+                    val previousState = _uiState.value
+                    
+                    // Reconstruct pagedExpenses with updated data
+                    val expenseMap = domainExpenses.associateBy { it.id }
+                    val preservedPagedExpenses = previousState.pagedExpenses.mapNotNull { expenseMap[it.id] }
+                    
+                    // Reconstruct store history with updated data
+                    val preservedStoreHistory = previousState.selectedStoreHistory.mapNotNull { expenseMap[it.id] }
+
                     SparelyUiState(
                         settings = feed.settings,
                         expenses = domainExpenses,
@@ -462,7 +546,11 @@ class SparelyViewModel(
                         smartSavingSummary = smartSavingSummary,
                         alerts = combinedAlerts,
                         smartVaults = sortedVaults,
+                        savingsAccounts = feed.savingsAccounts,
+                        assets = feed.assets,
                         totalVaultBalance = totalVaultBalance,
+                        totalHisaBalance = totalHisaBalance,
+                        totalUsableMoney = totalUsableMoney,
                         emergencyFundGoal = emergencyGoal,
                         onboardingCompleted = onboardingCompleted,
                         activeSaveRate = activeSaveRate,
@@ -472,14 +560,29 @@ class SparelyViewModel(
                         budgetSummary = budgetSummary,
                         budgetSuggestions = budgetSuggestions,
                         budgetPrompts = budgetPrompts,
+                        budgetForecasts = budgetForecasts,
+                        preemptiveWarnings = preemptiveWarnings,
                         recurringExpenses = feed.recurring,
                         upcomingRecurring = upcomingRecurring,
+                        recurringPaidRecords = feed.recurringPaidRecords,
                         activeChallenges = enrichedChallenges,
                         achievements = achievements,
                         financialHealthScore = financialHealthScore,
                         detectedRecurringTransactions = detectedRecurring,
-                        // preserve any transient UI prompts (don't wipe them on state refresh)
-                        vaultArchivePrompt = _uiState.value.vaultArchivePrompt,
+                        
+                        // preserve any transient UI prompts and state
+                        vaultArchivePrompt = previousState.vaultArchivePrompt,
+                        lastDeletedExpense = previousState.lastDeletedExpense,
+                        prefillExpense = previousState.prefillExpense,
+                        
+                        // Infinite Scroll & Store History Preservation
+                        pagedExpenses = preservedPagedExpenses,
+                        canLoadMoreExpenses = previousState.canLoadMoreExpenses,
+                        isLoadingMoreExpenses = previousState.isLoadingMoreExpenses,
+                        selectedStore = previousState.selectedStore,
+                        selectedStoreHistory = preservedStoreHistory,
+                        isStoreHistoryLoading = previousState.isStoreHistoryLoading,
+
                         stores = feed.stores,
                         paymentMethods = feed.paymentMethods,
                         creditCardPayments = feed.creditCardPayments.groupBy { it.paymentMethodId }, // Group by card ID
@@ -542,14 +645,21 @@ class SparelyViewModel(
                     startDate = input.startDate,
                     endDate = input.endDate,
                     autoLog = input.autoLog,
+                    executeAutomatically = input.executeAutomatically,
                     reminderDaysBefore = input.reminderDaysBefore.coerceAtLeast(0),
                     notes = input.notes,
+                    storeId = input.storeId,
+                    paymentMethodId = input.paymentMethodId,
                     includesTax = input.includesTax,
                     deductFromMainAccount = input.deductFromMainAccount,
                     deductedFromVaultId = input.deductedFromVaultId,
                     manualPercentages = input.manualPercentages,
-                    storeId = input.storeId,
-                    paymentMethodId = input.paymentMethodId
+                    isVariableAmount = input.isVariableAmount,
+                    nextRunAt = input.nextRunAt,
+                    type = input.type,
+                    items = input.items,
+                    assetAllocations = input.assetAllocations,
+                    necessityOverride = input.necessityOverride
                 )
                 savingsRepository.upsertRecurringExpense(expense)
             }
@@ -591,13 +701,88 @@ class SparelyViewModel(
                         deductFromVaultId = recurring.deductedFromVaultId,
                         storeId = recurring.storeId,
                         paymentMethodId = recurring.paymentMethodId,
-                        isRecurring = true
+                        isRecurring = true,
+                        type = recurring.type,
+                        items = recurring.items,
+                        assetAllocations = recurring.assetAllocations
                     )
                     addExpense(input)
                 }
 
                 savingsRepository.updateRecurringExpenseProcessed(id, LocalDate.now())
             }
+        }
+
+        /**
+         * Mark a recurring expense as paid early before the due date.
+         * Creates an expense entry and records the early payment.
+         */
+        fun payRecurringExpenseEarly(
+            recurringExpenseId: Long,
+            dueDate: java.time.LocalDate,
+            amountPaid: Double = 0.0,
+            paidDate: java.time.LocalDate = java.time.LocalDate.now(),
+            notes: String? = null
+        ) {
+            viewModelScope.launch(dispatcher) {
+                try {
+                    val recurring = _uiState.value.recurringExpenses.find { it.id == recurringExpenseId }
+                    if (recurring != null) {
+                        val finalAmount = if (amountPaid > 0) amountPaid else recurring.amount
+
+                        // 1. Create an actual expense entry for this early payment using addExpense
+                        val input = ExpenseInput(
+                            description = recurring.description,
+                            amount = finalAmount,
+                            category = recurring.category,
+                            date = paidDate,
+                            includesTax = recurring.includesTax,
+                            manualPercentages = recurring.manualPercentages,
+                            deductFromMainAccount = recurring.deductFromMainAccount,
+                            deductFromVaultId = recurring.deductedFromVaultId,
+                            storeId = recurring.storeId,
+                            paymentMethodId = recurring.paymentMethodId,
+                            isRecurring = true,
+                            notes = notes?.let { "Early payment (due $dueDate): $it" },
+                            type = recurring.type,
+                            items = recurring.items,
+                            assetAllocations = recurring.assetAllocations
+                        )
+
+                        // Use the existing addExpense flow which handles all calculations
+                        addExpense(input) {
+                            // After expense is created, record the early payment
+                            viewModelScope.launch(dispatcher) {
+                                try {
+                                    savingsRepository.recordRecurringExpensePaidEarly(
+                                        recurringExpenseId = recurringExpenseId,
+                                        dueDate = dueDate,
+                                        amountPaid = finalAmount,
+                                        paidDate = paidDate,
+                                        notes = notes
+                                    )
+                                    // Also mark as processed to advance the schedule
+                                    savingsRepository.updateRecurringExpenseProcessed(
+                                        recurringExpenseId,
+                                        dueDate
+                                    )
+                                } catch (e: Exception) {
+                                    // Log error but don't crash
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Log error but don't crash
+                }
+            }
+        }
+
+        /**
+         * Check if a recurring expense has been paid for a specific due date.
+         */
+        suspend fun isRecurringExpensePaid(recurringExpenseId: Long, dueDate: java.time.LocalDate): Boolean {
+            return savingsRepository.isRecurringExpensePaidForDate(recurringExpenseId, dueDate)
         }
 
 
@@ -643,11 +828,12 @@ class SparelyViewModel(
             return recurring
                 .filter { it.isActive }
                 .mapNotNull { expense ->
-                    val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
-                    var nextDue = addFrequencyInterval(baseDate, expense.frequency)
+                    var nextDue = expense.nextRunAt?.toLocalDate() 
+                        ?: expense.lastProcessedDate?.let { addFrequencyInterval(it, expense.frequency) }
+                        ?: expense.startDate
                     
-                    // Advance until we reach a future date
-                    while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
+                    // Advance until we reach a future date or today (if not processed today)
+                    while (nextDue.isBefore(today) && expense.lastProcessedDate != today) {
                         nextDue = addFrequencyInterval(nextDue, expense.frequency)
                     }
                     
@@ -681,11 +867,16 @@ class SparelyViewModel(
         analytics: AnalyticsSnapshot,
         recommendation: RecommendationResult?
     ): SmartSavingSummary {
+        val observedSavings = analytics.averageMonthlyReserve.coerceAtLeast(0.0)
+        val observedSpending = analytics.averageMonthlyExpense.coerceAtLeast(0.0)
+        val observedTotal = observedSavings + observedSpending
         val monthlyIncome = settings.monthlyIncome.coerceAtLeast(0.0)
-        val actualRate = if (monthlyIncome > 0.0) {
-            (analytics.averageMonthlyReserve / monthlyIncome).coerceIn(0.0, 1.0)
-        } else {
-            0.0
+
+        // Prefer an observed savings rate from actual spending patterns; fall back to income if needed.
+        val actualRate = when {
+            observedTotal > 0.0 -> (observedSavings / observedTotal).coerceIn(0.0, 1.0)
+            monthlyIncome > 0.0 -> (observedSavings / monthlyIncome).coerceIn(0.0, 1.0)
+            else -> 0.0
         }
         val recommendedSplit = recommendation?.recommendedPercentages ?: settings.defaultPercentages
         return SmartSavingSummary(
@@ -711,6 +902,9 @@ class SparelyViewModel(
             if (positiveIntervals.isEmpty()) return@mapNotNull null
             val cadence = positiveIntervals.average().takeIf { !it.isNaN() } ?: return@mapNotNull null
             val roundedCadence = cadence.roundToInt().coerceAtLeast(1)
+            val daysSinceLast = ChronoUnit.DAYS.between(sorted.last().date, LocalDate.now()).toInt()
+            // Drop patterns that appear stale (one cadence + short grace window)
+            if (daysSinceLast > roundedCadence + 7) return@mapNotNull null
             val averageAmount = cluster.map { it.amount }.average()
             DetectedRecurringTransaction(
                 description = sorted.first().description,
@@ -724,8 +918,67 @@ class SparelyViewModel(
             .take(8)
     }
 
-    fun addExpense(input: ExpenseInput, onComplete: () -> Unit = {}) {
+    private fun List<DetectedRecurringTransaction>.pruneStaleRecurring(
+        existingRecurring: List<RecurringExpense> = emptyList(),
+        now: LocalDate = LocalDate.now()
+    ): List<DetectedRecurringTransaction> {
+        val existingDescriptions = existingRecurring.map { it.description.trim().lowercase() }.toSet()
+        return filter { insight ->
+            val daysSinceLast = ChronoUnit.DAYS.between(insight.lastOccurrence, now).toInt()
+            val isStale = daysSinceLast > insight.cadenceDays + 7
+            val isAlreadyKnown = insight.description.trim().lowercase() in existingDescriptions
+            !isStale && !isAlreadyKnown
+        }
+    }
+
+    suspend fun findVaultIdForContribution(contributionId: Long): Long? {
+        return savingsRepository.getVaultContributionById(contributionId)?.vaultId
+    }
+
+    fun startRecurringFromInsight(insight: DetectedRecurringTransaction) {
+        _uiState.update { state -> state.copy(pendingDetectedRecurring = insight) }
+    }
+
+    fun clearPendingDetectedRecurring() {
+        _uiState.update { state -> state.copy(pendingDetectedRecurring = null) }
+    }
+
+    fun addDetectedRecurring(input: RecurringExpenseInput, insight: DetectedRecurringTransaction) {
         viewModelScope.launch(dispatcher) {
+            val expense = RecurringExpense(
+                description = input.description.trim().ifEmpty { "Recurring payment" },
+                amount = input.amount.coerceAtLeast(0.0),
+                category = input.category,
+                frequency = input.frequency,
+                startDate = input.startDate,
+                endDate = input.endDate,
+                autoLog = input.autoLog,
+                reminderDaysBefore = input.reminderDaysBefore.coerceAtLeast(0),
+                notes = input.notes,
+                includesTax = input.includesTax,
+                deductFromMainAccount = input.deductFromMainAccount,
+                deductedFromVaultId = input.deductedFromVaultId,
+                manualPercentages = input.manualPercentages,
+                storeId = input.storeId,
+                paymentMethodId = input.paymentMethodId,
+                nextRunAt = input.nextRunAt,
+                necessityOverride = input.necessityOverride
+            )
+            savingsRepository.upsertRecurringExpense(expense)
+
+            _uiState.update { state ->
+                state.copy(
+                    detectedRecurringTransactions = state.detectedRecurringTransactions.filterNot {
+                        it.description.equals(insight.description, ignoreCase = true)
+                    },
+                    pendingDetectedRecurring = null
+                )
+            }
+        }
+    }
+
+    fun addExpense(input: ExpenseInput, onComplete: () -> Unit = {}) {
+        safeLaunch {
             val currentState = _uiState.value
             val settings = currentState.settings
             val recommendedPercentages = when {
@@ -759,19 +1012,29 @@ class SparelyViewModel(
                 paymentMethodId = input.paymentMethodId,
                 isRecurring = input.isRecurring,
                 notes = input.notes,
-                orderNumber = input.orderNumber
+                orderNumber = input.orderNumber,
+                type = input.type.name
             )
             val insertedExpenseId = savingsRepository.upsertExpense(entity)
-            
-            // Save line items if present
-            if (input.items.isNotEmpty()) {
-                val itemsWithId = input.items.map { it.copy(expenseId = insertedExpenseId) }
+
+            // Save line items if present (filter out items with no name or price)
+            val validItems = input.items.filter { it.name.isNotBlank() && it.totalPrice > 0 }
+            if (validItems.isNotEmpty()) {
+                val itemsWithId = validItems.map { it.copy(expenseId = insertedExpenseId, id = 0L) }
                 savingsRepository.insertExpenseItems(itemsWithId)
             }
-            
+
+            // Link assets if specified
+            if (input.assetAllocations.isNotEmpty()) {
+                input.assetAllocations.forEach { (assetId, percentageAllocated) ->
+                    savingsRepository.linkExpenseToAsset(insertedExpenseId, assetId, percentageAllocated)
+                }
+            }
+
+            savingsRepository.withMainAccountLock {
             // Get current balance once at the start
             var currentBalance = savingsRepository.getLatestMainAccountBalance()
-            
+
             // Handle vault deduction if specified
             if (input.deductFromVaultId != null) {
                 val vault = currentState.smartVaults.find { it.id == input.deductFromVaultId }
@@ -841,8 +1104,8 @@ class SparelyViewModel(
                 val isCreditCardPayment = paymentMethod?.isCreditCard == true
                 
                 if (isCreditCardPayment) {
-                    // Credit card payment: only add to credit card balance, do NOT deduct from main account
-                    savingsRepository.addToCreditCardBalance(paymentMethod!!.id, input.amount)
+                    // Credit card payment: DO NOTHING here as SavingsRepository handles balance update.
+                    // We explicitly do NOT deduct from main account.
                 } else {
                     // Non-credit card payment: deduct from main account
                     val newBalance = (currentBalance - input.amount).coerceAtLeast(0.0)
@@ -858,12 +1121,6 @@ class SparelyViewModel(
                     preferencesRepository.updateMainAccountBalance(newBalance)
                     currentBalance = newBalance
                 }
-            } else if (input.paymentMethodId != null) {
-                // Not deducting from main account, but still need to update credit card balance if applicable
-                val paymentMethod = currentState.paymentMethods.find { it.id == input.paymentMethodId }
-                if (paymentMethod?.isCreditCard == true) {
-                    savingsRepository.addToCreditCardBalance(paymentMethod.id, input.amount)
-                }
             }
             
             val savingTaxPlans = SavingTaxEngine.calculate(
@@ -871,45 +1128,54 @@ class SparelyViewModel(
                     expenseAmount = input.amount,
                     expenseDate = input.date,
                     settings = settings,
-                    vaults = currentState.smartVaults
+                    vaults = currentState.smartVaults,
+                    currentMainAccountBalance = currentBalance
                 )
             )
             if (savingTaxPlans.isNotEmpty()) {
                 val contributions = savingTaxPlans.map { plan ->
-                VaultContribution(
-                    vaultId = plan.vaultId,
-                    amount = plan.amount,
-                    date = input.date,
-                    source = VaultContributionSource.SAVING_TAX,
-                    note = "Saving tax from ${input.description}".take(120),
-                    relatedExpenseId = insertedExpenseId
-                )
-            }
-            val contributionIds = savingsRepository.logVaultContributions(contributions)
+                    VaultContribution(
+                        vaultId = plan.vaultId,
+                        amount = plan.amount,
+                        date = input.date,
+                        source = VaultContributionSource.SAVING_TAX,
+                        note = "Saving tax from ${input.description}".take(120),
+                        relatedExpenseId = insertedExpenseId
+                    )
+                }
+                val contributionIds = savingsRepository.logVaultContributions(contributions)
             
-            // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
-            val totalSavingTax = savingTaxPlans.sumOf { it.amount }
-            if (totalSavingTax > 0.0) {
-                val newBalance = (currentBalance - totalSavingTax).coerceAtLeast(0.0)
-                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                    amount = totalSavingTax,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Saving tax to ${savingTaxPlans.size} vault(s)",
-                    relatedVaultContributionIds = contributionIds
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
+                // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
+                val totalSavingTax = savingTaxPlans.sumOf { it.amount }
+                if (totalSavingTax > 0.0) {
+                    val newBalance = (currentBalance - totalSavingTax).coerceAtLeast(0.0)
+                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
+                        amount = totalSavingTax,
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Saving tax to ${savingTaxPlans.size} vault(s)",
+                        relatedVaultContributionIds = contributionIds
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(newBalance)
+                }
+            }
+            }
+
+            // Refresh paged list to include new expense
+            _uiState.update { it.copy(pagedExpenses = emptyList(), canLoadMoreExpenses = true) }
+            loadMoreExpenses()
+
+            withContext(Dispatchers.Main) {
+                onComplete()
             }
         }
-        onComplete()
     }
-}
 
 fun deleteExpense(id: Long) {
-    viewModelScope.launch(dispatcher) {
-        val expenseEntity = savingsRepository.findExpenseById(id) ?: return@launch
+    safeLaunch {
+        val expenseEntity = savingsRepository.findExpenseById(id) ?: return@safeLaunch
         _uiState.update { it.copy(lastDeletedExpense = expenseEntity.toDomain()) }
         
         // 1. Revert financial impact
@@ -927,21 +1193,23 @@ fun deleteExpense(id: Long) {
              if (paymentMethod?.isCreditCard == true) {
                  // Determine if we should reduce credit card balance. Usually yes.
                  // We add negative amount to reduce balance
-                 savingsRepository.addToCreditCardBalance(paymentMethod.id, -netAmountDeleted)
+                 // HANDLED BY REPOSITORY
              } else {
                  // Refund to main account
-                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                 val newBalance = currentBalance + netAmountDeleted
-                  val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                    amount = netAmountDeleted,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Reversal of deleted expense: ${expenseEntity.description}",
-                    relatedExpenseId = null // Set to null since the expense is being deleted
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
+                 savingsRepository.withMainAccountLock {
+                     val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                     val newBalance = currentBalance + netAmountDeleted
+                     val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                        amount = netAmountDeleted,
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Reversal of deleted expense: ${expenseEntity.description}",
+                        relatedExpenseId = null // Set to null since the expense is being deleted
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(newBalance)
+                 }
              }
         }
         
@@ -953,53 +1221,13 @@ fun deleteExpense(id: Long) {
     }
 }
 
-fun refundExpense(expenseId: Long, refundAmount: Double) {
-    viewModelScope.launch(dispatcher) {
-        val expenseEntity = savingsRepository.findExpenseById(expenseId) ?: return@launch
-        
-        // Validate refund amount
-        val maxRefundable = expenseEntity.amount - expenseEntity.refundedAmount
-        val actualRefund = refundAmount.coerceIn(0.0, maxRefundable)
-        
-        if (actualRefund <= 0.0) return@launch
-        
-        val newTotalRefunded = expenseEntity.refundedAmount + actualRefund
-        
-        // 1. Update Expense Record
-        savingsRepository.flagExpenseAsRefunded(expenseId, actualRefund, newTotalRefunded)
-        
-        // 2. Credit Main Account or Credit Card
-        val paymentMethodId = expenseEntity.paymentMethodId
-         val paymentMethod = if (paymentMethodId != null) {
-             savingsRepository.getPaymentMethodById(paymentMethodId)
-         } else null
-         
-         if (paymentMethod?.isCreditCard == true) {
-             savingsRepository.addToCreditCardBalance(paymentMethod.id, -actualRefund)
-         } else {
-             val currentBalance = savingsRepository.getLatestMainAccountBalance()
-             val newBalance = currentBalance + actualRefund
-              val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                amount = actualRefund,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = "Refund for: ${expenseEntity.description}",
-                relatedExpenseId = expenseId
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
-         }
-         
-         // 3. Handle Saving Tax
-         // Logic: If fully refunded, cancel all pending tax. 
-         // If partially refunded, cancel proportional tax? Or just keep it simple and cancel all pending?
-         // Let's cancel ALL pending tax for this expense if the refund is significant (> 10%?) or just always.
-         // Decision: If we refund money, the tax obligation is reduced. 
-         // The simplest safe approach is: Cancel ALL pending tax for this expense. 
-         // If the user wants to keep some tax, they can manually add a transfer. 
-         // But usually if I return something I don't want to pay tax on it.
-         savingsRepository.deletePendingContributionsForExpense(expenseId)
+fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<Long> = emptyList()) {
+    safeLaunch {
+        savingsRepository.processExpenseRefund(
+            expenseId = expenseId,
+            requestedAmount = refundAmount,
+            refundedItemIds = refundedItemIds
+        )
     }
 }
 
@@ -1018,12 +1246,43 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
     // Repeat Last Expense support
     fun setPrefillExpense(expense: com.example.sparely.domain.model.Expense?) {
         _uiState.update { it.copy(prefillExpense = expense) }
+        // Load asset allocations for this expense
+        expense?.let { exp ->
+            viewModelScope.launch(dispatcher) {
+                try {
+                    val links = savingsRepository.getLinksForExpense(exp.id)
+                    val allocations = links.associate { it.assetId to (it.percentageAllocated / 100.0) }
+                    _uiState.update { it.copy(prefillAssetAllocations = allocations) }
+                } catch (e: Exception) {
+                    // Log error but don't crash - just use empty allocations
+                }
+            }
+        } ?: run {
+            _uiState.update { it.copy(prefillAssetAllocations = emptyMap()) }
+        }
     }
-    
+
     fun clearPrefillExpense() {
-        _uiState.update { it.copy(prefillExpense = null) }
+        _uiState.update { it.copy(prefillExpense = null, prefillAssetAllocations = emptyMap()) }
     }
-    
+
+    suspend fun getAssetAllocationsForExpense(expenseId: Long): Map<Long, Double> {
+        return try {
+            savingsRepository.getLinksForExpense(expenseId)
+                .associate { it.assetId to (it.percentageAllocated / 100.0) }
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    suspend fun getExpensesLinkedToAsset(assetId: Long): List<Pair<com.example.sparely.domain.model.Expense, Double>> {
+        return savingsRepository.getExpensesLinkedToAsset(assetId)
+    }
+
+    suspend fun getAssetCostProjection(assetId: Long, months: Int = 12): com.example.sparely.domain.model.AssetCostProjection? {
+        return savingsRepository.getAssetCostProjection(assetId, months)
+    }
+
     fun dismissVaultArchivePrompt() {
         _uiState.update { it.copy(vaultArchivePrompt = null) }
     }
@@ -1081,24 +1340,31 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
 
     fun updateExpense(expense: Expense) {
         viewModelScope.launch(dispatcher) {
-            val oldEntity = savingsRepository.findExpenseById(expense.id) ?: return@launch
-            
+            updateExpenseWithAssets(expense, emptyMap())
+        }
+    }
+
+    fun updateExpenseWithAssets(expense: Expense, assetAllocations: Map<Long, Double>) {
+        safeLaunch {
+            val oldEntity = savingsRepository.findExpenseById(expense.id) ?: return@safeLaunch
+
             // 1. Calculate difference in amount
             val oldAmount = oldEntity.amount
             val newAmount = expense.amount
             val diff = newAmount - oldAmount
-            
-            if (abs(diff) > 0.001) {
+
+            if (abs(diff) > 0.001) { savingsRepository.withMainAccountLock {
                 // Amount changed, adjust balances
                 val paymentMethodId = expense.paymentMethodId // Assuming payment method didn't change for now, or use new one
                 val paymentMethod = if (paymentMethodId != null) {
                      savingsRepository.getPaymentMethodById(paymentMethodId)
                 } else null
                 
-                if (paymentMethod?.isCreditCard == true) {
+                val effectiveMainBalance = if (paymentMethod?.isCreditCard == true) {
                     // If amount increased (diff > 0), add to CC debt. 
                     // If decreased (diff < 0), reduce CC debt.
-                    savingsRepository.addToCreditCardBalance(paymentMethod.id, diff)
+                    // HANDLED BY REPOSITORY
+                    _uiState.value.settings.mainAccountBalance
                 } else {
                     // Main Account logic
                     // If amount increased (diff > 0), deduct from Main Account.
@@ -1123,6 +1389,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
                     )
                     savingsRepository.insertMainAccountTransaction(transaction)
                     preferencesRepository.updateMainAccountBalance(newBalance)
+                    newBalance
                 }
                 
                 // 2. Handle Saving Tax Updates
@@ -1136,7 +1403,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
                         expenseAmount = newAmount,
                         expenseDate = expense.date,
                         settings = currentState.settings,
-                        vaults = currentState.smartVaults
+                        vaults = currentState.smartVaults,
+                        currentMainAccountBalance = effectiveMainBalance
                     )
                 )
                 
@@ -1162,17 +1430,31 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
                     // We do NOT auto-deduct the tax difference from Main Account in this update flow to keep it safe.
                     // The user will approve the new tax transfer separately.
                 }
-            }
-            
+            } }
+
             // 3. Update the expense record itself
             val entity = expense.toEntity()
             savingsRepository.upsertExpense(entity)
             
-            // 4. Update line items: delete existing and insert new ones
+            // 4. Update line items: delete existing and insert new ones (filter out items with no name or price)
             savingsRepository.deleteItemsForExpense(expense.id)
-            if (expense.items.isNotEmpty()) {
-                val itemsWithId = expense.items.map { it.copy(expenseId = expense.id) }
+            val validItems = expense.items.filter { it.name.isNotBlank() && it.totalPrice > 0 }
+            if (validItems.isNotEmpty()) {
+                val itemsWithId = validItems.map { it.copy(expenseId = expense.id, id = 0L) }
                 savingsRepository.insertExpenseItems(itemsWithId)
+            }
+
+            // 5. Update asset allocations if provided
+            if (assetAllocations.isNotEmpty()) {
+                // Delete old allocations
+                val oldLinks = savingsRepository.getLinksForExpense(expense.id)
+                oldLinks.forEach { link ->
+                    savingsRepository.unlinkExpenseFromAsset(expense.id, link.assetId)
+                }
+                // Add new allocations
+                assetAllocations.forEach { (assetId, percentageAllocated) ->
+                    savingsRepository.linkExpenseToAsset(expense.id, assetId, percentageAllocated)
+                }
             }
         }
     }
@@ -1184,52 +1466,58 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
 
     fun depositToMainAccount(amount: Double, description: String, incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val newBalance = currentBalance + amount
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                amount = amount,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = description.take(100),
-                incomeCategory = incomeCategory
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val newBalance = currentBalance + amount
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                    amount = amount,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = description.take(100),
+                    incomeCategory = incomeCategory
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
         }
     }
 
     fun withdrawFromMainAccount(amount: Double, description: String) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
-                amount = amount,
-                balanceAfter = newBalance,
-                timestamp = java.time.LocalDateTime.now(),
-                description = description.take(100)
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance)
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
+                    amount = amount,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = description.take(100)
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
         }
     }
 
     fun adjustMainAccountBalance(newBalance: Double, reason: String) {
-        viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val delta = newBalance - currentBalance
-            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
-                amount = abs(delta),
-                balanceAfter = newBalance.coerceAtLeast(0.0),
-                timestamp = java.time.LocalDateTime.now(),
-                description = reason.take(100)
-            )
-            savingsRepository.insertMainAccountTransaction(transaction)
-            preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+        safeLaunch {
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val delta = newBalance - currentBalance
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
+                    amount = abs(delta),
+                    balanceAfter = newBalance.coerceAtLeast(0.0),
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = reason.take(100)
+                )
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+            }
         }
     }
 
@@ -1239,10 +1527,12 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
         amount: Double,
         payday: LocalDate,
         autoDistribute: Boolean,
-        createPendingTransfers: Boolean
+        createPendingTransfers: Boolean,
+        incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null,
+        description: String = "Paycheck"
     ) {
         if (amount <= 0.0) return
-        viewModelScope.launch(dispatcher) {
+        safeLaunch {
             val settingsSnapshot = preferencesRepository.getSettingsSnapshot()
             val schedule = settingsSnapshot.paySchedule
             val normalizedAmount = amount.toCurrencyPrecision()
@@ -1271,6 +1561,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
             }
 
             var vaultContributionAmount = 0.0
+            val balanceAfterPaycheck = savingsRepository.withMainAccountLock {
             if (autoDistribute) {
                 val saveRate = if (schedule.dynamicSaveRateEnabled) {
                     automationSaveRate
@@ -1324,7 +1615,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
                 amount = normalizedAmount,
                 balanceAfter = currentBalance,
                 timestamp = java.time.LocalDateTime.now(),
-                description = "Paycheck"
+                description = description.take(100),
+                incomeCategory = incomeCategory
             )
             savingsRepository.insertMainAccountTransaction(depositTransaction)
             preferencesRepository.updateMainAccountBalance(currentBalance)
@@ -1342,13 +1634,16 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
                 savingsRepository.insertMainAccountTransaction(vaultTransaction)
                 preferencesRepository.updateMainAccountBalance(currentBalance)
             }
+            currentBalance
+            }
             // Trigger allocation run now that the paycheck and any auto-distributions have been applied
             try {
                 // Use the paycheck date as 'today' for allocation so flows starting next month are prioritized correctly
                 container.smartAllocationService.runMonthlyAllocation(
                     monthlyIncome = settingsSnapshot.monthlyIncome,
-                    mainAccountBalance = currentBalance,
-                    today = payday
+                    mainAccountBalance = balanceAfterPaycheck,
+                    today = payday,
+                    mainOverflowAccountId = settingsSnapshot.mainOverflowAccountId
                 )
             } catch (e: Exception) {
                 // Non-fatal: log and continue
@@ -1423,7 +1718,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
             container.smartAllocationService.runMonthlyAllocation(
                 monthlyIncome = state.settings.monthlyIncome,
                 mainAccountBalance = mainAccountBalance,
-                today = payday
+                today = payday,
+                mainOverflowAccountId = state.settings.mainOverflowAccountId
             )
         } catch (e: Exception) {
             // Fall back to previous dynamic allocation if the smart service fails
@@ -1641,6 +1937,80 @@ fun refundExpense(expenseId: Long, refundAmount: Double) {
     }
 
 
+
+    fun addSavingsAccount(account: com.example.sparely.domain.model.SavingsAccount) {
+        viewModelScope.launch {
+            savingsRepository.upsertSavingsAccount(account)
+        }
+    }
+
+    fun getAccountTransactions(accountId: Long): Flow<List<com.example.sparely.domain.model.SavingsAccountTransaction>> {
+        return savingsRepository.observeSavingsAccountTransactions(accountId)
+    }
+
+    fun updateSavingsAccount(account: com.example.sparely.domain.model.SavingsAccount) {
+        viewModelScope.launch {
+            savingsRepository.upsertSavingsAccount(account)
+        }
+    }
+
+    fun recordSavingsAccountInterest(accountId: Long, amount: Double) {
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.recordInterestEarned(accountId, amount)
+        }
+    }
+
+    fun archiveSavingsAccount(accountId: Long) {
+        viewModelScope.launch {
+            savingsRepository.archiveSavingsAccount(accountId)
+        }
+    }
+
+    fun addAsset(asset: com.example.sparely.domain.model.Asset) {
+        viewModelScope.launch {
+            savingsRepository.upsertAsset(asset)
+        }
+    }
+
+    fun updateAsset(asset: com.example.sparely.domain.model.Asset) {
+        viewModelScope.launch {
+            savingsRepository.upsertAsset(asset)
+        }
+    }
+
+    fun deleteAsset(assetId: Long) {
+        viewModelScope.launch {
+            savingsRepository.deleteAsset(assetId)
+        }
+    }
+
+    fun createAssetFromExpense(
+        name: String,
+        category: com.example.sparely.domain.model.AssetCategory,
+        description: String?,
+        assetPrice: Double,
+        creatorExpenseId: Long
+    ) {
+        viewModelScope.launch {
+            savingsRepository.createAssetFromExpense(
+                name = name,
+                category = category,
+                description = description,
+                assetPrice = assetPrice,
+                creatorExpenseId = creatorExpenseId
+            )
+        }
+    }
+
+    fun linkCreatorExpenseToAsset(assetId: Long, expenseId: Long, updateAssetPrice: Boolean = true) {
+        viewModelScope.launch {
+            savingsRepository.linkCreatorExpenseToAsset(assetId, expenseId, updateAssetPrice)
+        }
+    }
+
+    suspend fun updateAutoCreateAssetThreshold(threshold: Double) {
+        preferencesRepository.updateAutoCreateAssetThreshold(threshold)
+    }
 
     private fun Double.toCurrencyPrecision(): Double = round(this * 100) / 100.0
 }

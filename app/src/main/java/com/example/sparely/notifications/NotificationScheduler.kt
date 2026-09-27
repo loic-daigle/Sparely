@@ -93,19 +93,33 @@ class NotificationScheduler(context: Context) {
         NotificationHelper.dismissPaydayReminder(appContext)
     }
 
-    suspend fun showVaultTransferWorkflow(savingsRepository: com.example.sparely.data.repository.SavingsRepository) {
+    suspend fun showVaultTransferWorkflow(
+        savingsRepository: com.example.sparely.data.repository.SavingsRepository,
+        preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository? = null
+    ) {
         val pendingContributions = savingsRepository.getPendingVaultContributions()
         if (pendingContributions.isEmpty()) {
             NotificationHelper.dismissVaultTransferNotification(appContext)
             return
         }
         
+        // Get minimum amount setting
+        val minimumAmount = preferencesRepository?.getSettingsSnapshot()?.smartTransferMinimumAmount ?: 0.0
+
+        // Group first, then filter whole vaults by their pending total, so a vault that
+        // clears the threshold still reports its FULL total (matching the Transfer page)
+        // instead of silently dropping individual contributions from the sum.
+        val groupedByVault = pendingContributions.groupBy { it.vaultId }
+            .filterValues { contributions -> minimumAmount <= 0 || contributions.sumOf { it.amount } >= minimumAmount }
+
+        if (groupedByVault.isEmpty()) {
+            NotificationHelper.dismissVaultTransferNotification(appContext)
+            return
+        }
+
         // Reset progress counter
         val prefs = appContext.getSharedPreferences("vault_transfer_workflow", android.content.Context.MODE_PRIVATE)
         prefs.edit().putInt("completed_count", 0).apply()
-        
-        val groupedByVault = pendingContributions.groupBy { it.vaultId }
-        if (groupedByVault.isEmpty()) return
         
         // Show notification for first vault
         val firstVaultId = groupedByVault.keys.first()

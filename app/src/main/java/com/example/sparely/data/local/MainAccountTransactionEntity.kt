@@ -35,5 +35,6 @@ enum class MainAccountTransactionType {
     EXPENSE,           // Expense deduction
     VAULT_CONTRIBUTION, // Saving tax to vaults
     ADJUSTMENT,        // Manual correction
-    CREDIT_CARD_PAYMENT // Payment toward credit card bill
+    CREDIT_CARD_PAYMENT, // Payment toward credit card bill
+    HISA_TRANSFER      // Transfer to/from High-Interest Savings Account
 }

@@ -2,6 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,14 +18,21 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
 import com.example.sparely.domain.logic.SpendingPatternEngine
 import com.example.sparely.domain.model.displayName
+import com.example.sparely.domain.model.Expense
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.utils.DateUtils
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SparelyButton
 import com.sparely.app.R
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -51,7 +59,8 @@ fun InsightsScreen(
     idleMoneyInsight: SmartInsightEngine.IdleMoneyInsight? = null,
     uniqueExpenses: List<SmartInsightEngine.UniqueExpenseInsight> = emptyList(),
     onTransferToSavings: (amount: Double) -> Unit = {},
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onAnomalyClick: (Expense) -> Unit = {}
 ) {
     // Note: This screen no longer includes its own TopAppBar to avoid duplicate headers
     // The parent navigation scaffold should provide the app bar
@@ -61,13 +70,20 @@ fun InsightsScreen(
             CircularProgressIndicator()
         }
     } else {
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentAlignment = Alignment.TopCenter
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 900.dp),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             // 1. Idle Money Suggestion (if available) - Top priority
             if (idleMoneyInsight != null) {
                 item {
@@ -112,13 +128,13 @@ fun InsightsScreen(
                 ) {
                     MetricCard(
                         title = stringResource(R.string.insights_projected_balance),
-                        value = formatCurrency(cashflowForecast.projectedBalance30Days),
+                        value = cashflowForecast.projectedBalance30Days.formatCurrency(),
                         modifier = Modifier.weight(1f),
                         isPositive = cashflowForecast.projectedBalance30Days > 0
                     )
                     MetricCard(
                         title = stringResource(R.string.insights_burn_rate),
-                        value = "${formatCurrency(cashflowForecast.dailyBurnRate)}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
+                        value = "${cashflowForecast.dailyBurnRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
                         modifier = Modifier.weight(1f),
                         isPositive = false
                     )
@@ -133,7 +149,7 @@ fun InsightsScreen(
                 ) {
                     MetricCard(
                         title = stringResource(R.string.insights_safe_to_spend),
-                        value = formatCurrency(cashflowForecast.safeToSpend),
+                        value = cashflowForecast.safeToSpend.formatCurrency(),
                         modifier = Modifier.weight(1f),
                         isPositive = true
                     )
@@ -167,7 +183,7 @@ fun InsightsScreen(
             } else {
                 items(spendingPatterns!!.anomalies.size) { index ->
                     val anomaly = spendingPatterns.anomalies[index]
-                    AnomalyItem(anomaly)
+                    AnomalyItem(anomaly, onClick = { onAnomalyClick(anomaly.expense) })
                     if (index < spendingPatterns.anomalies.size - 1) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                     }
@@ -195,6 +211,7 @@ fun InsightsScreen(
                     CategoryVelocityItem(entry.value)
                  }
             }
+            }
         }
     }
 }
@@ -206,14 +223,13 @@ private fun IdleMoneyCard(
     insight: SmartInsightEngine.IdleMoneyInsight,
     onTransfer: () -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -221,7 +237,7 @@ private fun IdleMoneyCard(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -242,11 +258,13 @@ private fun IdleMoneyCard(
                     Text(
                         text = stringResource(
                             R.string.insights_idle_money_desc,
-                            formatCurrency(insight.excessAmount),
-                            formatCurrency(insight.projectedMonthlyInterest)
+                            insight.excessAmount.formatCurrency(),
+                            insight.estimatedMonthlyInterest.formatCurrency()
                         ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -265,35 +283,82 @@ private fun IdleMoneyCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                     Text(
-                        text = formatCurrency(insight.suggestedTransferAmount),
+                        text = insight.suggestedTransferAmount.formatCurrency(),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 
-                Button(
-                    onClick = onTransfer,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                SparelyButton(
+                    onClick = onTransfer
                 ) {
                     Text(stringResource(R.string.insights_idle_money_transfer))
                 }
             }
             
-            // Projected earnings info
-            if (insight.projectedAnnualInterest > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
+            // Growth Projections
+            if (insight.growthProjections.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = stringResource(
-                        R.string.insights_idle_money_projected,
-                        formatCurrency(insight.projectedAnnualInterest),
-                        String.format("%.1f%%", 4.5)
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    text = stringResource(R.string.insights_idle_money_growth_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    for ((months, amount) in insight.growthProjections.toList().sortedBy { it.first }) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = when(months) {
+                                    6 -> "6 Mo"
+                                    12 -> "1 Yr"
+                                    24 -> "2 Yr"
+                                    else -> "$months Mo"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                text = amount.formatCurrency(),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Projected earnings info
+            if (insight.estimatedAnnualInterest > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.TRENDING_UP,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.insights_idle_money_projected,
+                            insight.estimatedAnnualInterest.formatCurrency(),
+                            insight.suggestedVault?.effectiveApy?.formatPercent() ?: "4.5%"
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
     }
@@ -301,14 +366,13 @@ private fun IdleMoneyCard(
 
 @Composable
 private fun RecurringPatternsCard(patterns: List<SmartInsightEngine.RecurringPatternInsight>) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -368,7 +432,7 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = stringResource(R.string.insights_recurring_each, formatCurrency(pattern.averageAmount)),
+                    text = stringResource(R.string.insights_recurring_each, pattern.averageAmount.formatCurrency()),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -376,7 +440,7 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = formatCurrency(pattern.totalMonthlyImpact),
+                text = pattern.totalMonthlyImpact.formatCurrency(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -391,14 +455,13 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
 
 @Composable
 private fun SeasonalInsightsCard(insights: List<SmartInsightEngine.SeasonalInsight>) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -429,13 +492,13 @@ private fun SeasonalInsightsCard(insights: List<SmartInsightEngine.SeasonalInsig
 @Composable
 private fun SeasonalInsightItem(insight: SmartInsightEngine.SeasonalInsight) {
     val isHigher = insight.expectedChangePercent > 0
-    val changeColor = if (isHigher) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
+    val changeColor = if (isHigher) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.success
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -493,14 +556,13 @@ private fun SeasonalInsightItem(insight: SmartInsightEngine.SeasonalInsight) {
 
 @Composable
 private fun UniqueExpensesCard(expenses: List<SmartInsightEngine.UniqueExpenseInsight>) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -597,7 +659,7 @@ private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseIns
             }
         }
         Text(
-            text = formatCurrency(uniqueExpense.expense.amount),
+            text = uniqueExpense.expense.amount.formatCurrency(),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )
@@ -608,14 +670,13 @@ private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseIns
 
 @Composable
 private fun CashflowForecastCard(forecast: CashflowEngine.CashflowForecast) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Text(
                 text = stringResource(R.string.insights_forecast_title),
                 style = MaterialTheme.typography.titleSmall,
@@ -804,7 +865,7 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatCurrency(value),
+                        text = value.formatCurrency(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (value < 0) errorColor else onSurface
@@ -827,12 +888,13 @@ private fun MetricCard(
     modifier: Modifier = Modifier,
     isPositive: Boolean = true
 ) {
-    Card(
+    ExpressiveCard(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(12.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = 12.dp
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall,
@@ -850,10 +912,12 @@ private fun MetricCard(
 }
 
 @Composable
-private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly) {
+private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -878,7 +942,7 @@ private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly) {
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = formatCurrency(anomaly.expense.amount),
+                text = anomaly.expense.amount.formatCurrency(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -906,7 +970,7 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
                 fontWeight = FontWeight.SemiBold
             )
              Text(
-                text = "${stringResource(R.string.insights_projected_balance)}: ${formatCurrency(velocityData.projectedMonthlyTotal)}",
+                text = "${stringResource(R.string.insights_projected_balance)}: ${velocityData.projectedMonthlyTotal.formatCurrency()}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -914,7 +978,7 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
         
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "${formatCurrency(velocityData.dailyRate)}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
+                text = "${velocityData.dailyRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -923,5 +987,3 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
     }
 }
 
-@Composable
-private fun formatCurrency(value: Double): String = "${stringResource(R.string.currency_prefix)}${String.format("%.2f", value)}"

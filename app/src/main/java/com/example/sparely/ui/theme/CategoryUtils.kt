@@ -1,6 +1,7 @@
 package com.example.sparely.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.example.sparely.domain.model.ExpenseCategory
@@ -10,20 +11,12 @@ import com.example.sparely.domain.model.ExpenseCategory
  * Used across BudgetScreen, HistoryScreen, and other expense-related UI.
  */
 
-fun getCategoryColor(category: ExpenseCategory): Color {
-    return when (category) {
-        ExpenseCategory.GROCERIES -> Color(0xFF81C784)    // Green
-        ExpenseCategory.DINING -> Color(0xFFEF5350)       // Red (Food)
-        ExpenseCategory.TRANSPORTATION -> Color(0xFF42A5F5) // Blue
-        ExpenseCategory.ENTERTAINMENT -> Color(0xFFEC407A)  // Pink
-        ExpenseCategory.UTILITIES -> Color(0xFF7E57C2)      // Purple
-        ExpenseCategory.HEALTH -> Color(0xFF26A69A)         // Teal
-        ExpenseCategory.EDUCATION -> Color(0xFF5C6BC0)      // Indigo
-        ExpenseCategory.SHOPPING -> Color(0xFF8D6E63)       // Brown
-        ExpenseCategory.TRAVEL -> Color(0xFF4FC3F7)         // Light Blue
-        ExpenseCategory.OTHER -> Color(0xFF9E9E9E)          // Gray
-    }
-}
+@Composable
+fun getCategoryColor(category: ExpenseCategory): Color =
+    getCategoryColor(category, MaterialTheme.colorScheme)
+
+fun getCategoryColor(category: ExpenseCategory, colorScheme: ColorScheme): Color =
+    colorScheme.categoryColor(category)
 
 fun getCategoryIcon(category: ExpenseCategory): Int {
     return when (category) {

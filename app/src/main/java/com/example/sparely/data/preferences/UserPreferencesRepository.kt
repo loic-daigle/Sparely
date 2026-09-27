@@ -44,10 +44,32 @@ class UserPreferencesRepository(private val context: Context) {
         preferences.toSettings()
     }
 
+    suspend fun updateMainOverflowAccountId(accountId: Long?) {
+        context.dataStore.edit { prefs ->
+            if (accountId != null) {
+                prefs[PreferenceKeys.mainOverflowAccountId] = accountId
+            } else {
+                prefs.remove(PreferenceKeys.mainOverflowAccountId)
+            }
+        }
+    }
+
+    suspend fun updateMinMainAccountBalance(value: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.minMainAccountBalance] = value.coerceAtLeast(0.0)
+        }
+    }
+
+    suspend fun updateAutoCreateAssetThreshold(threshold: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.autoCreateAssetThreshold] = threshold.coerceAtLeast(0.0)
+        }
+    }
+
     val onboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.onboardingCompleted] ?: false
     }
-    
+
     val autoDepositCheckHourFlow: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.autoDepositCheckHour] ?: 9
     }
@@ -368,6 +390,25 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateSmartTransferMinimumAmount(amount: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.smartTransferMinimumAmount] = amount.coerceAtLeast(0.0)
+        }
+    }
+
+    suspend fun updateAutoBackupSettings(enabled: Boolean, frequencyDays: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.autoBackupEnabled] = enabled
+            prefs[PreferenceKeys.autoBackupFrequencyDays] = frequencyDays.coerceIn(1, 30)
+        }
+    }
+
+    suspend fun updateLastAutoBackupTimestamp(timestamp: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.lastAutoBackupTimestamp] = timestamp
+        }
+    }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PreferenceKeys.onboardingCompleted] = completed
@@ -567,7 +608,14 @@ class UserPreferencesRepository(private val context: Context) {
             promptPayOnCreditCardExpense = promptPayOnCreditCardExpense,
             creditCardUtilizationAlertEnabled = creditCardUtilizationAlertEnabled,
             creditCardUtilizationThreshold = creditCardUtilizationThreshold,
-            biometricEnabled = biometricEnabled
+            biometricEnabled = biometricEnabled,
+            smartTransferMinimumAmount = this[PreferenceKeys.smartTransferMinimumAmount] ?: 0.0,
+            autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
+            autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
+            lastAutoBackupTimestamp = this[PreferenceKeys.lastAutoBackupTimestamp],
+            mainOverflowAccountId = this[PreferenceKeys.mainOverflowAccountId],
+            minMainAccountBalance = this[PreferenceKeys.minMainAccountBalance] ?: 0.0,
+            autoCreateAssetThreshold = this[PreferenceKeys.autoCreateAssetThreshold] ?: 0.0
         )
     }
     private object PreferenceKeys {
@@ -653,6 +701,21 @@ class UserPreferencesRepository(private val context: Context) {
         val creditCardUtilizationAlertEnabled = booleanPreferencesKey("credit_card_utilization_alert_enabled")
         val creditCardUtilizationThreshold = intPreferencesKey("credit_card_utilization_threshold")
         val biometricEnabled = booleanPreferencesKey("biometric_enabled")
+        
+        // Smart transfer notification threshold
+        val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")
+        
+        // Auto backup settings
+        val autoBackupEnabled = booleanPreferencesKey("auto_backup_enabled")
+        val autoBackupFrequencyDays = intPreferencesKey("auto_backup_frequency_days")
+        val lastAutoBackupTimestamp = longPreferencesKey("last_auto_backup_timestamp")
+        
+        // Overflow Account (HISA/High-Yield Savings)
+        val mainOverflowAccountId = longPreferencesKey("main_overflow_account_id")
+        val minMainAccountBalance = doublePreferencesKey("min_main_account_balance")
+
+        // Asset creation
+        val autoCreateAssetThreshold = doublePreferencesKey("auto_create_asset_threshold")
     }
 }
 

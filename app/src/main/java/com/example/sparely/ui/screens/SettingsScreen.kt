@@ -84,14 +84,21 @@ import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.domain.model.ExpenseHistoryRetention
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.theme.warning
 import java.text.NumberFormat
 import java.time.DayOfWeek
 import java.time.Instant
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -153,7 +160,17 @@ fun SettingsScreen(
     onBiometricEnabledChange: (Boolean) -> Unit = {},
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
     stores: List<com.example.sparely.domain.model.Store> = emptyList(),
-    onExportExpensesToCsv: (android.net.Uri, android.content.Context, List<Expense>, List<com.example.sparely.domain.model.Store>) -> Unit = { _, _, _, _ -> }
+    onExportExpensesToCsv: (android.net.Uri, android.content.Context, List<Expense>, List<com.example.sparely.domain.model.Store>) -> Unit = { _, _, _, _ -> },
+    // Smart Transfer Minimum
+    onSmartTransferMinimumChange: (Double) -> Unit = {},
+    // Auto Backup
+    onAutoBackupSettingsChange: (Boolean, Int) -> Unit = { _, _ -> },
+    onBackupNowClick: () -> Unit = {},
+    smartVaults: List<SmartVault> = emptyList(),
+    savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
+    onMainOverflowAccountIdChange: (Long?) -> Unit = {},
+    onMinMainAccountBalanceChange: (Double) -> Unit = {},
+    onManageSavingsAccounts: () -> Unit = {}
 ) {
     var brandfetchClientId by remember(settings.brandfetchClientId) { mutableStateOf(settings.brandfetchClientId ?: "") }
     var emergency by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.emergency.toFloat()) }
@@ -161,6 +178,7 @@ fun SettingsScreen(
     var funPercent by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.`fun`.toFloat()) }
     var monthlyIncomeText by remember(settings.monthlyIncome) { mutableStateOf(settings.monthlyIncome.toString()) }
     var mainAccountBalanceText by remember(settings.mainAccountBalance) { mutableStateOf(settings.mainAccountBalance.toString()) }
+    var minMainAccountBalanceText by remember(settings.minMainAccountBalance) { mutableStateOf(settings.minMainAccountBalance.toString()) }
     var remindersEnabled by remember(settings.remindersEnabled) { mutableStateOf(settings.remindersEnabled) }
     var reminderHour by remember(settings.reminderHour) { mutableStateOf(settings.reminderHour) }
     var reminderFrequency by remember(settings.reminderFrequencyDays) { mutableStateOf(settings.reminderFrequencyDays) }
@@ -214,6 +232,8 @@ fun SettingsScreen(
     }
 
     var selectedTab by remember { mutableStateOf(SettingsTab.General) }
+
+
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTab.ordinal) {
@@ -349,7 +369,15 @@ fun SettingsScreen(
                             onMainAccountBalanceTextChange = { mainAccountBalanceText = it },
                             onUpdateBalance = { mainAccountBalanceText.toSafeDouble()?.let(onMainAccountBalanceChange) },
                             includeTax = settings.includeTaxByDefault,
-                            onIncludeTaxToggle = onIncludeTaxToggle
+                            onIncludeTaxToggle = onIncludeTaxToggle,
+                            minMainAccountBalanceText = minMainAccountBalanceText,
+                            onMinMainAccountBalanceTextChange = { minMainAccountBalanceText = it },
+                            onUpdateMinBalance = { minMainAccountBalanceText.toSafeDouble()?.let(onMinMainAccountBalanceChange) },
+                            smartVaults = smartVaults,
+                            savingsAccounts = savingsAccounts,
+                            mainOverflowAccountId = settings.mainOverflowAccountId,
+                            onMainOverflowAccountIdChange = onMainOverflowAccountIdChange,
+                            onManageSavingsAccounts = onManageSavingsAccounts
                         )
 
                         SettingsSmartSavingsCard(
@@ -469,7 +497,21 @@ fun SettingsScreen(
                                 csvExportLauncher.launch("SparelyExpenses_$timestamp.csv")
                             }
                         )
+                        
+                        SettingsAutoBackupCard(
+                            autoBackupEnabled = settings.autoBackupEnabled,
+                            autoBackupFrequencyDays = settings.autoBackupFrequencyDays,
+                            lastAutoBackupTimestamp = settings.lastAutoBackupTimestamp,
+                            onAutoBackupEnabledChange = onAutoBackupSettingsChange,
+                            onBackupNowClick = onBackupNowClick
+                        )
+
+                        SettingsSmartTransferCard(
+                            minimumAmount = settings.smartTransferMinimumAmount,
+                            onMinimumAmountChange = onSmartTransferMinimumChange
+                        )
                     }
+                    else -> {}  // Assets tab navigates away via LaunchedEffect
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -494,10 +536,10 @@ private fun ProfileCard(
     onEditBirthday: () -> Unit,
     onClearBirthday: () -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier
@@ -578,10 +620,10 @@ private fun EducationEmploymentCard(
     employmentExpanded: Boolean,
     onEmploymentExpandedChange: (Boolean) -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier
@@ -664,10 +706,10 @@ private fun LifeStageCard(
     age: Int,
     onAgeChange: (Int) -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -701,10 +743,10 @@ private fun RiskLevelCard(
     current: RiskLevel,
     onRiskChange: (RiskLevel) -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_risk_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -746,10 +788,10 @@ private fun ReminderCard(
 ) {
     var hour by remember(reminderHour) { mutableStateOf(reminderHour) }
     var frequency by remember(reminderFrequency) { mutableStateOf(reminderFrequency) }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -816,10 +858,10 @@ private fun CreditCardReminderCard(
     var isUtilizationEnabled by remember(utilizationAlertEnabled) { mutableStateOf(utilizationAlertEnabled) }
     var threshold by remember(utilizationThreshold) { mutableStateOf(utilizationThreshold) }
     
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             // Due date reminders section
@@ -946,10 +988,10 @@ private fun AutomationOverviewCard(
     val estimatedPerPay = (payReference * activeSaveRate).takeIf { payReference > 0.0 }
     val estimatedMonthly = settings.monthlyIncome.takeIf { it > 0.0 }?.let { it * activeSaveRate }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -977,20 +1019,20 @@ private fun AutomationOverviewCard(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.settings_paycheck_save_rate_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = formatPercent(activeSaveRate.coerceIn(0.0, 1.0)),
+                    text = activeSaveRate.coerceIn(0.0, 1.0).formatPercent(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 if (estimatedPerPay != null) {
                     Text(
-                        text = stringResource(R.string.settings_estimated_per_pay, formatCurrency(estimatedPerPay)),
+                        text = stringResource(R.string.settings_estimated_per_pay, estimatedPerPay.formatCurrency()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (estimatedMonthly != null) {
                     Text(
-                        text = stringResource(R.string.settings_estimated_monthly, formatCurrency(estimatedMonthly)),
+                        text = stringResource(R.string.settings_estimated_monthly, estimatedMonthly.formatCurrency()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1000,7 +1042,7 @@ private fun AutomationOverviewCard(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.settings_saving_tax_skim_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = formatPercent(activeSavingTaxRate.coerceIn(0.0, 1.0)),
+                    text = activeSavingTaxRate.coerceIn(0.0, 1.0).formatPercent(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -1047,10 +1089,10 @@ private fun AutoDepositsCard(
     var showHourPicker by remember { mutableStateOf(false) }
     var selectedHour by remember(checkHour) { mutableStateOf(checkHour) }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1102,15 +1144,16 @@ private fun AutoDepositsCard(
                     )
                 }
 
-                FilledTonalButton(
+                SparelyTonalButton(
                     onClick = onManualTrigger,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = {
+                        MaterialSymbolIcon(icon = MaterialSymbols.REFRESH,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 ) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.REFRESH,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.settings_auto_deposit_check_now))
                 }
 
@@ -1130,7 +1173,7 @@ private fun AutoDepositsCard(
     }
 
     if (showHourPicker) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showHourPicker = false },
             title = { Text(stringResource(R.string.dialog_select_check_time_title)) },
             text = {
@@ -1151,7 +1194,7 @@ private fun AutoDepositsCard(
                 }
             },
             confirmButton = {
-                TextButton(
+                SparelyButton(
                     onClick = {
                         showHourPicker = false
                         onCheckHourChange(selectedHour)
@@ -1161,7 +1204,7 @@ private fun AutoDepositsCard(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showHourPicker = false }) {
+                SparelyTextButton(onClick = { showHourPicker = false }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }
@@ -1180,7 +1223,7 @@ private fun IncomeSettingsCard(
         var trackingMode by remember(schedule) { mutableStateOf(schedule.trackingMode) }
         var interval by remember(schedule) { mutableStateOf(schedule.interval) }
         var defaultPayText by remember(schedule) {
-            mutableStateOf(if (schedule.defaultNetPay > 0.0) String.format("%.2f", schedule.defaultNetPay) else "")
+            mutableStateOf(if (schedule.defaultNetPay > 0.0) schedule.defaultNetPay.formatCurrency("") else "")
         }
         var dynamicSave by remember(schedule) { mutableStateOf(schedule.dynamicSaveRateEnabled) }
         var manualSaveRateSnapshot by remember(schedule) { mutableStateOf((schedule.defaultSaveRate * 100).toFloat()) }
@@ -1229,10 +1272,10 @@ private fun IncomeSettingsCard(
             )
         }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -1339,9 +1382,9 @@ private fun IncomeSettingsCard(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = if (dynamicSave) {
-                            stringResource(R.string.settings_active_savings_rate_display, formatPercent(activeSaveRate.coerceIn(0.0, 1.0)))
+                            stringResource(R.string.settings_active_savings_rate_display, activeSaveRate.coerceIn(0.0, 1.0).formatPercent())
                         } else {
-                            stringResource(R.string.settings_default_savings_rate_display, formatPercent((saveRate / 100f).toDouble()))
+                            stringResource(R.string.settings_default_savings_rate_display, (saveRate / 100f).toDouble().formatPercent())
                         },
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1462,7 +1505,7 @@ private fun IncomeSettingsCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    TextButton(onClick = { showNextDatePicker = true }) {
+                    SparelyTextButton(onClick = { showNextDatePicker = true }) {
                         Text(stringResource(R.string.action_pick_date))
                     }
                 }
@@ -1485,13 +1528,13 @@ private fun IncomeSettingsCard(
                     Switch(checked = autoPending, onCheckedChange = { autoPending = it })
                 }
 
-                Button(onClick = { onScheduleSave(buildSchedule()) }, modifier = Modifier.fillMaxWidth()) {
+                SparelyButton(onClick = { onScheduleSave(buildSchedule()) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.settings_save_pay_defaults))
                 }
 
                 if (schedule.lastPayDate != null) {
                     val lastDate = schedule.lastPayDate
-                    val lastAmount = formatCurrency(schedule.lastPayAmount)
+                    val lastAmount = schedule.lastPayAmount.formatCurrency()
                     Text(
                         text = stringResource(R.string.settings_last_logged_pay_info, lastAmount, lastDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))),
                         style = MaterialTheme.typography.bodySmall,
@@ -1512,7 +1555,7 @@ private fun IncomeSettingsCard(
             DatePickerDialog(
                 onDismissRequest = { showNextDatePicker = false },
                 confirmButton = {
-                    TextButton(onClick = {
+                    SparelyTextButton(onClick = {
                         val selected = datePickerState.selectedDateMillis?.let {
                             Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                         }
@@ -1526,7 +1569,7 @@ private fun IncomeSettingsCard(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showNextDatePicker = false }) {
+                    SparelyTextButton(onClick = { showNextDatePicker = false }) {
                         Text(stringResource(R.string.action_cancel))
                     }
                 }
@@ -1538,10 +1581,6 @@ private fun IncomeSettingsCard(
 }
 
 private val monthDayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
-
-private fun formatCurrency(amount: Double): String = NumberFormat.getCurrencyInstance().format(amount)
-
-private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 1.0) * 100)
 
 @Composable
 private fun EducationStatus.displayLabel(): String = when (this) {
@@ -1609,10 +1648,10 @@ private fun RegionalSettingsCard(
     // Available currencies
     val availableCurrencies = listOf("USD", "CAD", "GBP", "EUR", "JPY", "AUD", "INR", "MXN", "BRL")
     
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier
@@ -1644,7 +1683,7 @@ private fun RegionalSettingsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                FilledTonalButton(onClick = { showCountryPicker = true }) {
+                SparelyTonalButton(onClick = { showCountryPicker = true }) {
                     Text("Change")
                 }
             }
@@ -1669,7 +1708,7 @@ private fun RegionalSettingsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                FilledTonalButton(onClick = { showLanguagePicker = true }) {
+                SparelyTonalButton(onClick = { showLanguagePicker = true }) {
                     Text("Change")
                 }
             }
@@ -1692,7 +1731,7 @@ private fun RegionalSettingsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                FilledTonalButton(onClick = { showCurrencyPicker = true }) {
+                SparelyTonalButton(onClick = { showCurrencyPicker = true }) {
                     Text(stringResource(R.string.action_change))
                 }
             }
@@ -1729,7 +1768,7 @@ private fun RegionalSettingsCard(
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
-                    FilledTonalButton(
+                    SparelyTonalButton(
                         onClick = {
                             val taxRate = customTaxRate.toDoubleOrNull()?.div(100)
                             onRegionalSettingsChange(
@@ -1743,7 +1782,7 @@ private fun RegionalSettingsCard(
                         Text(stringResource(R.string.action_save))
                     }
                     if (customTaxRate.isNotEmpty()) {
-                        FilledTonalButton(
+                        SparelyTonalButton(
                             onClick = {
                                 customTaxRate = ""
                                 onRegionalSettingsChange(
@@ -1764,7 +1803,7 @@ private fun RegionalSettingsCard(
     
     // Country Picker Dialog
     if (showCountryPicker) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showCountryPicker = false },
             title = { Text(stringResource(R.string.dialog_select_country_title)) },
             text = {
@@ -1807,7 +1846,7 @@ private fun RegionalSettingsCard(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showCountryPicker = false }) {
+                SparelyTextButton(onClick = { showCountryPicker = false }) {
                     Text(stringResource(R.string.action_close))
                 }
             }
@@ -1816,7 +1855,7 @@ private fun RegionalSettingsCard(
     
     // Language Picker Dialog
     if (showLanguagePicker) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showLanguagePicker = false },
             title = { Text(stringResource(R.string.dialog_select_language_title)) },
             text = {
@@ -1849,7 +1888,7 @@ private fun RegionalSettingsCard(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showLanguagePicker = false }) {
+                SparelyTextButton(onClick = { showLanguagePicker = false }) {
                     Text(stringResource(R.string.action_close))
                 }
             }
@@ -1858,7 +1897,7 @@ private fun RegionalSettingsCard(
     
     // Currency Picker Dialog
     if (showCurrencyPicker) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showCurrencyPicker = false },
             title = { Text(stringResource(R.string.dialog_select_currency_title)) },
             text = {
@@ -1891,7 +1930,7 @@ private fun RegionalSettingsCard(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showCurrencyPicker = false }) {
+                SparelyTextButton(onClick = { showCurrencyPicker = false }) {
                     Text(stringResource(R.string.action_close))
                 }
             }
@@ -1918,10 +1957,10 @@ private fun PaymentMethodsSettingsCard(
     var showAddDialog by remember { mutableStateOf(false) }
     var editingMethod by remember { mutableStateOf<com.example.sparely.domain.model.PaymentMethod?>(null) }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -1941,7 +1980,7 @@ private fun PaymentMethodsSettingsCard(
                     )
                 }
                 androidx.compose.material3.IconButton(onClick = { showAddDialog = true }) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.action_add_method_desc))
+                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.action_add_method_desc), tint = MaterialTheme.colorScheme.primary)
                 }
             }
             
@@ -1967,12 +2006,12 @@ private fun PaymentMethodsSettingsCard(
                                 val utilization = (method.utilizationPercent * 100).toInt()
                                 val utilizationColor = when {
                                     method.isUtilizationHealthy -> MaterialTheme.colorScheme.primary
-                                    method.isUtilizationWarning -> Color(0xFFFF9800) // Orange
+                                    method.isUtilizationWarning -> MaterialTheme.colorScheme.warning
                                     else -> MaterialTheme.colorScheme.error
                                 }
                                 val limit = String.format("%.0f", method.creditLimit ?: 0.0)
                                 Text(
-                                    stringResource(R.string.settings_credit_card_summary_line, String.format("%.2f", method.currentBalance), limit, utilization),
+                                    stringResource(R.string.settings_credit_card_summary_line, method.currentBalance.formatCurrency(), method.creditLimit?.formatCurrency() ?: 0.0.formatCurrency(), utilization),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = utilizationColor
                                 )
@@ -2026,7 +2065,7 @@ private fun PaymentMethodsSettingsCard(
             }
         }
 
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { 
                 showAddDialog = false 
                 editingMethod = null
@@ -2112,26 +2151,26 @@ private fun PaymentMethodsSettingsCard(
                             
                             // Show current balance for editing (read-only info)
                             if (isEditing && editingMethod?.currentBalance ?: 0.0 > 0) {
-                                Surface(
+                                ExpressiveCard(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    shape = ExpressiveShapes.medium,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text("Current Balance", style = MaterialTheme.typography.labelMedium)
                                         Text(
-                                            "$${String.format("%.2f", editingMethod?.currentBalance ?: 0.0)}",
+                                            text = editingMethod?.currentBalance?.formatCurrency() ?: 0.0.formatCurrency(),
                                             style = MaterialTheme.typography.titleLarge,
                                             fontWeight = FontWeight.Bold
                                         )
                                         val utilPct = (editingMethod?.utilizationPercent ?: 0.0) * 100
                                         val utilizationColor = when {
                                             editingMethod?.isUtilizationHealthy == true -> MaterialTheme.colorScheme.primary
-                                            editingMethod?.isUtilizationWarning == true -> Color(0xFFFF9800)
+                                            editingMethod?.isUtilizationWarning == true -> MaterialTheme.colorScheme.warning
                                             else -> MaterialTheme.colorScheme.error
                                         }
                                         Text(
-                                            "${String.format("%.1f", utilPct)}% utilization",
+                                            utilPct.formatPercent(1) + " utilization",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = utilizationColor
                                         )
@@ -2186,7 +2225,7 @@ private fun PaymentMethodsSettingsCard(
                 }
             },
             confirmButton = {
-                Button(
+                SparelyButton(
                     onClick = {
                         val method = com.example.sparely.domain.model.PaymentMethod(
                             id = editingMethod?.id ?: 0,
@@ -2214,14 +2253,14 @@ private fun PaymentMethodsSettingsCard(
             dismissButton = {
                 Row {
                      if (isEditing) {
-                        TextButton(onClick = {
+                        SparelyTextButton(onClick = {
                             editingMethod?.let { onDelete(it) }
                             editingMethod = null
                         }) {
                             Text("Delete", color = MaterialTheme.colorScheme.error)
                         }
                      }
-                    TextButton(onClick = {
+                    SparelyTextButton(onClick = {
                         showAddDialog = false
                         editingMethod = null
                     }) {

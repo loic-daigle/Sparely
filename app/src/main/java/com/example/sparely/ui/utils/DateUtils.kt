@@ -51,7 +51,7 @@ object DateUtils {
     fun toSafeDatePickerMillis(dateTime: LocalDateTime?): Long {
         val date = dateTime?.toLocalDate() ?: LocalDate.now()
         return if (date.year in 1900..2100) {
-            dateTime?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() 
+            dateTime?.atZone(ZoneOffset.UTC)?.toInstant()?.toEpochMilli() 
                 ?: LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         } else {
             LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

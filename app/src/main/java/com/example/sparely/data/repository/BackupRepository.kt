@@ -32,6 +32,12 @@ class BackupRepository(
         .create()
 ) {
 
+    companion object {
+        // Bump alongside BackupData.version when the backup schema changes in a way older
+        // app versions can't restore; restoreData() rejects any backup newer than this.
+        const val CURRENT_BACKUP_VERSION = 1
+    }
+
     suspend fun exportData(): String = withContext(Dispatchers.IO) {
         val settings = preferencesRepository.settingsFlow.first()
         val vaults = savingsRepository.observeSmartVaults().first()
@@ -41,7 +47,7 @@ class BackupRepository(
         val recurring = savingsRepository.observeRecurringExpenses().first()
         val transactions = savingsRepository.observeMainAccountTransactions().first()
         val frozenFunds = savingsRepository.observeFrozenFunds().first()
-        
+
         // Ensure we fetch lists, defaulting to empty if null/error (though repository methods shouldn't return null)
         val challenges = savingsRepository.getAllChallenges()
         val achievements = savingsRepository.getAllAchievements()
@@ -54,7 +60,14 @@ class BackupRepository(
         val paymentMethods = savingsRepository.observePaymentMethods().first()
         val creditCardPayments = savingsRepository.getAllCreditCardPayments()
         val expenseItems = savingsRepository.getAllExpenseItems()
-        
+
+        // New: Assets, wishlists, and refunds
+        val assets = savingsRepository.getActiveAssets()
+        val assetExpenseLinks = savingsRepository.getAllAssetExpenseLinks()
+        val wishlists = savingsRepository.getActiveWishlists()
+        val wishlistSavings = savingsRepository.getAllWishlistSavings()
+        val expenseRefunds = savingsRepository.getAllExpenseRefunds()
+
         val backup = BackupData(
             settings = settings,
             vaults = vaults,
@@ -74,9 +87,14 @@ class BackupRepository(
             mainAccountBalance = mainAccountBalance,
             paymentMethods = paymentMethods,
             creditCardPayments = creditCardPayments,
-            expenseItems = expenseItems
+            expenseItems = expenseItems,
+            assets = assets,
+            assetExpenseLinks = assetExpenseLinks,
+            wishlists = wishlists,
+            wishlistSavings = wishlistSavings,
+            expenseRefunds = expenseRefunds
         )
-        
+
         gson.toJson(backup)
     }
 
@@ -91,7 +109,13 @@ class BackupRepository(
         }
         
         android.util.Log.d("BackupRepository", "Parsed backup: ${backup.expenses.size} expenses, ${backup.vaults.size} vaults, ${backup.transactions.size} transactions")
-        
+
+        if (backup.version > CURRENT_BACKUP_VERSION) {
+            val message = "Backup file is from a newer app version (backup v${backup.version}, this app supports up to v$CURRENT_BACKUP_VERSION). Update the app before restoring."
+            android.util.Log.e("BackupRepository", message)
+            throw IllegalStateException(message)
+        }
+
         savingsRepository.runInTransaction {
             // 1. Clear existing data
             try {
@@ -110,45 +134,21 @@ class BackupRepository(
                 savingsRepository.clearPaymentMethods()
                 savingsRepository.clearCreditCardPayments()
                 savingsRepository.clearExpenseItems()
+                // New: Clear assets, wishlists, and refunds
+                savingsRepository.clearAssets()
+                savingsRepository.clearAssetExpenseLinks()
+                savingsRepository.clearWishlists()
+                savingsRepository.clearWishlistSavings()
+                savingsRepository.clearExpenseRefunds()
                 android.util.Log.d("BackupRepository", "Cleared existing data")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to clear existing data", e)
                 throw e
             }
             
-            // 2. Restore Data
-            // Restore Settings
-            try {
-                val s = backup.settings
-                preferencesRepository.updateMonthlyIncome(s.monthlyIncome)
-                preferencesRepository.updateAge(s.age)
-                preferencesRepository.updateRiskLevel(s.riskLevel)
-                preferencesRepository.updateEducationStatus(s.educationStatus)
-                preferencesRepository.updateEmploymentStatus(s.employmentStatus)
-                preferencesRepository.updateLivingSituation(s.livingSituation)
-                preferencesRepository.updateOccupation(s.occupation)
-                
-                val balanceToRestore = backup.mainAccountBalance ?: s.mainAccountBalance
-                preferencesRepository.updateMainAccountBalance(balanceToRestore)
-                
-                preferencesRepository.updateSavingsAccountBalance(s.savingsAccountBalance)
-                preferencesRepository.updateHasDebts(s.hasDebts)
-                preferencesRepository.updateEmergencyFund(s.currentEmergencyFund)
-                preferencesRepository.updateSubscriptionTotal(s.subscriptionTotal)
-                preferencesRepository.updatePrimaryGoal(s.primaryGoal)
-                preferencesRepository.updateDisplayName(s.displayName)
-                preferencesRepository.updateBirthday(s.birthday)
-                s.joinedDate?.let { preferencesRepository.setJoinedDate(it) }
-                s.brandfetchClientId?.let { preferencesRepository.updateBrandfetchClientId(it) }
-                preferencesRepository.updateExpenseHistoryRetention(s.expenseHistoryRetention)
-                preferencesRepository.setOnboardingCompleted(true)
-                android.util.Log.d("BackupRepository", "Restored settings")
-            } catch (e: Exception) {
-                android.util.Log.e("BackupRepository", "Failed to restore settings", e)
-                throw e
-            }
-            
-            // Restore Entities in order
+            // 2. Restore Entities in order (settings are restored last - see below - so a
+            // failure partway through entity restoration rolls back cleanly without having
+            // already overwritten DataStore settings, which Room's transaction can't undo)
             // 1. Accounts & Vaults (parents)
             try {
                 backup.savingsAccounts.forEach { savingsRepository.upsertSavingsAccount(it) }
@@ -264,7 +264,70 @@ class BackupRepository(
                 android.util.Log.e("BackupRepository", "Failed to restore expense items", e)
                 throw e
             }
-            
+
+            // 9. Assets & Asset Links (may be null in older backups)
+            try {
+                backup.assets.orEmpty().forEach { savingsRepository.upsertAsset(it) }
+                backup.assetExpenseLinks.orEmpty().forEach { savingsRepository.insertAssetExpenseLink(it) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.assets?.size ?: 0} assets, ${backup.assetExpenseLinks?.size ?: 0} asset links")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore assets/links", e)
+                throw e
+            }
+
+            // 10. Wishlists & Wishlist Savings (may be null in older backups)
+            try {
+                backup.wishlists.orEmpty().forEach { savingsRepository.upsertWishlist(it) }
+                backup.wishlistSavings.orEmpty().forEach { savingsRepository.insertWishlistSavings(it) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.wishlists?.size ?: 0} wishlists, ${backup.wishlistSavings?.size ?: 0} wishlist savings")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore wishlists", e)
+                throw e
+            }
+
+            // 11. Expense Refunds (may be null in older backups)
+            try {
+                backup.expenseRefunds.orEmpty().forEach { savingsRepository.recordRefund(it.expenseId, it.refundedAmount, it.refundDate, it.refundMethod, it.reason, it.refundedItemIds) }
+                android.util.Log.d("BackupRepository", "Restored ${backup.expenseRefunds?.size ?: 0} expense refunds")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore expense refunds", e)
+                throw e
+            }
+
+            // 12. Restore Settings - deliberately last: this is the only part of the restore
+            // that touches DataStore rather than Room, so it isn't covered by this transaction's
+            // rollback. Running it after every Room write succeeds means a failure anywhere above
+            // leaves settings untouched instead of ending up out of sync with reverted entities.
+            try {
+                val s = backup.settings
+                preferencesRepository.updateMonthlyIncome(s.monthlyIncome)
+                preferencesRepository.updateAge(s.age)
+                preferencesRepository.updateRiskLevel(s.riskLevel)
+                preferencesRepository.updateEducationStatus(s.educationStatus)
+                preferencesRepository.updateEmploymentStatus(s.employmentStatus)
+                preferencesRepository.updateLivingSituation(s.livingSituation)
+                preferencesRepository.updateOccupation(s.occupation)
+
+                val balanceToRestore = backup.mainAccountBalance ?: s.mainAccountBalance
+                preferencesRepository.updateMainAccountBalance(balanceToRestore)
+
+                preferencesRepository.updateSavingsAccountBalance(s.savingsAccountBalance)
+                preferencesRepository.updateHasDebts(s.hasDebts)
+                preferencesRepository.updateEmergencyFund(s.currentEmergencyFund)
+                preferencesRepository.updateSubscriptionTotal(s.subscriptionTotal)
+                preferencesRepository.updatePrimaryGoal(s.primaryGoal)
+                preferencesRepository.updateDisplayName(s.displayName)
+                preferencesRepository.updateBirthday(s.birthday)
+                s.joinedDate?.let { preferencesRepository.setJoinedDate(it) }
+                s.brandfetchClientId?.let { preferencesRepository.updateBrandfetchClientId(it) }
+                preferencesRepository.updateExpenseHistoryRetention(s.expenseHistoryRetention)
+                preferencesRepository.setOnboardingCompleted(true)
+                android.util.Log.d("BackupRepository", "Restored settings")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore settings", e)
+                throw e
+            }
+
             android.util.Log.d("BackupRepository", "Restore complete!")
         }
     }

@@ -10,10 +10,11 @@ import com.example.sparely.domain.model.SavingsPlanEntry
 import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SavingsTransfer
 import com.example.sparely.domain.model.SparelySettings
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.round
 
 class RecommendationEngine {
     fun generate(
@@ -87,14 +88,14 @@ class RecommendationEngine {
             emergencyGoal?.let {
                 if (it.shortfallAmount > 0.0) {
                     append(" Emergency fund is about ")
-                    append(formatCurrency(it.shortfallAmount))
+                    append(it.shortfallAmount.formatCurrency())
                     append(" short of the new target; allocations lean into closing that gap.")
                 } else {
                     append(" Emergency fund target reached—shifting more focus to growth goals.")
                 }
             }
             if (plan.totalRemaining > 0.0) {
-                append(" Set aside roughly ${formatCurrency(plan.totalRemaining)} more this month to stay on track.")
+                append(" Set aside roughly ${plan.totalRemaining.formatCurrency()} more this month to stay on track.")
             }
         }
 
@@ -237,38 +238,34 @@ class RecommendationEngine {
         val investmentReserved = investmentFromExpenses + investmentFromTransfers
         val funReserved = funFromExpenses + funFromTransfers
 
-        val emergencyTarget = (settings.monthlyIncome * percentages.emergency).toCurrencyPrecision()
-        val investmentTarget = (settings.monthlyIncome * percentages.invest).toCurrencyPrecision()
-        val funTarget = (settings.monthlyIncome * percentages.`fun`).toCurrencyPrecision()
+        val emergencyTarget = (settings.monthlyIncome * percentages.emergency).roundToTwoDecimals()
+        val investmentTarget = (settings.monthlyIncome * percentages.invest).roundToTwoDecimals()
+        val funTarget = (settings.monthlyIncome * percentages.`fun`).roundToTwoDecimals()
 
-        val safeTarget = (investmentTarget * safeShare).toCurrencyPrecision()
-        val highRiskTarget = (investmentTarget * highRiskShare).toCurrencyPrecision()
+        val safeTarget = (investmentTarget * safeShare).roundToTwoDecimals()
+        val highRiskTarget = (investmentTarget * highRiskShare).roundToTwoDecimals()
 
         val entries = listOf(
             SavingsPlanEntry(
                 category = SavingsCategory.EMERGENCY,
                 targetAmount = emergencyTarget,
-                alreadySetAside = emergencyReserved.toCurrencyPrecision()
+                alreadySetAside = emergencyReserved.roundToTwoDecimals()
             ),
             SavingsPlanEntry(
                 category = SavingsCategory.INVESTMENT,
                 targetAmount = investmentTarget,
-                alreadySetAside = investmentReserved.toCurrencyPrecision(),
+                alreadySetAside = investmentReserved.roundToTwoDecimals(),
                 recommendedSafeAmount = safeTarget,
                 recommendedHighRiskAmount = highRiskTarget
             ),
             SavingsPlanEntry(
                 category = SavingsCategory.FUN,
                 targetAmount = funTarget,
-                alreadySetAside = funReserved.toCurrencyPrecision()
+                alreadySetAside = funReserved.roundToTwoDecimals()
             )
         )
 
         return SavingsPlan(entries)
     }
 
-    private fun Double.toCurrencyPrecision(): Double = round(this * 100) / 100.0
-
-    private fun formatCurrency(value: Double): String =
-        if (value >= 1000) String.format("%.0f", value) else String.format("%.2f", value)
 }

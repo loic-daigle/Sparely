@@ -1,6 +1,8 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.*
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
 import java.time.LocalDate
 
 /**
@@ -240,7 +242,7 @@ object FinancialHealthEngine {
             } else {
                 Triple(
                     "Build Your Emergency Fund",
-                    "You currently have ${String.format("%.1f", monthsCovered)} months of expenses saved. Aim for 3-6 months.",
+                    "You currently have ${monthsCovered.formatPercent()} months of expenses saved. Aim for 3-6 months.",
                     Priority.HIGH
                 )
             }
@@ -250,7 +252,7 @@ object FinancialHealthEngine {
                     description = description,
                     priority = priority,
                     potentialScoreGain = 20,
-                    actionable = "Set aside $${String.format("%.0f", settings.monthlyIncome * 0.1)} per month to emergency savings"
+                    actionable = "Set aside ${(settings.monthlyIncome * 0.1).formatCurrency("", 0)} per month to emergency savings"
                 )
             )
         }

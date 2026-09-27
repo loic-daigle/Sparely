@@ -31,7 +31,7 @@ class VaultAutoDepositScheduler(private val context: Context) {
             .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
             .build()
         
-        val request = PeriodicWorkRequestBuilder<VaultAutoDepositWorker>(1, TimeUnit.DAYS)
+        val request = PeriodicWorkRequestBuilder<VaultAutoDepositWorker>(1, TimeUnit.HOURS)
             .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
             .addTag(WORK_TAG)

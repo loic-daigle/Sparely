@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="dashboard_unusual_transactions_count">
+        <item quantity="one">%1$d transaction inhabituelle</item>
+        <item quantity="other">%1$d transactions inhabituelles</item>
+    </plurals>
+    <plurals name="dashboard_challenge_progress_complete">
+        <item quantity="one">%1$s complété</item>
+        <item quantity="other">%1$s complété</item>
+    </plurals>
+    <plurals name="dashboard_credit_cards_count">
+        <item quantity="one">1 carte</item>
+        <item quantity="other">%1$d cartes</item>
+    </plurals>
+    <plurals name="dashboard_more_items_count">
+        <item quantity="one">+ 1 de plus</item>
+        <item quantity="other">+ %1$d de plus</item>
+    </plurals>
+    <plurals name="dashboard_payments_due_count">
+        <item quantity="one">1 paiement dû</item>
+        <item quantity="other">%1$d paiements dus</item>
+    </plurals>
+    <plurals name="dashboard_month_goal_count">
+        <item quantity="one">Objectif de 1 mois</item>
+        <item quantity="other">Objectif de %1$d mois</item>
+    </plurals>
+    <plurals name="dashboard_attention_pending_transfers">
+        <item quantity="one">%d coffre a des transferts en attente de confirmation</item>
+        <item quantity="other">%d coffres ont des transferts en attente de confirmation</item>
+    </plurals>
+    <plurals name="dashboard_attention_over_budget">
+        <item quantity="one">%d catégorie de budget dépasse sa limite</item>
+        <item quantity="other">%d catégories de budget dépassent leur limite</item>
+    </plurals>
+    <plurals name="dashboard_more_vaults_count">
+        <item quantity="one">+%d autre coffre</item>
+        <item quantity="other">+%d autres coffres</item>
+    </plurals>
+</resources>

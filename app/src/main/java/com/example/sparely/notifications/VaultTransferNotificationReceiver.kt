@@ -14,15 +14,20 @@ class VaultTransferNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val vaultId = intent.getLongExtra(EXTRA_VAULT_ID, -1L)
-        if (vaultId == -1L) return
+        val savingsAccountId = intent.getLongExtra(EXTRA_SAVINGS_ACCOUNT_ID, -1L)
+        
+        if (vaultId == -1L && savingsAccountId == -1L) return
         
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val app = context.applicationContext as SparelyApplication
                 val container = app.container
+                val finalVaultId = if (vaultId != -1L) vaultId else null
+                val finalSavingsAccountId = if (savingsAccountId != -1L) savingsAccountId else null
+                
                 when (action) {
-                    ACTION_TRANSFERRED -> handleTransferred(context, container, vaultId)
+                    ACTION_TRANSFERRED -> handleTransferred(context, container, finalVaultId, finalSavingsAccountId)
                     ACTION_DISMISS -> handleDismiss(context)
                 }
             } finally {
@@ -34,11 +39,15 @@ class VaultTransferNotificationReceiver : BroadcastReceiver() {
     private suspend fun handleTransferred(
         context: Context, 
         container: com.example.sparely.AppContainer,
-        currentVaultId: Long
+        currentVaultId: Long?,
+        currentSavingsAccountId: Long?
     ) {
-        // Reconcile all pending contributions for this vault
+        // Reconcile all pending contributions for this vault/account
         val pendingForVault = container.savingsRepository.getPendingVaultContributions()
-            .filter { it.vaultId == currentVaultId }
+            .filter { 
+                if (currentVaultId != null) it.vaultId == currentVaultId 
+                else it.savingsAccountId == currentSavingsAccountId
+            }
         
         pendingForVault.forEach { contribution ->
             container.savingsRepository.reconcileVaultContribution(contribution.id)
@@ -85,17 +94,20 @@ class VaultTransferNotificationReceiver : BroadcastReceiver() {
         const val ACTION_TRANSFERRED = "com.example.sparely.VAULT_TRANSFER_TRANSFERRED"
         const val ACTION_DISMISS = "com.example.sparely.VAULT_TRANSFER_DISMISS"
         const val EXTRA_VAULT_ID = "vault_id"
+        const val EXTRA_SAVINGS_ACCOUNT_ID = "savings_account_id"
 
-        fun createTransferredIntent(context: Context, vaultId: Long): Intent =
+        fun createTransferredIntent(context: Context, vaultId: Long?, savingsAccountId: Long? = null): Intent =
             Intent(context, VaultTransferNotificationReceiver::class.java).apply {
                 action = ACTION_TRANSFERRED
-                putExtra(EXTRA_VAULT_ID, vaultId)
+                if (vaultId != null) putExtra(EXTRA_VAULT_ID, vaultId)
+                if (savingsAccountId != null) putExtra(EXTRA_SAVINGS_ACCOUNT_ID, savingsAccountId)
             }
 
-        fun createDismissIntent(context: Context, vaultId: Long): Intent =
+        fun createDismissIntent(context: Context, vaultId: Long?, savingsAccountId: Long? = null): Intent =
             Intent(context, VaultTransferNotificationReceiver::class.java).apply {
                 action = ACTION_DISMISS
-                putExtra(EXTRA_VAULT_ID, vaultId)
+                if (vaultId != null) putExtra(EXTRA_VAULT_ID, vaultId)
+                if (savingsAccountId != null) putExtra(EXTRA_SAVINGS_ACCOUNT_ID, savingsAccountId)
             }
     }
 }

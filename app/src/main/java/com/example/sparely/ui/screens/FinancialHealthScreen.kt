@@ -29,6 +29,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.ExpressiveMotionTokens
+import com.example.sparely.ui.theme.critical
+import com.example.sparely.ui.theme.success
+import com.example.sparely.ui.theme.warning
 
 @Composable
 fun FinancialHealthScreen(
@@ -101,22 +105,22 @@ fun FinancialHealthScreen(
 fun HealthScoreCard(healthScore: FinancialHealthScore) {
     // Determine gradient colors based on health level
     val (startColor, endColor) = when (healthScore.healthLevel) {
-        HealthLevel.EXCELLENT -> Color(0xFF4CAF50) to Color(0xFF81C784)
-        HealthLevel.GOOD -> Color(0xFF2196F3) to Color(0xFF64B5F6)
-        HealthLevel.FAIR -> Color(0xFFFFC107) to Color(0xFFFFD54F)
-        HealthLevel.NEEDS_WORK -> Color(0xFFFF9800) to Color(0xFFFFB74D)
-        HealthLevel.CRITICAL -> Color(0xFFF44336) to Color(0xFFE57373)
+        HealthLevel.EXCELLENT -> MaterialTheme.colorScheme.success to MaterialTheme.colorScheme.success.copy(alpha = 0.72f)
+        HealthLevel.GOOD -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+        HealthLevel.FAIR -> MaterialTheme.colorScheme.warning to MaterialTheme.colorScheme.warning.copy(alpha = 0.72f)
+        HealthLevel.NEEDS_WORK -> MaterialTheme.colorScheme.warning to MaterialTheme.colorScheme.warning.copy(alpha = 0.55f)
+        HealthLevel.CRITICAL -> MaterialTheme.colorScheme.critical to MaterialTheme.colorScheme.critical.copy(alpha = 0.72f)
     }
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(32.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(32.dp),
+        contentPadding = 32.dp
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -155,12 +159,16 @@ fun EnhancedAnimatedScoreCircle(
     secondaryColor: Color
 ) {
     var animatedScore by remember { mutableStateOf(0f) }
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     
     LaunchedEffect(score) {
         animate(
             initialValue = animatedScore,
             targetValue = score.toFloat(),
-            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+            animationSpec = tween(
+                durationMillis = ExpressiveMotionTokens.SlowDurationMillis,
+                easing = ExpressiveMotionTokens.EmphasizedEasing
+            )
         ) { value, _ ->
             animatedScore = value
         }
@@ -178,7 +186,7 @@ fun EnhancedAnimatedScoreCircle(
             
             // Background Track with Ticks style or solid
             drawArc(
-                color = Color.LightGray.copy(alpha = 0.3f),
+                color = trackColor,
                 startAngle = 135f,
                 sweepAngle = 270f,
                 useCenter = false,
@@ -251,13 +259,14 @@ fun ScoreBreakdownCard(healthScore: FinancialHealthScore) {
 
 @Composable
 fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
-    Surface(
+    ExpressiveCard(
         modifier = modifier.height(110.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(16.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = 16.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -340,14 +349,14 @@ fun ScoreBreakdownRow(category: String, score: Int) {
 
 @Composable
 fun StrengthCard(strength: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(12.dp)
+    ExpressiveCard(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = 16.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MaterialSymbolIcon(
@@ -368,15 +377,16 @@ fun StrengthCard(strength: String) {
 
 @Composable
 fun ImprovementTipCard(tip: ImprovementTip) {
-    Surface(
-        color = when (tip.priority) {
+    ExpressiveCard(
+        containerColor = when (tip.priority) {
             Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
             Priority.MEDIUM -> MaterialTheme.colorScheme.secondaryContainer
             Priority.LOW -> MaterialTheme.colorScheme.surfaceVariant
         },
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = 16.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

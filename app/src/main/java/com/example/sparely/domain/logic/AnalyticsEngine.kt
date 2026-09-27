@@ -7,6 +7,7 @@ import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsTransfer
 import com.example.sparely.domain.model.SpendingTrendType
 import com.example.sparely.domain.model.TrendPoint
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -23,22 +24,23 @@ object AnalyticsEngine {
         val investmentTransfers = transfers.filter { it.category == SavingsCategory.INVESTMENT }.sumOf { it.amount }
         val funTransfers = transfers.filter { it.category == SavingsCategory.FUN }.sumOf { it.amount }
 
-        val totalEmergency = expenses.sumOf { it.allocation.emergencyAmount } + emergencyTransfers
-        val totalInvested = expenses.sumOf { it.allocation.investmentAmount } + investmentTransfers
-        val totalSafe = expenses.sumOf { it.allocation.safeInvestmentAmount } + investmentTransfers
-        val totalHighRisk = expenses.sumOf { it.allocation.highRiskInvestmentAmount }
-        val totalFun = expenses.sumOf { it.allocation.funAmount } + funTransfers
-        val totalSpent = expenses.sumOf { it.amount }
+        val totalEmergency = (expenses.sumOf { it.allocation.emergencyAmount } + emergencyTransfers).roundToTwoDecimals()
+        val totalInvested = (expenses.sumOf { it.allocation.investmentAmount } + investmentTransfers).roundToTwoDecimals()
+        val totalSafe = (expenses.sumOf { it.allocation.safeInvestmentAmount } + investmentTransfers).roundToTwoDecimals()
+        val totalHighRisk = expenses.sumOf { it.allocation.highRiskInvestmentAmount }.roundToTwoDecimals()
+        val totalFun = (expenses.sumOf { it.allocation.funAmount } + funTransfers).roundToTwoDecimals()
+        val totalSpent = expenses.sumOf { it.amount }.roundToTwoDecimals()
 
-        val monthlyExpenseAverage = computeAverageMonthlyExpense(expenses)
+        val predictionExpenses = SmartInsightEngine.filterPredictionExpenses(expenses)
+        val monthlyExpenseAverage = computeAverageMonthlyExpense(predictionExpenses).roundToTwoDecimals()
 
         val chartPoints = buildTrend(expenses)
         val categoryBreakdown = buildCategoryBreakdown(expenses)
-        val (averageMonthlyReserve, projectedSix, projectedTwelve) = buildProjections(transfers)
+        val (averageMonthlyReserve, projectedSix, projectedTwelve) = buildProjections(expenses, transfers)
 
         // Run spending pattern analysis
         val patternResult = SpendingPatternEngine.analyze(
-            expenses = expenses,
+            expenses = predictionExpenses,
             mainAccountBalance = mainAccountBalance,
             categoryBudgets = categoryBudgets,
             today = LocalDate.now()
@@ -60,16 +62,16 @@ object AnalyticsEngine {
             totalSpent = totalSpent,
             chartPoints = chartPoints,
             categoryBreakdown = categoryBreakdown,
-            averageMonthlyReserve = averageMonthlyReserve,
+            averageMonthlyReserve = averageMonthlyReserve.roundToTwoDecimals(),
             averageMonthlyExpense = monthlyExpenseAverage,
-            projectedReserveSixMonths = projectedSix,
-            projectedReserveTwelveMonths = projectedTwelve,
+            projectedReserveSixMonths = projectedSix.roundToTwoDecimals(),
+            projectedReserveTwelveMonths = projectedTwelve.roundToTwoDecimals(),
             // New spending pattern fields
             spendingTrend = spendingTrend,
-            weeklyAverageExpense = patternResult.weeklyAverageExpense,
+            weeklyAverageExpense = patternResult.weeklyAverageExpense.roundToTwoDecimals(),
             monthOverMonthChange = patternResult.trendPercentage,
             topGrowingCategory = patternResult.topGrowingCategory,
-            predictedMonthEndSpending = patternResult.predictedMonthEndSpending,
+            predictedMonthEndSpending = patternResult.predictedMonthEndSpending.roundToTwoDecimals(),
             runwayDays = patternResult.runwayDays
         )
     }
@@ -91,22 +93,34 @@ object AnalyticsEngine {
             cumulativeInvested += expense.allocation.investmentAmount
             TrendPoint(
                 date = expense.date,
-                cumulativeSaved = cumulativeSaved,
-                cumulativeInvested = cumulativeInvested
+                cumulativeSaved = cumulativeSaved.roundToTwoDecimals(),
+                cumulativeInvested = cumulativeInvested.roundToTwoDecimals()
             )
         }
     }
 
     private fun buildCategoryBreakdown(expenses: List<Expense>): Map<ExpenseCategory, Double> {
         return expenses.groupBy { it.category }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
+            .mapValues { (_, list) -> list.sumOf { it.amount }.roundToTwoDecimals() }
             .toSortedMap(compareBy { it.name })
     }
 
-    private fun buildProjections(transfers: List<SavingsTransfer>): Triple<Double, Double, Double> {
-        val monthlyTotals = transfers
-            .groupBy { YearMonth.from(it.date) }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
+    private fun buildProjections(expenses: List<Expense>, transfers: List<SavingsTransfer>): Triple<Double, Double, Double> {
+        if (expenses.isEmpty() && transfers.isEmpty()) return Triple(0.0, 0.0, 0.0)
+
+        val monthlyTotals = mutableMapOf<YearMonth, Double>()
+
+        expenses.groupBy { YearMonth.from(it.date) }
+            .forEach { (month, list) ->
+                val totalSetAside = list.sumOf { it.allocation.totalSetAside }
+                monthlyTotals[month] = (monthlyTotals[month] ?: 0.0) + totalSetAside
+            }
+
+        transfers.groupBy { YearMonth.from(it.date) }
+            .forEach { (month, list) ->
+                val totalTransfers = list.sumOf { it.amount }
+                monthlyTotals[month] = (monthlyTotals[month] ?: 0.0) + totalTransfers
+            }
 
         if (monthlyTotals.isEmpty()) return Triple(0.0, 0.0, 0.0)
 

@@ -2,10 +2,8 @@
     <string name="app_name">Sparely</string>
     <string name="common_back">Back</string>
     <string name="common_cancel">Cancel</string>
-    <string name="common_save">Save</string>
     <string name="dashboard_title">Overview</string>
     <string name="dashboard_subtitle">Stay on top of your savings momentum</string>
-    <string name="dashboard_action_view_history">View history</string>
     <string name="history_title">History</string>
     <string name="settings_title">Settings</string>
     <string name="vaults_title">Vaults</string>
@@ -14,6 +12,8 @@
     <string name="recurring_title">Recurring</string>
     <string name="health_title">Health</string>
     <string name="insights_title">Insights</string>
+    <string name="assets_title">Assets</string>
+    <string name="assets_tab">Assets</string>
     
     <!-- Insight Hub Screen -->
     <string name="insights_projected_balance">Projected Month End</string>
@@ -30,9 +30,14 @@
     <!-- Idle Money Insight -->
     <string name="insights_idle_money_title">Money Sitting Idle</string>
     <string name="insights_idle_money_desc">You have %1$s above your recommended reserve. This could earn ~%2$s/month in a high-yield savings account.</string>
+    <string name="insights_idle_money_subtitle">Put your extra cash to work</string>
     <string name="insights_idle_money_transfer">Transfer to Savings</string>
+    <string name="insights_idle_money_transfer_action">Transfer</string>
     <string name="insights_idle_money_suggested">Suggested Transfer</string>
+    <string name="insights_idle_money_target">Target: %1$s</string>
     <string name="insights_idle_money_projected">Could earn ~%1$s/year at %2$s APY</string>
+    <string name="insights_idle_money_growth_title">Projected Growth</string>
+    <string name="insights_idle_money_apy_summary">Earnings based on ~%1$s/mo savings at %2$s APY</string>
     
     <!-- Recurring Patterns -->
     <string name="insights_recurring_patterns">Detected Spending Patterns</string>
@@ -85,6 +90,8 @@
     
     <!-- Common actions -->
     <string name="action_save">Save</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="add_expense">Add Expense</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_done">Done</string>
     <string name="action_clear">Clear</string>
@@ -193,6 +200,66 @@
     <string name="vault_amount_label">Amount</string>
     <string name="vault_reason_label">Reason (optional)</string>
     <string name="vault_reason_hint">e.g., Bank transfer, Goal reached, etc.</string>
+
+    <!-- Savings / HISA -->
+    <string name="savings_add_account">Add Account</string>
+    <string name="savings_total_hisa_balance">Total HISA Balance</string>
+    <plurals name="savings_account_count">
+        <item quantity="one">%d account</item>
+        <item quantity="other">%d accounts</item>
+    </plurals>
+    <string name="savings_avg_apy">Avg APY</string>
+    <string name="savings_total_interest_earned">Total Interest Earned</string>
+    <string name="savings_no_accounts_title">No Savings Accounts</string>
+    <string name="savings_no_accounts_desc">Add your high-interest savings accounts to track balances and interest earned.</string>
+    <string name="savings_archive_title">Archive Account</string>
+    <string name="savings_archive_confirm">Are you sure you want to archive "%1$s"? This will hide it from the list but keep its history.</string>
+    <string name="savings_archive_action">Archive</string>
+    <string name="savings_update_balance_title">Update Balance</string>
+    <string name="savings_update_balance_desc">Manually update the current balance for "%1$s".</string>
+    <string name="savings_current_balance">Current Balance</string>
+    <string name="savings_new_balance">New Balance</string>
+    <string name="savings_interest_amount">Interest Amount</string>
+    <string name="savings_interest_total">Total interest earned so far: %1$s</string>
+    <string name="savings_add_interest_title">Add Interest Earned</string>
+    <string name="savings_add_interest_desc">Enter the interest amount earned for "%1$s".</string>
+    <string name="savings_add_interest_action">Add Interest</string>
+    <string name="savings_history">History</string>
+    <string name="savings_interest">Interest</string>
+    <string name="savings_more_options">More options</string>
+    <string name="savings_edit_details">Edit Details</string>
+    <string name="savings_update_balance_action">Update Balance</string>
+    <string name="savings_archive_action_short">Archive</string>
+    <string name="savings_interest_earned_label">Interest Earned</string>
+    <string name="savings_term_label">Term: %1$s mo</string>
+    <string name="savings_start_label">Start: %1$s</string>
+    <string name="savings_maturity_label">Maturity: %1$s</string>
+    <string name="savings_notice_label">Notice period: %1$d days</string>
+    <string name="savings_min_withdraw_label">Min withdraw %1$s</string>
+    <string name="savings_keep_label">Keep %1$s</string>
+    <string name="savings_badge_flexible">Flexible access</string>
+    <string name="savings_badge_notice">Notice %1$d days</string>
+    <string name="savings_badge_locked">Locked %1$s</string>
+    <string name="savings_edit_account">Edit Account</string>
+    <string name="savings_add_savings_account">Add Savings Account</string>
+    <string name="savings_account_name">Account Name</string>
+    <string name="savings_apy_label">APY (%)</string>
+    <string name="savings_institution_optional">Institution (Optional)</string>
+    <string name="savings_notes_optional">Notes (Optional)</string>
+    <string name="savings_product_type">Product Type</string>
+    <string name="savings_product_flexible">Flexible (on-demand)</string>
+    <string name="savings_product_term">Term / Locked</string>
+    <string name="savings_product_notice">Notice account</string>
+    <string name="savings_term_length_months">Term length (months)</string>
+    <string name="savings_start_date">Start date (YYYY-MM-DD)</string>
+    <string name="savings_grace_window_days">Grace window days (optional)</string>
+    <string name="savings_anniversary_window_days">Anniversary window days (optional)</string>
+    <string name="savings_penalty_days">Early withdrawal penalty days</string>
+    <string name="savings_notice_days">Notice period (days)</string>
+    <string name="savings_min_withdraw_amount">Minimum withdrawal amount</string>
+    <string name="savings_min_remaining_balance">Minimum remaining balance</string>
+    <string name="savings_starting_balance">Starting balance</string>
+    <string name="savings_create_account">Create Account</string>
     <string name="vault_deposit_note">This will add funds to the vault and record it in the adjustment history.</string>
     <string name="vault_withdrawal_note">This will remove funds from the vault and record it in the adjustment history.</string>
     <string name="vault_select_account_type">Select Account Type (Optional)</string>
@@ -419,6 +486,8 @@
     <string name="dashboard_more_vaults_plural">+%1$d more vaults</string>
     <string name="dashboard_pending_transfer">View %1$d Pending Transfer</string>
     <string name="dashboard_pending_transfers">View %1$d Pending Transfers</string>
+    <string name="dashboard_pending_vault_action">View %1$d Pending Vault Transfer</string>
+    <string name="dashboard_pending_vault_actions">View %1$d Pending Vault Transfers</string>
     <string name="dashboard_recommended_split">Recommended split</string>
     <string name="dashboard_manual_split">Manual split</string>
     <string name="dashboard_recurring_patterns">Recurring patterns</string>
@@ -433,10 +502,12 @@
     <string name="dashboard_savings_challenges">Savings challenges</string>
     <string name="dashboard_challenges_description">Start a challenge to build streaks and unlock achievements.</string>
     <string name="dashboard_active_challenges">Active Challenges</string>
+    <string name="dashboard_vaults_pending">%1$d pending</string>
     
     <!-- Additional Dashboard Strings -->
     <string name="dashboard_net_saved">Net saved %1$s</string>
     <string name="dashboard_goal_prefix">Goal: </string>
+    <string name="dashboard_separator"> • </string>
     <string name="dashboard_smart_saving">Smart saving</string>
     <string name="dashboard_next_contribution">Next contribution %1$s</string>
     <string name="dashboard_saved_vs_target">%1$s saved vs target %2$s</string>
@@ -451,8 +522,6 @@
     <string name="dashboard_log_subscriptions_reminders">Log your subscriptions and bills to get reminders.</string>
     <string name="dashboard_due_on">Due %1$s</string>
     <string name="dashboard_emergency_runway">Emergency Runway</string>
-    <string name="dashboard_month_goal">%1$.1f month goal • %2$s</string>
-    <string name="dashboard_current_cushion">Current cushion</string>
     <string name="dashboard_shortfall">Shortfall</string>
     <string name="dashboard_monthly_target">Monthly target</string>
     <string name="dashboard_goal_reached">Goal reached! Keep contributing to stay ahead of inflation.</string>
@@ -501,7 +570,6 @@
 
     <!-- Income/Expense Specifics -->
     <string name="income_source_label">Source/Description</string>
-    <string name="income_category_label">Category</string>
     <string name="income_amount_label">Amount</string>
 
     <string name="dashboard_cards_count">%1$d card(s)</string>
@@ -515,25 +583,10 @@
     <!-- History Screen -->
     <string name="history_delete_expense_title">Delete Expense?</string>
     <string name="history_delete_expense_message">Are you sure you want to delete this expense?</string>
-    <string name="history_search_hint">Search expenses…</string>
-    <string name="history_search_clear">Clear search</string>
-    <string name="history_filter_custom">Custom range</string>
-    <string name="history_custom_start_date">Start date</string>
-    <string name="history_custom_end_date">End date</string>
-    <string name="history_expense_deleted">Expense deleted</string>
-    <string name="history_undo_delete_message">Expense deleted</string>
-    <string name="history_undo_delete_action">Undo</string>
-    <string name="action_undo">Undo</string>
     <string name="expense_notes_label">Notes (optional)</string>
     <string name="expense_notes_placeholder">Add a memo or context…</string>
     <string name="expense_order_number_label">Order/Receipt # (optional)</string>
     <string name="expense_order_number_placeholder">e.g., #12345, AMZN-001</string>
-    <string name="settings_export_csv">Export to CSV</string>
-    <string name="export_csv_success">Expenses exported to CSV</string>
-    <string name="export_csv_error">Failed to export CSV</string>
-    <string name="filter_all">All</string>
-    <string name="filter_income">Income</string>
-    <string name="filter_expenses">Expenses</string>
 
     <!-- Vault History Screen -->
     <string name="vault_history_title">%1$s History</string>
@@ -653,6 +706,9 @@
     <string name="vault_transfers_confirm_title">Confirm transfer</string>
     <string name="vault_transfers_confirm_desc">Have you moved %1$s to %2$s? All %3$d entries will be marked as transferred.</string>
     <string name="vault_transfers_yes_transferred">Yes, transferred</string>
+    <string name="notification_vault_transfer_multi_title">%1$d vaults have pending transfers</string>
+    <string name="notification_vault_transfer_single_title">Vault has pending transfer</string>
+    <string name="notification_vault_transfer_message">Transfer %1$s to %2$s</string>
     <string name="vault_transfers_how_it_works">How it works</string>
     <string name="vault_transfers_step1">Sparely calculates saving tax contributions from your logged expenses.</string>
     <string name="vault_transfers_step2">Transfer the total amount to your actual savings accounts via your banking app.</string>
@@ -711,6 +767,25 @@
     <string name="settings_payment_methods_desc">Manage your credit cards and cash accounts.</string>
     <string name="payment_method_type_cash">Cash</string>
     <string name="payment_method_type_card">Credit Card</string>
+    
+    <!-- Settings Screen - Smart Transfer -->
+    <string name="settings_smart_transfer_title">Smart Transfer Notifications</string>
+    <string name="settings_smart_transfer_minimum_label">Minimum amount</string>
+    <string name="settings_smart_transfer_minimum_desc">Only show notifications for transfers above this amount</string>
+    <string name="settings_smart_transfer_minimum_hint">0 = show all transfers</string>
+    
+    <!-- Settings Screen - Auto Backup -->
+    <string name="settings_auto_backup_title">Automatic Backup</string>
+    <string name="settings_auto_backup_enable">Enable automatic backups</string>
+    <string name="settings_auto_backup_frequency_label">Backup frequency</string>
+    <string name="settings_auto_backup_frequency_daily">Daily</string>
+    <string name="settings_auto_backup_frequency_weekly">Weekly</string>
+    <string name="settings_auto_backup_frequency_monthly">Monthly</string>
+    <string name="settings_auto_backup_last_backup">Last backup: %1$s</string>
+    <string name="settings_auto_backup_never">Never</string>
+    <string name="settings_auto_backup_now">Backup Now</string>
+    <string name="settings_auto_backup_desc">Automatically save your data to protect against loss</string>
+    <string name="settings_auto_backup_location">Backups are stored in the app\'s documents folder</string>
 
     <!-- Onboarding Screen -->
     <string name="onboarding_step_text">Step %1$d of %2$d</string>
@@ -927,6 +1002,14 @@
     <string name="budget_label_historic_avg">Historic Avg</string>
     <string name="budget_label_profile_target">Profile Target</string>
     <string name="budget_button_create">Create Budget</string>
+
+    <!-- Month-End Forecast -->
+    <string name="budget_forecast_section_title">Month-End Forecast</string>
+    <string name="budget_forecast_section_desc">Where each budget is trending based on this month\'s pace</string>
+    <string name="budget_forecast_predicted_label">Predicted spend</string>
+    <string name="budget_forecast_projected_overspend">Projected to go %1$s over</string>
+    <string name="budget_forecast_days_until_exhausted">Budget exhausted in %1$d day(s)</string>
+    <string name="budget_forecast_on_pace">On pace to stay within budget</string>
     <string name="budget_button_apply">Apply Suggestion</string>
 
     <!-- Recurring Screen -->
@@ -952,6 +1035,7 @@
     <string name="recurring_paused">Paused</string>
     <string name="recurring_due_soon">Due soon</string>
     <string name="recurring_active">Active</string>
+    <string name="recurring_paid">Paid</string>
     <string name="recurring_due_date">Due %1$s</string>
     <string name="recurring_mark_paid">Mark paid</string>
     <string name="recurring_empty_title">No recurring payments yet</string>
@@ -970,6 +1054,9 @@
     <string name="recurring_vault_none">None</string>
     <string name="recurring_vault_none_desc">Don\'t deduct from any vault</string>
     <string name="recurring_vault_balance">Balance: %1$s</string>
+    <string name="recurring_pay_early">Pay early</string>
+    <string name="recurring_pay_early_title">Pay recurring payment early</string>
+    <string name="recurring_pay_early_date_label">Date paid</string>
 
     <!-- Countdown Formats -->
     <string name="countdown_overdue">overdue by %1$dd</string>
@@ -998,9 +1085,9 @@
     <string name="freq_yearly">Yearly</string>
 
     <!-- Enum Labels - Confidence -->
-    <string name="confidence_high">High confidence</string>
-    <string name="confidence_medium">Medium confidence</string>
-    <string name="confidence_low">Emerging trend</string>
+    <string name="confidence_high">High</string>
+    <string name="confidence_medium">Medium</string>
+    <string name="confidence_low">Emerging</string>
 
     <!-- Enum Labels - Overview Mode -->
     <string name="overview_mode_overview">Overview</string>
@@ -1205,6 +1292,8 @@
     <string name="credit_cards_pay_action_confirm">Pay</string>
     <string name="credit_cards_cancel_action">Cancel</string>
     <string name="credit_cards_billing_day_not_set">Not set</string>
+    <string name="credit_cards_credit_balance_label">Credit</string>
+    <string name="credit_cards_credit_balance_desc">You have a credit balance — no payment due</string>
     <plurals name="credit_cards_count">
         <item quantity="one">%d card</item>
         <item quantity="other">%d cards</item>
@@ -1224,6 +1313,7 @@
     <string name="dashboard_anomaly_detected">%1$d unusual transaction(s) detected</string>
     <string name="dashboard_spending_insights">Spending Insights</string>
     <string name="dashboard_predicted_month_end">Predicted month-end: %1$s</string>
+    <string name="dashboard_predicted_month_end_confidence">%1$s confidence — based on %2$d day(s) of data this month</string>
     
     <!-- Repeat Last Expense -->
     <string name="dashboard_repeat_last">Repeat Last</string>
@@ -1257,56 +1347,131 @@
     <string name="recurring_amount_history_title">Amount History</string>
 
     <!-- High-Yield Savings -->
+    <string name="savings_accounts_title">Savings Accounts</string>
     <string name="vault_type_high_yield">High-Yield Savings</string>
     <string name="vault_apy_label">Annual Percentage Yield (APY)</string>
     <string name="vault_projected_monthly_interest">Projected monthly interest: %1$s</string>
     <string name="vault_projected_annual_interest">Projected annual interest: %1$s</string>
     <string name="vault_accrued_interest">Interest earned: %1$s</string>
+
+    <!-- Dashboard Screen Extra -->
+    <string name="dashboard_join_challenge">Join a Challenge</string>
+    <string name="dashboard_challenge_competitive_desc">Save faster by competing with your past self</string>
+    <string name="dashboard_balance_drop_soon">Your balance may drop soon</string>
+    <string name="dashboard_money_sitting_idle">Money Sitting Idle</string>
+    <string name="dashboard_put_idle_cash_to_work">Put your idle cash to work</string>
+    <string name="dashboard_projected_growth">Projected Growth</string>
+    <string name="dashboard_est_annual_interest">Est. +%1$s annual interest</string>
+    <string name="dashboard_full_analysis">Full Analysis</string>
+
+    <!-- Dashboard Screen Missed Strings -->
+    <string name="dashboard_saving_rate_prefix">Saving %1$s</string>
+    <string name="dashboard_savings_tab">Savings</string>
+    <string name="dashboard_vaults_tab">Vaults</string>
+    <string name="dashboard_create_hisa_subtitle">Create a High-Yield Savings Account</string>
+    <string name="dashboard_view_all_action">View All</string>
+    <string name="dashboard_recurring_cadence_next">Every %1$d days • Next: %2$s</string>
+    <string name="dashboard_add_subscriptions_hint">Add subscriptions to track recurring costs automatically.</string>
+    <string name="dashboard_month_goal">%1$d month goal</string>
+    <string name="dashboard_vault_progress_summary">%1$s of %2$s</string>
+    <string name="dashboard_financial_health_title">Financial Health</string>
+    <string name="dashboard_tap_for_analysis">Tap for full analysis</string>
+    <string name="dashboard_budget_usage_title">Budget Usage</string>
+    <string name="dashboard_amount_left">%1$s left</string>
+    <string name="dashboard_of_total_amount">of %1$s</string>
+    <string name="dashboard_tap_for_details">Tap for details</string>
+    <string name="dashboard_no_budgets_set">No Budgets Set</string>
+    <string name="dashboard_plan_spending_subtitle">Plan your spending</string>
+    <string name="dashboard_ongoing_challenge">Ongoing challenge</string>
+    <string name="dashboard_total_usable_money_title">Total Usable Money</string>
+    <string name="dashboard_usable_chip">Usable</string>
+    <string name="dashboard_safe_chip">Safe</string>
+    <string name="dashboard_credit_chip">Credit</string>
+    <string name="dashboard_log_action">Log</string>
+    <string name="dashboard_repeat_action">Repeat</string>
+    <string name="dashboard_vaults_action">Vaults</string>
+    <string name="dashboard_saving_rate">Saving %1$s</string>
+    <string name="dashboard_tab_savings">Savings</string>
+    <string name="dashboard_tab_vaults">Vaults</string>
+    <string name="dashboard_start_saving_subtitle">Create a High-Yield Savings Account</string>
+    <string name="dashboard_apy_suffix">%1$s APY</string>
+    <string name="dashboard_view_all">View All</string>
+    <string name="dashboard_balance_drop_detail">Balance may drop to %1$s in %2$d days. Consider transferring from a vault.</string>
+    <string name="dashboard_total_balance">Total Balance</string>
+    <string name="dashboard_credit_utilization">Credit Utilization</string>
+    <string name="dashboard_duration_months">%1$dM</string>
+    <string name="dashboard_duration_years">%1$dY</string>
+    <string name="dashboard_recurring_pattern_detail">Every %1$d days • Next: %2$s</string>
+    <string name="dashboard_add_subscriptions_prompt">Add subscriptions to track recurring costs automatically.</string>
+    <string name="dashboard_vault_progress_text"> %1$s of %2$s</string>
+
+
+
+    <string name="dashboard_active_challenges_title">Active Challenges</string>
+    <string name="dashboard_manage_action">Manage</string>
+    <string name="dashboard_start_saving_title">Start Saving</string>
+    <string name="dashboard_percent_complete">%1$d%% complete</string>
+    <string name="dashboard_recurring_patterns_found">Recurring patterns found</string>
+    <string name="dashboard_convert_subscriptions_hint">Convert to subscriptions</string>
+    <string name="dashboard_up_next">Up next</string>
+    <string name="dashboard_no_upcoming_bills">No upcoming bills</string>
+    <string name="dashboard_total_commitment">Total commitment</string>
+    <string name="dashboard_due_date">Due %1$s</string>
+    <string name="dashboard_all_bills_paid">All bills paid</string>
+    <string name="dashboard_current_cushion">Current cushion</string>
+    <string name="dashboard_target_amount_label">Target: %1$s</string>
+    <string name="dashboard_low_balance_alert">Low balance alert</string>
+    <string name="dashboard_repeat_last_detail">Repeat last transaction</string>
+    <string name="dashboard_suggested_transfer">Suggested transfer</string>
+    <string name="dashboard_transfer_action">Transfer</string>
+    <string name="record_income_title">Record Income</string>
+    <string name="income_category_label">Category</string>
+    <string name="income_category_select">Select Category</string>
+    <string name="income_description_label">Description</string>
+    <string name="income_date_label">Date</string>
+    <string name="income_pick_date">Pick date</string>
+    <string name="income_distribute_vaults">Distribute to vaults</string>
+    <string name="income_pending_transfers">Create pending transfers</string>
+    <string name="common_save">Save</string>
+    <string name="history_undo_delete_message">Expense deleted</string>
+    <string name="history_undo_delete_action">Undo</string>
+    <string name="history_search_hint">Search expenses...</string>
+    <string name="filter_all">All</string>
+    <string name="settings_export_csv">Export as CSV</string>
+    <string name="history_search_results_quick">Quick Results</string>
+    <string name="history_filters">Filters</string>
+    <string name="history_filter_this_month">This Month</string>
+    <string name="history_clear_filters">Clear Filters</string>
+    <string name="common_done">Done</string>
+    <string name="history_filter_period">Time Period</string>
+    <string name="history_custom_start_date">Start Date</string>
+    <string name="history_custom_end_date">End Date</string>
+    <string name="category_label">Category</string>
+    <string name="history_filter_custom">Custom Range</string>
+    <string name="filter_income">Income</string>
+    <string name="filter_expenses">Expenses</string>
+    <string name="history_search_clear">Clear search</string>
+
     <!-- Dashboard redesign -->
     <string name="dashboard_greeting_morning">Good morning</string>
     <string name="dashboard_greeting_afternoon">Good afternoon</string>
     <string name="dashboard_greeting_evening">Good evening</string>
-    <string name="dashboard_quick_log">Log</string>
-    <string name="dashboard_quick_repeat">Repeat</string>
     <string name="dashboard_needs_attention">Needs attention</string>
     <string name="dashboard_this_month">This month</string>
     <string name="dashboard_savings_progress">Savings progress</string>
-    <string name="dashboard_view_activity">View activity</string>
     <string name="dashboard_runway_healthy">No shortfall ahead</string>
     <string name="dashboard_forecast_title">4-week cashflow forecast</string>
     <string name="dashboard_forecast_empty">Add income and recurring expenses for detailed projections</string>
     <string name="dashboard_week_of">Week of %1$s</string>
-    <string name="dashboard_attention_low_balance">Balance may drop to %1$s in %2$d days</string>
     <string name="dashboard_attention_bill_due">%1$s · %2$s due %3$s</string>
     <string name="dashboard_due_today">today</string>
     <string name="dashboard_due_tomorrow">tomorrow</string>
     <string name="dashboard_due_in_days">in %1$d days</string>
-    <string name="dashboard_more_bills">+%1$d more</string>
     <string name="dashboard_vaults_empty_title">Create your first vault</string>
     <string name="dashboard_vaults_empty_description">Vaults set money aside for goals and grow automatically with each paycheck.</string>
     <string name="dashboard_vaults_empty_action">New vault</string>
-    <string name="dashboard_month_goal_text">%1$s-month goal</string>
-    <string name="dashboard_total_balance">Total balance</string>
-    <string name="dashboard_top_growing_category">Top growing category</string>
-    <string name="dashboard_unusual_transactions">Unusual transactions</string>
-    <string name="dashboard_times_typical">%1$.1f× typical</string>
-    <string name="dashboard_view_full_insights">View full insights</string>
     <string name="dashboard_expand">Expand</string>
     <string name="dashboard_collapse">Collapse</string>
-    <plurals name="dashboard_attention_pending_transfers">
-        <item quantity="one">%d vault transfer waiting for confirmation</item>
-        <item quantity="other">%d vault transfers waiting for confirmation</item>
-    </plurals>
-    <plurals name="dashboard_attention_over_budget">
-        <item quantity="one">%d budget category is over its limit</item>
-        <item quantity="other">%d budget categories are over their limit</item>
-    </plurals>
-    <plurals name="dashboard_upcoming_bills_count">
-        <item quantity="one">%d bill coming up</item>
-        <item quantity="other">%d bills coming up</item>
-    </plurals>
-    <plurals name="dashboard_more_vaults_count">
-        <item quantity="one">+%d more vault</item>
-        <item quantity="other">+%d more vaults</item>
-    </plurals>
+    <string name="dashboard_see_breakdown">See breakdown</string>
+    <string name="dashboard_assets_description">Track physical and financial assets and their valuations</string>
 </resources>

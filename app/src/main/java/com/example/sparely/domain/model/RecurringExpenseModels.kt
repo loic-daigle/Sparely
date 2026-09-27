@@ -34,8 +34,18 @@ data class RecurringExpense(
     // Variable amount support for bills like electricity, water, etc.
     val isVariableAmount: Boolean = false,
     val amountHistory: List<AmountHistoryEntry> = emptyList(),
-    val estimatedAmount: Double? = null // Predicted amount for next occurrence
-)
+    val estimatedAmount: Double? = null, // Predicted amount for next occurrence
+    val nextRunAt: java.time.LocalDateTime? = null,
+    val type: ExpenseType = ExpenseType.PRODUCT, // PRODUCT or SERVICE
+    // Line items support (new for feature parity with expenses)
+    val items: List<ExpenseItem> = emptyList(),
+    // Asset allocations support (new for feature parity with expenses)
+    val assetAllocations: Map<Long, Double> = emptyMap(), // assetId -> percentageAllocated
+    // Explicit user choice; null means "derive from category"
+    val necessityOverride: Necessity? = null
+) {
+    val necessity: Necessity get() = necessityOverride ?: category.defaultNecessity()
+}
 
 /**
  * Tracks historical amounts for variable recurring expenses.
@@ -81,7 +91,14 @@ data class RecurringExpenseInput(
     val deductedFromVaultId: Long? = null,
     val manualPercentages: SavingsPercentages? = null,
     // Variable amount support
-    val isVariableAmount: Boolean = false
+    val isVariableAmount: Boolean = false,
+    val nextRunAt: java.time.LocalDateTime? = null,
+    val type: ExpenseType = ExpenseType.PRODUCT, // PRODUCT or SERVICE
+    // Line items support (new for feature parity with expenses)
+    val items: List<ExpenseItem> = emptyList(),
+    // Asset allocations support (new for feature parity with expenses)
+    val assetAllocations: Map<Long, Double> = emptyMap(), // assetId -> percentageAllocated
+    val necessityOverride: Necessity? = null
 )
 
 /**

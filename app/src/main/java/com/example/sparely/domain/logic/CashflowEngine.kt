@@ -1,6 +1,8 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.Necessity
+import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringFrequency
 import java.time.LocalDate
@@ -22,6 +24,9 @@ object CashflowEngine {
         val projectedBalance30Days: Double,
         val dailyBurnRate: Double,
         val runwayDays: Int, // Days until balance hits zero
+        val essentialObligations30Days: Double = 0.0,
+        val discretionaryObligations30Days: Double = 0.0,
+        val essentialsCoveredDays: Int? = null, // Days until money can't cover essential bills; null = covered for the horizon
         val lowBalanceWarning: LowBalanceWarning?,
         val upcomingObligations: List<UpcomingObligation>,
         val weeklyProjections: List<WeeklyProjection>
@@ -41,7 +46,8 @@ object CashflowEngine {
         val amount: Double,
         val dueDate: LocalDate,
         val daysUntilDue: Int,
-        val isRecurring: Boolean
+        val isRecurring: Boolean,
+        val necessity: Necessity = Necessity.IMPORTANT
     )
 
     data class WeeklyProjection(
@@ -53,11 +59,14 @@ object CashflowEngine {
 
     data class ForecastInput(
         val currentBalance: Double,
+        val totalHisaBalance: Double = 0.0,
+        val minMainAccountBalance: Double = 0.0,
         val recentExpenses: List<Expense>,
         val recurringExpenses: List<RecurringExpense>,
         val expectedMonthlyIncome: Double,
         val nextPayDate: LocalDate? = null,
         val nextPayAmount: Double? = null,
+        val paySchedule: PayScheduleSettings? = null,
         val lowBalanceThreshold: Double = 100.0,
         val today: LocalDate = LocalDate.now()
     )
@@ -71,23 +80,34 @@ object CashflowEngine {
             .filter { it.daysUntilDue <= 30 }
             .sumOf { it.amount }
 
-        // Safe to spend = current balance - upcoming obligations - buffer
-        val buffer = (input.currentBalance * 0.10).coerceIn(50.0, 500.0) // 10% buffer, min $50, max $500
-        val safeToSpend = (input.currentBalance - totalObligations30Days - buffer).coerceAtLeast(0.0)
+        // Total Liquid Money = Main Account + HISA
+        val totalLiquidMoney = input.currentBalance + input.totalHisaBalance
+        
+        // Reserved Money = Minimum Balance setting
+        val reservedMoney = input.minMainAccountBalance
+
+        // Safe to spend = Total Liquid - Upcoming Obligations - Buffer - Reserved
+        // We use a buffer on the MAIN account specifically to avoid overdrafts there, 
+        // but for "Safe to Spend" global view, we consider HISA as backup.
+        // However, let's keep the buffer logic simpler: 10% of TOTAL liquid.
+        val buffer = (totalLiquidMoney * 0.10).coerceIn(50.0, 500.0) 
+        
+        val safeToSpend = (totalLiquidMoney - totalObligations30Days - buffer - reservedMoney).coerceAtLeast(0.0)
 
         // Calculate expected income in next 30 days
         val incomeIn30Days = calculateExpectedIncome(
             monthlyIncome = input.expectedMonthlyIncome,
             nextPayDate = input.nextPayDate,
             nextPayAmount = input.nextPayAmount,
+            paySchedule = input.paySchedule,
             today = input.today
         )
 
-        // Project balance in 30 days
+        // Project balance in 30 days (Total Liquid)
         val projectedSpending30Days = dailyBurn * 30
-        val projectedBalance30Days = input.currentBalance + incomeIn30Days - projectedSpending30Days - totalObligations30Days
+        val projectedBalance30Days = totalLiquidMoney + incomeIn30Days - projectedSpending30Days - totalObligations30Days
 
-        // Calculate runway
+        // Calculate runway using TOTAL liquid money
         val effectiveDailyBurn = if (incomeIn30Days > 0) {
             val dailyIncome = incomeIn30Days / 30.0
             (dailyBurn - dailyIncome).coerceAtLeast(0.0)
@@ -95,38 +115,55 @@ object CashflowEngine {
             dailyBurn
         }
         val runwayDays = if (effectiveDailyBurn > 0) {
-            (input.currentBalance / effectiveDailyBurn).toInt()
+            (totalLiquidMoney / effectiveDailyBurn).toInt()
         } else {
             Int.MAX_VALUE
         }
 
         // Check for low balance warning
+        // We use Main Account balance specifically for "Low Main Account Balance" warning if we wanted strictness,
+        // but the user wants "Total Usable Money". 
+        // However, bills behave differently. Usually bills come out of Main.
+        // If Main < 0, it's a problem even if HISA > 0 (unless auto-transfer).
+        // For now, let's use Total Liquid for the "General Health" low balance warning, 
+        // assuming the user moves money if needed.
         val lowBalanceWarning = detectLowBalanceWarning(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney,
             dailyBurn = dailyBurn,
             incomeIn30Days = incomeIn30Days,
             upcomingObligations = upcomingObligations,
-            threshold = input.lowBalanceThreshold,
+            threshold = input.lowBalanceThreshold + reservedMoney, // Warn if we dip into reserved
             today = input.today
         )
 
         // Build weekly projections
         val weeklyProjections = buildWeeklyProjections(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney,
             dailyBurn = dailyBurn,
             expectedMonthlyIncome = input.expectedMonthlyIncome,
             nextPayDate = input.nextPayDate,
             nextPayAmount = input.nextPayAmount,
+            paySchedule = input.paySchedule,
             upcomingObligations = upcomingObligations,
             today = input.today
         )
 
         return CashflowForecast(
-            currentBalance = input.currentBalance,
+            currentBalance = totalLiquidMoney, // Includes main + HISA for consistent graph display
             safeToSpend = safeToSpend,
             projectedBalance30Days = projectedBalance30Days,
             dailyBurnRate = dailyBurn,
             runwayDays = runwayDays,
+            essentialObligations30Days = upcomingObligations
+                .filter { it.necessity == Necessity.ESSENTIAL }.sumOf { it.amount },
+            discretionaryObligations30Days = upcomingObligations
+                .filter { it.necessity == Necessity.DISCRETIONARY }.sumOf { it.amount },
+            essentialsCoveredDays = firstDayEssentialsUncovered(
+                liquid = totalLiquidMoney,
+                obligations = upcomingObligations,
+                payDates = projectPayDates(input.paySchedule, input.nextPayDate, input.nextPayAmount, input.today, input.today.plusDays(30)),
+                today = input.today
+            ),
             lowBalanceWarning = lowBalanceWarning,
             upcomingObligations = upcomingObligations,
             weeklyProjections = weeklyProjections
@@ -135,19 +172,35 @@ object CashflowEngine {
 
     // === Helper Functions ===
 
-    private fun calculateDailyBurnRate(expenses: List<Expense>, today: LocalDate): Double {
+    /**
+     * Discretionary burn only: recurring-logged expenses are excluded because they're projected
+     * separately as upcoming obligations (counting both would double count them). With 2+ completed
+     * months of history we use the long-history baseline; otherwise the last 30 days.
+     */
+    private fun calculateDailyBurnRate(allExpenses: List<Expense>, today: LocalDate): Double {
+        val expenses = allExpenses.filter { !it.countsAsRecurring }
+        val baseline = ProjectionMath.historyBaseline(expenses, today)
+        if (baseline.hasEnoughHistory && ProjectionMath.historyBeatsLinear(allExpenses, today)) {
+            return baseline.discretionaryDailyRate
+        }
+
         val cutoff = today.minusDays(30)
         val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
 
         if (recentExpenses.isEmpty()) return 0.0
 
-        val totalSpent = recentExpenses.sumOf { it.amount }
+        // Filter out one-time large expenses to get accurate burn rate
+        val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(recentExpenses)
+        val uniqueExpenseIds = uniqueExpenses.map { it.expense.id }.toSet()
+        val filteredExpenses = recentExpenses.filter { it.id !in uniqueExpenseIds }
+
+        val totalSpent = filteredExpenses.sumOf { it.amount }
         val daysOfData = ChronoUnit.DAYS.between(
-            recentExpenses.minOfOrNull { it.date } ?: today,
+            filteredExpenses.minOfOrNull { it.date } ?: today,
             today
         ).toInt().coerceAtLeast(1)
 
-        return totalSpent / daysOfData
+        return if (filteredExpenses.isNotEmpty()) totalSpent / daysOfData else 0.0
     }
 
     private fun calculateUpcomingObligations(
@@ -168,7 +221,8 @@ object CashflowEngine {
                         amount = expense.amount,
                         dueDate = nextDue,
                         daysUntilDue = daysUntil,
-                        isRecurring = true
+                        isRecurring = true,
+                        necessity = expense.necessity
                     )
                 )
             }
@@ -205,21 +259,77 @@ object CashflowEngine {
         monthlyIncome: Double,
         nextPayDate: LocalDate?,
         nextPayAmount: Double?,
+        paySchedule: PayScheduleSettings?,
         today: LocalDate
     ): Double {
-        // If we have a specific next pay date and amount, use that
-        if (nextPayDate != null && nextPayAmount != null) {
-            val daysUntilPay = ChronoUnit.DAYS.between(today, nextPayDate).toInt()
-            if (daysUntilPay in 0..30) {
-                // Estimate additional paychecks based on frequency
-                // Assume biweekly for simplicity if we only have one date
-                val additionalPaychecks = (30 - daysUntilPay) / 14
-                return nextPayAmount * (1 + additionalPaychecks)
-            }
+        val payDates = projectPayDates(paySchedule, nextPayDate, nextPayAmount, today, today.plusDays(30))
+        if (payDates.isNotEmpty()) {
+            return payDates.sumOf { it.second }
         }
 
         // Fall back to estimated monthly income
         return monthlyIncome
+    }
+
+    /**
+     * Projects every paycheck landing in [rangeStart, rangeEndExclusive), using the real pay
+     * cadence from [paySchedule] (via [PayScheduleCalculator]) when available. Without a schedule,
+     * only the single known [nextPayDate]/[nextPayAmount] is considered - we don't guess at a
+     * cadence (e.g. assuming biweekly) when we don't actually know it.
+     */
+    private fun projectPayDates(
+        paySchedule: PayScheduleSettings?,
+        nextPayDate: LocalDate?,
+        nextPayAmount: Double?,
+        rangeStart: LocalDate,
+        rangeEndExclusive: LocalDate
+    ): List<Pair<LocalDate, Double>> {
+        val firstPayDate = nextPayDate ?: return emptyList()
+        val firstPayAmount = nextPayAmount ?: return emptyList()
+
+        var date = firstPayDate
+        var amount = firstPayAmount
+        var iterations = 0
+
+        // Advance past a stale pay date using the real schedule, if we have one.
+        while (date.isBefore(rangeStart)) {
+            if (paySchedule == null || iterations >= 24) return emptyList()
+            date = PayScheduleCalculator.computeNextPayDate(paySchedule, date) ?: return emptyList()
+            amount = paySchedule.defaultNetPay.takeIf { it > 0 } ?: amount
+            iterations++
+        }
+
+        val dates = mutableListOf<Pair<LocalDate, Double>>()
+        while (date.isBefore(rangeEndExclusive) && iterations < 48) {
+            dates.add(date to amount)
+            if (paySchedule == null) break // no cadence to project a second paycheck from
+            date = PayScheduleCalculator.computeNextPayDate(paySchedule, date) ?: break
+            amount = paySchedule.defaultNetPay.takeIf { it > 0 } ?: amount
+            iterations++
+        }
+        return dates
+    }
+
+    /**
+     * Assumes all discretionary spending stops, so only essential bills draw down [liquid] while
+     * paychecks add to it. Returns the first day money can't cover an essential bill, or null.
+     */
+    private fun firstDayEssentialsUncovered(
+        liquid: Double,
+        obligations: List<UpcomingObligation>,
+        payDates: List<Pair<LocalDate, Double>>,
+        today: LocalDate
+    ): Int? {
+        var balance = liquid
+        for (day in 0..30) {
+            val date = today.plusDays(day.toLong())
+            balance += payDates.filter { it.first == date }.sumOf { it.second }
+            balance -= obligations
+                .filter { it.necessity == Necessity.ESSENTIAL && it.dueDate == date }
+                .sumOf { it.amount }
+            if (balance < 0) return day
+        }
+        return null
     }
 
     private fun detectLowBalanceWarning(
@@ -282,13 +392,18 @@ object CashflowEngine {
         expectedMonthlyIncome: Double,
         nextPayDate: LocalDate?,
         nextPayAmount: Double?,
+        paySchedule: PayScheduleSettings?,
         upcomingObligations: List<UpcomingObligation>,
         today: LocalDate
     ): List<WeeklyProjection> {
         val projections = mutableListOf<WeeklyProjection>()
         var runningBalance = currentBalance
         val weeklyBurn = dailyBurn * 7
-        val weeklyIncome = expectedMonthlyIncome / 4.33 // Approximate weekly income
+        val weeklyIncome = expectedMonthlyIncome / 4.33 // Fallback when no real schedule is known
+
+        // Same pay-date projection used by calculateExpectedIncome, so the 4-week chart and the
+        // 30-day "safe to spend" figure agree on how many paychecks land in the horizon.
+        val payDates = projectPayDates(paySchedule, nextPayDate, nextPayAmount, today, today.plusDays(28))
 
         for (weekNum in 0..3) { // 4 weeks ahead
             val weekStart = today.plusDays((weekNum * 7).toLong())
@@ -299,9 +414,8 @@ object CashflowEngine {
                 .filter { it.dueDate in weekStart..weekEnd }
                 .sumOf { it.amount }
 
-            // Check if pay date falls in this week
-            val payThisWeek = if (nextPayDate != null && nextPayAmount != null) {
-                if (nextPayDate in weekStart..weekEnd) nextPayAmount else 0.0
+            val payThisWeek = if (payDates.isNotEmpty()) {
+                payDates.filter { it.first >= weekStart && it.first < weekEnd }.sumOf { it.second }
             } else {
                 weeklyIncome
             }

@@ -30,7 +30,7 @@ object CsvExporter {
                         val row = listOf(
                             expense.date.format(dateFormatter),
                             escapeCsv(expense.description),
-                            String.format("%.2f", expense.amount),
+                            expense.amount.formatCurrency("", 2),
                             expense.category.name,
                             escapeCsv(storeName),
                             escapeCsv(expense.notes ?: ""),

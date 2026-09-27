@@ -29,6 +29,8 @@ data class SettingsUiState(
     val settings: SparelySettings = SparelySettings(),
     val autoDepositCheckHour: Int = 9,
     val paymentMethods: List<PaymentMethod> = emptyList(),
+    val smartVaults: List<SmartVault> = emptyList(),
+    val savingsAccounts: List<SavingsAccount> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -71,9 +73,24 @@ class SettingsViewModel(
         
         viewModelScope.launch(dispatcher) {
             savingsRepository.observePaymentMethods()
-                .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load payment methods: ${e.message}") } }
                 .collect { methods ->
                     _uiState.update { it.copy(paymentMethods = methods) }
+                }
+        }
+
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.observeSmartVaults()
+                .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load vaults: ${e.message}") } }
+                .collect { vaults ->
+                    _uiState.update { it.copy(smartVaults = vaults) }
+                }
+        }
+        
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.observeSavingsAccounts()
+                .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load savings accounts: ${e.message}") } }
+                .collect { accounts ->
+                    _uiState.update { it.copy(savingsAccounts = accounts) }
                 }
         }
     }
@@ -112,19 +129,21 @@ class SettingsViewModel(
 
     fun updateMainAccountBalance(balance: Double) {
         viewModelScope.launch(dispatcher) {
-            val currentBalance = savingsRepository.getLatestMainAccountBalance()
-            val delta = balance - currentBalance
-            if (abs(delta) > 1e-6) {
-                val transaction = MainAccountTransaction(
-                    type = MainAccountTransactionType.ADJUSTMENT,
-                    amount = abs(delta),
-                    balanceAfter = balance.coerceAtLeast(0.0),
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Manual balance update from settings"
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
+            savingsRepository.withMainAccountLock {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                val delta = balance - currentBalance
+                if (abs(delta) > 1e-6) {
+                    val transaction = MainAccountTransaction(
+                        type = MainAccountTransactionType.ADJUSTMENT,
+                        amount = abs(delta),
+                        balanceAfter = balance.coerceAtLeast(0.0),
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Manual balance update from settings"
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                }
+                preferencesRepository.updateMainAccountBalance(balance.coerceAtLeast(0.0))
             }
-            preferencesRepository.updateMainAccountBalance(balance.coerceAtLeast(0.0))
         }
     }
     
@@ -137,9 +156,20 @@ class SettingsViewModel(
     fun updateSmartAllocationMode(mode: SmartAllocationMode) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateSmartAllocationMode(mode)
-            // Schedule or cancel monthly allocation worker based on selected mode
             val enabled = mode == SmartAllocationMode.AUTOMATIC
             container.monthlyAllocationScheduler.schedule(enabled)
+        }
+    }
+
+    fun updateMainOverflowAccountId(accountId: Long?) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateMainOverflowAccountId(accountId)
+        }
+    }
+    
+    fun updateMinMainAccountBalance(amount: Double) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateMinMainAccountBalance(amount)
         }
     }
 
@@ -228,6 +258,32 @@ class SettingsViewModel(
     fun updateBiometricEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateBiometricEnabled(enabled)
+        }
+    }
+
+    fun updateSmartTransferMinimumAmount(amount: Double) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateSmartTransferMinimumAmount(amount)
+        }
+    }
+
+    fun updateAutoBackupSettings(enabled: Boolean, frequencyDays: Int) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateAutoBackupSettings(enabled, frequencyDays)
+            // Schedule or cancel auto backup based on enabled state
+            container.autoBackupScheduler.schedule(enabled, frequencyDays)
+        }
+    }
+
+    fun triggerManualBackup(context: android.content.Context, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(dispatcher) {
+            try {
+                container.autoBackupScheduler.runImmediateBackup(context, onResult)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onResult(false, "Backup failed: ${e.message}")
+                }
+            }
         }
     }
 

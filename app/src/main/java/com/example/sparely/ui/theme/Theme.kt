@@ -34,7 +34,9 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = Color(0xFFCAC4D0),
     outline = FallbackOutlineDark,
     error = ErrorRed,
-    onError = Color.White
+    onError = Color.White,
+    surfaceBright = SurfaceBrightDark,
+    surfaceDim = SurfaceDimDark
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -58,14 +60,14 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = Color(0xFF49454F),
     outline = FallbackOutline,
     error = ErrorRed,
-    onError = Color.White
+    onError = Color.White,
+    surfaceBright = SurfaceBright,
+    surfaceDim = SurfaceDim
 )
 
 @Composable
 fun SparelyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    // Enable by default to match user's phone theme (Material You)
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {

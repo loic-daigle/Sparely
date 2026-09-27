@@ -373,6 +373,7 @@
     <!-- Additional Dashboard Strings -->
     <string name="dashboard_net_saved">Net épargné %1$s</string>
     <string name="dashboard_goal_prefix">Objectif : </string>
+    <string name="dashboard_separator"> • </string>
     <string name="dashboard_smart_saving">Épargne intelligente</string>
     <string name="dashboard_next_contribution">Prochaine contribution %1$s</string>
     <string name="dashboard_saved_vs_target">%1$s épargné vs cible %2$s</string>
@@ -827,6 +828,9 @@
     <string name="recurring_vault_none">Aucun</string>
     <string name="recurring_vault_none_desc">Ne pas déduire d\'un coffre</string>
     <string name="recurring_vault_balance">Solde : %1$s</string>
+    <string name="recurring_pay_early">Payer en avance</string>
+    <string name="recurring_pay_early_title">Payer le paiement récurrent en avance</string>
+    <string name="recurring_pay_early_date_label">Date payée</string>
 
     <!-- Countdown Formats -->
     <string name="countdown_overdue">en retard de %1$dj</string>
@@ -855,9 +859,9 @@
     <string name="freq_yearly">Annuel</string>
 
     <!-- Enum Labels - Confidence -->
-    <string name="confidence_high">Confiance élevée</string>
-    <string name="confidence_medium">Confiance moyenne</string>
-    <string name="confidence_low">Tendance émergente</string>
+    <string name="confidence_high">Élevée</string>
+    <string name="confidence_medium">Moyenne</string>
+    <string name="confidence_low">Tendance</string>
 
     <!-- Enum Labels - Overview Mode -->
     <string name="overview_mode_overview">Aperçu</string>
@@ -1055,6 +1059,8 @@
     <string name="credit_cards_pay_action_confirm">Payer</string>
     <string name="credit_cards_cancel_action">Annuler</string>
     <string name="credit_cards_billing_day_not_set">Non défini</string>
+    <string name="credit_cards_credit_balance_label">Crédit</string>
+    <string name="credit_cards_credit_balance_desc">Vous avez un solde créditeur — aucun paiement dû</string>
     <plurals name="credit_cards_count">
         <item quantity="one">%d carte</item>
         <item quantity="other">%d cartes</item>
@@ -1079,51 +1085,90 @@
     <string name="vault_projected_monthly_interest">Intérêts mensuels prévus : %1$s</string>
     <string name="vault_projected_annual_interest">Intérêts annuels prévus : %1$s</string>
     <string name="vault_accrued_interest">Intérêts gagnés : %1$s</string>
+
+    <!-- Dashboard Screen Extra -->
+    <string name="dashboard_join_challenge">Rejoindre un défi</string>
+    <string name="dashboard_challenge_competitive_desc">Épargnez plus vite en vous mesurant à vous-même</string>
+    <string name="dashboard_balance_drop_soon">Votre solde pourrait chuter bientôt</string>
+    <string name="dashboard_money_sitting_idle">Argent dormant</string>
+    <string name="dashboard_put_idle_cash_to_work">Faites fructifier votre argent dormant</string>
+    <string name="dashboard_projected_growth">Croissance projetée</string>
+    <string name="dashboard_est_annual_interest">Est. +%1$s d\'intérêt annuel</string>
+    <string name="dashboard_full_analysis">Analyse complète</string>
+
+    <!-- Dashboard Screen Missed Strings -->
+    <string name="dashboard_active_challenges_title">Défis actifs</string>
+    <string name="dashboard_saving_rate_prefix">Épargne %1$s</string>
+    <string name="dashboard_savings_tab">Épargne</string>
+    <string name="dashboard_vaults_tab">Coffres</string>
+    <string name="dashboard_manage_action">Gérer</string>
+    <string name="dashboard_start_saving_title">Commencer à épargner</string>
+
+
+
+    <string name="dashboard_create_hisa_subtitle">Créer un compte d\'épargne à intérêt élevé</string>
+    <string name="dashboard_view_all_action">Voir tout</string>
+    <string name="dashboard_recurring_cadence_next">Tous les %1$d jours • Prochain : %2$s</string>
+    <string name="dashboard_add_subscriptions_hint">Ajoutez des abonnements pour suivre les coûts récurrents automatiquement.</string>
+
+    <string name="dashboard_vault_progress_summary">%1$s sur %2$s</string>
+    <string name="dashboard_target_date_label">Date cible %1$s</string>
+    <string name="dashboard_financial_health_title">Santé financière</string>
+    <string name="dashboard_tap_for_analysis">Appuyez pour une analyse complète</string>
+    <string name="dashboard_budget_usage_title">Utilisation du budget</string>
+    <string name="dashboard_amount_left">%1$s restant</string>
+    <string name="dashboard_of_total_amount">sur %1$s</string>
+    <string name="dashboard_tap_for_details">Appuyez pour les détails</string>
+    <string name="dashboard_no_budgets_set">Aucun budget défini</string>
+    <string name="dashboard_plan_spending_subtitle">Planifiez vos dépenses</string>
+    <string name="dashboard_ongoing_challenge">Défi en cours</string>
+    <string name="dashboard_total_usable_money_title">Argent total utilisable</string>
+    <string name="dashboard_usable_chip">Utilisable</string>
+    <string name="dashboard_safe_chip">Sûr</string>
+    <string name="dashboard_credit_chip">Crédit</string>
+    <string name="dashboard_log_action">Noter</string>
+    <string name="dashboard_repeat_action">Répéter</string>
+    <string name="dashboard_recurring_patterns_found">Modèles récurrents trouvés</string>
+    <string name="dashboard_convert_subscriptions_hint">Appuyez pour convertir en abonnements</string>
+
+    <!-- Savings accounts / HISA -->
+    <string name="savings_accounts_title">Comptes d\'épargne</string>
+    <string name="dashboard_vaults_action">Coffres</string>
+    <string name="dashboard_saving_rate">Épargne %1$s</string>
+    <string name="dashboard_tab_savings">Comptes</string>
+    <string name="dashboard_tab_vaults">Coffres</string>
+    <string name="dashboard_start_saving_subtitle">Créer un compte d\'épargne à intérêt élevé</string>
+    <string name="dashboard_apy_suffix">%1$s TAE</string>
+    <string name="dashboard_view_all">Tout voir</string>
+    <string name="dashboard_balance_drop_detail">Le solde pourrait tomber à %1$s dans %2$d jours. Envisagez un transfert depuis un coffre.</string>
+    <string name="dashboard_total_balance">Solde total</string>
+    <string name="dashboard_credit_utilization">Utilisation du crédit</string>
+    <string name="dashboard_duration_months">%1$dM</string>
+    <string name="dashboard_duration_years">%1$dA</string>
+    <string name="dashboard_recurring_pattern_detail">Tous les %1$d jours • Prochain : %2$s</string>
+    <string name="dashboard_add_subscriptions_prompt">Ajoutez des abonnements pour suivre automatiquement les coûts récurrents.</string>
+    <string name="dashboard_vault_progress_text"> %1$s sur %2$s</string>
+
     <!-- Refonte du tableau de bord -->
     <string name="dashboard_greeting_morning">Bonjour</string>
     <string name="dashboard_greeting_afternoon">Bon après-midi</string>
     <string name="dashboard_greeting_evening">Bonsoir</string>
-    <string name="dashboard_quick_log">Ajouter</string>
-    <string name="dashboard_quick_repeat">Répéter</string>
     <string name="dashboard_needs_attention">À surveiller</string>
     <string name="dashboard_this_month">Ce mois-ci</string>
     <string name="dashboard_savings_progress">Progression de l\'épargne</string>
-    <string name="dashboard_view_activity">Voir l\'activité</string>
     <string name="dashboard_runway_healthy">Aucun manque prévu</string>
     <string name="dashboard_forecast_title">Prévision de trésorerie sur 4 semaines</string>
     <string name="dashboard_forecast_empty">Ajoutez vos revenus et dépenses récurrentes pour des prévisions détaillées</string>
     <string name="dashboard_week_of">Semaine du %1$s</string>
-    <string name="dashboard_attention_low_balance">Le solde pourrait descendre à %1$s dans %2$d jours</string>
     <string name="dashboard_attention_bill_due">%1$s · %2$s dû %3$s</string>
     <string name="dashboard_due_today">aujourd\'hui</string>
     <string name="dashboard_due_tomorrow">demain</string>
     <string name="dashboard_due_in_days">dans %1$d jours</string>
-    <string name="dashboard_more_bills">+%1$d de plus</string>
     <string name="dashboard_vaults_empty_title">Créez votre premier coffre</string>
     <string name="dashboard_vaults_empty_description">Les coffres mettent de l\'argent de côté pour vos objectifs et grandissent automatiquement à chaque paie.</string>
     <string name="dashboard_vaults_empty_action">Nouveau coffre</string>
-    <string name="dashboard_month_goal_text">Objectif de %1$s mois</string>
-    <string name="dashboard_total_balance">Solde total</string>
-    <string name="dashboard_top_growing_category">Catégorie en plus forte hausse</string>
-    <string name="dashboard_unusual_transactions">Transactions inhabituelles</string>
-    <string name="dashboard_times_typical">%1$.1f× la normale</string>
-    <string name="dashboard_view_full_insights">Voir toutes les analyses</string>
     <string name="dashboard_expand">Développer</string>
     <string name="dashboard_collapse">Réduire</string>
-    <plurals name="dashboard_attention_pending_transfers">
-        <item quantity="one">%d transfert de coffre en attente de confirmation</item>
-        <item quantity="other">%d transferts de coffre en attente de confirmation</item>
-    </plurals>
-    <plurals name="dashboard_attention_over_budget">
-        <item quantity="one">%d catégorie de budget dépasse sa limite</item>
-        <item quantity="other">%d catégories de budget dépassent leur limite</item>
-    </plurals>
-    <plurals name="dashboard_upcoming_bills_count">
-        <item quantity="one">%d facture à venir</item>
-        <item quantity="other">%d factures à venir</item>
-    </plurals>
-    <plurals name="dashboard_more_vaults_count">
-        <item quantity="one">+%d autre coffre</item>
-        <item quantity="other">+%d autres coffres</item>
-    </plurals>
+    <string name="dashboard_see_breakdown">Voir le détail</string>
+    <string name="dashboard_assets_description">Suivez vos biens physiques et financiers et leur valeur</string>
 </resources>

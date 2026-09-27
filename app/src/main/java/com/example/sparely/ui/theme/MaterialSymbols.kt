@@ -56,6 +56,7 @@ object MaterialSymbols {
     val CHECK_CIRCLE = R.drawable.check_circle_48px
     val ADD_CIRCLE = R.drawable.add_circle_48px
     val CLOSE = R.drawable.close_48px
+    val CLEAR = CLOSE
     val HISTORY = R.drawable.history_48px
     val LOCAL_FIRE_DEPARTMENT = R.drawable.local_fire_department_48px
     val SECURITY = R.drawable.security_48px
@@ -106,10 +107,12 @@ object MaterialSymbols {
 
     val SWAP_HORIZ = R.drawable.swap_horiz_48px
     val DOWNLOAD = R.drawable.download_48px
+    val MORE_VERT = LIST
+    val STORE = SHOPPING_BAG
     var SEARCH = R.drawable.search_48px
-var AUTORENEW = R.drawable.autorenew_48px
-val UPLOAD_FILE = R.drawable.upload_file_48px
-val CSV = R.drawable.list_48px
+    var AUTORENEW = R.drawable.autorenew_48px
+    val UPLOAD_FILE = R.drawable.upload_file_48px
+    val CSV = R.drawable.list_48px
 
     /**
      * Map of stable icon names to their resource IDs.

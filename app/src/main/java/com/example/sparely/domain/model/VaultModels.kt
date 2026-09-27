@@ -125,21 +125,26 @@ data class VaultSchedule(
 
 data class VaultContribution(
     val id: Long = 0L,
-    val vaultId: Long,
+    val vaultId: Long? = null,  // Nullable: null when this is an HISA transfer
     val amount: Double,
     val date: LocalDate = LocalDate.now(),
     val source: VaultContributionSource,
     val note: String? = null,
     val reconciled: Boolean = false,
-    val relatedExpenseId: Long? = null
-)
+    val relatedExpenseId: Long? = null,
+    val savingsAccountId: Long? = null  // Non-null when this is an HISA transfer
+) {
+    /** Check if this contribution targets an HISA account rather than a vault */
+    val isHisaTransfer: Boolean get() = savingsAccountId != null && vaultId == null
+}
 
 enum class VaultContributionSource {
     INCOME,
     SAVING_TAX,
     AUTO_DEPOSIT,
     MANUAL,
-    TRANSFER
+    TRANSFER,
+    INTEREST
 }
 
 enum class VaultAdjustmentType {

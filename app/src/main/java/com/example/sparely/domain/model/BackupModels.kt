@@ -37,6 +37,12 @@ data class BackupData(
     val mainAccountBalance: Double? = null,
     val paymentMethods: List<PaymentMethod>? = null,
     val creditCardPayments: List<CreditCardPayment>? = null,
-    val expenseItems: List<ExpenseItem>? = null
+    val expenseItems: List<ExpenseItem>? = null,
+    // New fields for assets, wishlists, and refunds
+    val assets: List<com.example.sparely.domain.model.Asset>? = null,
+    val assetExpenseLinks: List<com.example.sparely.domain.model.AssetExpenseLink>? = null,
+    val wishlists: List<com.example.sparely.domain.model.Wishlist>? = null,
+    val wishlistSavings: List<com.example.sparely.data.local.WishlistSavingsEntity>? = null,
+    val expenseRefunds: List<com.example.sparely.domain.model.ExpenseRefund>? = null
 )
 

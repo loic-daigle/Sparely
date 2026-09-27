@@ -5,15 +5,20 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import com.example.sparely.domain.model.BankSyncProvider
-import com.example.sparely.domain.model.SavingsCategory
-import java.time.Instant
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 @Dao
 interface SavingsAccountDao {
-    @Query("SELECT * FROM savings_accounts ORDER BY isPrimary DESC, name ASC")
+    
+    @Query("SELECT * FROM savings_accounts WHERE archived = 0 ORDER BY isMainOverflowAccount DESC, name ASC")
     fun observeAccounts(): Flow<List<SavingsAccountEntity>>
+    
+    @Query("SELECT * FROM savings_accounts ORDER BY isMainOverflowAccount DESC, name ASC")
+    fun observeAllAccounts(): Flow<List<SavingsAccountEntity>>
+    
+    @Query("SELECT * FROM savings_accounts WHERE id = :id")
+    suspend fun getAccountById(id: Long): SavingsAccountEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(account: SavingsAccountEntity): Long
@@ -29,30 +34,37 @@ interface SavingsAccountDao {
 
     @Query("UPDATE savings_accounts SET currentBalance = currentBalance + :delta WHERE id = :id")
     suspend fun incrementBalance(id: Long, delta: Double)
+    
+    /** Record interest earned: add to balance and to total interest */
+    @Query("""
+        UPDATE savings_accounts 
+        SET currentBalance = currentBalance + :amount,
+            totalInterestEarned = totalInterestEarned + :amount,
+            lastInterestEntryDate = :entryDate
+        WHERE id = :id
+    """)
+    suspend fun recordInterestEarned(id: Long, amount: Double, entryDate: LocalDate)
 
-    @Query("UPDATE savings_accounts SET lastSyncedAt = :lastSyncedAt, currentBalance = :balance WHERE id = :id")
-    suspend fun updateSyncedBalance(id: Long, balance: Double, lastSyncedAt: Instant?)
-
-    @Query("UPDATE savings_accounts SET syncProvider = :provider, externalAccountId = :externalAccountId, autoRefreshEnabled = :autoRefreshEnabled WHERE id = :id")
-    suspend fun updateLinkMetadata(id: Long, provider: BankSyncProvider?, externalAccountId: String?, autoRefreshEnabled: Boolean)
-
-    @Query("SELECT * FROM savings_accounts WHERE category = :category ORDER BY isPrimary DESC, id ASC")
-    suspend fun findByCategory(category: SavingsCategory): List<SavingsAccountEntity>
-
-    @Query("SELECT IFNULL(SUM(currentBalance), 0.0) FROM savings_accounts")
+    @Query("SELECT IFNULL(SUM(currentBalance), 0.0) FROM savings_accounts WHERE archived = 0")
     suspend fun getTotalBalance(): Double
-
-    @Query("SELECT * FROM savings_accounts WHERE syncProvider IS NOT NULL AND autoRefreshEnabled = 1")
-    suspend fun getLinkedAccounts(): List<SavingsAccountEntity>
-
+    
+    @Query("SELECT * FROM savings_accounts WHERE isMainOverflowAccount = 1 AND archived = 0 LIMIT 1")
+    suspend fun getMainOverflowAccount(): SavingsAccountEntity?
+    
     @Transaction
-    suspend fun setPrimaryForCategory(category: SavingsCategory, id: Long) {
-        val accounts = findByCategory(category)
-        accounts.forEach { account ->
-            val makePrimary = account.id == id
-            if (account.isPrimary != makePrimary) {
-                upsert(account.copy(isPrimary = makePrimary))
-            }
-        }
+    suspend fun setAsMainOverflowAccount(id: Long) {
+        // Clear existing overflow designation
+        clearMainOverflowFlag()
+        // Set new overflow account
+        upsert(getAccountById(id)?.copy(isMainOverflowAccount = true) ?: return)
     }
+    
+    @Query("UPDATE savings_accounts SET isMainOverflowAccount = 0")
+    suspend fun clearMainOverflowFlag()
+    
+    @Query("UPDATE savings_accounts SET archived = 1 WHERE id = :id")
+    suspend fun archiveAccount(id: Long)
+    
+    @Query("UPDATE savings_accounts SET archived = 0 WHERE id = :id")
+    suspend fun unarchiveAccount(id: Long)
 }

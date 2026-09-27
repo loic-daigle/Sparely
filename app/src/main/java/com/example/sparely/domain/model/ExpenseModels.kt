@@ -24,8 +24,15 @@ data class Expense(
     val refundedAmount: Double = 0.0,
     val isRefunded: Boolean = false,
     val orderNumber: String? = null,
-    val items: List<ExpenseItem> = emptyList()
-)
+    val items: List<ExpenseItem> = emptyList(),
+    val type: ExpenseType = ExpenseType.PRODUCT,
+    val isIgnored: Boolean = false,
+    // Derived, never stored: set by RecurringInference for bills that weren't logged via a recurring entry
+    val looksRecurring: Boolean = false
+) {
+    /** True for expenses logged from a recurring entry and for ones that clearly behave like a bill. */
+    val countsAsRecurring: Boolean get() = isRecurring || looksRecurring
+}
 
 /**
  * User input payload when creating a new expense entry.
@@ -45,7 +52,10 @@ data class ExpenseInput(
     val isRecurring: Boolean = false,
     val notes: String? = null,
     val orderNumber: String? = null,
-    val items: List<ExpenseItem> = emptyList()
+    val items: List<ExpenseItem> = emptyList(),
+    val assetAllocations: Map<Long, Double> = emptyMap(), // assetId -> percentageAllocated
+    val type: ExpenseType = ExpenseType.PRODUCT,
+    val isIgnored: Boolean = false
 )
 
 /**
@@ -54,6 +64,7 @@ data class ExpenseInput(
 enum class DateRangeFilter {
     LAST_7_DAYS,
     LAST_30_DAYS,
+    THIS_MONTH,
     LAST_90_DAYS,
     YEAR_TO_DATE,
     ALL_TIME,
@@ -69,5 +80,6 @@ data class ExpenseItem(
     val name: String,
     val quantity: Int = 1,
     val unitPrice: Double,
-    val totalPrice: Double = quantity * unitPrice
+    val totalPrice: Double = quantity * unitPrice,
+    val type: ExpenseType = ExpenseType.PRODUCT
 )

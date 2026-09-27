@@ -3,10 +3,11 @@ package com.example.sparely.domain.allocation
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultType
 import com.example.sparely.domain.model.monthsUntil
+import com.example.sparely.ui.utils.roundToTwoDecimals
+import com.example.sparely.ui.utils.formatCurrency
 import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.round
 
 /**
  * SmartAllocationEngine: Fully adaptive, self-adjusting vault allocation system.
@@ -25,7 +26,8 @@ object SmartAllocationEngine {
         val recentMonthlyExpenses: List<Double> = emptyList(),
         val minBufferPercent: Double = 0.35,
         val maxAllocationPercent: Double = 0.65,
-        val pendingContributions: Map<Long, Double> = emptyMap()
+        val pendingContributions: Map<Long, Double> = emptyMap(),
+        val mainOverflowAccountId: Long? = null
     )
 
     data class AllocationResult(
@@ -157,9 +159,30 @@ object SmartAllocationEngine {
         }
         remaining = allocateToTier(lowUrgencyVaults, remaining, allocations, details, "Building long-term goal")
 
+        // 7. OVERFLOW: If a HISA Main Account is designated, dump any remaining available funds there
+        if (remaining > 0.1 && input.mainOverflowAccountId != null) {
+            val hisaId = input.mainOverflowAccountId
+            // Check if this vault is active
+            if (activeVaults.any { it.id == hisaId }) {
+                val currentAlloc = allocations[hisaId] ?: 0.0
+                allocations[hisaId] = currentAlloc + remaining
+                
+                // Add or update detail
+                val state = vaultStates.find { it.vault.id == hisaId }
+                if (state != null) {
+                    details[hisaId] = createAllocationDetail(
+                        state = state,
+                        amount = allocations[hisaId]!!,
+                        reasonSuffix = "Overflow from unused income"
+                    )
+                }
+                remaining = 0.0
+            }
+        }
+
         // Round and finalize
         val finalAllocations = allocations.mapValues { (_, amount) ->
-            round(amount * 100.0) / 100.0
+            amount.roundToTwoDecimals()
         }
 
         val totalAllocated = finalAllocations.values.sum()
@@ -479,9 +502,9 @@ object SmartAllocationEngine {
             state.vault.monthlyNeed != null && state.vault.startDate != null -> {
                 val months = state.vault.monthsUntil(state.vault.startDate!!, LocalDate.now())
                 when {
-                    months <= 0 -> "Active flow: \$${state.vault.monthlyNeed}/month needed"
-                    months == 1 -> "URGENT: Flow starts next month (\$${state.vault.monthlyNeed}/month)"
-                    months <= 3 -> "Flow starts in $months months (\$${state.vault.monthlyNeed}/month)"
+                    months <= 0 -> "Active flow: ${state.vault.monthlyNeed.formatCurrency()}/month needed"
+                    months == 1 -> "URGENT: Flow starts next month (${state.vault.monthlyNeed.formatCurrency()}/month)"
+                    months <= 3 -> "Flow starts in $months months (${state.vault.monthlyNeed.formatCurrency()}/month)"
                     else -> "Pre-funding flow goal (starts in $months months)"
                 }
             }
@@ -494,20 +517,18 @@ object SmartAllocationEngine {
         }
 
         return if (state.pendingAmount > 0.0) {
-            "$base (awaiting ${formatCurrency(state.pendingAmount)} transfer)"
+            "$base (awaiting ${state.pendingAmount.formatCurrency()} transfer)"
         } else {
             base
         }
     }
 
-    private fun formatCurrency(amount: Double): String = "${'$'}" + String.format("%.2f", amount)
-
     /**
      * Compute vault deduction for expenses with overflow to main account.
      */
     fun computeVaultDeduction(expenseAmount: Double, vaultBalance: Double): Pair<Double, Double> {
-        val deduction = min(expenseAmount, vaultBalance)
-        val overflow = max(0.0, expenseAmount - vaultBalance)
+        val deduction = min(expenseAmount, vaultBalance).roundToTwoDecimals()
+        val overflow = max(0.0, expenseAmount - vaultBalance).roundToTwoDecimals()
         return Pair(deduction, overflow)
     }
 }

@@ -5,8 +5,8 @@ import com.example.sparely.domain.model.CategoryBudget
 import com.example.sparely.domain.model.ChallengeMilestone
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.SavingsAccount
-import com.example.sparely.domain.model.SavingsAccountInput
 import com.example.sparely.domain.model.SavingsChallenge
+import com.example.sparely.domain.model.SavingsProductType
 import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultBalanceAdjustment
@@ -49,7 +49,16 @@ fun RecurringExpenseEntity.toDomain(): RecurringExpense {
             emptyList()
         }
     } ?: emptyList()
-    
+
+    val assetAllocations: Map<Long, Double> = assetAllocationsJson?.let {
+        try {
+            val type = object : TypeToken<Map<Long, Double>>() {}.type
+            gson.fromJson(it, type)
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    } ?: emptyMap()
+
     return RecurringExpense(
         id = id,
         description = description,
@@ -80,7 +89,16 @@ fun RecurringExpenseEntity.toDomain(): RecurringExpense {
         paymentMethodId = paymentMethodId,
         isVariableAmount = isVariableAmount,
         amountHistory = amountHistory,
-        estimatedAmount = estimatedAmount
+        estimatedAmount = estimatedAmount,
+        nextRunAt = nextRunAt,
+        type = try {
+            com.example.sparely.domain.model.ExpenseType.valueOf(type)
+        } catch (e: Exception) {
+            com.example.sparely.domain.model.ExpenseType.PRODUCT
+        },
+        items = emptyList(), // Items will be loaded separately via DAO relationship
+        assetAllocations = assetAllocations,
+        necessityOverride = necessity?.let { runCatching { com.example.sparely.domain.model.Necessity.valueOf(it) }.getOrNull() }
     )
 }
 
@@ -110,7 +128,11 @@ fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity
     paymentMethodId = paymentMethodId,
     isVariableAmount = isVariableAmount,
     amountHistoryJson = if (amountHistory.isNotEmpty()) gson.toJson(amountHistory) else null,
-    estimatedAmount = estimatedAmount
+    estimatedAmount = estimatedAmount,
+    nextRunAt = nextRunAt,
+    type = type.name,
+    assetAllocationsJson = if (assetAllocations.isNotEmpty()) gson.toJson(assetAllocations) else null,
+    necessity = necessityOverride?.name
 )
 
 fun ChallengeMilestoneEntity.toDomain(): ChallengeMilestone = ChallengeMilestone(
@@ -186,51 +208,51 @@ fun Achievement.toEntity(): AchievementEntity = AchievementEntity(
 fun SavingsAccountEntity.toDomain(): SavingsAccount = SavingsAccount(
     id = id,
     name = name,
-    category = category,
-    institution = institution,
-    accountNumber = accountNumber,
     currentBalance = currentBalance,
-    targetBalance = targetBalance,
-    isPrimary = isPrimary,
-    reminderFrequencyDays = reminderFrequencyDays,
-    reminderEnabled = reminderEnabled,
-    syncProvider = syncProvider,
-    externalAccountId = externalAccountId,
-    lastSyncedAt = lastSyncedAt,
-    autoRefreshEnabled = autoRefreshEnabled
-)
-
-fun SavingsAccountInput.toEntity(): SavingsAccountEntity = SavingsAccountEntity(
-    id = 0L,
-    name = name,
-    category = category,
-    institution = institution,
+    annualPercentageYield = annualPercentageYield,
+    totalInterestEarned = totalInterestEarned,
+    lastInterestEntryDate = lastInterestEntryDate,
     accountNumber = accountNumber,
-    currentBalance = currentBalance,
-    targetBalance = targetBalance,
-    isPrimary = isPrimary,
-    reminderFrequencyDays = reminderFrequencyDays,
-    reminderEnabled = reminderEnabled,
-    syncProvider = syncProvider,
-    externalAccountId = externalAccountId,
-    autoRefreshEnabled = autoRefreshEnabled
+    institution = institution,
+    accountNotes = accountNotes,
+    isMainOverflowAccount = isMainOverflowAccount,
+    iconName = iconName,
+    createdAt = createdAt,
+    archived = archived,
+    productType = runCatching { SavingsProductType.valueOf(productType) }.getOrDefault(SavingsProductType.FLEXIBLE),
+    termMonths = termMonths,
+    termStartDate = termStartDate,
+    noticeDays = noticeDays,
+    gracePeriodDays = gracePeriodDays,
+    anniversaryWindowDays = anniversaryWindowDays,
+    minWithdrawalAmount = minWithdrawalAmount,
+    minRemainingBalance = minRemainingBalance,
+    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays
 )
 
 fun SavingsAccount.toEntity(): SavingsAccountEntity = SavingsAccountEntity(
     id = id,
     name = name,
-    category = category,
-    institution = institution,
-    accountNumber = accountNumber,
     currentBalance = currentBalance,
-    targetBalance = targetBalance,
-    isPrimary = isPrimary,
-    reminderFrequencyDays = reminderFrequencyDays,
-    reminderEnabled = reminderEnabled,
-    syncProvider = syncProvider,
-    externalAccountId = externalAccountId,
-    lastSyncedAt = lastSyncedAt,
-    autoRefreshEnabled = autoRefreshEnabled
+    annualPercentageYield = annualPercentageYield,
+    totalInterestEarned = totalInterestEarned,
+    lastInterestEntryDate = lastInterestEntryDate,
+    accountNumber = accountNumber,
+    institution = institution,
+    accountNotes = accountNotes,
+    isMainOverflowAccount = isMainOverflowAccount,
+    iconName = iconName,
+    createdAt = createdAt,
+    archived = archived,
+    productType = productType.name,
+    termMonths = termMonths,
+    termStartDate = termStartDate,
+    noticeDays = noticeDays,
+    gracePeriodDays = gracePeriodDays,
+    anniversaryWindowDays = anniversaryWindowDays,
+    minWithdrawalAmount = minWithdrawalAmount,
+    minRemainingBalance = minRemainingBalance,
+    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays
 )
 
 fun SmartVaultEntity.toDomain(schedules: List<VaultSchedule> = emptyList()): SmartVault = SmartVault(
@@ -356,7 +378,8 @@ fun VaultContributionEntity.toDomain(): VaultContribution = VaultContribution(
     source = source,
     note = note,
     reconciled = reconciled,
-    relatedExpenseId = relatedExpenseId
+    relatedExpenseId = relatedExpenseId,
+    savingsAccountId = savingsAccountId
 )
 
 fun VaultContribution.toEntity(): VaultContributionEntity = VaultContributionEntity(
@@ -367,7 +390,8 @@ fun VaultContribution.toEntity(): VaultContributionEntity = VaultContributionEnt
     source = source,
     note = note,
     reconciled = reconciled,
-    relatedExpenseId = relatedExpenseId
+    relatedExpenseId = relatedExpenseId,
+    savingsAccountId = savingsAccountId
 )
 
 fun VaultBalanceAdjustmentEntity.toDomain(): VaultBalanceAdjustment = VaultBalanceAdjustment(
@@ -449,7 +473,13 @@ fun ExpenseEntity.toDomain(): Expense = Expense(
     notes = notes,
     refundedAmount = refundedAmount,
     isRefunded = isRefunded,
-    orderNumber = orderNumber
+    orderNumber = orderNumber,
+    type = try {
+        com.example.sparely.domain.model.ExpenseType.valueOf(type)
+    } catch (e: Exception) {
+        com.example.sparely.domain.model.ExpenseType.PRODUCT
+    },
+    isIgnored = isIgnored
 )
 
 fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
@@ -477,7 +507,9 @@ fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
     notes = notes,
     refundedAmount = refundedAmount,
     isRefunded = isRefunded,
-    orderNumber = orderNumber
+    orderNumber = orderNumber,
+    type = type.name,
+    isIgnored = isIgnored
 )
 
 fun StoreEntity.toDomain(): Store = Store(
@@ -551,7 +583,12 @@ fun ExpenseItemEntity.toDomain(): com.example.sparely.domain.model.ExpenseItem =
         name = name,
         quantity = quantity,
         unitPrice = unitPrice,
-        totalPrice = totalPrice
+        totalPrice = totalPrice,
+        type = try {
+            com.example.sparely.domain.model.ExpenseType.valueOf(type)
+        } catch (e: Exception) {
+            com.example.sparely.domain.model.ExpenseType.PRODUCT
+        }
     )
 
 fun com.example.sparely.domain.model.ExpenseItem.toEntity(): ExpenseItemEntity =
@@ -561,5 +598,149 @@ fun com.example.sparely.domain.model.ExpenseItem.toEntity(): ExpenseItemEntity =
         name = name,
         quantity = quantity,
         unitPrice = unitPrice,
-        totalPrice = totalPrice
+        totalPrice = totalPrice,
+        type = type.name
     )
+
+fun ExpenseRefundEntity.toDomain(): com.example.sparely.domain.model.ExpenseRefund =
+    com.example.sparely.domain.model.ExpenseRefund(
+        id = id,
+        expenseId = expenseId,
+        refundedAmount = refundedAmount,
+        refundDate = refundDate,
+        refundMethod = refundMethod,
+        reason = reason,
+        refundedItemIds = refundedItemIds?.let {
+            try {
+                val type = object : TypeToken<List<Long>>() {}.type
+                gson.fromJson(it, type) ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        } ?: emptyList()
+    )
+
+fun com.example.sparely.domain.model.ExpenseRefund.toEntity(): ExpenseRefundEntity =
+    ExpenseRefundEntity(
+        id = id,
+        expenseId = expenseId,
+        refundedAmount = refundedAmount,
+        refundDate = refundDate,
+        refundMethod = refundMethod,
+        reason = reason,
+        refundedItemIds = if (refundedItemIds.isNotEmpty()) gson.toJson(refundedItemIds) else null
+    )
+
+fun AssetEntity.toDomain(): com.example.sparely.domain.model.Asset =
+    com.example.sparely.domain.model.Asset(
+        id = id,
+        name = name,
+        description = description,
+        category = try {
+            com.example.sparely.domain.model.AssetCategory.valueOf(category)
+        } catch (e: Exception) {
+            com.example.sparely.domain.model.AssetCategory.OTHER
+        },
+        icon = icon,
+        createdAt = createdAt,
+        archived = archived,
+        assetPrice = assetPrice,
+        totalSpending = 0.0,
+        creatorExpenseId = creatorExpenseId
+    )
+
+fun com.example.sparely.domain.model.Asset.toEntity(): AssetEntity =
+    AssetEntity(
+        id = id,
+        name = name,
+        description = description,
+        category = category.name,
+        icon = icon,
+        createdAt = createdAt,
+        archived = archived,
+        assetPrice = assetPrice,
+        creatorExpenseId = creatorExpenseId
+    )
+
+fun AssetExpenseLinkEntity.toDomain(): com.example.sparely.domain.model.AssetExpenseLink =
+    com.example.sparely.domain.model.AssetExpenseLink(
+        id = id,
+        assetId = assetId,
+        expenseId = expenseId,
+        percentageAllocated = percentageAllocated,
+        linkedAt = linkedAt
+    )
+
+fun com.example.sparely.domain.model.AssetExpenseLink.toEntity(): AssetExpenseLinkEntity =
+    AssetExpenseLinkEntity(
+        id = id,
+        assetId = assetId,
+        expenseId = expenseId,
+        percentageAllocated = percentageAllocated,
+        linkedAt = linkedAt
+    )
+
+fun WishlistEntity.toDomain(): com.example.sparely.domain.model.Wishlist =
+    com.example.sparely.domain.model.Wishlist(
+        id = id,
+        description = description,
+        targetAmount = targetAmount,
+        currentSavings = currentSavings,
+        priority = priority,
+        createdAt = createdAt,
+        cooldownExpiresAt = cooldownExpiresAt,
+        isReallyNeeded = isReallyNeeded,
+        category = category?.let {
+            try {
+                com.example.sparely.domain.model.WishlistCategory.valueOf(it)
+            } catch (e: Exception) {
+                null
+            }
+        },
+        notes = notes,
+        imageUrl = imageUrl,
+        archived = archived
+    )
+
+fun com.example.sparely.domain.model.Wishlist.toEntity(): WishlistEntity =
+    WishlistEntity(
+        id = id,
+        description = description,
+        targetAmount = targetAmount,
+        currentSavings = currentSavings,
+        priority = priority,
+        createdAt = createdAt,
+        cooldownExpiresAt = cooldownExpiresAt,
+        isReallyNeeded = isReallyNeeded,
+        category = category?.name,
+        notes = notes,
+        imageUrl = imageUrl,
+        archived = archived
+    )
+
+fun WishlistSavingsEntity.toDomain(): com.example.sparely.domain.model.WishlistSavings =
+    com.example.sparely.domain.model.WishlistSavings(
+        id = id,
+        wishlistId = wishlistId,
+        amount = amount,
+        date = date,
+        source = source?.let {
+            try {
+                com.example.sparely.domain.model.SavingsSource.valueOf(it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    )
+
+fun com.example.sparely.domain.model.WishlistSavings.toEntity(): WishlistSavingsEntity =
+    WishlistSavingsEntity(
+        id = id,
+        wishlistId = wishlistId,
+        amount = amount,
+        date = date,
+        source = source?.name
+    )
+
+
+

@@ -2,6 +2,9 @@ package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
+import com.example.sparely.domain.model.SuggestionConfidence
+import com.example.sparely.ui.utils.roundToTwoDecimals
+import com.example.sparely.ui.utils.formatPercent
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -30,6 +33,7 @@ object SpendingPatternEngine {
         val anomalies: List<SpendingAnomaly>,
         val categoryVelocity: Map<ExpenseCategory, CategoryVelocity>,
         val predictedMonthEndSpending: Double,
+        val predictedMonthEndConfidence: SuggestionConfidence, // How much of the month has elapsed
         val runwayDays: Int // Days until predicted balance hits zero at current rate
     )
 
@@ -74,18 +78,21 @@ object SpendingPatternEngine {
                 anomalies = emptyList(),
                 categoryVelocity = emptyMap(),
                 predictedMonthEndSpending = 0.0,
+                predictedMonthEndConfidence = SuggestionConfidence.LOW,
                 runwayDays = Int.MAX_VALUE
             )
         }
 
-        val weeklyAvg = computeWeeklyAverage(expenses, today)
-        val monthlyAvg = computeMonthlyAverage(expenses)
+        val weeklyAvg = computeWeeklyAverage(expenses, today).roundToTwoDecimals()
+        val monthlyAvg = computeMonthlyAverage(expenses).roundToTwoDecimals()
         val (trend, trendPct) = computeTrend(expenses, today)
         val (topCategory, topCategoryChange) = findTopGrowingCategory(expenses, today)
         val highSpendDays = findHighSpendingDays(expenses)
-        val anomalies = detectAnomalies(expenses)
+        val anomalies = detectAnomalies(expenses, today)
         val velocity = computeCategoryVelocity(expenses, categoryBudgets, today)
-        val predictedMonthEnd = predictMonthEndSpending(expenses, today)
+        val monthEndProjection = ProjectionMath.monthEndProjection(expenses, today)
+        val predictedMonthEnd = monthEndProjection.expected.roundToTwoDecimals()
+        val predictedMonthEndConfidence = monthEndProjection.confidence
         val runway = computeRunwayDays(expenses, mainAccountBalance, today)
 
         return SpendingPatternResult(
@@ -99,6 +106,7 @@ object SpendingPatternEngine {
             anomalies = anomalies,
             categoryVelocity = velocity,
             predictedMonthEndSpending = predictedMonthEnd,
+            predictedMonthEndConfidence = predictedMonthEndConfidence,
             runwayDays = runway
         )
     }
@@ -136,11 +144,8 @@ object SpendingPatternEngine {
         val lastMonthTotal = expenses.filter { YearMonth.from(it.date) == lastMonth }.sumOf { it.amount }
         val twoMonthsAgoTotal = expenses.filter { YearMonth.from(it.date) == twoMonthsAgo }.sumOf { it.amount }
 
-        // Project current month total based on days elapsed
-        val dayOfMonth = today.dayOfMonth
-        val daysInMonth = currentMonth.lengthOfMonth()
-        val projectedCurrentMonth = if (dayOfMonth > 0) {
-            (currentMonthTotal / dayOfMonth) * daysInMonth
+        val projectedCurrentMonth = if (currentMonthTotal > 0) {
+            ProjectionMath.monthEndProjection(expenses, today).expected
         } else {
             currentMonthTotal
         }
@@ -179,33 +184,39 @@ object SpendingPatternEngine {
             .groupBy { it.category }
             .mapValues { (_, list) -> list.sumOf { it.amount } }
 
-        // Project current month totals
-        val dayOfMonth = today.dayOfMonth
-        val daysInMonth = currentMonth.lengthOfMonth()
-        val projectionFactor = if (dayOfMonth > 0) daysInMonth.toDouble() / dayOfMonth else 1.0
-
         var topCategory: ExpenseCategory? = null
-        var topChange = 0.0
+        var topChangePercent = 0.0
+        var topCategoryAmount = 0.0
 
         for (category in ExpenseCategory.entries) {
-            val current = (currentByCategory[category] ?: 0.0) * projectionFactor
+            val current = if ((currentByCategory[category] ?: 0.0) > 0) {
+                ProjectionMath.monthEndProjection(expenses.filter { it.category == category }, today).expected
+            } else {
+                0.0
+            }
             val last = lastByCategory[category] ?: 0.0
-            if (last > 0) {
-                val change = ((current - last) / last) * 100
-                if (change > topChange) {
-                    topChange = change
-                    topCategory = category
-                }
-            } else if (current > 0) {
-                // New category this month
-                if (current > topChange) {
-                    topChange = current
-                    topCategory = category
-                }
+
+            // changePercent and current live in different unit spaces (percent vs dollars) -
+            // never compare one against the other directly.
+            val changePercent = when {
+                last > 0 -> ((current - last) / last) * 100
+                current > 0 -> Double.MAX_VALUE // brand-new category this month = unbounded growth
+                else -> continue
+            }
+
+            val isNewTopCategory = changePercent > topChangePercent ||
+                (changePercent == topChangePercent && current > topCategoryAmount)
+            if (isNewTopCategory) {
+                topChangePercent = changePercent
+                topCategoryAmount = current
+                topCategory = category
             }
         }
 
-        return Pair(topCategory, topChange)
+        // Report unbounded (brand-new category) growth as a large finite percentage so callers
+        // don't need to special-case Double.MAX_VALUE.
+        val reportedChange = if (topChangePercent == Double.MAX_VALUE) 100.0 else topChangePercent
+        return Pair(topCategory, reportedChange)
     }
 
     private fun findHighSpendingDays(expenses: List<Expense>): List<DayOfWeek> {
@@ -223,30 +234,46 @@ object SpendingPatternEngine {
             .sortedByDescending { byDayOfWeek[it] }
     }
 
-    private fun detectAnomalies(expenses: List<Expense>): List<SpendingAnomaly> {
+    private fun detectAnomalies(expenses: List<Expense>, today: LocalDate): List<SpendingAnomaly> {
         if (expenses.size < 10) return emptyList() // Need sufficient data
+        
+        // Filter to last 60 days for anomaly *candidacy*
+        // However, we should calculate Mean/StdDev based on a longer history (e.g., 6 months) for accuracy
+        // BUT, the user wants to not be bothered by old stuff.
+        // Let's take expenses from last 60 days to report AS anomalies, 
+        // but perhaps calculate stats on everything?
+        // Actually, if we use everything for stats store, an old high expense increases the StDev, 
+        // making new regular expenses look NORMAL, which is good.
+        // But if that old expense WAS an anomaly, we shouldn't show it anymore.
+        
+        val anomalies = mutableListOf<SpendingAnomaly>()
+        val zScoreThreshold = 2.5 // 2.5 standard deviations
+        val cutoffDate = today.minusDays(60)
 
+        // Use ALL expenses for statistical baseline to have a robust mean/stdev
         val amounts = expenses.map { it.amount }
         val mean = amounts.average()
         val stdDev = calculateStdDev(amounts, mean)
 
         if (stdDev == 0.0) return emptyList()
 
-        val anomalies = mutableListOf<SpendingAnomaly>()
-        val zScoreThreshold = 2.5 // 2.5 standard deviations
+        // Only scan recent expenses for *reporting* anomalies
+        val recentExpenses = expenses.filter { !it.date.isBefore(cutoffDate) }
 
-        for (expense in expenses) {
+        for (expense in recentExpenses) {
             val zScore = (expense.amount - mean) / stdDev
             if (abs(zScore) > zScoreThreshold) {
                 val reason = if (zScore > 0) {
-                    "Unusually high spending (${String.format("%.1f", zScore)}σ above average)"
+                    "Unusually high spending (${zScore.formatPercent(1).removeSuffix("%")}σ above average)"
                 } else {
-                    "Unusually low spending (${String.format("%.1f", abs(zScore))}σ below average)"
+                    "Unusually low spending (${abs(zScore).formatPercent(1).removeSuffix("%")}σ below average)"
                 }
                 anomalies.add(SpendingAnomaly(expense, zScore, reason))
             }
         }
 
+        // Prioritize more recent anomalies slightly by date in sorting if needed, 
+        // but Z-score is usually best. Let's just return what we have.
         return anomalies.sortedByDescending { abs(it.zScore) }.take(5)
     }
 
@@ -264,15 +291,15 @@ object SpendingPatternEngine {
         val currentMonth = YearMonth.from(today)
         val dayOfMonth = today.dayOfMonth.coerceAtLeast(1)
         val daysInMonth = currentMonth.lengthOfMonth()
-        val daysRemaining = daysInMonth - dayOfMonth
 
         val thisMonthExpenses = expenses.filter { YearMonth.from(it.date) == currentMonth }
         val byCategory = thisMonthExpenses.groupBy { it.category }
 
         return byCategory.mapValues { (category, categoryExpenses) ->
-            val totalSpent = categoryExpenses.sumOf { it.amount }
-            val dailyRate = totalSpent / dayOfMonth
-            val projectedTotal = totalSpent + (dailyRate * daysRemaining)
+            val totalSpent = categoryExpenses.sumOf { it.amount }.roundToTwoDecimals()
+            val dailyRate = (totalSpent / dayOfMonth).roundToTwoDecimals()
+            val projection = ProjectionMath.monthEndProjection(expenses.filter { it.category == category }, today)
+            val projectedTotal = projection.expected.roundToTwoDecimals()
 
             val budget = budgets[category]
             val utilizationRate = budget?.let { if (it > 0) totalSpent / it else null }
@@ -296,19 +323,6 @@ object SpendingPatternEngine {
         }
     }
 
-    private fun predictMonthEndSpending(expenses: List<Expense>, today: LocalDate): Double {
-        val currentMonth = YearMonth.from(today)
-        val dayOfMonth = today.dayOfMonth.coerceAtLeast(1)
-        val daysInMonth = currentMonth.lengthOfMonth()
-
-        val thisMonthTotal = expenses
-            .filter { YearMonth.from(it.date) == currentMonth }
-            .sumOf { it.amount }
-
-        val dailyRate = thisMonthTotal / dayOfMonth
-        return dailyRate * daysInMonth
-    }
-
     private fun computeRunwayDays(
         expenses: List<Expense>,
         balance: Double,
@@ -316,7 +330,14 @@ object SpendingPatternEngine {
     ): Int {
         if (balance <= 0) return 0
 
-        // Calculate daily burn rate from last 30 days
+        // Long history: typical discretionary pace plus recurring bills spread across the month
+        val baseline = ProjectionMath.historyBaseline(expenses, today)
+        if (baseline.hasEnoughHistory && ProjectionMath.historyBeatsLinear(expenses, today)) {
+            val dailyBurn = baseline.discretionaryDailyRate + baseline.recurringMonthlyTotal / 30.4
+            return if (dailyBurn > 0) (balance / dailyBurn).toInt() else Int.MAX_VALUE
+        }
+
+        // Not enough history yet: daily burn rate from last 30 days
         val cutoff = today.minusDays(30)
         val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
 

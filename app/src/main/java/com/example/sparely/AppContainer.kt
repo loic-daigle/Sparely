@@ -9,6 +9,7 @@ import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.notifications.NotificationScheduler
 import com.example.sparely.workers.VaultAutoDepositScheduler
 import com.example.sparely.workers.MonthlyAllocationScheduler
+import com.example.sparely.workers.AutoBackupScheduler
 
 interface AppContainer {
     val context: Context
@@ -19,6 +20,7 @@ interface AppContainer {
     val notificationScheduler: NotificationScheduler
     val vaultAutoDepositScheduler: VaultAutoDepositScheduler
     val monthlyAllocationScheduler: MonthlyAllocationScheduler
+    val autoBackupScheduler: AutoBackupScheduler
     // Expose smart allocation service for callers that need it
     val smartAllocationService: com.example.sparely.domain.allocation.SmartAllocationService
     val brandfetchRepository: com.example.sparely.data.repository.BrandfetchRepository
@@ -38,6 +40,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             challengeDao = database.challengeDao(),
             achievementDao = database.achievementDao(),
             savingsAccountDao = database.savingsAccountDao(),
+            savingsAccountTransactionDao = database.savingsAccountTransactionDao(),
             smartVaultDao = database.smartVaultDao(),
             mainAccountDao = database.mainAccountDao(),
             frozenFundDao = database.frozenFundDao(),
@@ -46,6 +49,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
             paymentMethodDao = database.paymentMethodDao(),
             creditCardPaymentDao = database.creditCardPaymentDao(),
             expenseItemDao = database.expenseItemDao(),
+            expenseRefundDao = database.expenseRefundDao(),
+            assetDao = database.assetDao(),
+            assetExpenseLinkDao = database.assetExpenseLinkDao(),
+            wishlistDao = database.wishlistDao(),
+            wishlistSavingsDao = database.wishlistSavingsDao(),
+            pendingVariableRecurringExpenseDao = database.pendingVariableRecurringExpenseDao(),
+            recurringExpensePaidDao = database.recurringExpensePaidDao(),
             preferencesRepository = preferencesRepository,
             database = database
         )
@@ -73,6 +83,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val monthlyAllocationScheduler: MonthlyAllocationScheduler by lazy {
         MonthlyAllocationScheduler(appContext)
+    }
+
+    override val autoBackupScheduler: AutoBackupScheduler by lazy {
+        AutoBackupScheduler(appContext)
     }
 
     // Smart allocation service (phase 2)

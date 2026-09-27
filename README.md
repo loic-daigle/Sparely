@@ -2,6 +2,9 @@
 
 **Sparely** is a modern Android personal finance and savings app built with Jetpack Compose. Track expenses, manage smart savings vaults, set budgets, and achieve your financial goals with intelligent allocation recommendations.
 
+> 🤖 **Developed with AI**: This project was developed with the assistance of AI coding agents.
+
+
 ## ✨ Features
 
 - 📊 **Smart Savings Allocation** - AI-powered recommendations based on your financial profile
@@ -35,7 +38,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/The-Young-Maker/Sparely.git
+   git clone https://github.com/loic-daigle/Sparely.git
    cd Sparely
    ```
 
@@ -111,18 +114,20 @@ Sparely stores all data locally on your device. No data is sent to external serv
 ## 🐛 Known Issues
 
 - This is an early release - some features may have bugs
-- See [Issues](https://github.com/The-Young-Maker/Sparely/issues) for known problems
+- See [Issues](https://github.com/loic-daigle/Sparely/issues) for known problems
 
 ## 📞 Support
 
-- 🐛 [Report a bug](https://github.com/The-Young-Maker/Sparely/issues/new?template=bug_report.md)
-- 💡 [Request a feature](https://github.com/The-Young-Maker/Sparely/issues/new?template=feature_request.md)
+- 🐛 [Report a bug](https://github.com/loic-daigle/Sparely/issues/new?template=bug_report.md)
+- 💡 [Request a feature](https://github.com/loic-daigle/Sparely/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/loic-daigle/Sparely/discussions)
 
 ## 🙏 Acknowledgments
 
 - Material Symbols icons from Google
 - Brandfetch API for store logos
 - The Android and Kotlin communities
+- AI Coding Assistants for development support
 
 ---
 

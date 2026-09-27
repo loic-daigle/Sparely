@@ -1,5 +1,6 @@
 package com.example.sparely.domain.logic
 
+import android.content.Context
 import com.example.sparely.domain.model.AlertMessage
 import com.example.sparely.domain.model.AlertType
 import com.example.sparely.domain.model.BudgetHealthStatus
@@ -15,13 +16,15 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SuggestionConfidence
+import com.example.sparely.domain.model.displayName
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.roundToTwoDecimals
+import com.sparely.app.R
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.abs
 import kotlin.math.max
-import android.content.Context
-import com.example.sparely.domain.model.displayName
-import com.sparely.app.R
 
 /**
  * Engine for managing and analyzing budgets.
@@ -54,8 +57,8 @@ object BudgetEngine {
             YearMonth.from(expense.date) == yearMonth
         }
 
-        val spent = categoryExpenses.sumOf { it.amount }
-        val remaining = (categoryBudget.monthlyLimit - spent).coerceAtLeast(0.0)
+        val spent = categoryExpenses.sumOf { it.amount }.roundToTwoDecimals()
+        val remaining = (categoryBudget.monthlyLimit - spent).coerceAtLeast(0.0).roundToTwoDecimals()
         val percentageUsed = if (categoryBudget.monthlyLimit > 0) {
             (spent / categoryBudget.monthlyLimit).coerceIn(0.0, 2.0)
         } else {
@@ -71,7 +74,7 @@ object BudgetEngine {
 
         return BudgetStatus(
             category = categoryBudget.category,
-            limit = categoryBudget.monthlyLimit,
+            limit = categoryBudget.monthlyLimit.roundToTwoDecimals(),
             spent = spent,
             remaining = remaining,
             percentageUsed = percentageUsed,
@@ -92,9 +95,9 @@ object BudgetEngine {
             .filter { it.isActive && it.yearMonth == yearMonth }
             .map { calculateBudgetStatus(it, expenses, yearMonth) }
 
-        val totalBudget = categoryStatuses.sumOf { it.limit }
-        val totalSpent = categoryStatuses.sumOf { it.spent }
-        val totalRemaining = (totalBudget - totalSpent).coerceAtLeast(0.0)
+        val totalBudget = categoryStatuses.sumOf { it.limit }.roundToTwoDecimals()
+        val totalSpent = categoryStatuses.sumOf { it.spent }.roundToTwoDecimals()
+        val totalRemaining = (totalBudget - totalSpent).coerceAtLeast(0.0).roundToTwoDecimals()
 
         val overallHealth = when {
             categoryStatuses.any { it.status == BudgetHealthStatus.OVER_BUDGET } -> BudgetHealthStatus.OVER_BUDGET
@@ -125,7 +128,7 @@ object BudgetEngine {
             alerts.add(
                 AlertMessage(
                     title = context.getString(R.string.budget_alert_exceeded_title),
-                    description = context.getString(R.string.budget_alert_exceeded_desc, formatCurrency(budgetSummary.totalSpent - budgetSummary.totalBudget)),
+                    description = context.getString(R.string.budget_alert_exceeded_desc, (budgetSummary.totalSpent - budgetSummary.totalBudget).formatCurrency()),
                     type = AlertType.WARNING,
                     priority = 10,
                     actionable = true
@@ -141,7 +144,7 @@ object BudgetEngine {
                     alerts.add(
                         AlertMessage(
                             title = context.getString(R.string.budget_alert_category_over_title, catName),
-                            description = context.getString(R.string.budget_alert_category_over_desc, formatCurrency(status.spent), formatCurrency(status.limit), catName.lowercase()),
+                            description = context.getString(R.string.budget_alert_category_over_desc, status.spent.formatCurrency(), status.limit.formatCurrency(), catName.lowercase()),
                             type = AlertType.WARNING,
                             priority = 9,
                             actionable = true
@@ -152,7 +155,7 @@ object BudgetEngine {
                     alerts.add(
                         AlertMessage(
                             title = context.getString(R.string.budget_alert_category_critical_title, catName),
-                            description = context.getString(R.string.budget_alert_category_critical_desc, formatCurrency(status.remaining), catName.lowercase(), status.daysRemainingInMonth),
+                            description = context.getString(R.string.budget_alert_category_critical_desc, status.remaining.formatCurrency(), catName.lowercase(), status.daysRemainingInMonth),
                             type = AlertType.WARNING,
                             priority = 7,
                             actionable = true
@@ -163,7 +166,7 @@ object BudgetEngine {
                     alerts.add(
                         AlertMessage(
                             title = context.getString(R.string.budget_alert_category_warning_title, catName),
-                            description = context.getString(R.string.budget_alert_category_warning_desc, status.percentageUsed * 100, catName.lowercase(), formatCurrency(status.remaining)),
+                            description = context.getString(R.string.budget_alert_category_warning_desc, status.percentageUsed * 100, catName.lowercase(), status.remaining.formatCurrency()),
                             type = AlertType.INFO,
                             priority = 5,
                             actionable = true
@@ -173,8 +176,8 @@ object BudgetEngine {
                 else -> {}
             }
         }
-
-        // Positive reinforcement
+// ...
+  // Positive reinforcement
         val healthyCategories = budgetSummary.categoryStatuses.filter { 
             it.status == BudgetHealthStatus.HEALTHY && it.percentageUsed < 0.5 
         }
@@ -446,7 +449,7 @@ object BudgetEngine {
         val parts = mutableListOf<String>()
         val catName = category.displayName().lowercase()
         if (monthsWithSpending > 0 && historicalAverage > 0.0) {
-            parts += context.getString(R.string.budget_rationale_history, formatCurrency(historicalAverage), catName)
+            parts += context.getString(R.string.budget_rationale_history, historicalAverage.formatCurrency(), catName)
         } else {
             parts += context.getString(R.string.budget_rationale_no_history, catName)
         }
@@ -454,9 +457,9 @@ object BudgetEngine {
         if (settings.monthlyIncome > 0) {
             val savingsFraction = settings.defaultPercentages.adjustWithinBudget().total
             val reservedSavings = settings.monthlyIncome * savingsFraction
-            parts += context.getString(R.string.budget_rationale_income, formatCurrency(settings.monthlyIncome), formatCurrency(reservedSavings), formatCurrency(spendableIncome))
+            parts += context.getString(R.string.budget_rationale_income, settings.monthlyIncome.formatCurrency(), reservedSavings.formatCurrency(), spendableIncome.formatCurrency())
             if (profileShare > 0.0) {
-                parts += context.getString(R.string.budget_rationale_profile_share, formatPercent(profileShare), catName)
+                parts += context.getString(R.string.budget_rationale_profile_share, profileShare.formatPercent(1), catName)
             }
         }
 
@@ -478,15 +481,11 @@ object BudgetEngine {
 
         if (profileTarget > 0.0 && historicalAverage > 0.0) {
             val midpoint = (historicalAverage + profileTarget) / 2
-            parts += context.getString(R.string.budget_rationale_blended, formatCurrency(midpoint))
+            parts += context.getString(R.string.budget_rationale_blended, midpoint.formatCurrency())
         }
 
         return parts.joinToString(" ").replace("  ", " ").trim()
     }
-
-    private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value.coerceAtLeast(0.0))
-
-    private fun formatPercent(value: Double): String = String.format("%.0f%%", (value * 100).coerceIn(0.0, 100.0))
 
     private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
 
@@ -579,19 +578,23 @@ object BudgetEngine {
         val currentMonth = YearMonth.from(today)
         val dayOfMonth = today.dayOfMonth.coerceAtLeast(1)
         val daysInMonth = currentMonth.lengthOfMonth()
-        val daysRemaining = daysInMonth - dayOfMonth
 
         return budgets
             .filter { it.isActive && it.yearMonth == currentMonth }
             .map { budget ->
-                val categoryExpenses = expenses.filter { 
-                    it.category == budget.category && YearMonth.from(it.date) == currentMonth 
+                val categoryExpenses = expenses.filter {
+                    it.category == budget.category && YearMonth.from(it.date) == currentMonth
                 }
                 val spent = categoryExpenses.sumOf { it.amount }
-                val dailyRate = spent / dayOfMonth
-                val predictedTotal = spent + (dailyRate * daysRemaining)
+                val projection = ProjectionMath.monthEndProjection(
+                    expenses.filter { it.category == budget.category },
+                    today
+                )
+                val predictedTotal = projection.expected
+                // With history, pace = projected month average; otherwise the pace so far.
+                val dailyRate = if (projection.usedHistory) predictedTotal / daysInMonth else spent / dayOfMonth
                 val projectedOverspend = (predictedTotal - budget.monthlyLimit).coerceAtLeast(0.0)
-                
+
                 val daysUntilExhausted = if (dailyRate > 0 && budget.monthlyLimit > spent) {
                     ((budget.monthlyLimit - spent) / dailyRate).toInt()
                 } else if (spent >= budget.monthlyLimit) {
@@ -600,12 +603,7 @@ object BudgetEngine {
                     null
                 }
 
-                // Confidence based on how much of the month has passed
-                val confidence = when {
-                    dayOfMonth >= 20 -> SuggestionConfidence.HIGH
-                    dayOfMonth >= 10 -> SuggestionConfidence.MEDIUM
-                    else -> SuggestionConfidence.LOW
-                }
+                val confidence = projection.confidence
 
                 BudgetForecast(
                     category = budget.category,
@@ -760,7 +758,7 @@ object BudgetEngine {
                 forecast.projectedOverspend > 0 && forecast.confidenceLevel == SuggestionConfidence.HIGH -> {
                     warnings.add(PreemptiveBudgetWarning(
                         category = forecast.category,
-                        message = context.getString(R.string.preemptive_projected_exceed, forecast.category.displayName(), formatCurrency(forecast.projectedOverspend)),
+                        message = context.getString(R.string.preemptive_projected_exceed, forecast.category.displayName(), forecast.projectedOverspend.formatCurrency()),
                         severity = AlertType.INFO,
                         daysUntilIssue = daysRemaining
                     ))

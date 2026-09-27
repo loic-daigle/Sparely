@@ -131,19 +131,26 @@ data class SmartVaultEntity(
             parentColumns = ["id"],
             childColumns = ["relatedExpenseId"],
             onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = SavingsAccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["savingsAccountId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("vaultId"), Index("date"), Index("relatedExpenseId")]
+    indices = [Index("vaultId"), Index("date"), Index("relatedExpenseId"), Index("savingsAccountId")]
 )
 data class VaultContributionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
-    val vaultId: Long,
+    val vaultId: Long? = null,  // Nullable: null when this is an HISA transfer
     val amount: Double,
     val date: LocalDate,
     val source: VaultContributionSource,
     val note: String?,
     val reconciled: Boolean,
-    val relatedExpenseId: Long? = null
+    val relatedExpenseId: Long? = null,
+    val savingsAccountId: Long? = null  // Non-null when this is an HISA transfer
 )
 
 @Entity(

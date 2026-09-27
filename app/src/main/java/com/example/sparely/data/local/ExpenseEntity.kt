@@ -31,7 +31,9 @@ import java.time.LocalDate
     indices = [
         androidx.room.Index("deductedFromVaultId"),
         androidx.room.Index("storeId"),
-        androidx.room.Index("paymentMethodId")
+        androidx.room.Index("paymentMethodId"),
+        androidx.room.Index("date"),
+        androidx.room.Index("category")
     ]
 )
 data class ExpenseEntity(
@@ -59,5 +61,7 @@ data class ExpenseEntity(
     val notes: String? = null,
     val refundedAmount: Double = 0.0,
     val isRefunded: Boolean = false,
-    val orderNumber: String? = null
+    val orderNumber: String? = null,
+    val type: String = "PRODUCT", // PRODUCT or SERVICE
+    val isIgnored: Boolean = false
 )

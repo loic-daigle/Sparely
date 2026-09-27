@@ -31,7 +31,9 @@ import java.time.LocalDate
     indices = [
         androidx.room.Index("deductedFromVaultId"),
         androidx.room.Index("storeId"),
-        androidx.room.Index("paymentMethodId")
+        androidx.room.Index("paymentMethodId"),
+        androidx.room.Index("nextRunAt"),
+        androidx.room.Index("isActive")
     ]
 )
 data class RecurringExpenseEntity(
@@ -66,5 +68,11 @@ data class RecurringExpenseEntity(
     val isVariableAmount: Boolean = false,
     // JSON-serialized list of AmountHistoryEntry for variable expense history
     val amountHistoryJson: String? = null,
-    val estimatedAmount: Double? = null
+    val estimatedAmount: Double? = null,
+    val nextRunAt: java.time.LocalDateTime? = null,
+    val type: String = "PRODUCT", // PRODUCT or SERVICE
+    // JSON-serialized map of assetId -> percentage allocation for linked assets
+    val assetAllocationsJson: String? = null,
+    // Necessity enum name; null means "derive from category"
+    val necessity: String? = null
 )

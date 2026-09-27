@@ -1,159 +1,176 @@
 package com.example.sparely.ui.screens
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.window.Dialog
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip
-import com.example.sparely.ui.components.SparelyButton
-import com.example.sparely.ui.components.SparelyTextButton
-import com.example.sparely.ui.components.SparelyTextField
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DividerDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import com.example.sparely.ui.components.ExpressiveCard
-import com.example.sparely.ui.components.SparelyChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import com.sparely.app.R
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import com.example.sparely.domain.model.StoreInput
-import com.example.sparely.ui.components.SearchableStoreSelector
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicatorDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
- 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.*
+import androidx.compose.ui.platform.*
+import androidx.compose.ui.res.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.sparely.domain.model.AnalyticsSnapshot
-import com.example.sparely.domain.model.DateRangeFilter
-import com.example.sparely.domain.model.Expense
-import com.example.sparely.domain.model.ExpenseCategory
-import com.example.sparely.domain.model.Store
-import com.example.sparely.domain.model.displayName
-import com.example.sparely.ui.theme.getCategoryColor
-import com.example.sparely.ui.theme.getCategoryIcon
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.window.Dialog
+import com.example.sparely.domain.model.*
+import com.example.sparely.ui.components.*
+import com.example.sparely.ui.theme.*
+import com.sparely.app.R
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import java.time.*
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.*
 import kotlinx.coroutines.launch
-
 
 @Composable
 fun HistoryScreen(
     expenses: List<Expense>,
-    analytics: AnalyticsSnapshot,
+    pagedExpenses: List<Expense> = emptyList(),
+    canLoadMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
+    selectedStore: Store? = null,
+    selectedStoreHistory: List<Expense> = emptyList(),
+    isStoreHistoryLoading: Boolean = false,
+    onStoreSelected: (Store) -> Unit = {},
+    onClearSelectedStore: () -> Unit = {},
+    onNavigateBack: () -> Unit,
+    onAddExpense: () -> Unit,
+    onEditExpense: (Expense) -> Unit,
+    onEditExpenseWithAssets: (Expense, Map<Long, Double>) -> Unit = { _, _ -> },
+    onDeleteExpense: (Expense) -> Unit,
+    onDeleteExpenses: (List<Expense>) -> Unit,
+    onDuplicateExpense: (Expense) -> Unit = {},
     stores: List<Store> = emptyList(),
-    onDeleteExpense: (Long) -> Unit,
-    onEditExpense: (Expense) -> Unit = {},
-    onAddExpense: () -> Unit = {},
-    onCreateStore: suspend (StoreInput) -> Store? = { null },
-    onEditStore: (Store) -> Unit = {},
-    onDeleteStore: (Store) -> Unit = {},
+    onCreateStore: suspend (StoreInput) -> Store?,
+    onEditStore: (Store) -> Unit,
+    onDeleteStore: (Store) -> Unit,
     brandfetchClientId: String? = null,
     brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
     onBrandSearch: (String) -> Unit = {},
-    onRefundExpense: (Long, Double) -> Unit = { _, _ -> },
+    onRefundExpense: (Long, Double, List<Long>) -> Unit = { _, _, _ -> },
     paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
-    vaults: List<com.example.sparely.domain.model.SmartVault> = emptyList()
+    vaults: List<com.example.sparely.domain.model.SmartVault> = emptyList(),
+    assets: List<com.example.sparely.domain.model.Asset> = emptyList(),
+    onLoadAssetAllocationsForExpense: suspend (Long) -> Map<Long, Double> = { emptyMap() },
+    highlightExpenseId: Long? = null
 ) {
-    var dateFilter by remember { mutableStateOf(DateRangeFilter.LAST_30_DAYS) }
+    var searchQuery by remember { mutableStateOf("") }
     var categoryFilter by remember { mutableStateOf<ExpenseCategory?>(null) }
-    var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
-    var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
-    var expenseToRefund by remember { mutableStateOf<Expense?>(null) }
+    var dateFilter by remember { mutableStateOf(DateRangeFilter.LAST_30_DAYS) }
+    var customStartDate by remember { mutableStateOf<LocalDate?>(null) }
+    var customEndDate by remember { mutableStateOf<LocalDate?>(null) }
     
+    // Expand/collapse detail
+    var expandedExpenseId by remember { mutableStateOf<Long?>(null) }
+
     // Bulk selection mode
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedExpenseIds by remember { mutableStateOf(setOf<Long>()) }
     var showBulkDeleteConfirmation by remember { mutableStateOf(false) }
     
-    // Search & custom date range
-    var searchQuery by remember { mutableStateOf("") }
-    var customStartDate by remember { mutableStateOf<LocalDate?>(null) }
-    var customEndDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
-    val filteredExpenses = remember(expenses, dateFilter, categoryFilter, searchQuery, customStartDate, customEndDate) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var highlightedExpenseId by remember { mutableStateOf(highlightExpenseId) }
+
+    var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+    var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
+    var editExpenseAssetAllocations by remember { mutableStateOf<Map<Long, Double>>(emptyMap()) }
+    var expenseToRefund by remember { mutableStateOf<Expense?>(null) }
+    
+    // Determine if we are in "Browsing Mode" (All Time, no filters) where infinite scroll applies
+    // OR "Filter Mode" where we show the filtered results from the full loaded list.
+    val isFiltering = searchQuery.isNotEmpty() || categoryFilter != null || dateFilter != DateRangeFilter.ALL_TIME
+
+    val filteredExpenses = remember(expenses, searchQuery, categoryFilter, dateFilter, customStartDate, customEndDate) {
         expenses.filter { expense ->
-            val matchesSearch = searchQuery.isBlank() ||
+            val matchesSearch = if (searchQuery.isBlank()) true else {
                 expense.description.contains(searchQuery, ignoreCase = true) ||
-                expense.notes?.contains(searchQuery, ignoreCase = true) == true ||
-                stores.find { it.id == expense.storeId }?.name?.contains(searchQuery, ignoreCase = true) == true
-            
-            matchesSearch &&
-            matchesDate(expense.date, dateFilter, customStartDate, customEndDate) &&
-                (categoryFilter == null || categoryFilter == expense.category)
+                expense.amount.toString().contains(searchQuery) ||
+                (expense.storeId?.let { id -> stores.find { it.id == id }?.name } ?: "").contains(searchQuery, ignoreCase = true)
+            }
+            val matchesCategory = categoryFilter == null || expense.category == categoryFilter
+            val matchesDate = matchesDate(expense.date, dateFilter, customStartDate, customEndDate)
+
+            matchesSearch && matchesCategory && matchesDate
+        }.sortedByDescending { it.date }
+    }
+
+    // Load asset allocations when opening edit
+    LaunchedEffect(expenseToEdit) {
+        if (expenseToEdit != null) {
+            editExpenseAssetAllocations = onLoadAssetAllocationsForExpense(expenseToEdit!!.id)
+        } else {
+            editExpenseAssetAllocations = emptyMap()
         }
     }
+    
+    // If not filtering (and thus showing All Time), use pagedExpenses to support infinite scroll.
+    // Otherwise, use the filtered subset of the full expenses list.
+    val listToDisplay = if (isFiltering) filteredExpenses else pagedExpenses
 
-    val groupedExpenses = remember(filteredExpenses) {
-        filteredExpenses.groupBy { it.date }.toSortedMap(compareByDescending { it })
+    val groupedExpenses = remember(listToDisplay) {
+        listToDisplay.groupBy { it.date }.toSortedMap(compareByDescending { it })
     }
 
-    // Store Analytics - calculated outside LazyColumn scope
-    val storeStats = remember(filteredExpenses, stores) {
-        filteredExpenses
+    val storeStatsSource = if (isFiltering) filteredExpenses else expenses
+
+    val storeStats = remember(storeStatsSource, stores) {
+        storeStatsSource
             .filter { it.storeId != null }
             .groupBy { it.storeId }
-            .mapNotNull { (storeId, expenses) ->
+            .map { (storeId, expenses) ->
                 val store = stores.find { it.id == storeId }
-                if (store != null) {
-                    Triple(store, expenses.sumOf { it.amount }, expenses.size)
-                } else null
+                val total = expenses.sumOf { it.amount }
+                val count = expenses.size
+                Triple(store, total, count)
             }
+            .filter { it.first != null }
+            .map { Triple(it.first!!, it.second, it.third) }
             .sortedByDescending { it.second }
             .take(5)
     }
 
+    val showQuickResults = searchQuery.isNotBlank() && filteredExpenses.isNotEmpty()
+
+    fun findExpenseIndex(expenseId: Long): Int? {
+        var index = 0 // search bar
+        if (showQuickResults) index += 1
+        index += 1 // filter row
+        if (storeStats.isNotEmpty()) index += 1
+        groupedExpenses.forEach { (_, dailyExpenses) ->
+            index += 1 // header for the date
+            dailyExpenses.forEach { expense ->
+                if (expense.id == expenseId) return index
+                index += 1
+            }
+        }
+        return null
+    }
+
+    LaunchedEffect(highlightedExpenseId, groupedExpenses, showQuickResults) {
+        highlightedExpenseId?.let { id ->
+            expandedExpenseId = id
+            findExpenseIndex(id)?.let { target ->
+                listState.animateScrollToItem(target)
+            }
+            delay(2000)
+            highlightedExpenseId = null
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 // Use a single tonal background instead of a gradient
@@ -163,7 +180,7 @@ fun HistoryScreen(
         ) {
             item {
                 // Search Bar
-                androidx.compose.material3.OutlinedTextField(
+                SparelyTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
@@ -186,74 +203,250 @@ fun HistoryScreen(
                             }
                         }
                     },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
+                    singleLine = true
                 )
             }
+            if (showQuickResults) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.history_search_results_quick),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val quickResultShape = RoundedCornerShape(12.dp)
+                        filteredExpenses.take(4).forEach { expense ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(quickResultShape),
+                                shape = quickResultShape,
+                                color = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 1.dp,
+                                onClick = {
+                                    expandedExpenseId = expense.id
+                                    highlightedExpenseId = expense.id
+                                    findExpenseIndex(expense.id)?.let { target ->
+                                        scope.launch { listState.animateScrollToItem(target) }
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(expense.description, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        val storeName = expense.storeId?.let { id -> stores.find { it.id == id }?.name }
+                                        Text(
+                                            text = storeName ?: expense.category.displayName(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        text = expense.amount.formatCurrency(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             item {
-                FilterRow(
-                    dateFilter = dateFilter,
-                    onDateSelected = { 
-                        dateFilter = it
-                        // Reset custom dates when switching away from CUSTOM
-                        if (it != DateRangeFilter.CUSTOM) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Filter button
+                    SparelyChip(
+                        selected = showFilterSheet,
+                        onClick = { showFilterSheet = true },
+                        label = { Text(stringResource(R.string.history_filters)) },
+                        leadingIcon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.LIST,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    )
+                    
+                    // Horizontal scroll for quick filters
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        item {
+                            SparelyChip(
+                                selected = dateFilter == DateRangeFilter.THIS_MONTH,
+                                onClick = { dateFilter = DateRangeFilter.THIS_MONTH },
+                                label = { Text(stringResource(R.string.history_filter_this_month)) }
+                            )
+                        }
+                        item {
+                            SparelyChip(
+                                selected = dateFilter == DateRangeFilter.LAST_30_DAYS,
+                                onClick = { dateFilter = DateRangeFilter.LAST_30_DAYS },
+                                label = { Text(DateRangeFilter.LAST_30_DAYS.displayName()) }
+                            )
+                        }
+                        item {
+                            SparelyChip(
+                                selected = dateFilter == DateRangeFilter.YEAR_TO_DATE,
+                                onClick = { dateFilter = DateRangeFilter.YEAR_TO_DATE },
+                                label = { Text(stringResource(R.string.history_filter_this_year)) }
+                            )
+                        }
+                        if (categoryFilter != null) {
+                            item {
+                                SparelyChip(
+                                    selected = true,
+                                    onClick = { categoryFilter = null },
+                                    label = { Text(categoryFilter!!.displayName()) },
+                                    leadingIcon = {
+                                        MaterialSymbolIcon(
+                                            icon = getCategoryIcon(categoryFilter!!),
+                                            contentDescription = null,
+                                            size = 16.dp
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isFiltering) {
+                item {
+                    SparelyTextButton(
+                        onClick = {
+                            searchQuery = ""
+                            categoryFilter = null
+                            dateFilter = DateRangeFilter.ALL_TIME
                             customStartDate = null
                             customEndDate = null
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = null, size = 16.dp)
+                            Text(stringResource(R.string.history_clear_filters))
                         }
-                    },
-                    categoryFilter = categoryFilter,
-                    onCategorySelected = { categoryFilter = it },
-                    customStartDate = customStartDate,
-                    customEndDate = customEndDate,
-                    onCustomStartDateChange = { customStartDate = it },
-                    onCustomEndDateChange = { customEndDate = it }
-                )
+                    }
+                }
             }
-            item {
-                ModernSummaryCard(analytics = analytics, filteredExpenses = filteredExpenses, dateFilter = dateFilter)
+
+            
+            // Summary Insight Card
+            if (filteredExpenses.isNotEmpty()) {
+                item {
+                    ModernSummaryCard(
+                        analytics = AnalyticsSnapshot(
+                            totalSpent = filteredExpenses.sumOf { it.amount }
+                        ),
+                        filteredExpenses = filteredExpenses,
+                        dateFilter = dateFilter
+                    )
+                }
             }
             
-            // Store Analytics Card - only show if there are expenses with stores
-            if (storeStats.isNotEmpty()) {
+            // Store Analytics Card - only show if there are expenses with stores and NOT redundant with summary
+            if (storeStats.isNotEmpty() && !isFiltering) {
                 item {
-                    StoreAnalyticsCard(storeStats = storeStats, totalSpent = filteredExpenses.sumOf { it.amount })
+                    StoreAnalyticsCard(
+                        storeStats = storeStats,
+                        totalSpent = filteredExpenses.sumOf { it.amount },
+                        onStoreClick = onStoreSelected
+                    )
                 }
             }
             
             groupedExpenses.forEach { (date, dailyExpenses) ->
                 stickyHeader {
-                    DateHeader(date = date, total = dailyExpenses.sumOf { it.amount })
+                    HistoryDateHeader(date = date, dailyTotal = dailyExpenses.sumOf { it.amount })
                 }
-                items(dailyExpenses) { expense ->
+                items(dailyExpenses, key = { it.id }) { expense ->
                     ModernExpenseCard(
                         expense = expense,
                         store = stores.find { it.id == expense.storeId },
                         brandfetchClientId = brandfetchClientId,
-                        onDelete = { expenseToDelete = expense },
-                        onEdit = { expenseToEdit = expense },
-                        onRefund = { expenseToRefund = expense },
-                        isSelectionMode = isSelectionMode,
+                        isExpanded = expandedExpenseId == expense.id,
+                        isHighlighted = highlightedExpenseId == expense.id,
+                        onClick = { 
+                            if (isSelectionMode) {
+                                selectedExpenseIds = if (selectedExpenseIds.contains(expense.id)) {
+                                    val newSet = selectedExpenseIds - expense.id
+                                    if (newSet.isEmpty()) isSelectionMode = false
+                                    newSet
+                                } else {
+                                    selectedExpenseIds + expense.id
+                                }
+                            } else {
+                                // Toggle expand/collapse
+                                expandedExpenseId = if (expandedExpenseId == expense.id) null else expense.id
+                            }
+                        },
                         isSelected = selectedExpenseIds.contains(expense.id),
-                        onLongPress = {
+                        isSelectionMode = isSelectionMode,
+                        onLongClick = {
                             if (!isSelectionMode) {
                                 isSelectionMode = true
                                 selectedExpenseIds = setOf(expense.id)
                             }
                         },
                         onToggleSelection = {
-                            selectedExpenseIds = if (selectedExpenseIds.contains(expense.id)) {
+                             selectedExpenseIds = if (selectedExpenseIds.contains(expense.id)) {
                                 val newSet = selectedExpenseIds - expense.id
                                 if (newSet.isEmpty()) isSelectionMode = false
                                 newSet
                             } else {
                                 selectedExpenseIds + expense.id
                             }
-                        }
+                        },
+                        onEdit = { expenseToEdit = expense },
+                        onDelete = { expenseToDelete = expense },
+                        onRefund = { expenseToRefund = expense },
+                        onDuplicate = { onDuplicateExpense(expense) }
                     )
                 }
             }
 
-            if (filteredExpenses.isEmpty()) {
+            // Loading Indicator for Infinite Scroll
+            // "Show More" Button for Pagination
+            if (!isFiltering && canLoadMore) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SparelyButton(
+                            onClick = onLoadMore,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Show More Expenses")
+                        }
+                    }
+                }
+            }
+
+            if (listToDisplay.isEmpty()) { // Changed from filteredExpenses to listToDisplay
                 item {
                     EmptyHistoryNotice()
                 }
@@ -271,7 +464,7 @@ fun HistoryScreen(
                     isSelectionMode = false
                 },
                 onSelectAll = {
-                    selectedExpenseIds = filteredExpenses.map { it.id }.toSet()
+                    selectedExpenseIds = listToDisplay.map { it.id }.toSet() // Changed from filteredExpenses to listToDisplay
                 },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
@@ -294,12 +487,46 @@ fun HistoryScreen(
         }
     }
     
+    if (showFilterSheet) {
+        HistoryFilterBottomSheet(
+            dateFilter = dateFilter,
+            onDateSelected = { 
+                dateFilter = it
+                if (it != DateRangeFilter.CUSTOM) {
+                    customStartDate = null
+                    customEndDate = null
+                }
+            },
+            categoryFilter = categoryFilter,
+            onCategorySelected = { categoryFilter = it },
+            customStartDate = customStartDate,
+            customEndDate = customEndDate,
+            onCustomStartDateChange = { customStartDate = it },
+            onCustomEndDateChange = { customEndDate = it },
+            onDismiss = { showFilterSheet = false }
+        )
+    }
+
+    if (selectedStore != null) {
+        StoreHistoryDialog(
+            store = selectedStore,
+            history = selectedStoreHistory,
+            isLoading = isStoreHistoryLoading,
+            onDismiss = onClearSelectedStore,
+            stores = stores,
+            onEditExpense = { expenseToEdit = it },
+            onDeleteExpense = { expenseToDelete = it },
+            onRefundExpense = { expenseToRefund = it },
+            brandfetchClientId = brandfetchClientId
+        )
+    }
+
     // Confirmation dialog
     expenseToDelete?.let { expense ->
         DeleteExpenseConfirmationDialog(
             expense = expense,
             onConfirm = {
-                onDeleteExpense(expense.id)
+                onDeleteExpense(expense) // Changed to pass Expense object
                 expenseToDelete = null
             },
             onDismiss = { expenseToDelete = null }
@@ -313,11 +540,17 @@ fun HistoryScreen(
             stores = stores,
             paymentMethods = paymentMethods,
             vaults = vaults,
-            onConfirm = { editedExpense ->
-                onEditExpense(editedExpense)
+            assets = assets,
+            assetAllocations = editExpenseAssetAllocations,
+            onConfirm = { editedExpense, assetAllocations ->
+                onEditExpenseWithAssets(editedExpense, assetAllocations)
                 expenseToEdit = null
+                editExpenseAssetAllocations = emptyMap()
             },
-            onDismiss = { expenseToEdit = null },
+            onDismiss = {
+                expenseToEdit = null
+                editExpenseAssetAllocations = emptyMap()
+            },
             onCreateStore = onCreateStore,
             onEditStore = onEditStore,
             onDeleteStore = onDeleteStore,
@@ -331,8 +564,8 @@ fun HistoryScreen(
     expenseToRefund?.let { expense ->
         RefundExpenseDialog(
             expense = expense,
-            onConfirm = { amount ->
-                onRefundExpense(expense.id, amount)
+            onConfirm = { amount, itemIds ->
+                onRefundExpense(expense.id, amount, itemIds)
                 expenseToRefund = null
             },
             onDismiss = { expenseToRefund = null }
@@ -344,7 +577,8 @@ fun HistoryScreen(
         BulkDeleteConfirmationDialog(
             count = selectedExpenseIds.size,
             onConfirm = {
-                selectedExpenseIds.forEach { id -> onDeleteExpense(id) }
+                val expensesToDelete = listToDisplay.filter { selectedExpenseIds.contains(it.id) } // Filter from listToDisplay
+                onDeleteExpenses(expensesToDelete) // Call new bulk delete function
                 selectedExpenseIds = emptySet()
                 isSelectionMode = false
                 showBulkDeleteConfirmation = false
@@ -352,11 +586,13 @@ fun HistoryScreen(
             onDismiss = { showBulkDeleteConfirmation = false }
         )
     }
+
+
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun FilterRow(
+private fun HistoryFilterBottomSheet(
     dateFilter: DateRangeFilter,
     onDateSelected: (DateRangeFilter) -> Unit,
     categoryFilter: ExpenseCategory?,
@@ -364,168 +600,142 @@ private fun FilterRow(
     customStartDate: LocalDate? = null,
     customEndDate: LocalDate? = null,
     onCustomStartDateChange: (LocalDate?) -> Unit = {},
-    onCustomEndDateChange: (LocalDate?) -> Unit = {}
+    onCustomEndDateChange: (LocalDate?) -> Unit = {},
+    onDismiss: () -> Unit
 ) {
-    var showStartDatePicker by remember { mutableStateOf(false) }
-    var showEndDatePicker by remember { mutableStateOf(false) }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 40.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            for (filter in DateRangeFilter.entries) {
-                SparelyChip(
-                    selected = filter == dateFilter,
-                    onClick = { onDateSelected(filter) },
-                    label = { 
-                        Text(
-                            when(filter) {
-                                DateRangeFilter.YEAR_TO_DATE -> stringResource(R.string.history_filter_this_year)
-                                else -> filter.displayName()
-                            },
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        ) 
-                    }
-                )
-            }
-        }
-        
-        // Custom date range pickers - only show when CUSTOM filter is selected
-        if (dateFilter == DateRangeFilter.CUSTOM) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Start date button
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { showStartDatePicker = true },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.CALENDAR_MONTH,
-                        contentDescription = null,
-                        size = 16.dp,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Text(
-                        text = customStartDate?.format(dateFormatter) 
-                            ?: stringResource(R.string.history_custom_start_date),
-                        maxLines = 1
-                    )
-                }
-                // End date button
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { showEndDatePicker = true },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.CALENDAR_MONTH,
-                        contentDescription = null,
-                        size = 16.dp,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Text(
-                        text = customEndDate?.format(dateFormatter)
-                            ?: stringResource(R.string.history_custom_end_date),
-                        maxLines = 1
-                    )
+                Text(
+                    text = stringResource(R.string.history_filters),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                SparelyTextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_done))
                 }
             }
-        }
-        
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SparelyChip(
-                selected = categoryFilter == null,
-                onClick = { onCategorySelected(null) },
-                label = { Text(stringResource(R.string.history_all_categories)) },
-                leadingIcon = {
-                    if (categoryFilter == null) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE,
-                            contentDescription = null
+
+            // Date Range Section
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.history_filter_period),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        DateRangeFilter.THIS_MONTH,
+                        DateRangeFilter.LAST_30_DAYS,
+                        DateRangeFilter.LAST_90_DAYS
+                    ).forEach { filter ->
+                        val isSelected = dateFilter == filter
+                        SparelyChip(
+                            selected = isSelected,
+                            onClick = { 
+                                onDateSelected(if (isSelected) DateRangeFilter.ALL_TIME else filter)
+                            },
+                            label = { Text(filter.displayName()) }
                         )
                     }
                 }
-            )
-            for (category in ExpenseCategory.entries) {
-                SparelyChip(
-                    selected = categoryFilter == category,
-                    onClick = {
-                        onCategorySelected(if (categoryFilter == category) null else category)
-                    },
-                    label = { Text(category.displayName()) }
+
+                if (dateFilter == DateRangeFilter.CUSTOM) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+                        var showStartPicker by remember { mutableStateOf(false) }
+                        var showEndPicker by remember { mutableStateOf(false) }
+
+                        SparelyOutlinedButton(
+                            onClick = { showStartPicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(customStartDate?.format(dateFormatter) ?: stringResource(R.string.history_custom_start_date))
+                        }
+                        SparelyOutlinedButton(
+                            onClick = { showEndPicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(customEndDate?.format(dateFormatter) ?: stringResource(R.string.history_custom_end_date))
+                        }
+
+                        if (showStartPicker) {
+                            val state = rememberDatePickerState(initialSelectedDateMillis = (customStartDate ?: LocalDate.now()).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                            DatePickerDialog(
+                                onDismissRequest = { showStartPicker = false },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        state.selectedDateMillis?.let { 
+                                            onCustomStartDateChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) 
+                                        }
+                                        showStartPicker = false
+                                    }) { Text("OK") }
+                                }
+                            ) { DatePicker(state = state) }
+                        }
+                        if (showEndPicker) {
+                            val state = rememberDatePickerState(initialSelectedDateMillis = (customEndDate ?: LocalDate.now()).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+                            DatePickerDialog(
+                                onDismissRequest = { showEndPicker = false },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        state.selectedDateMillis?.let { 
+                                            onCustomEndDateChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) 
+                                        }
+                                        showEndPicker = false
+                                    }) { Text("OK") }
+                                }
+                            ) { DatePicker(state = state) }
+                        }
+                    }
+                }
+            }
+
+            // Categories Section
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.category_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
-            }
-        }
-    }
-    
-    // Date picker dialogs
-    if (showStartDatePicker) {
-        val datePickerState = androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis = customStartDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-        )
-        androidx.compose.material3.DatePickerDialog(
-            onDismissRequest = { showStartDatePicker = false },
-            confirmButton = {
-                SparelyButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val date = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(java.time.ZoneOffset.UTC)
-                                .toLocalDate()
-                            onCustomStartDateChange(date)
-                        }
-                        showStartDatePicker = false
-                    }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.common_save))
-                }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { showStartDatePicker = false }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            }
-        ) {
-            androidx.compose.material3.DatePicker(state = datePickerState)
-        }
-    }
-    
-    if (showEndDatePicker) {
-        val datePickerState = androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis = customEndDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-        )
-        androidx.compose.material3.DatePickerDialog(
-            onDismissRequest = { showEndDatePicker = false },
-            confirmButton = {
-                SparelyButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val date = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(java.time.ZoneOffset.UTC)
-                                .toLocalDate()
-                            onCustomEndDateChange(date)
-                        }
-                        showEndDatePicker = false
+                    SparelyChip(
+                        selected = categoryFilter == null,
+                        onClick = { onCategorySelected(null) },
+                        label = { Text(stringResource(R.string.history_all_categories)) }
+                    )
+                    ExpenseCategory.entries.forEach { category ->
+                        SparelyChip(
+                            selected = categoryFilter == category,
+                            onClick = { onCategorySelected(category) },
+                            label = { Text(category.displayName()) }
+                        )
                     }
-                ) {
-                    Text(stringResource(R.string.common_save))
-                }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { showEndDatePicker = false }) {
-                    Text(stringResource(R.string.common_cancel))
                 }
             }
-        ) {
-            androidx.compose.material3.DatePicker(state = datePickerState)
         }
     }
 }
@@ -542,14 +752,17 @@ private fun ModernSummaryCard(
     
     val animatedRate by animateFloatAsState(
         targetValue = savingsRate.toFloat(),
-        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        animationSpec = tween(
+            durationMillis = ExpressiveMotionTokens.EmphasizedDurationMillis,
+            easing = ExpressiveMotionTokens.EmphasizedEasing
+        ),
         label = "savingsRate"
     )
     
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(24.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = ExpressiveShapes.large
     ) {
         Column(
             modifier = Modifier
@@ -576,7 +789,7 @@ private fun ModernSummaryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = formatCurrency(totalFilteredSpent),
+                            text = totalFilteredSpent.formatCurrency(),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -589,7 +802,7 @@ private fun ModernSummaryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                          Text(
-                            text = formatCurrency(totalFilteredReserve),
+                            text = totalFilteredReserve.formatCurrency(),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -620,7 +833,7 @@ private fun ModernSummaryCard(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "${String.format("%.1f", savingsRate * 100)}%",
+                                text = savingsRate.formatPercent(),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -728,44 +941,7 @@ fun SpendingGraph(expenses: List<Expense>, dateFilter: DateRangeFilter) {
     }
 }
 
-@Composable
-fun DateHeader(date: LocalDate, total: Double) {
-    val dateText = date.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
-    val isToday = date == LocalDate.now()
-    val isYesterday = date == LocalDate.now().minusDays(1)
-    
-    val displayDate = when {
-        isToday -> stringResource(R.string.history_today)
-        isYesterday -> stringResource(R.string.history_yesterday)
-        else -> dateText
-    }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background, // Match items background so it covers scrolling content
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = displayDate,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = formatCurrency(total),
-                style = MaterialTheme.typography.titleMedium,
-                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
 
 
 @Composable
@@ -773,71 +949,61 @@ private fun ModernExpenseCard(
     expense: Expense,
     store: Store?,
     brandfetchClientId: String?,
+    showStoreLogo: Boolean = true,
+    isExpanded: Boolean = false,
+    isHighlighted: Boolean = false,
+    onClick: () -> Unit = {},
     onDelete: () -> Unit,
     onEdit: () -> Unit = {},
     onRefund: () -> Unit = {},
+    onDuplicate: () -> Unit = {},
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
-    onLongPress: () -> Unit = {},
+    onLongClick: () -> Unit = {},
     onToggleSelection: () -> Unit = {}
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
     val savingsRate = if (expense.amount > 0) expense.allocation.totalSetAside / expense.amount else 0.0
     val categoryColor = getCategoryColor(expense.category)
     val colorScheme = MaterialTheme.colorScheme
-    
-    // Selection border color
-    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val containerColor by animateColorAsState(
+        targetValue = if (isHighlighted) colorScheme.secondaryContainer else colorScheme.surfaceContainerHigh,
+        label = "expenseHighlight"
+    )
 
-    Surface(
+    ExpressiveCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
+            .clip(ExpressiveShapes.large)
             .then(
                 if (isSelectionMode) {
                     Modifier.clickable { onToggleSelection() }
                 } else {
                     Modifier.combinedClickable(
-                        onClick = { onEdit() },
-                        onLongClick = { onLongPress() }
+                        onClick = onClick,
+                        onLongClick = onLongClick
                     )
                 }
             ),
-        shape = RoundedCornerShape(24.dp),
-        color = if (isSelected) colorScheme.primaryContainer.copy(alpha = 0.3f) else colorScheme.surfaceContainerHigh,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, colorScheme.primary) else null
+        shape = ExpressiveShapes.large,
+        containerColor = if (isSelected) colorScheme.primaryContainer else containerColor,
+        contentPadding = 0.dp
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Subtle Category Gradient Background (matching vault cards)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                categoryColor.copy(alpha = 0.06f),
-                                colorScheme.surface.copy(alpha = 0.5f)
-                            )
-                        )
-                    )
-            )
+        var contentHeightPx by remember { mutableStateOf(0) }
+        val watermarkSize = with(LocalDensity.current) {
+            (contentHeightPx * 0.55f).toDp().coerceIn(36.dp, 88.dp)
+        }
+        val hasStoreLogo = showStoreLogo && store?.getBrandfetchLogoUrl(brandfetchClientId) != null
 
-            // Watermark Icon
-            MaterialSymbolIcon(
-                icon = getCategoryIcon(expense.category),
-                contentDescription = null,
-                size = 120.dp,
-                tint = categoryColor.copy(alpha = 0.04f),
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .offset(x = 30.dp, y = 10.dp)
-            )
-
+        Box(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .clip(ExpressiveShapes.large)
+                    .animateContentSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .onSizeChanged { contentHeightPx = it.height },
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Header Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -845,218 +1011,330 @@ private fun ModernExpenseCard(
                 ) {
                     Row(
                         modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Icon Circle (48dp like vault cards)
-                        val hasStoreLogo = store?.getBrandfetchLogoUrl(brandfetchClientId) != null
                         Surface(
                             shape = CircleShape,
-                            color = if (hasStoreLogo) Color.Transparent else categoryColor.copy(alpha = 0.1f),
-                            modifier = Modifier.size(48.dp)
+                            color = if (isSelected) colorScheme.primary else if (hasStoreLogo) Color.Transparent else categoryColor.copy(alpha = 0.1f),
+                            modifier = Modifier.size(44.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                if (hasStoreLogo) {
+                                if (isSelected) {
+                                    MaterialSymbolIcon(
+                                        icon = MaterialSymbols.CHECK,
+                                        contentDescription = "Selected",
+                                        tint = colorScheme.onPrimary,
+                                        size = 24.dp
+                                    )
+                                } else if (hasStoreLogo) {
                                     com.example.sparely.ui.components.StoreIcon(
                                         store = store!!,
                                         brandfetchClientId = brandfetchClientId,
-                                        size = 48
+                                        size = 42
                                     )
                                 } else {
                                     MaterialSymbolIcon(
                                         icon = getCategoryIcon(expense.category),
                                         contentDescription = null,
                                         tint = categoryColor,
-                                        size = 24.dp
+                                        size = 22.dp
                                     )
                                 }
                             }
                         }
 
-                        Column {
-                            Text(
-                                text = expense.description,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                color = colorScheme.onSurface
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = expense.category.displayName(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = categoryColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (store != null) {
-                                    Text(
-                                        text = "•",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = store.name,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                    )
-                                }
-                                if (expense.isRecurring) {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.AUTORENEW,
-                                        size = 14.dp,
-                                        tint = colorScheme.tertiary,
-                                        contentDescription = stringResource(R.string.recurring_paused)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Amount Row (like vault balance)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Column {
                         Text(
-                            text = "Amount",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colorScheme.onSurfaceVariant
+                            text = expense.description,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            color = colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
                         )
+                    }
+
+                    Surface(
+                        shape = ExpressiveShapes.small,
+                        color = colorScheme.surfaceContainerLow
+                    ) {
                         Text(
-                            text = formatCurrency(expense.amount),
-                            style = MaterialTheme.typography.headlineMedium,
+                            text = expense.amount.formatCurrency(),
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
-                            color = colorScheme.onSurface
+                            color = colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                         )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = expense.date.format(formatter),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.TRENDING_UP,
-                                contentDescription = null,
-                                size = 16.dp,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "${String.format("%.0f", savingsRate * 100)}% saved",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
 
-                // Notes (if present)
-                expense.notes?.let { noteText ->
-                    if (noteText.isNotBlank()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = ExpressiveShapes.extraSmall,
+                        color = categoryColor.copy(alpha = 0.14f)
+                    ) {
                         Text(
-                            text = noteText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                            maxLines = 2,
+                            text = expense.category.displayName(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = categoryColor,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    if (store != null) {
+                        Text(
+                            text = store.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
-                }
 
-                // Refund Badge (if refunded)
-                if (expense.refundedAmount > 0) {
-                    Surface(
-                        color = colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (expense.isRecurring) {
+                        Surface(
+                            shape = ExpressiveShapes.extraSmall,
+                            color = colorScheme.tertiaryContainer
                         ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.REFRESH,
-                                contentDescription = "Refunded",
-                                size = 16.dp,
-                                tint = colorScheme.tertiary
-                            )
-                            Text(
-                                text = if (expense.isRefunded) "Refunded ${formatCurrency(expense.refundedAmount)}"
-                                       else "Partially Refunded: ${formatCurrency(expense.refundedAmount)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.onTertiaryContainer
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.AUTORENEW,
+                                    size = 12.dp,
+                                    tint = colorScheme.onTertiaryContainer,
+                                    contentDescription = stringResource(R.string.recurring_paused)
+                                )
+                                Text(
+                                    text = "Recurring",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onTertiaryContainer
+                                )
+                            }
                         }
                     }
                 }
 
-                // Line Items Section (if expense has items)
-                if (expense.items.isNotEmpty()) {
-                    var expanded by remember { mutableStateOf(false) }
-                    
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { expanded = !expanded },
-                        shape = RoundedCornerShape(12.dp),
-                        color = colorScheme.surfaceContainerLow
+                AnimatedVisibility(
+                    visible = isExpanded,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(top = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        HorizontalDivider(color = colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ExpressiveShapes.small,
+                            color = colorScheme.surfaceContainerLow
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "${expense.items.size} item${if (expense.items.size > 1) "s" else ""}",
+                                    text = "Savings Rate",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = colorScheme.onSurfaceVariant
                                 )
-                                MaterialSymbolIcon(
-                                    icon = if (expanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                                    contentDescription = if (expanded) "Collapse" else "Expand",
-                                    size = 20.dp,
-                                    tint = colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    MaterialSymbolIcon(
+                                        icon = MaterialSymbols.TRENDING_UP,
+                                        contentDescription = null,
+                                        size = 16.dp,
+                                        tint = colorScheme.primary
+                                    )
+                                    Text(
+                                        text = savingsRate.formatPercent(0) + " saved",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colorScheme.primary
+                                    )
+                                }
                             }
-                            
-                            if (expanded) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                expense.items.forEach { item ->
+                        }
+
+                        expense.notes?.let { noteText ->
+                            if (noteText.isNotBlank()) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = ExpressiveShapes.small,
+                                    color = colorScheme.surfaceContainerLow
+                                ) {
+                                    Text(
+                                        text = noteText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant,
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (expense.refundedAmount > 0) {
+                            Surface(
+                                color = colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                                shape = ExpressiveShapes.extraSmall,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    MaterialSymbolIcon(
+                                        icon = MaterialSymbols.REFRESH,
+                                        contentDescription = "Refunded",
+                                        size = 16.dp,
+                                        tint = colorScheme.tertiary
+                                    )
+                                    Text(
+                                        text = if (expense.isRefunded) "Refunded ${formatCurrency(expense.refundedAmount)}"
+                                        else "Partially Refunded: ${formatCurrency(expense.refundedAmount)}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        if (expense.items.isNotEmpty()) {
+                            var itemsExpanded by remember { mutableStateOf(false) }
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { itemsExpanded = !itemsExpanded },
+                                shape = ExpressiveShapes.extraSmall,
+                                color = colorScheme.surfaceContainerLow
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "${item.quantity}× ${item.name}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = colorScheme.onSurface,
-                                            modifier = Modifier.weight(1f)
+                                            text = "${expense.items.size} item${if (expense.items.size > 1) "s" else ""}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = colorScheme.onSurfaceVariant
                                         )
-                                        Text(
-                                            text = formatCurrency(item.totalPrice),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                            color = colorScheme.onSurface
+                                        MaterialSymbolIcon(
+                                            icon = if (itemsExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
+                                            contentDescription = if (itemsExpanded) "Collapse" else "Expand",
+                                            size = 20.dp,
+                                            tint = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (itemsExpanded) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        expense.items.forEach { item ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                        text = "${item.quantity}× ${item.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = item.totalPrice.formatCurrency(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = colorScheme.onSurface
+                                    )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Surface(
+                                    shape = ExpressiveShapes.small,
+                                    color = colorScheme.primaryContainer,
+                                    tonalElevation = 0.dp
+                                ) {
+                                    IconButton(onClick = onDuplicate) {
+                                        MaterialSymbolIcon(
+                                            icon = MaterialSymbols.ADD,
+                                            contentDescription = "Duplicate",
+                                            size = 20.dp,
+                                            tint = colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = ExpressiveShapes.small,
+                                    color = colorScheme.surfaceContainerLow,
+                                    tonalElevation = 0.dp
+                                ) {
+                                    IconButton(onClick = onEdit) {
+                                        MaterialSymbolIcon(
+                                            icon = MaterialSymbols.EDIT,
+                                            contentDescription = stringResource(R.string.edit),
+                                            size = 20.dp,
+                                            tint = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                if (!expense.isRefunded) {
+                                    Surface(
+                                        shape = ExpressiveShapes.small,
+                                        color = colorScheme.tertiaryContainer,
+                                        tonalElevation = 0.dp
+                                    ) {
+                                        IconButton(onClick = onRefund) {
+                                            MaterialSymbolIcon(
+                                                icon = MaterialSymbols.REFRESH,
+                                                contentDescription = "Refund",
+                                                size = 20.dp,
+                                                tint = colorScheme.onTertiaryContainer
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Surface(
+                                    shape = ExpressiveShapes.small,
+                                    color = colorScheme.errorContainer,
+                                    tonalElevation = 0.dp
+                                ) {
+                                    IconButton(onClick = onDelete) {
+                                        MaterialSymbolIcon(
+                                            icon = MaterialSymbols.DELETE,
+                                            contentDescription = stringResource(R.string.delete),
+                                            size = 20.dp,
+                                            tint = colorScheme.onErrorContainer
                                         )
                                     }
                                 }
@@ -1064,46 +1342,17 @@ private fun ModernExpenseCard(
                         }
                     }
                 }
-
-                // Action Buttons Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Edit Button
-                    IconButton(onClick = onEdit) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.EDIT,
-                            contentDescription = stringResource(R.string.edit),
-                            size = 20.dp,
-                            tint = colorScheme.onSurfaceVariant
-                        )
-                    }
-                    
-                    // Refund Button (if not fully refunded)
-                    if (!expense.isRefunded) {
-                        IconButton(onClick = onRefund) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.REFRESH,
-                                contentDescription = "Refund",
-                                size = 20.dp,
-                                tint = colorScheme.tertiary
-                            )
-                        }
-                    }
-                    
-                    // Delete Button
-                    IconButton(onClick = onDelete) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.DELETE,
-                            contentDescription = stringResource(R.string.delete),
-                            size = 20.dp,
-                            tint = colorScheme.error.copy(alpha = 0.8f)
-                        )
-                    }
-                }
             }
+
+            MaterialSymbolIcon(
+                icon = getCategoryIcon(expense.category),
+                contentDescription = null,
+                size = watermarkSize,
+                tint = categoryColor.copy(alpha = 0.04f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = 12.dp)
+            )
         }
     }
 }
@@ -1118,7 +1367,7 @@ private fun AllocationChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
+        shape = ExpressiveShapes.small,
         color = color.copy(alpha = 0.15f)
     ) {
         Column(
@@ -1159,6 +1408,7 @@ private fun EmptyHistoryNotice() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeleteExpenseConfirmationDialog(
     expense: Expense,
@@ -1167,99 +1417,95 @@ private fun DeleteExpenseConfirmationDialog(
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                 // Warning Icon
-                 Surface(
-                     shape = CircleShape,
-                     color = MaterialTheme.colorScheme.errorContainer,
-                     modifier = Modifier.size(72.dp)
-                 ) {
-                     Box(contentAlignment = Alignment.Center) {
-                         MaterialSymbolIcon(
-                             icon = MaterialSymbols.DELETE,
-                             contentDescription = null,
-                             modifier = Modifier.size(32.dp),
-                             tint = MaterialTheme.colorScheme.error
-                         )
-                     }
+             // Warning Icon
+             Surface(
+                 shape = CircleShape,
+                 color = MaterialTheme.colorScheme.errorContainer,
+                 modifier = Modifier.size(72.dp)
+             ) {
+                 Box(contentAlignment = Alignment.Center) {
+                     MaterialSymbolIcon(
+                         icon = MaterialSymbols.DELETE,
+                         contentDescription = null,
+                         modifier = Modifier.size(32.dp),
+                         tint = MaterialTheme.colorScheme.error
+                     )
                  }
+             }
 
-                Text(
-                    text = stringResource(R.string.history_delete_confirmation_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                 Text(
-                    text = stringResource(R.string.history_delete_confirmation_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 22.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+            Text(
+                text = stringResource(R.string.history_delete_confirmation_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+             Text(
+                text = stringResource(R.string.history_delete_confirmation_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 22.sp,
+                modifier = Modifier.padding(horizontal = 8.dp),
+                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
 
-                // Expense Preview
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth()
+            // Expense Preview
+            Surface(
+                shape = ExpressiveShapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                             Text(
-                                text = expense.description,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${formatCurrency(expense.amount)} • ${expense.date.format(formatter)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    SparelyButton(
-                        onClick = onConfirm,
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ) {
-                        Text("Delete")
-                    }
-                    
-                     SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Column {
                          Text(
-                            text = "Cancel",
-                            style = MaterialTheme.typography.labelLarge,
+                            text = expense.description,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
+                        Text(
+                            text = "${formatCurrency(expense.amount)} • ${expense.date.format(formatter)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SparelyButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+                
+                 SparelyTonalButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         }
@@ -1273,7 +1519,9 @@ private fun EditExpenseDialog(
     stores: List<Store>,
     paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
     vaults: List<com.example.sparely.domain.model.SmartVault> = emptyList(),
-    onConfirm: (Expense) -> Unit,
+    assets: List<com.example.sparely.domain.model.Asset> = emptyList(),
+    assetAllocations: Map<Long, Double> = emptyMap(),
+    onConfirm: (Expense, Map<Long, Double>) -> Unit,
     onDismiss: () -> Unit,
     onCreateStore: suspend (StoreInput) -> Store?,
     onEditStore: (Store) -> Unit,
@@ -1286,6 +1534,7 @@ private fun EditExpenseDialog(
     var description by remember { mutableStateOf(expense.description) }
     var amountText by remember { mutableStateOf(expense.amount.toString()) }
     var category by remember { mutableStateOf(expense.category) }
+    var expenseType by remember { mutableStateOf(expense.type) }
     // Initialize with current stores, then update if store appears later (e.g. after loading)
     var selectedStore by remember { mutableStateOf(stores.find { it.id == expense.storeId }) }
     var searchQuery by remember { mutableStateOf("") }
@@ -1294,7 +1543,16 @@ private fun EditExpenseDialog(
     var selectedPaymentMethod by remember { mutableStateOf(paymentMethods.find { it.id == expense.paymentMethodId }) }
     var selectedDate by remember { mutableStateOf(expense.date) }
     var showDatePicker by remember { mutableStateOf(false) }
-    
+
+    // Asset selection state
+    var selectedAssetAllocations by remember { mutableStateOf(assetAllocations) }
+    var assetSelectorExpanded by remember { mutableStateOf(false) }
+
+    // Update selectedAssetAllocations when assetAllocations parameter changes
+    LaunchedEffect(assetAllocations) {
+        selectedAssetAllocations = assetAllocations
+    }
+
     LaunchedEffect(stores) {
         if (selectedStore == null && expense.storeId != null) {
             stores.find { it.id == expense.storeId }?.let { selectedStore = it }
@@ -1315,18 +1573,14 @@ private fun EditExpenseDialog(
     }
     var showAddItemDialog by remember { mutableStateOf(false) }
     
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .padding(24.dp)
+                .padding(bottom = 32.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
                 Text(
                     text = "Edit Expense",
                     style = MaterialTheme.typography.headlineSmall,
@@ -1342,7 +1596,7 @@ private fun EditExpenseDialog(
                 }
                 
                 // Description
-                androidx.compose.material3.OutlinedTextField(
+                SparelyTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description") },
@@ -1351,7 +1605,7 @@ private fun EditExpenseDialog(
                 )
                 
                 // Amount
-                androidx.compose.material3.OutlinedTextField(
+                SparelyTextField(
                     value = amountText,
                     onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("Amount") },
@@ -1379,7 +1633,26 @@ private fun EditExpenseDialog(
                         }
                     }
                 }
-                
+
+                // Type Selector (Product/Service)
+                Column {
+                    Text("Type", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        for (type in com.example.sparely.domain.model.ExpenseType.entries) {
+                            com.example.sparely.ui.components.SparelyChip(
+                                onClick = { expenseType = type },
+                                label = { Text(type.displayName()) },
+                                selected = expenseType == type
+                            )
+                        }
+                    }
+                }
+
                 // Store Selector
                 SearchableStoreSelector(
                     stores = stores,
@@ -1466,7 +1739,85 @@ private fun EditExpenseDialog(
                         }
                     }
                 }
-                
+
+                // Asset Linking Section
+                if (assets.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Link to Assets",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        if (selectedAssetAllocations.isEmpty()) {
+                            Text(
+                                text = "No assets linked",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            selectedAssetAllocations.forEach { (assetId, percentage) ->
+                                val asset = assets.find { it.id == assetId }
+                                asset?.let { selectedAsset ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                selectedAsset.name,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Slider(
+                                                value = percentage.toFloat(),
+                                                onValueChange = { newValue ->
+                                                    selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                                                        put(assetId, newValue.toDouble().coerceIn(0.01, 1.0))
+                                                    }
+                                                },
+                                                valueRange = 0.01f..1.0f,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            Text(
+                                                "${String.format("%.0f", percentage * 100)}%",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        }
+                                        androidx.compose.material3.IconButton(
+                                            onClick = {
+                                                selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                                                    remove(assetId)
+                                                }
+                                            }
+                                        ) {
+                                            MaterialSymbolIcon(
+                                                icon = MaterialSymbols.CLOSE,
+                                                contentDescription = "Remove asset",
+                                                tint = MaterialTheme.colorScheme.error,
+                                                size = 20.dp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (selectedAssetAllocations.size < assets.size) {
+                            SparelyTextButton(
+                                onClick = { assetSelectorExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("+ Add Asset")
+                            }
+                        }
+                    }
+                }
+
                 // Line Items Section
                 Column {
                     Row(
@@ -1489,7 +1840,7 @@ private fun EditExpenseDialog(
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = ExpressiveShapes.small
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1511,11 +1862,11 @@ private fun EditExpenseDialog(
                                         )
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = formatCurrency(item.totalPrice),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                        Text(
+                            text = item.totalPrice.formatCurrency(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                                         androidx.compose.material3.IconButton(
                                             onClick = { expenseItems.removeAt(index) }
                                         ) {
@@ -1580,8 +1931,10 @@ private fun EditExpenseDialog(
                                         orderNumber = orderNumber.trim().takeIf { it.isNotBlank() },
                                         date = selectedDate,
                                         paymentMethodId = selectedPaymentMethod?.id,
+                                        type = expenseType,
                                         items = expenseItems.toList()
-                                    )
+                                    ),
+                                    selectedAssetAllocations
                                 )
                             }
                         },
@@ -1591,22 +1944,64 @@ private fun EditExpenseDialog(
                     }
                 }
             }
-        }
     }
-    
+    if (assetSelectorExpanded) {
+        AlertDialog(
+            onDismissRequest = { assetSelectorExpanded = false },
+            title = { Text("Select Asset to Link") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    assets.filter { !selectedAssetAllocations.containsKey(it.id) }.forEach { asset ->
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                                    put(asset.id, 1.0)
+                                }
+                                assetSelectorExpanded = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(asset.name)
+                                Text(
+                                    asset.category.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = { assetSelectorExpanded = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         )
         androidx.compose.material3.DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                androidx.compose.material3.TextButton(
+                SparelyTextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
                             selectedDate = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(java.time.ZoneId.systemDefault())
+                                .atZone(java.time.ZoneOffset.UTC)
                                 .toLocalDate()
                         }
                         showDatePicker = false
@@ -1616,7 +2011,7 @@ private fun EditExpenseDialog(
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showDatePicker = false }) {
+                SparelyTextButton(onClick = { showDatePicker = false }) {
                     Text("Cancel")
                 }
             }
@@ -1630,16 +2025,14 @@ private fun EditExpenseDialog(
         var itemName by remember { mutableStateOf("") }
         var itemQuantity by remember { mutableStateOf("1") }
         var itemUnitPrice by remember { mutableStateOf("") }
-        
-        Dialog(onDismissRequest = { showAddItemDialog = false }) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
+
+        SparelyBottomSheet(isOpen = true, onDismiss = { showAddItemDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
                     Text(
                         text = "Add Item",
                         style = MaterialTheme.typography.titleMedium,
@@ -1717,22 +2110,24 @@ private fun EditExpenseDialog(
             }
         }
     }
-}
+
+
+
 
 @Composable
 private fun StoreAnalyticsCard(
     storeStats: List<Triple<Store, Double, Int>>,
-    totalSpent: Double
+    totalSpent: Double,
+    onStoreClick: (Store) -> Unit
 ) {
-    Surface(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(24.dp)
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = 24.dp
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -1756,51 +2151,60 @@ private fun StoreAnalyticsCard(
             storeStats.forEach { (store, amount, count) ->
                 val percentage = if (totalSpent > 0) (amount / totalSpent * 100) else 0.0
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = store.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "$count purchase${if (count > 1) "s" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = formatCurrency(amount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "${String.format("%.1f", percentage)}%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                
-                // Progress bar showing percentage of total spending
-                LinearProgressIndicator(
-                    progress = { (percentage / 100).toFloat().coerceIn(0f, 1f) },
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onStoreClick(store) }
+                        .padding(vertical = 4.dp)
+                ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = store.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "$count purchase${if (count > 1) "s" else ""}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = amount.formatCurrency(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = percentage.formatPercent(1),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        // Progress bar showing percentage of total spending
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { (percentage / 100).toFloat().coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                }
             }
         }
     }
@@ -1816,6 +2220,7 @@ private fun matchesDate(
     return when (filter) {
         DateRangeFilter.LAST_7_DAYS -> !date.isBefore(today.minusDays(6))
         DateRangeFilter.LAST_30_DAYS -> !date.isBefore(today.minusDays(29))
+        DateRangeFilter.THIS_MONTH -> date.month == today.month && date.year == today.year
         DateRangeFilter.LAST_90_DAYS -> !date.isBefore(today.minusDays(89))
         DateRangeFilter.YEAR_TO_DATE -> date.year == today.year
         DateRangeFilter.ALL_TIME -> true
@@ -1831,34 +2236,59 @@ private fun matchesDate(
 fun DateRangeFilter.displayName(): String = when(this) {
     DateRangeFilter.LAST_7_DAYS -> stringResource(R.string.history_filter_7_days)
     DateRangeFilter.LAST_30_DAYS -> stringResource(R.string.history_filter_30_days)
+    DateRangeFilter.THIS_MONTH -> stringResource(R.string.history_filter_this_month)
     DateRangeFilter.LAST_90_DAYS -> stringResource(R.string.history_filter_90_days)
     DateRangeFilter.YEAR_TO_DATE -> stringResource(R.string.history_filter_this_year)
     DateRangeFilter.ALL_TIME -> stringResource(R.string.history_filter_all_time)
     DateRangeFilter.CUSTOM -> stringResource(R.string.history_filter_custom)
 }
 
-private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)
+private fun formatCurrency(value: Double): String {
+    return value.formatCurrency()
+}
 
 // Category colors and icons are now sourced from com.example.sparely.ui.theme.CategoryUtils
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RefundExpenseDialog(
     expense: Expense,
-    onConfirm: (Double) -> Unit,
+    onConfirm: (Double, List<Long>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val maxRefundable = expense.amount - expense.refundedAmount
     var amountText by remember { mutableStateOf(maxRefundable.toString()) }
+    var selectedItemIds by remember { mutableStateOf(emptySet<Long>()) }
     var showError by remember { mutableStateOf(false) }
+    var wasManuallyEdited by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth()
+    // When items are selected, update the amount
+    LaunchedEffect(selectedItemIds) {
+        if (selectedItemIds.isNotEmpty()) {
+            val itemsTotal = expense.items
+                .filter { selectedItemIds.contains(it.id) }
+                .sumOf { it.totalPrice }
+            amountText = "%.2f".format(itemsTotal)
+            wasManuallyEdited = false
+        }
+    }
+
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
@@ -1866,45 +2296,113 @@ private fun RefundExpenseDialog(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Text(
-                    text = "Enter amount to refund. Max refundable: ${formatCurrency(maxRefundable)}",
+                    text = "Select items refunded or enter custom amount. Max refundable: ${maxRefundable.formatCurrency()}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                androidx.compose.material3.OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Amount") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                    ),
-                    isError = showError
-                )
-                
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
+                if (expense.items.isNotEmpty()) {
+                    Text(
+                        text = "Itemized Refund - Select items to refund",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Cancel")
-                    }
-                    SparelyButton(
-                        onClick = {
-                            val amount = amountText.toDoubleOrNull()
-                            if (amount == null || amount <= 0 || amount > maxRefundable) {
-                                showError = true
-                            } else {
-                                onConfirm(amount)
+                        expense.items.forEach { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                androidx.compose.material3.Checkbox(
+                                    checked = selectedItemIds.contains(item.id),
+                                    onCheckedChange = { isChecked ->
+                                        val newSelection = selectedItemIds.toMutableSet()
+                                        if (isChecked) {
+                                            newSelection.add(item.id)
+                                        } else {
+                                            newSelection.remove(item.id)
+                                        }
+                                        selectedItemIds = newSelection
+                                    }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.name.ifBlank { "Item ${item.id}" },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "Qty: ${item.quantity} × ${item.unitPrice.formatCurrency()} = ${item.totalPrice.formatCurrency()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Refund")
+                        }
                     }
+                    if (selectedItemIds.isNotEmpty() && !wasManuallyEdited) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Amount will be calculated from selected items",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                SparelyTextField(
+                    value = amountText,
+                    onValueChange = { 
+                        amountText = it.filter { c -> c.isDigit() || c == '.' }
+                        wasManuallyEdited = true
+                    },
+                    label = { Text("Refund Amount") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    prefix = { Text("$") }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SparelyButton(
+                    onClick = {
+                        val refundAmt = amountText.toDoubleOrNull() ?: 0.0
+                        if (refundAmt > 0 && refundAmt <= maxRefundable + 0.01) {
+                            onConfirm(refundAmt, selectedItemIds.toList())
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = (amountText.toDoubleOrNull() ?: 0.0) > 0 && (amountText.toDoubleOrNull() ?: 0.0) <= maxRefundable + 0.01
+                ) {
+                    Text("Refund")
+                }
+                
+                SparelyTonalButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         }
@@ -1924,8 +2422,7 @@ fun BulkActionBar(
             .fillMaxWidth()
             .padding(16.dp),
         shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 8.dp
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Row(
             modifier = Modifier
@@ -1984,7 +2481,7 @@ fun BulkDeleteConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    SparelyAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(stringResource(R.string.history_bulk_delete_confirm_title, count))
@@ -2007,3 +2504,5 @@ fun BulkDeleteConfirmationDialog(
         containerColor = MaterialTheme.colorScheme.surface
     )
 }
+
+

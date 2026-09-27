@@ -39,3 +39,17 @@ val FallbackOutlineDark = Color(0xFF938F99)
 val ErrorRed = Color(0xFFB3261E)
 val ErrorContainer = Color(0xFFF9DEDC)
 val SuccessGreen = Color(0xFF2E7D32)
+
+// Expressive Tokens
+val GradientStart = Color(0xFF6750A4)
+val GradientEnd = Color(0xFF7D5260)
+
+// Dark
+val GradientStartDark = Color(0xFFD0BCFF)
+val GradientEndDark = Color(0xFFEFB8C8)
+
+// Surface Tones
+val SurfaceBright = Color(0xFFFAF8FD)
+val SurfaceDim = Color(0xFFDED8E1)
+val SurfaceBrightDark = Color(0xFF38353E)
+val SurfaceDimDark = Color(0xFF141218)

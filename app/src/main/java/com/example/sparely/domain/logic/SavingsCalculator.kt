@@ -4,7 +4,7 @@ import com.example.sparely.domain.model.AllocationBreakdown
 import com.example.sparely.domain.model.ExpenseInput
 import com.example.sparely.domain.model.RiskLevel
 import com.example.sparely.domain.model.SavingsPercentages
-import kotlin.math.round
+import com.example.sparely.ui.utils.roundToTwoDecimals
 
 object SavingsCalculator {
     fun calculateAllocation(
@@ -20,13 +20,11 @@ object SavingsCalculator {
         val risky = invest - safe
 
         return AllocationBreakdown(
-            emergencyAmount = emergency.toCurrencyPrecision(),
-            investmentAmount = invest.toCurrencyPrecision(),
-            funAmount = funAmount.toCurrencyPrecision(),
-            safeInvestmentAmount = safe.toCurrencyPrecision(),
-            highRiskInvestmentAmount = risky.toCurrencyPrecision()
+            emergencyAmount = emergency.roundToTwoDecimals(),
+            investmentAmount = invest.roundToTwoDecimals(),
+            funAmount = funAmount.roundToTwoDecimals(),
+            safeInvestmentAmount = safe.roundToTwoDecimals(),
+            highRiskInvestmentAmount = risky.roundToTwoDecimals()
         )
     }
-
-    private fun Double.toCurrencyPrecision(): Double = round(this * 100) / 100.0
 }

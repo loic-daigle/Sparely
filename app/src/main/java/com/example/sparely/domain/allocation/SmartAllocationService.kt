@@ -25,12 +25,14 @@ class SmartAllocationService(
         monthlyIncome: Double,
         mainAccountBalance: Double,
         safeBufferPercent: Double = 0.45,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        mainOverflowAccountId: Long? = null
     ): SmartAllocationEngine.AllocationResult = withContext(Dispatchers.IO) {
         // Get current active vaults snapshot and pending transfers that haven't been reconciled yet
         val vaults = smartVaultDao.observeActiveVaults().first().map { it.toDomain() }
         val pendingByVault = smartVaultDao.getPendingContributions()
-            .groupBy { it.vaultId }
+            .filter { it.vaultId != null }
+            .groupBy { it.vaultId!! }
             .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
 
         val input = SmartAllocationEngine.AllocationInput(
@@ -39,7 +41,8 @@ class SmartAllocationService(
             mainAccountBalance = mainAccountBalance,
             safeBufferPercent = safeBufferPercent,
             today = today,
-            pendingContributions = pendingByVault
+            pendingContributions = pendingByVault,
+            mainOverflowAccountId = mainOverflowAccountId
         )
 
         val result = SmartAllocationEngine.allocate(input)

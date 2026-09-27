@@ -430,8 +430,9 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
     }
 
     // Calculate savings metrics
-    val savingsRate = if (snapshot.monthSpent > 0) {
-        ((snapshot.monthSaved / (snapshot.monthSpent + snapshot.monthSaved)) * 100).toInt()
+    val totalFlow = snapshot.monthSpent + snapshot.monthSaved
+    val savingsRate = if (totalFlow > 0) {
+        ((snapshot.monthSaved / totalFlow) * 100).toInt()
     } else 0
     
     val monthDelta = snapshot.monthSaved - snapshot.monthSpent
@@ -741,7 +742,13 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
 
 @Composable
 private fun rememberCurrencyFormatter(): (Double) -> String {
-    val formatter = remember { NumberFormat.getCurrencyInstance() }
+    val formatter = remember {
+        NumberFormat.getCurrencyInstance().apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+            isGroupingUsed = false
+        }
+    }
     return { value -> formatter.format(value) }
 }
 
