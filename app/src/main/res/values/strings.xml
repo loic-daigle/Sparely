@@ -1519,4 +1519,8 @@
     <string name="history_action_duplicate">Duplicate</string>
     <string name="history_action_refund">Refund</string>
     <string name="expense_entry_edit_title">Edit expense</string>
+    <string name="history_unnamed_expense">Unnamed expense</string>
+    <string name="history_more_actions">More actions</string>
+    <string name="history_store_history_subtitle">Expense history</string>
+    <string name="history_store_no_expenses">No recent expenses</string>
 </resources>

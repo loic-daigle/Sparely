@@ -1216,4 +1216,8 @@
     <string name="history_action_duplicate">Dupliquer</string>
     <string name="history_action_refund">Rembourser</string>
     <string name="expense_entry_edit_title">Modifier la dépense</string>
+    <string name="history_unnamed_expense">Dépense sans nom</string>
+    <string name="history_more_actions">Plus d\'actions</string>
+    <string name="history_store_history_subtitle">Historique des dépenses</string>
+    <string name="history_store_no_expenses">Aucune dépense récente</string>
 </resources>

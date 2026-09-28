@@ -48,4 +48,8 @@
         <item quantity="one">%d item</item>
         <item quantity="other">%d items</item>
     </plurals>
+    <plurals name="history_store_summary">
+        <item quantity="one">%1$d purchase · %2$s total</item>
+        <item quantity="other">%1$d purchases · %2$s total</item>
+    </plurals>
 </resources>
