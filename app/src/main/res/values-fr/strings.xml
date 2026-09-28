@@ -1220,4 +1220,5 @@
     <string name="history_more_actions">Plus d\'actions</string>
     <string name="history_store_history_subtitle">Historique des dépenses</string>
     <string name="history_store_no_expenses">Aucune dépense récente</string>
+    <string name="budget_limit_label">Limite</string>
 </resources>

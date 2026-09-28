@@ -1523,4 +1523,5 @@
     <string name="history_more_actions">More actions</string>
     <string name="history_store_history_subtitle">Expense history</string>
     <string name="history_store_no_expenses">No recent expenses</string>
+    <string name="budget_limit_label">Limit</string>
 </resources>
