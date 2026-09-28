@@ -1528,4 +1528,21 @@
     <string name="recurring_monthly_total_detail">≈ %1$s per year · %2$d active</string>
     <string name="recurring_action_pause">Pause</string>
     <string name="recurring_action_resume">Resume</string>
+    <string name="credit_cards_add_card_action">Add a card</string>
+    <string name="recurring_form_no_end_date">No end date: repeats until you pause or delete it</string>
+    <string name="recurring_form_add_end_date">Add end date</string>
+    <string name="recurring_form_remove_end_date">Remove end date</string>
+    <string name="recurring_form_end_before_start">End date must be after the start date</string>
+    <string name="recurring_form_reminder_help">Remind this many days before the due date</string>
+    <string name="recurring_form_necessity_title">How essential is it?</string>
+    <string name="recurring_form_variable_title">You\'ll confirm the amount</string>
+    <string name="recurring_form_variable_desc">When this bill is due, you\'ll get a notification asking for the actual amount charged. It\'s used to improve the prediction for next time.</string>
+    <string name="recurring_form_section_schedule">Schedule</string>
+    <string name="recurring_form_section_assets">Asset allocations</string>
+    <string name="recurring_form_section_assets_help">Link assets and adjust allocation percentages</string>
+    <string name="recurring_form_link_asset_title">Link asset to subscription</string>
+    <string name="recurring_form_section_automation">Automation</string>
+    <string name="recurring_form_section_automation_help">Optional automation and tracking settings</string>
+    <string name="recurring_form_autolog_help">Automatically log this expense when it\'s due</string>
+    <string name="recurring_form_execute_help">Execute this recurring expense automatically</string>
 </resources>

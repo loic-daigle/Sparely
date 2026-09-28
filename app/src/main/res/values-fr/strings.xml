@@ -1225,4 +1225,21 @@
     <string name="recurring_monthly_total_detail">≈ %1$s par an · %2$d actifs</string>
     <string name="recurring_action_pause">Mettre en pause</string>
     <string name="recurring_action_resume">Reprendre</string>
+    <string name="credit_cards_add_card_action">Ajouter une carte</string>
+    <string name="recurring_form_no_end_date">Sans date de fin : se répète jusqu\'à ce que vous le mettiez en pause ou le supprimiez</string>
+    <string name="recurring_form_add_end_date">Ajouter une date de fin</string>
+    <string name="recurring_form_remove_end_date">Retirer la date de fin</string>
+    <string name="recurring_form_end_before_start">La date de fin doit être après la date de début</string>
+    <string name="recurring_form_reminder_help">Rappel ce nombre de jours avant l\'échéance</string>
+    <string name="recurring_form_necessity_title">À quel point est-ce essentiel ?</string>
+    <string name="recurring_form_variable_title">Vous confirmerez le montant</string>
+    <string name="recurring_form_variable_desc">À l\'échéance, une notification vous demandera le montant réellement facturé. Il sert à améliorer la prévision suivante.</string>
+    <string name="recurring_form_section_schedule">Calendrier</string>
+    <string name="recurring_form_section_assets">Répartition des biens</string>
+    <string name="recurring_form_section_assets_help">Liez des biens et ajustez les pourcentages de répartition</string>
+    <string name="recurring_form_link_asset_title">Lier un bien à l\'abonnement</string>
+    <string name="recurring_form_section_automation">Automatisation</string>
+    <string name="recurring_form_section_automation_help">Paramètres facultatifs d\'automatisation et de suivi</string>
+    <string name="recurring_form_autolog_help">Enregistrer automatiquement cette dépense à l\'échéance</string>
+    <string name="recurring_form_execute_help">Exécuter automatiquement cette dépense récurrente</string>
 </resources>
