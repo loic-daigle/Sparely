@@ -92,4 +92,22 @@ class SavingTaxEngineTest {
         val plans = SavingTaxEngine.calculate(context)
         assertTrue(plans.isEmpty())
     }
+
+    @Test
+    fun `calculate never overdraws the main account even without a minimum`() {
+        val settings = createSettings(taxRate = 0.10, minBalance = 0.0)
+        fun taxFor(balance: Double) = SavingTaxEngine.calculate(
+            SavingTaxEngine.Context(
+                expenseAmount = 50.0,
+                expenseDate = LocalDate.now(),
+                settings = settings,
+                vaults = listOf(mockVault.copy(id = 1)),
+                currentMainAccountBalance = balance
+            )
+        ).sumOf { it.amount }
+
+        assertEquals(0.0, taxFor(-20.0), 0.001)
+        assertEquals(3.0, taxFor(3.0), 0.001)
+        assertEquals(5.0, taxFor(500.0), 0.001)
+    }
 }

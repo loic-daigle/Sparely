@@ -36,6 +36,13 @@ interface SmartVaultDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAdjustment(entity: VaultBalanceAdjustmentEntity): Long
 
+    /** Net change an expense made to vault balances (negative when it took money out). */
+    @Query("SELECT IFNULL(SUM(delta), 0.0) FROM vault_balance_adjustments WHERE relatedExpenseId = :expenseId")
+    suspend fun netAdjustmentForExpense(expenseId: Long): Double
+
+    @Query("SELECT COUNT(*) FROM vault_balance_adjustments WHERE relatedExpenseId = :expenseId")
+    suspend fun countAdjustmentsForExpense(expenseId: Long): Int
+
     @Query("SELECT * FROM vault_contributions WHERE vaultId = :vaultId ORDER BY date DESC")
     suspend fun getContributionsForVault(vaultId: Long): List<VaultContributionEntity>
 

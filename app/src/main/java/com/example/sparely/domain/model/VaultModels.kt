@@ -161,7 +161,8 @@ data class VaultBalanceAdjustment(
     val delta: Double,
     val resultingBalance: Double,
     val createdAt: Instant,
-    val reason: String? = null
+    val reason: String? = null,
+    val relatedExpenseId: Long? = null
 )
 
 data class VaultProjection(

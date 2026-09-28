@@ -116,7 +116,8 @@ object CashflowEngine {
             dailyBurn
         }
         val runwayDays = if (effectiveDailyBurn > 0) {
-            (totalLiquidMoney / effectiveDailyBurn).toInt()
+            // An overdrawn account has no runway, not a negative one.
+            (totalLiquidMoney / effectiveDailyBurn).toInt().coerceAtLeast(0)
         } else {
             Int.MAX_VALUE
         }

@@ -44,9 +44,11 @@ object SavingTaxEngine {
         // We assume 'currentMainAccountBalance' is the balance *after* the expense has been deducted (if applicable).
         // So we only subtract the potential tax amount.
         val projectedBalance = context.currentMainAccountBalance - baseAmount
-        val minBalance = context.settings.minMainAccountBalance
-        
-        if (minBalance > 0 && projectedBalance < minBalance) {
+        // The main account may be overdrawn now, but saving tax must never be what takes it (or
+        // keeps it) below zero, so the floor is at least 0 even without a user minimum.
+        val minBalance = context.settings.minMainAccountBalance.coerceAtLeast(0.0)
+
+        if (projectedBalance < minBalance) {
              // Calculate max affordable tax
              val affordableTax = (context.currentMainAccountBalance - minBalance).coerceAtLeast(0.0)
              if (affordableTax <= 0) return emptyList()

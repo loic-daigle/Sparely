@@ -172,7 +172,10 @@ data class VaultBalanceAdjustmentEntity(
     val delta: Double,
     val resultingBalance: Double,
     val createdAt: Instant,
-    val reason: String?
+    val reason: String?,
+    // Expense that caused this adjustment (vault-paid expenses), so deleting the expense can
+    // return exactly what it took from the vault. Null for manual/automatic adjustments.
+    val relatedExpenseId: Long? = null
 )
 
 @Entity(

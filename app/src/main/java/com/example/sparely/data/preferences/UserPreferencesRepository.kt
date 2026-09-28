@@ -267,7 +267,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun updateMainAccountBalance(balance: Double) {
         editSafely { prefs ->
-            prefs[PreferenceKeys.mainAccountBalance] = balance.coerceAtLeast(0.0)
+            prefs[PreferenceKeys.mainAccountBalance] = balance
         }
     }
 

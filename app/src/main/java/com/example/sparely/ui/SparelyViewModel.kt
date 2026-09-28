@@ -1056,13 +1056,14 @@ class SparelyViewModel(
                             previousBalance = vaultBalanceBefore,
                             newBalance = vaultBalanceAfter,
                             type = VaultAdjustmentType.MANUAL_DEDUCTION,
-                            reason = "Expense: ${input.description.take(100)}"
+                            reason = "Expense: ${input.description.take(100)}",
+                            relatedExpenseId = insertedExpenseId
                         )
                     }
                     
                     // Deduct overflow from main account if specified
                     if (overflowToMainAccount > 0.0 && input.deductFromMainAccount) {
-                        val newBalance = (currentBalance - overflowToMainAccount).coerceAtLeast(0.0)
+                        val newBalance = currentBalance - overflowToMainAccount
                         val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                             type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
                             amount = overflowToMainAccount,
@@ -1110,7 +1111,7 @@ class SparelyViewModel(
                     // We explicitly do NOT deduct from main account.
                 } else {
                     // Non-credit card payment: deduct from main account
-                    val newBalance = (currentBalance - input.amount).coerceAtLeast(0.0)
+                    val newBalance = (currentBalance - input.amount)
                     val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                         type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
                         amount = input.amount,
@@ -1150,7 +1151,7 @@ class SparelyViewModel(
                 // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
                 val totalSavingTax = savingTaxPlans.sumOf { it.amount }
                 if (totalSavingTax > 0.0) {
-                    val newBalance = (currentBalance - totalSavingTax).coerceAtLeast(0.0)
+                    val newBalance = (currentBalance - totalSavingTax)
                     val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                         type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
                         amount = totalSavingTax,
@@ -1181,11 +1182,29 @@ fun deleteExpense(id: Long) {
         savingsRepository.withMainAccountLock { savingsRepository.runInTransaction {
             val expenseEntity = savingsRepository.findExpenseById(id) ?: return@runInTransaction
 
-            // 1. Revert financial impact: give back exactly what the main account paid for this
-            // expense (net of refunds already credited). Expenses paid from a vault, by credit
-            // card (handled by the repository), or never deducted don't credit the main account;
-            // previously they did, which created money out of nothing.
-            val creditBack = savingsRepository.getMainAccountDebitForExpense(expenseEntity)
+            // 1. Revert financial impact: give back exactly what the expense took, to where it
+            // came from - the vault part to the vault, the main-account part (net of refunds
+            // already credited) to the main account. Credit card impact is handled by the
+            // repository; expenses that were never deducted give nothing back.
+            val reversal = savingsRepository.computeExpenseReversal(expenseEntity)
+            var creditBack = reversal.mainAccountCredit
+            var restoredToVault = 0.0
+            val sourceVault = reversal.vaultId?.let { savingsRepository.getSmartVaultById(it) }
+            if (reversal.vaultCredit > 0.0) {
+                if (sourceVault != null) {
+                    savingsRepository.recordVaultBalanceAdjustment(
+                        vaultId = sourceVault.id,
+                        previousBalance = sourceVault.currentBalance,
+                        newBalance = sourceVault.currentBalance + reversal.vaultCredit,
+                        type = VaultAdjustmentType.MANUAL_DEPOSIT,
+                        reason = "Reversal of deleted expense: ${expenseEntity.description.take(80)}"
+                    )
+                    restoredToVault = reversal.vaultCredit
+                } else {
+                    // The vault no longer exists: return its share to the main account instead.
+                    creditBack += reversal.vaultCredit
+                }
+            }
             if (creditBack > 0.0) {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
                 val newBalance = currentBalance + creditBack
@@ -1201,6 +1220,7 @@ fun deleteExpense(id: Long) {
                 preferencesRepository.updateMainAccountBalance(newBalance)
             }
             lastDeletedExpenseMainCredit = creditBack
+            lastDeletedExpenseVaultCredit = if (restoredToVault > 0.0) sourceVault?.id?.let { it to restoredToVault } else null
             _uiState.update { it.copy(lastDeletedExpense = expenseEntity.toDomain()) }
 
             // 2. Cancel pending tax contributions
@@ -1224,20 +1244,39 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
     // Amount credited back to the main account by the last delete, re-debited on undo.
     @Volatile private var lastDeletedExpenseMainCredit: Double = 0.0
+    // Vault id and amount returned to it by the last delete, taken back out on undo.
+    @Volatile private var lastDeletedExpenseVaultCredit: Pair<Long, Double>? = null
 
     fun undoDeleteExpense() {
         val lastDeleted = _uiState.value.lastDeletedExpense ?: return
         val creditToReverse = lastDeletedExpenseMainCredit
+        val vaultCreditToReverse = lastDeletedExpenseVaultCredit
         _uiState.update { it.copy(lastDeletedExpense = null) }
         lastDeletedExpenseMainCredit = 0.0
+        lastDeletedExpenseVaultCredit = null
         viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.withMainAccountLock { savingsRepository.runInTransaction {
                 val restoredId = savingsRepository.upsertExpense(lastDeleted.toEntity())
                     .takeIf { it > 0L } ?: lastDeleted.id
+                // Undo the vault reversal too, linking it to the restored expense so a later
+                // delete returns it again.
+                vaultCreditToReverse?.let { (vaultId, amount) ->
+                    val vault = savingsRepository.getSmartVaultById(vaultId)
+                    if (vault != null) {
+                        savingsRepository.recordVaultBalanceAdjustment(
+                            vaultId = vaultId,
+                            previousBalance = vault.currentBalance,
+                            newBalance = (vault.currentBalance - amount).coerceAtLeast(0.0),
+                            type = VaultAdjustmentType.MANUAL_DEDUCTION,
+                            reason = "Restored expense: ${lastDeleted.description.take(80)}",
+                            relatedExpenseId = restoredId
+                        )
+                    }
+                }
                 // Undo the reversal credit, otherwise delete + undo leaves extra money behind.
                 if (creditToReverse > 0.0) {
                     val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                    val newBalance = (currentBalance - creditToReverse).coerceAtLeast(0.0)
+                    val newBalance = (currentBalance - creditToReverse)
                     savingsRepository.insertMainAccountTransaction(
                         com.example.sparely.domain.model.MainAccountTransaction(
                             type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
@@ -1393,7 +1432,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                     // If decreased (diff < 0), refund to Main Account.
                     val currentBalance = savingsRepository.getLatestMainAccountBalance()
                     // We subtract the difference. E.g. price up $10 -> balance down $10. Price down $10 (-10) -> balance up $10.
-                    val newBalance = (currentBalance - diff).coerceAtLeast(0.0)
+                    val newBalance = (currentBalance - diff)
                     
                     val transactionType = if (diff > 0) com.example.sparely.data.local.MainAccountTransactionType.EXPENSE 
                                           else com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT
@@ -1511,7 +1550,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         safeLaunch {
             savingsRepository.withMainAccountLock {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
+                val newBalance = (currentBalance - amount)
                 val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                     type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
                     amount = amount,
@@ -1534,12 +1573,12 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                 val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                     type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
                     amount = abs(delta),
-                    balanceAfter = newBalance.coerceAtLeast(0.0),
+                    balanceAfter = newBalance,
                     timestamp = java.time.LocalDateTime.now(),
                     description = reason.take(100)
                 )
                 savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+                preferencesRepository.updateMainAccountBalance(newBalance)
             }
         }
     }

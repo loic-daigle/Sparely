@@ -6,6 +6,9 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
+/** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
+const val SPARELY_DATABASE_VERSION = 46
+
 @Database(
     entities = [
         ExpenseEntity::class,
@@ -38,7 +41,7 @@ import androidx.room.TypeConverters
         RecurringExpensePaidEntity::class
     ],
 
-    version = 45,
+    version = SPARELY_DATABASE_VERSION,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -68,6 +71,9 @@ abstract class SparelyDatabase : RoomDatabase() {
     abstract fun recurringExpensePaidDao(): RecurringExpensePaidDao
 
     companion object {
+        const val DATABASE_VERSION = SPARELY_DATABASE_VERSION
+        const val DATABASE_NAME = "sparely.db"
+
         @Volatile
         private var INSTANCE: SparelyDatabase? = null
 
@@ -78,59 +84,39 @@ abstract class SparelyDatabase : RoomDatabase() {
         }
 
         private fun buildDatabase(context: Context): SparelyDatabase {
+            preserveDatabaseBeforeDowngrade(context)
             return Room.databaseBuilder(
                 context,
                 SparelyDatabase::class.java,
-                "sparely.db"
+                DATABASE_NAME
             )
-                .addMigrations(
-                    MIGRATION_1_12,
-                    MIGRATION_2_12,
-                    MIGRATION_3_12,
-                    MIGRATION_4_12,
-                    MIGRATION_5_12,
-                    MIGRATION_6_12,
-                    MIGRATION_7_12,
-                    MIGRATION_8_12,
-                    MIGRATION_9_12,
-                    MIGRATION_10_12,
-                    MIGRATION_11_12,
-                    MIGRATION_12_13,
-                    MIGRATION_13_14,
-                    MIGRATION_14_15,
-                    MIGRATION_15_16,
-                    MIGRATION_16_17,
-                    MIGRATION_17_18,
-                    MIGRATION_18_19,
-                    MIGRATION_19_20,
-                    MIGRATION_20_21,
-                    MIGRATION_21_22,
-                    MIGRATION_22_23,
-                    MIGRATION_23_24,
-                    MIGRATION_24_25,
-                    MIGRATION_25_26,
-                    MIGRATION_26_27,
-                    MIGRATION_27_28,
-                    MIGRATION_28_29,
-                    MIGRATION_29_30,
-                    MIGRATION_30_31,
-                    MIGRATION_31_32,
-                    MIGRATION_32_33,
-                    MIGRATION_33_34,
-                    MIGRATION_34_35,
-                    MIGRATION_35_36,
-                    MIGRATION_36_37,
-                    MIGRATION_37_38,
-                    MIGRATION_38_39,
-                    MIGRATION_39_40,
-                    MIGRATION_40_41,
-                    MIGRATION_41_42,
-                    MIGRATION_42_43,
-                    MIGRATION_43_44,
-                    MIGRATION_44_45
-                )
+                .addMigrations(*ALL_MIGRATIONS)
                 .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
+        }
+
+        /**
+         * Room can't open a database written by a newer app version, so on a downgrade it
+         * recreates it empty. Copy the existing files aside first so the user's data is never
+         * lost: reinstalling the newer version (or support) can recover it from the copy.
+         */
+        private fun preserveDatabaseBeforeDowngrade(context: Context) {
+            try {
+                val dbFile = context.getDatabasePath(DATABASE_NAME)
+                if (!dbFile.exists()) return
+                val storedVersion = android.database.sqlite.SQLiteDatabase.openDatabase(
+                    dbFile.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                ).use { it.version }
+                if (storedVersion <= DATABASE_VERSION) return
+                val suffix = ".v$storedVersion-${System.currentTimeMillis()}.bak"
+                listOf("", "-wal", "-shm").forEach { ext ->
+                    val source = java.io.File(dbFile.path + ext)
+                    if (source.exists()) source.copyTo(java.io.File(dbFile.path + ext + suffix), overwrite = true)
+                }
+                android.util.Log.w("SparelyDatabase", "Downgrade from v$storedVersion: data copied to *$suffix")
+            } catch (e: Exception) {
+                android.util.Log.e("SparelyDatabase", "Could not check/preserve database before opening", e)
+            }
         }
 
         // Migrations from earlier versions to v12
@@ -1242,6 +1228,67 @@ abstract class SparelyDatabase : RoomDatabase() {
         val MIGRATION_44_45 = object : androidx.room.migration.Migration(44, 45) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN necessity TEXT")
+            }
+        }
+
+        /**
+         * Every migration, in order. The builder uses this list and a unit test checks it forms
+         * a complete path from every old version to [DATABASE_VERSION], so a forgotten migration
+         * fails the build instead of reaching users.
+         */
+        val ALL_MIGRATIONS: Array<androidx.room.migration.Migration> by lazy {
+            arrayOf(
+            MIGRATION_1_12,
+            MIGRATION_2_12,
+            MIGRATION_3_12,
+            MIGRATION_4_12,
+            MIGRATION_5_12,
+            MIGRATION_6_12,
+            MIGRATION_7_12,
+            MIGRATION_8_12,
+            MIGRATION_9_12,
+            MIGRATION_10_12,
+            MIGRATION_11_12,
+            MIGRATION_12_13,
+            MIGRATION_13_14,
+            MIGRATION_14_15,
+            MIGRATION_15_16,
+            MIGRATION_16_17,
+            MIGRATION_17_18,
+            MIGRATION_18_19,
+            MIGRATION_19_20,
+            MIGRATION_20_21,
+            MIGRATION_21_22,
+            MIGRATION_22_23,
+            MIGRATION_23_24,
+            MIGRATION_24_25,
+            MIGRATION_25_26,
+            MIGRATION_26_27,
+            MIGRATION_27_28,
+            MIGRATION_28_29,
+            MIGRATION_29_30,
+            MIGRATION_30_31,
+            MIGRATION_31_32,
+            MIGRATION_32_33,
+            MIGRATION_33_34,
+            MIGRATION_34_35,
+            MIGRATION_35_36,
+            MIGRATION_36_37,
+            MIGRATION_37_38,
+            MIGRATION_38_39,
+            MIGRATION_39_40,
+            MIGRATION_40_41,
+            MIGRATION_41_42,
+            MIGRATION_42_43,
+            MIGRATION_43_44,
+            MIGRATION_44_45,
+            MIGRATION_45_46
+            )
+        }
+
+        val MIGRATION_45_46 = object : androidx.room.migration.Migration(45, 46) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vault_balance_adjustments ADD COLUMN relatedExpenseId INTEGER")
             }
         }
     }

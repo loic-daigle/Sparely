@@ -143,13 +143,13 @@ class SettingsViewModel(
                     val transaction = MainAccountTransaction(
                         type = MainAccountTransactionType.ADJUSTMENT,
                         amount = abs(delta),
-                        balanceAfter = balance.coerceAtLeast(0.0),
+                        balanceAfter = balance,
                         timestamp = java.time.LocalDateTime.now(),
                         description = "Manual balance update from settings"
                     )
                     savingsRepository.insertMainAccountTransaction(transaction)
                 }
-                preferencesRepository.updateMainAccountBalance(balance.coerceAtLeast(0.0))
+                preferencesRepository.updateMainAccountBalance(balance)
             }
         }
     }
