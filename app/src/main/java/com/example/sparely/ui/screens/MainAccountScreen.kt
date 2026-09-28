@@ -364,7 +364,13 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
                 }
                 
                 Text(
-                    text = "$sign${transaction.amount.formatCurrency("")}",
+                    // The sign is shown explicitly, so display the magnitude (older credit card
+                    // payments were stored as negative amounts and rendered as "--50.00").
+                    text = if (transaction.type == MainAccountTransactionType.ADJUSTMENT) {
+                        transaction.amount.formatCurrency("")
+                    } else {
+                        "$sign${kotlin.math.abs(transaction.amount).formatCurrency("")}"
+                    },
                     style = MaterialTheme.typography.titleMedium, // Larger amount
                     fontWeight = FontWeight.ExtraBold,
                     color = amountColor

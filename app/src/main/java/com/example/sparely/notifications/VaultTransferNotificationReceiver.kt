@@ -30,6 +30,9 @@ class VaultTransferNotificationReceiver : BroadcastReceiver() {
                     ACTION_TRANSFERRED -> handleTransferred(context, container, finalVaultId, finalSavingsAccountId)
                     ACTION_DISMISS -> handleDismiss(context)
                 }
+            } catch (e: Exception) {
+                // An uncaught exception here would crash the whole app process in the background.
+                android.util.Log.e("VaultTransferReceiver", "Failed to handle $action", e)
             } finally {
                 pendingResult.finish()
             }

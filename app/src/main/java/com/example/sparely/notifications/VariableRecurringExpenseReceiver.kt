@@ -4,6 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.sparely.MainActivity
+import com.example.sparely.SparelyApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class VariableRecurringExpenseReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -12,18 +17,33 @@ class VariableRecurringExpenseReceiver : BroadcastReceiver() {
                 val recurringExpenseId = intent.getLongExtra(EXTRA_RECURRING_EXPENSE_ID, -1L)
                 val confirmedAmount = intent.getDoubleExtra(EXTRA_AMOUNT, 0.0)
 
-                if (recurringExpenseId > 0 && confirmedAmount > 0) {
+                if (recurringExpenseId > 0 && confirmedAmount.isFinite() && confirmedAmount > 0) {
                     // Dismiss the notification
                     NotificationHelper.dismissVariableRecurringNotification(context)
 
-                    // TODO: Call repository to process the recurring expense with the confirmed amount
-                    // This will be integrated when we add the repository methods in Phase 1.5
-
-                    // Show a brief confirmation notification
-                    NotificationHelper.showReminder(
-                        context,
-                        "Amount confirmed: ${NotificationHelper.formatAmount(confirmedAmount)}"
-                    )
+                    val pendingResult = goAsync()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val container = (context.applicationContext as SparelyApplication).container
+                            val repository = container.savingsRepository
+                            repository.processVariableRecurringExpenseWithAmount(
+                                recurringExpenseId = recurringExpenseId,
+                                actualAmount = confirmedAmount,
+                                processDate = java.time.LocalDate.now(),
+                                settings = container.preferencesRepository.getSettingsSnapshot(),
+                                vaults = repository.observeSmartVaults().first()
+                            )
+                            // Show a brief confirmation notification
+                            NotificationHelper.showReminder(
+                                context,
+                                "Amount confirmed: ${NotificationHelper.formatAmount(confirmedAmount)}"
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.e("VariableRecurringReceiver", "Failed to record confirmed amount", e)
+                        } finally {
+                            pendingResult.finish()
+                        }
+                    }
                 }
             }
             ACTION_EDIT_AMOUNT -> {

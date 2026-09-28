@@ -40,6 +40,9 @@ interface RecurringExpensePaidDao {
     @Query("SELECT SUM(amountPaid) FROM recurring_expenses_paid WHERE recurringExpenseId = :recurringExpenseId AND paidDate BETWEEN :fromDate AND :toDate")
     suspend fun getTotalPaidInRange(recurringExpenseId: Long, fromDate: LocalDate, toDate: LocalDate): Double?
 
+    @Query("DELETE FROM recurring_expenses_paid WHERE id = :paidRecordId")
+    suspend fun deletePaidById(paidRecordId: Long)
+
     @Query("SELECT * FROM recurring_expenses_paid ORDER BY dueDate DESC")
     fun observeAllPaidRecords(): Flow<List<RecurringExpensePaidEntity>>
 }

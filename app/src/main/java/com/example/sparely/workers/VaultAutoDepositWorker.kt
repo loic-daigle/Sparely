@@ -36,34 +36,12 @@ class VaultAutoDepositWorker(
     override suspend fun doWork(): Result {
         return try {
             val database = SparelyDatabase.getInstance(applicationContext)
-            val preferencesRepository = com.example.sparely.data.preferences.UserPreferencesRepository(applicationContext)
-            val savingsRepository = SavingsRepository(
-                expenseDao = database.expenseDao(),
-                transferDao = database.transferDao(),
-                budgetDao = database.budgetDao(),
-                recurringExpenseDao = database.recurringExpenseDao(),
-                challengeDao = database.challengeDao(),
-                achievementDao = database.achievementDao(),
-                savingsAccountDao = database.savingsAccountDao(),
-                savingsAccountTransactionDao = database.savingsAccountTransactionDao(),
-                smartVaultDao = database.smartVaultDao(),
-                mainAccountDao = database.mainAccountDao(),
-                frozenFundDao = database.frozenFundDao(),
-                allocationHistoryDao = database.allocationHistoryDao(),
-                storeDao = database.storeDao(),
-                paymentMethodDao = database.paymentMethodDao(),
-                creditCardPaymentDao = database.creditCardPaymentDao(),
-                expenseItemDao = database.expenseItemDao(),
-                expenseRefundDao = database.expenseRefundDao(),
-                assetDao = database.assetDao(),
-                assetExpenseLinkDao = database.assetExpenseLinkDao(),
-                wishlistDao = database.wishlistDao(),
-                wishlistSavingsDao = database.wishlistSavingsDao(),
-                pendingVariableRecurringExpenseDao = database.pendingVariableRecurringExpenseDao(),
-                recurringExpensePaidDao = database.recurringExpensePaidDao(),
-                preferencesRepository = preferencesRepository,
-                database = database
-            )
+            // Use the app-wide repository instance: its main-account lock is what stops this
+            // worker and user actions from racing on the balance. A private instance would have
+            // its own, unrelated lock.
+            val container = (applicationContext as com.example.sparely.SparelyApplication).container
+            val preferencesRepository = container.preferencesRepository
+            val savingsRepository = container.savingsRepository
 
             val now = LocalDateTime.now()
             val today = now.toLocalDate()
@@ -76,6 +54,9 @@ class VaultAutoDepositWorker(
 
             schedules.forEach { schedule ->
                 if (!isScheduleDue(schedule, today, now)) return@forEach
+                // One broken schedule must not abort (and then retry) the whole run, which could
+                // re-execute transfers that already succeeded.
+                try {
 
                 val vault = savingsRepository.getSmartVaultById(schedule.vaultId)
                 val amount = computeTransferAmount(schedule, savingsRepository, vault)
@@ -119,6 +100,11 @@ class VaultAutoDepositWorker(
                         )
                     }
                 }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e("VaultAutoDepositWorker", "Schedule ${schedule.id} failed", e)
+                }
             }
 
             if (executedCount > 0) {
@@ -151,6 +137,8 @@ class VaultAutoDepositWorker(
 
             val domain = entityRow.toDomain()
             val nextRun = domain.nextRunAt ?: domain.startDate.atTime(9, 0)
+            // Past its end date: never charge again.
+            if (domain.endDate != null && nextRun.toLocalDate().isAfter(domain.endDate)) return@mapNotNull null
 
             // It's due if current time is on or after nextRun
             if (!now.isBefore(nextRun)) {
@@ -167,11 +155,17 @@ class VaultAutoDepositWorker(
         val vaults = repository.observeSmartVaults().first()
 
         dueRecurring.forEach { re ->
+          try {
             val domain = re.toDomain()
             val executeAuto = re.executeAutomatically
 
             // Special handling for variable amount + auto-execute
             if (re.isVariableAmount && executeAuto) {
+                // Already waiting for the user to confirm this occurrence: don't add another
+                // pending row and re-notify on every worker run.
+                if (database.pendingVariableRecurringExpenseDao().getByRecurringExpenseId(re.id) != null) {
+                    return@forEach
+                }
                 // Send notification and create pending entry instead of directly processing
                 val predictedAmount = domain.predictNextAmount()
                 NotificationHelper.showVariableRecurringExpenseNotification(
@@ -197,7 +191,7 @@ class VaultAutoDepositWorker(
                     settings = settings,
                     vaults = vaults
                 )
-                repository.updateRecurringExpenseProcessed(re.id, today)
+                // processRecurringExpensePayment advances the schedule in the same transaction.
             } else {
                 // Not auto-execute - create frozen fund
                 repository.insertFrozenFund(
@@ -208,6 +202,11 @@ class VaultAutoDepositWorker(
                 )
                 repository.updateRecurringExpenseProcessed(re.id, today)
             }
+          } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            android.util.Log.e("VaultAutoDepositWorker", "Recurring expense ${re.id} failed", e)
+          }
         }
     }
 
