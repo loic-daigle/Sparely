@@ -2,7 +2,7 @@ package com.example.sparely.ui.utils
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.domain.model.IncomeCategory
 
 @Composable
