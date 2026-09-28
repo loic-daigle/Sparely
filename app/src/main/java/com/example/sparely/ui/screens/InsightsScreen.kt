@@ -64,29 +64,75 @@ fun InsightsScreen(
 ) {
     // Note: This screen no longer includes its own TopAppBar to avoid duplicate headers
     // The parent navigation scaffold should provide the app bar
-    
-    if (cashflowForecast == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else {
-        Box(
+    val anomalies = spendingPatterns?.anomalies.orEmpty()
+    val topVelocity = spendingPatterns?.categoryVelocity?.values
+        ?.sortedByDescending { it.dailyRate }
+        ?.take(3)
+        .orEmpty()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.TopCenter
+                .fillMaxWidth()
+                .widthIn(max = 900.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 900.dp),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-            // 1. Idle Money Suggestion (if available) - Top priority
+            // 1. Headline numbers first: what's safe to spend and how long money lasts.
+            // Without a forecast (e.g. no income set yet) the other insights still show,
+            // instead of an endless loading spinner.
+            if (cashflowForecast != null) {
+                item(key = "metrics_top") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MetricCard(
+                            title = stringResource(R.string.insights_safe_to_spend),
+                            value = cashflowForecast.safeToSpend.formatCurrency(),
+                            modifier = Modifier.weight(1f),
+                            isPositive = cashflowForecast.safeToSpend >= 0
+                        )
+                        MetricCard(
+                            title = stringResource(R.string.insights_runway),
+                            value = if (cashflowForecast.runwayDays > 365) stringResource(R.string.insights_runway_over_year) else "${cashflowForecast.runwayDays} ${stringResource(R.string.insights_days)}",
+                            modifier = Modifier.weight(1f),
+                            isPositive = cashflowForecast.runwayDays > 30
+                        )
+                    }
+                }
+                item(key = "metrics_bottom") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MetricCard(
+                            title = stringResource(R.string.insights_projected_balance),
+                            value = cashflowForecast.projectedBalance30Days.formatCurrency(),
+                            modifier = Modifier.weight(1f),
+                            isPositive = cashflowForecast.projectedBalance30Days > 0
+                        )
+                        // Spending pace is informational, not an error state
+                        MetricCard(
+                            title = stringResource(R.string.insights_burn_rate),
+                            value = "${cashflowForecast.dailyBurnRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item(key = "forecast") {
+                    CashflowForecastCard(cashflowForecast)
+                }
+            }
+
+            // 2. Actionable suggestion
             if (idleMoneyInsight != null) {
-                item {
+                item(key = "idle_money") {
                     IdleMoneyCard(
                         insight = idleMoneyInsight,
                         onTransfer = { onTransferToSavings(idleMoneyInsight.suggestedTransferAmount) }
@@ -94,86 +140,12 @@ fun InsightsScreen(
                 }
             }
 
-            // 2. Detected Recurring Patterns
-            if (recurringPatterns.isNotEmpty()) {
-                item {
-                    RecurringPatternsCard(patterns = recurringPatterns)
-                }
+            // 3. Spending anomalies
+            item(key = "header_anomalies") {
+                InsightsSectionTitle(stringResource(R.string.insights_anomalies_title))
             }
-
-            // 3. Seasonal Insights
-            if (seasonalInsights.isNotEmpty()) {
-                item {
-                    SeasonalInsightsCard(insights = seasonalInsights)
-                }
-            }
-
-            // 4. Unique/One-time Expenses
-            if (uniqueExpenses.isNotEmpty()) {
-                item {
-                    UniqueExpensesCard(expenses = uniqueExpenses)
-                }
-            }
-
-            // 5. Cashflow Forecast Chart
-            item {
-                CashflowForecastCard(cashflowForecast)
-            }
-
-            // 6. Key Metrics Row
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    MetricCard(
-                        title = stringResource(R.string.insights_projected_balance),
-                        value = cashflowForecast.projectedBalance30Days.formatCurrency(),
-                        modifier = Modifier.weight(1f),
-                        isPositive = cashflowForecast.projectedBalance30Days > 0
-                    )
-                    MetricCard(
-                        title = stringResource(R.string.insights_burn_rate),
-                        value = "${cashflowForecast.dailyBurnRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
-                        modifier = Modifier.weight(1f),
-                        isPositive = false
-                    )
-                }
-            }
-            
-            // 7. Runway & Safe to Spend Row
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    MetricCard(
-                        title = stringResource(R.string.insights_safe_to_spend),
-                        value = cashflowForecast.safeToSpend.formatCurrency(),
-                        modifier = Modifier.weight(1f),
-                        isPositive = true
-                    )
-                     MetricCard(
-                        title = stringResource(R.string.insights_runway),
-                        value = if (cashflowForecast.runwayDays > 365) stringResource(R.string.insights_runway_over_year) else "${cashflowForecast.runwayDays} ${stringResource(R.string.insights_days)}",
-                        modifier = Modifier.weight(1f),
-                        isPositive = cashflowForecast.runwayDays > 30
-                    )
-                }
-            }
-
-            // 8. Spending Anomalies
-            item {
-                Text(
-                    text = stringResource(R.string.insights_anomalies_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
-            if (spendingPatterns?.anomalies.isNullOrEmpty()) {
-                item {
+            if (anomalies.isEmpty()) {
+                item(key = "no_anomalies") {
                     Text(
                         text = stringResource(R.string.insights_no_anomalies),
                         style = MaterialTheme.typography.bodyMedium,
@@ -181,39 +153,63 @@ fun InsightsScreen(
                     )
                 }
             } else {
-                items(spendingPatterns!!.anomalies.size) { index ->
-                    val anomaly = spendingPatterns.anomalies[index]
-                    AnomalyItem(anomaly, onClick = { onAnomalyClick(anomaly.expense) })
-                    if (index < spendingPatterns.anomalies.size - 1) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                item(key = "anomalies") {
+                    ExpressiveCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        contentPadding = 8.dp
+                    ) {
+                        Column {
+                            anomalies.forEachIndexed { index, anomaly ->
+                                AnomalyItem(anomaly, onClick = { onAnomalyClick(anomaly.expense) })
+                                if (index < anomalies.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                        }
                     }
                 }
             }
-            
-            // 9. Category Velocity (Top Growers)
-             item {
-                Text(
-                    text = stringResource(R.string.insights_velocity_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
+
+            // 4. Category velocity (only when there is data to show)
+            if (topVelocity.isNotEmpty()) {
+                item(key = "header_velocity") {
+                    InsightsSectionTitle(stringResource(R.string.insights_velocity_title))
+                }
+                items(topVelocity.size, key = { "velocity_$it" }) { index ->
+                    CategoryVelocityItem(topVelocity[index])
+                }
             }
-            
-            if (spendingPatterns != null && spendingPatterns.categoryVelocity.isNotEmpty()) {
-                 // Sort by daily rate descending to show highest spenders
-                 val sortedVelocity = spendingPatterns.categoryVelocity.entries
-                    .sortedByDescending { it.value.dailyRate }
-                    .take(3)
-                    
-                 items(sortedVelocity.size) { index ->
-                    val entry = sortedVelocity[index]
-                    CategoryVelocityItem(entry.value)
-                 }
+
+            // 5. Longer-term patterns
+            if (recurringPatterns.isNotEmpty()) {
+                item(key = "recurring_patterns") {
+                    RecurringPatternsCard(patterns = recurringPatterns)
+                }
             }
+            if (seasonalInsights.isNotEmpty()) {
+                item(key = "seasonal") {
+                    SeasonalInsightsCard(insights = seasonalInsights)
+                }
+            }
+            if (uniqueExpenses.isNotEmpty()) {
+                item(key = "unique") {
+                    UniqueExpensesCard(expenses = uniqueExpenses)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun InsightsSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(top = 8.dp)
+    )
 }
 
 // === New Insight Cards ===
@@ -262,9 +258,7 @@ private fun IdleMoneyCard(
                             insight.estimatedMonthlyInterest.formatCurrency()
                         ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -315,11 +309,10 @@ private fun IdleMoneyCard(
                     for ((months, amount) in insight.growthProjections.toList().sortedBy { it.first }) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = when(months) {
-                                    6 -> "6 Mo"
-                                    12 -> "1 Yr"
-                                    24 -> "2 Yr"
-                                    else -> "$months Mo"
+                                text = if (months % 12 == 0) {
+                                    stringResource(R.string.dashboard_duration_years, months / 12)
+                                } else {
+                                    stringResource(R.string.dashboard_duration_months, months)
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
