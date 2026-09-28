@@ -4,7 +4,7 @@ import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.SparelySettings
 import java.time.LocalDate
 import kotlin.math.ceil
-import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Distributes the "saving tax" portion of each expense across smart vaults.
@@ -44,9 +44,11 @@ object SavingTaxEngine {
         // We assume 'currentMainAccountBalance' is the balance *after* the expense has been deducted (if applicable).
         // So we only subtract the potential tax amount.
         val projectedBalance = context.currentMainAccountBalance - baseAmount
-        val minBalance = context.settings.minMainAccountBalance
-        
-        if (minBalance > 0 && projectedBalance < minBalance) {
+        // The main account may be overdrawn now, but saving tax must never be what takes it (or
+        // keeps it) below zero, so the floor is at least 0 even without a user minimum.
+        val minBalance = context.settings.minMainAccountBalance.coerceAtLeast(0.0)
+
+        if (projectedBalance < minBalance) {
              // Calculate max affordable tax
              val affordableTax = (context.currentMainAccountBalance - minBalance).coerceAtLeast(0.0)
              if (affordableTax <= 0) return emptyList()
@@ -57,6 +59,7 @@ object SavingTaxEngine {
              }
         }
 
+        if (!baseAmount.isFinite()) return emptyList()
         if (baseAmount < context.minimumContribution) return emptyList()
         if (baseAmount <= 0.01) return emptyList()
 
@@ -81,13 +84,14 @@ object SavingTaxEngine {
             vaultId to (raw / totalAdjusted)
         }
 
-        val baseCents = (baseAmount * 100).roundToInt()
-        if (baseCents <= 0) return emptyList()
+        // Long, not Int: Int cents overflow for amounts above ~21 million.
+        val baseCents = (baseAmount * 100).roundToLong()
+        if (baseCents <= 0L) return emptyList()
 
         // Round UP to cents for each vault contribution
         val results = normalized.map { (vaultId, weight) ->
             val rawCents = weight * baseCents
-            val ceilCents = ceil(rawCents).toInt()
+            val ceilCents = ceil(rawCents).toLong()
             val amount = ceilCents / 100.0
 
             if (amount >= context.minimumContribution) {

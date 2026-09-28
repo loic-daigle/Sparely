@@ -31,7 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -845,7 +847,8 @@ private fun SmartVaultsStep(
                     Spacer(modifier = Modifier.height(12.dp))
                     SparelyTextField(
                         value = draft.manualPercent,
-                        onValueChange = { onDraftChange(draft.copy(manualPercent = it)) },
+                        onValueChange = { onDraftChange(draft.copy(manualPercent = it.filterCurrencyInput())) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         label = { Text(stringResource(R.string.onboarding_vault_manual_percent_label)) },
                         placeholder = { Text(stringResource(R.string.onboarding_vault_manual_percent_placeholder)) },
                         trailingIcon = { Text("%") },
@@ -857,7 +860,8 @@ private fun SmartVaultsStep(
 
                 SparelyTextField(
                     value = draft.savingTaxRate,
-                    onValueChange = { onDraftChange(draft.copy(savingTaxRate = it)) },
+                    onValueChange = { onDraftChange(draft.copy(savingTaxRate = it.filterCurrencyInput())) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     label = { Text(stringResource(R.string.onboarding_vault_tax_boost_label)) },
                     placeholder = { Text(stringResource(R.string.onboarding_vault_tax_boost_placeholder)) },
                     trailingIcon = { Text("%") },
@@ -910,11 +914,11 @@ private fun SmartVaultsStep(
             if (target <= 0.0) return null
             val balance = currentBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
             val manualShare = if (allocationMode == VaultAllocationMode.MANUAL) {
-                manualPercent.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
+                manualPercent.toSafeDouble()?.div(100.0)?.coerceIn(0.0, 1.0)
             } else {
                 null
             }
-            val taxOverride = savingTaxRate.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
+            val taxOverride = savingTaxRate.toSafeDouble()?.div(100.0)?.coerceIn(0.0, 1.0)
             return SmartVaultSetup(
                 name = trimmedName,
                 targetAmount = target,

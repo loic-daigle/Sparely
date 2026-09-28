@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -179,9 +180,9 @@ fun SettingsScreen(
     var emergency by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var invest by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.invest.toFloat()) }
     var funPercent by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.`fun`.toFloat()) }
-    var monthlyIncomeText by remember(settings.monthlyIncome) { mutableStateOf(settings.monthlyIncome.toString()) }
-    var mainAccountBalanceText by remember(settings.mainAccountBalance) { mutableStateOf(settings.mainAccountBalance.toString()) }
-    var minMainAccountBalanceText by remember(settings.minMainAccountBalance) { mutableStateOf(settings.minMainAccountBalance.toString()) }
+    var monthlyIncomeText by remember(settings.monthlyIncome) { mutableStateOf(settings.monthlyIncome.toInputString()) }
+    var mainAccountBalanceText by remember(settings.mainAccountBalance) { mutableStateOf(settings.mainAccountBalance.toInputString()) }
+    var minMainAccountBalanceText by remember(settings.minMainAccountBalance) { mutableStateOf(settings.minMainAccountBalance.toInputString()) }
     var remindersEnabled by remember(settings.remindersEnabled) { mutableStateOf(settings.remindersEnabled) }
     var reminderHour by remember(settings.reminderHour) { mutableStateOf(settings.reminderHour) }
     var reminderFrequency by remember(settings.reminderFrequencyDays) { mutableStateOf(settings.reminderFrequencyDays) }
@@ -189,7 +190,7 @@ fun SettingsScreen(
     var displayName by remember(settings.displayName) { mutableStateOf(settings.displayName.orEmpty()) }
     var hasDebts by remember(settings.hasDebts) { mutableStateOf(settings.hasDebts) }
     var emergencyFundText by remember(settings.currentEmergencyFund) {
-        mutableStateOf(settings.currentEmergencyFund.takeIf { it > 0.0 }?.let { String.format("%.0f", it) } ?: "")
+        mutableStateOf(settings.currentEmergencyFund.takeIf { it > 0.0 }?.let { it.toInputString(0) } ?: "")
     }
     var primaryGoal by remember(settings.primaryGoal) { mutableStateOf(settings.primaryGoal.orEmpty()) }
     var educationExpanded by remember { mutableStateOf(false) }
@@ -1264,7 +1265,7 @@ private fun IncomeSettingsCard(
         var autoPending by remember(schedule) { mutableStateOf(schedule.autoCreatePendingTransfers) }
 
         fun buildSchedule(nextDateOverride: LocalDate? = nextPayDate): PayScheduleSettings {
-            val defaultPayAmount = defaultPayText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+            val defaultPayAmount = defaultPayText.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
             val effectiveNext = if (trackingMode == IncomeTrackingMode.MANUAL_PER_PAYCHECK) null else nextDateOverride
             return schedule.copy(
                 trackingMode = trackingMode,
@@ -1362,7 +1363,7 @@ private fun IncomeSettingsCard(
                 SparelyTextField(
                     value = defaultPayText,
                     onValueChange = { text ->
-                        defaultPayText = text.filter { ch -> ch.isDigit() || ch == '.' }
+                        defaultPayText = text.filterCurrencyInput()
                     },
                     label = { Text(stringResource(R.string.settings_pay_amount_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -1623,7 +1624,7 @@ private fun RegionalSettingsCard(
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var customTaxRate by remember(regionalSettings.customIncomeTaxRate) {
-        mutableStateOf(regionalSettings.customIncomeTaxRate?.let { (it * 100).toString() } ?: "")
+        mutableStateOf(regionalSettings.customIncomeTaxRate?.let { (it * 100).toInputString() } ?: "")
     }
     
     val allCountries = listOf(
@@ -1771,7 +1772,7 @@ private fun RegionalSettingsCard(
                     SparelyTextField(
                         value = customTaxRate,
                         onValueChange = { newValue ->
-                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d{0,2}(\\.\\d{0,2})?$"))) {
+                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d{0,2}([.,]\\d{0,2})?$"))) {
                                 customTaxRate = newValue
                             }
                         },
@@ -1782,7 +1783,7 @@ private fun RegionalSettingsCard(
                     )
                     SparelyTonalButton(
                         onClick = {
-                            val taxRate = customTaxRate.toDoubleOrNull()?.div(100)
+                            val taxRate = customTaxRate.toSafeDouble()?.div(100)
                             onRegionalSettingsChange(
                                 regionalSettings.countryCode,
                                 regionalSettings.languageCode,
@@ -2060,7 +2061,7 @@ private fun PaymentMethodsSettingsCard(
         
         // Credit card specific fields
         var isCreditCard by remember { mutableStateOf(editingMethod?.isCreditCard ?: false) }
-        var creditLimitText by remember { mutableStateOf(editingMethod?.creditLimit?.toString() ?: "") }
+        var creditLimitText by remember { mutableStateOf(editingMethod?.creditLimit?.toInputString() ?: "") }
         var billingCycleDayText by remember { mutableStateOf(editingMethod?.billingCycleDay?.toString() ?: "") }
         
         // Reset default deduct when type changes if creating new
@@ -2141,7 +2142,7 @@ private fun PaymentMethodsSettingsCard(
                         if (isCreditCard) {
                             SparelyTextField(
                                 value = creditLimitText,
-                                onValueChange = { creditLimitText = it.filter { c -> c.isDigit() || c == '.' } },
+                                onValueChange = { creditLimitText = it.filterCurrencyInput() },
                                 label = { Text(stringResource(R.string.settings_pm_credit_limit)) },
                                 leadingIcon = { Text("$", style = MaterialTheme.typography.bodyLarge) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -2247,9 +2248,9 @@ private fun PaymentMethodsSettingsCard(
                             isDefault = isDefault,
                             iconName = if (type == com.example.sparely.domain.model.PaymentMethodType.CASH) "payments" else "credit_card",
                             isCreditCard = isCreditCard && type == com.example.sparely.domain.model.PaymentMethodType.CARD,
-                            creditLimit = if (isCreditCard) creditLimitText.toDoubleOrNull() else null,
+                            creditLimit = if (isCreditCard) creditLimitText.toSafeDouble() else null,
                             currentBalance = editingMethod?.currentBalance ?: 0.0,
-                            billingCycleDay = if (isCreditCard) billingCycleDayText.toIntOrNull() else null,
+                            billingCycleDay = if (isCreditCard) billingCycleDayText.toIntOrNull()?.takeIf { it in 1..31 } else null,
                             lastPaymentDate = editingMethod?.lastPaymentDate,
                             lastPaymentAmount = editingMethod?.lastPaymentAmount
                         )
@@ -2257,7 +2258,7 @@ private fun PaymentMethodsSettingsCard(
                         showAddDialog = false
                         editingMethod = null
                     },
-                    enabled = name.isNotBlank() && (!isCreditCard || creditLimitText.toDoubleOrNull() != null)
+                    enabled = name.isNotBlank() && (!isCreditCard || creditLimitText.toSafeDouble() != null)
                 ) {
                     Text(stringResource(R.string.action_save))
                 }

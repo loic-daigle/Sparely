@@ -74,10 +74,11 @@ object SmartAllocationEngine {
         // 3. Determine available funds for allocation
         val bufferAmount = input.monthlyIncome * adaptiveBuffer.adjustedBufferPercent
         val currentShortfall = max(0.0, bufferAmount - input.mainAccountBalance)
-        var availableForVaults = (input.monthlyIncome - currentShortfall).coerceIn(
-            0.0,
-            input.monthlyIncome * input.maxAllocationPercent
-        )
+        // Written as two one-sided clamps: coerceIn throws when the upper bound is negative
+        // (e.g. a negative or zero monthly income).
+        var availableForVaults = (input.monthlyIncome - currentShortfall)
+            .coerceAtMost(input.monthlyIncome * input.maxAllocationPercent)
+            .coerceAtLeast(0.0)
         
         // Safety check: ensure minimum liquidity
         if (availableForVaults <= 0.0 || activeVaults.isEmpty()) {
@@ -374,7 +375,8 @@ object SmartAllocationEngine {
         }
 
         val adjustedPercent = (baseBufferPercent + finalBufferAdjustment)
-            .coerceIn(minBuffer, 1.0 - maxAllocation)
+            .coerceAtMost(1.0 - maxAllocation)
+            .coerceAtLeast(minBuffer)
 
         return AdaptiveBufferResult(
             adjustedBufferPercent = adjustedPercent,

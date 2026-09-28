@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import android.annotation.SuppressLint
+import com.example.sparely.ui.utils.toInputString
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -1097,7 +1098,7 @@ private fun ManualAdjustmentDialog(
                             for (amount in suggestedAmounts.take(4)) {
                                 SparelyChip(
                                     selected = amountText.toSafeDouble() == amount,
-                                    onClick = { amountText = String.format("%.0f", amount) },
+                                    onClick = { amountText = amount.toInputString(0) },
                                     label = {
                                         SingleLineText(
                                             text = String.format("%.0f", amount),
@@ -1310,8 +1311,8 @@ private fun SmartVaultEditorDialog(
 
     var name by remember { mutableStateOf(vault?.name ?: "") }
     var iconName by remember { mutableStateOf(vault?.iconName) }
-    var targetAmount by remember { mutableStateOf(vault?.targetAmount?.toString() ?: "") }
-    var currentBalance by remember { mutableStateOf(vault?.currentBalance?.toString() ?: "0") }
+    var targetAmount by remember { mutableStateOf(vault?.targetAmount?.toInputString() ?: "") }
+    var currentBalance by remember { mutableStateOf(vault?.currentBalance?.toInputString() ?: "0") }
     var monthlyNeed by remember { mutableStateOf(vault?.monthlyNeed?.toString() ?: "") }
     var isFlowGoal by remember { mutableStateOf(vault?.monthlyNeed != null) }
     var startDate by remember { mutableStateOf(vault?.startDate) }

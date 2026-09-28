@@ -1,5 +1,6 @@
 package com.example.sparely.ui.viewmodel
 
+import kotlinx.coroutines.plus
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sparely.data.repository.SavingsRepository
@@ -32,13 +33,19 @@ class VaultViewModel(
     private val preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository
 ) : ViewModel() {
 
+    // Last line of defence for every coroutine this ViewModel starts: an exception that escapes a
+    // viewModelScope coroutine would otherwise crash the whole app. Surface it instead.
+    private val errorHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e("VaultViewModel", "Unhandled coroutine error", throwable)
+    }
+
     val smartVaults: StateFlow<List<SmartVault>> = savingsRepository.observeSmartVaults()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope + errorHandler, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Reactive pending contributions - updates automatically when data changes
     private val _pendingContributions: StateFlow<List<VaultContribution>> = 
         savingsRepository.observePendingVaultContributions()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope + errorHandler, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _vaultHistory = MutableStateFlow<Map<Long, List<VaultHistoryItem>>>(emptyMap())
 
@@ -50,7 +57,7 @@ class VaultViewModel(
             pendingVaultContributions = pending,
             vaultHistory = history
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), VaultUiState())
+    }.stateIn(viewModelScope + errorHandler, SharingStarted.WhileSubscribed(5000), VaultUiState())
 
     init {
         // No longer need manual refresh - data is reactive
@@ -58,41 +65,41 @@ class VaultViewModel(
 
 
     fun addSmartVault(vault: SmartVault) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.upsertSmartVault(vault.copy(id = 0L))
         }
     }
 
     fun addSmartVault(setup: SmartVaultSetup) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             val vault = setup.toSmartVault()
             savingsRepository.upsertSmartVault(vault.copy(id = 0L))
         }
     }
 
     fun updateSmartVault(vault: SmartVault) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.upsertSmartVault(vault)
         }
     }
 
     fun toggleVaultArchived(vaultId: Long, archived: Boolean) {
         if (vaultId == 0L) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.updateVaultArchived(vaultId, archived)
         }
     }
 
     fun deleteSmartVault(vaultId: Long) {
         if (vaultId == 0L) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.deleteSmartVault(vaultId)
         }
     }
 
     fun depositToVault(vaultId: Long, amount: Double, reason: String?, adjustMainAccount: Boolean) {
         if (vaultId == 0L || amount <= 0.0) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.depositToVault(vaultId, amount, reason, adjustMainAccount)
             refreshVaultHistory(vaultId)
         }
@@ -100,7 +107,7 @@ class VaultViewModel(
 
     fun deductFromVault(vaultId: Long, amount: Double, reason: String?, creditMainAccount: Boolean) {
         if (vaultId == 0L || amount <= 0.0) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.deductFromVault(vaultId, amount, reason, creditMainAccount)
             refreshVaultHistory(vaultId)
         }
@@ -108,7 +115,7 @@ class VaultViewModel(
 
     fun overrideVaultBalance(vaultId: Long, balance: Double, reason: String?) {
         if (vaultId == 0L || balance < 0.0) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.overrideVaultBalance(vaultId, balance, reason)
             refreshVaultHistory(vaultId)
         }
@@ -116,7 +123,7 @@ class VaultViewModel(
 
     fun loadVaultHistory(vaultId: Long) {
         if (vaultId == 0L) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             refreshVaultHistory(vaultId)
         }
     }
@@ -137,7 +144,7 @@ class VaultViewModel(
     }
 
     fun reconcileVaultContribution(contributionId: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.reconcileVaultContribution(contributionId)
             // No need to refresh - data is reactive
         }
@@ -145,7 +152,7 @@ class VaultViewModel(
 
     fun reconcileVaultContributions(contributionIds: List<Long>) {
         if (contributionIds.isEmpty()) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.reconcileVaultContributions(contributionIds)
             // No need to refresh - data is reactive
         }
@@ -153,7 +160,7 @@ class VaultViewModel(
 
     /** Approve a pending contribution: reconcile and remove frozen funds. */
     fun approvePendingVaultContribution(contributionId: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.approvePendingContribution(contributionId)
             // No need to refresh - data is reactive
         }
@@ -162,7 +169,7 @@ class VaultViewModel(
     /** Approve multiple pending contributions (reconcile + unfreeze) */
     fun approvePendingVaultContributions(contributionIds: List<Long>) {
         if (contributionIds.isEmpty()) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             contributionIds.forEach { id ->
                 savingsRepository.approvePendingContribution(id)
             }
@@ -172,7 +179,7 @@ class VaultViewModel(
 
     /** Cancel a pending contribution: delete pending and remove frozen funds. */
     fun cancelPendingVaultContribution(contributionId: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             savingsRepository.cancelPendingContribution(contributionId)
             // No need to refresh - data is reactive
         }
@@ -188,7 +195,7 @@ class VaultViewModel(
      */
     fun createIdleMoneyPendingTransfer(amount: Double, fallbackVaultId: Long) {
         if (amount <= 0.0) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             val settings = preferencesRepository.getSettingsSnapshot()
             val overflowId = settings.mainOverflowAccountId
 
@@ -241,7 +248,7 @@ class VaultViewModel(
      */
     fun updatePendingVaultContributionAmount(contributionId: Long, newAmount: Double) {
         if (newAmount <= 0.0) return
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             val existing = savingsRepository.getPendingVaultContributions().find { it.id == contributionId }
             if (existing != null) {
                 // Update contribution
@@ -262,7 +269,7 @@ class VaultViewModel(
     }
 
     fun startVaultTransferNotificationWorkflow() {
-        viewModelScope.launch {
+        viewModelScope.launch(errorHandler) {
             // Refactoring NotificationScheduler to take repository is cleaner
             notificationScheduler.showVaultTransferWorkflow(savingsRepository, preferencesRepository)
         }

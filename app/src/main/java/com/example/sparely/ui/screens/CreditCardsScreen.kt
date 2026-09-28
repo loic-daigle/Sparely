@@ -1,6 +1,8 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
@@ -9,8 +11,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.sparely.ui.utils.filterCurrencyInput
-import com.example.sparely.ui.utils.toSafeDouble
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

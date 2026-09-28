@@ -1,6 +1,8 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -362,7 +364,13 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
                 }
                 
                 Text(
-                    text = "$sign${transaction.amount.formatCurrency("")}",
+                    // The sign is shown explicitly, so display the magnitude (older credit card
+                    // payments were stored as negative amounts and rendered as "--50.00").
+                    text = if (transaction.type == MainAccountTransactionType.ADJUSTMENT) {
+                        transaction.amount.formatCurrency("")
+                    } else {
+                        "$sign${kotlin.math.abs(transaction.amount).formatCurrency("")}"
+                    },
                     style = MaterialTheme.typography.titleMedium, // Larger amount
                     fontWeight = FontWeight.ExtraBold,
                     color = amountColor
@@ -417,7 +425,7 @@ private fun TransactionDialog(
 
             SparelyTextField(
                 value = amount,
-                onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                onValueChange = { amount = it.filterCurrencyInput() },
                 label = { Text(stringResource(R.string.vault_amount_label)) },
                 prefix = { Text(stringResource(R.string.currency_prefix)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -460,12 +468,12 @@ private fun TransactionDialog(
             ) {
                 SparelyButton(
                     onClick = {
-                        val amountValue = amount.toDoubleOrNull()
+                        val amountValue = amount.toSafeDouble()
                         if (amountValue != null && amountValue > 0) {
                             onConfirm(amountValue, description.ifEmpty { title }, selectedCategory)
                         }
                     },
-                    enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                    enabled = amount.toSafeDouble()?.let { it > 0 } == true,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(positiveLabel)
@@ -523,7 +531,7 @@ private fun AdjustBalanceDialog(
             
             SparelyTextField(
                 value = newBalance,
-                onValueChange = { newBalance = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                onValueChange = { newBalance = it.filterCurrencyInput() },
                 label = { Text(stringResource(R.string.main_account_new_balance)) },
                 prefix = { Text(stringResource(R.string.currency_prefix)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -546,12 +554,12 @@ private fun AdjustBalanceDialog(
             ) {
                 SparelyButton(
                     onClick = {
-                        val balanceValue = newBalance.toDoubleOrNull()
+                        val balanceValue = newBalance.toSafeDouble()
                         if (balanceValue != null && balanceValue >= 0) {
                             onConfirm(balanceValue, reason.ifEmpty { context.getString(R.string.main_account_adjustment_default_reason) })
                         }
                     },
-                    enabled = newBalance.toDoubleOrNull()?.let { it >= 0 } == true,
+                    enabled = newBalance.toSafeDouble()?.let { it >= 0 } == true,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.main_account_adjust_button))

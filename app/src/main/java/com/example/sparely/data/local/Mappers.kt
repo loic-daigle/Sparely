@@ -401,7 +401,8 @@ fun VaultBalanceAdjustmentEntity.toDomain(): VaultBalanceAdjustment = VaultBalan
     delta = delta,
     resultingBalance = resultingBalance,
     createdAt = createdAt,
-    reason = reason
+    reason = reason,
+    relatedExpenseId = relatedExpenseId
 )
 
 fun VaultBalanceAdjustment.toEntity(): VaultBalanceAdjustmentEntity = VaultBalanceAdjustmentEntity(
@@ -411,7 +412,8 @@ fun VaultBalanceAdjustment.toEntity(): VaultBalanceAdjustmentEntity = VaultBalan
     delta = delta,
     resultingBalance = resultingBalance,
     createdAt = createdAt,
-    reason = reason
+    reason = reason,
+    relatedExpenseId = relatedExpenseId
 )
 
 fun SmartVaultWithSchedules.toDomain(): SmartVault {
@@ -531,7 +533,7 @@ fun Store.toEntity(): StoreEntity = StoreEntity(
 fun PaymentMethodEntity.toDomain(): PaymentMethod = PaymentMethod(
     id = id,
     name = name,
-    type = PaymentMethodType.valueOf(type),
+    type = safeEnumValueOf(type, PaymentMethodType.OTHER),
     defaultDeductFromMainAccount = defaultDeductFromMainAccount,
     isDefault = isDefault,
     iconName = iconName,

@@ -105,8 +105,9 @@ class ProjectionAndNecessityTest {
         amount = 800.0,
         category = category,
         frequency = RecurringFrequency.WEEKLY,
-        startDate = today.minusMonths(3),
-        lastProcessedDate = today.minusDays(2), // next due in 5 days
+        // Weekly schedule anchored so the last run was 2 days ago and the next is due in 5 days.
+        startDate = today.minusDays(2).minusWeeks(13),
+        lastProcessedDate = today.minusDays(2),
         necessityOverride = override
     )
 

@@ -1,6 +1,9 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.*
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -1683,7 +1686,7 @@ private fun RefundExpenseDialog(
     onDismiss: () -> Unit
 ) {
     val maxRefundable = expense.amount - expense.refundedAmount
-    var amountText by remember { mutableStateOf(maxRefundable.toString()) }
+    var amountText by remember { mutableStateOf(maxRefundable.toInputString()) }
     var selectedItemIds by remember { mutableStateOf(emptySet<Long>()) }
     var showError by remember { mutableStateOf(false) }
     var wasManuallyEdited by remember { mutableStateOf(false) }
@@ -1797,7 +1800,7 @@ private fun RefundExpenseDialog(
                 SparelyTextField(
                     value = amountText,
                     onValueChange = { 
-                        amountText = it.filter { c -> c.isDigit() || c == '.' }
+                        amountText = it.filterCurrencyInput()
                         wasManuallyEdited = true
                     },
                     label = { Text("Refund Amount") },
@@ -1813,13 +1816,13 @@ private fun RefundExpenseDialog(
             ) {
                 SparelyButton(
                     onClick = {
-                        val refundAmt = amountText.toDoubleOrNull() ?: 0.0
+                        val refundAmt = amountText.toSafeDouble() ?: 0.0
                         if (refundAmt > 0 && refundAmt <= maxRefundable + 0.01) {
                             onConfirm(refundAmt, selectedItemIds.toList())
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = (amountText.toDoubleOrNull() ?: 0.0) > 0 && (amountText.toDoubleOrNull() ?: 0.0) <= maxRefundable + 0.01
+                    enabled = (amountText.toSafeDouble() ?: 0.0) > 0 && (amountText.toSafeDouble() ?: 0.0) <= maxRefundable + 0.01
                 ) {
                     Text("Refund")
                 }

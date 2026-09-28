@@ -1,6 +1,9 @@
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.foundation.background
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -568,7 +571,7 @@ private fun EditAmountDialog(
     onDismiss: () -> Unit,
     onConfirm: (Double) -> Unit
 ) {
-    var amountText by remember { mutableStateOf(initialAmount.toString()) }
+    var amountText by remember { mutableStateOf(initialAmount.toInputString()) }
     
     SparelyAlertDialog(
         onDismissRequest = onDismiss,
@@ -576,7 +579,7 @@ private fun EditAmountDialog(
         text = {
             SparelyTextField(
                 value = amountText,
-                onValueChange = { amountText = it },
+                onValueChange = { amountText = it.filterCurrencyInput() },
                 label = { Text("Amount") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
@@ -586,7 +589,7 @@ private fun EditAmountDialog(
          confirmButton = {
             SparelyTextButton(
                 onClick = {
-                    val newAmount = amountText.toDoubleOrNull()
+                    val newAmount = amountText.toSafeDouble()
                     if (newAmount != null && newAmount > 0) {
                         onConfirm(newAmount)
                     }

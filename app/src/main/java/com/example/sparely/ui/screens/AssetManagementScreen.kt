@@ -1,5 +1,6 @@
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -527,7 +528,7 @@ private fun AssetBottomSheet(
 
                 SparelyTextField(
                     value = assetPriceText,
-                    onValueChange = { assetPriceText = it },
+                    onValueChange = { assetPriceText = it.filterCurrencyInput() },
                     label = { Text("Asset Cost (Optional)") },
                     modifier = Modifier.fillMaxWidth(),
                     prefix = { Text("$") },
@@ -687,7 +688,7 @@ private fun AssetBottomSheet(
                                 name = name,
                                 description = description.ifBlank { null },
                                 category = selectedCategory,
-                                assetPrice = assetPriceText.toDoubleOrNull() ?: 0.0,
+                                assetPrice = assetPriceText.toSafeDouble() ?: 0.0,
                                 createdAt = asset?.createdAt ?: LocalDateTime.now(),
                                 archived = asset?.archived ?: false,
                                 totalSpending = asset?.totalSpending ?: 0.0,

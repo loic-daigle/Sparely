@@ -1,5 +1,6 @@
 package com.example.sparely.ui.screens
 
+import com.example.sparely.domain.model.nextOccurrenceAfter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
@@ -1716,38 +1717,24 @@ private fun calculateNextDue(expense: RecurringExpense, today: LocalDate = Local
         // Start date is in the past, so calculate next occurrence from start date
         var nextDue = expense.startDate
         while (nextDue.isBefore(today)) {
-            nextDue = addFrequencyInterval(nextDue, expense.frequency)
+            nextDue = expense.nextOccurrenceAfter(nextDue)
         }
         expense.endDate?.let { if (nextDue.isAfter(it)) return null }
         return nextDue
     }
 
     // Already been processed at least once, calculate next from last processed date
-    var nextDue = addFrequencyInterval(expense.lastProcessedDate, expense.frequency)
+    var nextDue = expense.nextOccurrenceAfter(expense.lastProcessedDate)
 
     // If next due is in the past, keep advancing until we reach a future date
     while (nextDue.isBefore(today)) {
-        nextDue = addFrequencyInterval(nextDue, expense.frequency)
+        nextDue = expense.nextOccurrenceAfter(nextDue)
     }
 
     expense.endDate?.let { if (nextDue.isAfter(it)) return null }
     return nextDue
 }
 
-/**
- * Add one frequency interval to a date.
- * For monthly/quarterly/yearly, this preserves the day of month (e.g., 25th stays 25th).
- */
-private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
-    return when (frequency) {
-        RecurringFrequency.DAILY -> date.plusDays(1)
-        RecurringFrequency.WEEKLY -> date.plusWeeks(1)
-        RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
-        RecurringFrequency.MONTHLY -> date.plusMonths(1)
-        RecurringFrequency.QUARTERLY -> date.plusMonths(3)
-        RecurringFrequency.YEARLY -> date.plusYears(1)
-    }
-}
 
 
 

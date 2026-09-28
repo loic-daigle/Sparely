@@ -1,5 +1,6 @@
 package com.example.sparely.widget
 
+import com.example.sparely.domain.model.nextOccurrenceAfter
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -327,11 +328,11 @@ private fun computeUpcomingRecurring(
         .filter { it.isActive }
         .mapNotNull { expense ->
             val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
-            var nextDue = addFrequencyInterval(baseDate, expense.frequency)
+            var nextDue = expense.nextOccurrenceAfter(baseDate)
             
             // Advance until we reach a future date
             while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
-                nextDue = addFrequencyInterval(nextDue, expense.frequency)
+                nextDue = expense.nextOccurrenceAfter(nextDue)
             }
             
             expense.endDate?.let { end ->
@@ -344,20 +345,6 @@ private fun computeUpcomingRecurring(
         .sortedBy { it.dueDate }
 }
 
-/**
- * Add one frequency interval to a date.
- * For monthly/quarterly/yearly, this preserves the day of month.
- */
-private fun addFrequencyInterval(date: LocalDate, frequency: com.example.sparely.domain.model.RecurringFrequency): LocalDate {
-    return when (frequency) {
-        com.example.sparely.domain.model.RecurringFrequency.DAILY -> date.plusDays(1)
-        com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> date.plusWeeks(1)
-        com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
-        com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> date.plusMonths(1)
-        com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> date.plusMonths(3)
-        com.example.sparely.domain.model.RecurringFrequency.YEARLY -> date.plusYears(1)
-    }
-}
 
 private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = NextRecurringSummary(
     description = recurringExpense.description,

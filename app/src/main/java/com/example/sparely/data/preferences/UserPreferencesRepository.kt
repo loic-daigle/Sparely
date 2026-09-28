@@ -27,6 +27,8 @@ import com.example.sparely.setAppLocale
 import com.example.sparely.domain.model.CountryProfiles
 import com.example.sparely.domain.model.ExpenseHistoryRetention
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.DayOfWeek
@@ -36,16 +38,42 @@ import kotlin.math.roundToLong
 
 private const val DATASTORE_NAME = "sparely_settings"
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = DATASTORE_NAME)
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = DATASTORE_NAME,
+    // A corrupted settings file would otherwise throw on every read and brick the app.
+    corruptionHandler = androidx.datastore.core.handlers.ReplaceFileCorruptionHandler { emptyPreferences() }
+)
 
 class UserPreferencesRepository(private val context: Context) {
 
-    val settingsFlow: Flow<SparelySettings> = context.dataStore.data.map { preferences ->
-        preferences.toSettings()
+    val settingsFlow: Flow<SparelySettings> = context.dataStore.data
+        .catch { e ->
+            // Transient disk errors fall back to defaults instead of crashing collectors.
+            if (e is java.io.IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences -> preferences.toSettings() }
+
+    /**
+     * Wraps DataStore edits and drops any non-finite Double written by the block, so a NaN or
+     * Infinity produced by a calculation can never be persisted (NaN.coerceAtLeast(0.0) is NaN).
+     */
+    private suspend fun editSafely(block: suspend (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+        context.dataStore.edit { prefs ->
+            block(prefs)
+            prefs.asMap().forEach { (key, value) ->
+                if (value is Double && !value.isFinite()) {
+                    @Suppress("UNCHECKED_CAST")
+                    prefs.remove(key as Preferences.Key<Double>)
+                }
+            }
+        }
     }
 
+    /** Reads a Double preference, ignoring NaN/Infinity that may have been stored by older versions. */
+    private fun Preferences.finite(key: Preferences.Key<Double>): Double? = this[key]?.takeIf { it.isFinite() }
+
     suspend fun updateMainOverflowAccountId(accountId: Long?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (accountId != null) {
                 prefs[PreferenceKeys.mainOverflowAccountId] = accountId
             } else {
@@ -55,13 +83,13 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateMinMainAccountBalance(value: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.minMainAccountBalance] = value.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updateAutoCreateAssetThreshold(threshold: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.autoCreateAssetThreshold] = threshold.coerceAtLeast(0.0)
         }
     }
@@ -77,7 +105,7 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun getSettingsSnapshot(): SparelySettings = settingsFlow.first()
 
     suspend fun updatePercentages(percentages: SavingsPercentages) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             val adjusted = percentages.adjustWithinBudget()
             prefs[PreferenceKeys.emergencyPercent] = adjusted.emergency
             prefs[PreferenceKeys.investPercent] = adjusted.invest
@@ -87,31 +115,31 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateRiskLevel(riskLevel: RiskLevel) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.riskLevel] = riskLevel.name
         }
     }
 
     suspend fun toggleAutoRecommendations(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.autoRecommend] = enabled
         }
     }
 
     suspend fun updateIncludeTax(includeTax: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.includeTax] = includeTax
         }
     }
 
     suspend fun updateMonthlyIncome(value: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.monthlyIncome] = value.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updatePaySchedule(schedule: PayScheduleSettings) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.incomeTrackingMode] = schedule.trackingMode.name
             prefs[PreferenceKeys.payInterval] = schedule.interval.name
             prefs[PreferenceKeys.payDefaultNet] = schedule.defaultNetPay.coerceAtLeast(0.0)
@@ -148,25 +176,25 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateTargetSavingsRate(rate: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.targetSavingsRate] = rate.coerceIn(0.0, 1.0)
         }
     }
 
     suspend fun updateSmartAllocationMode(mode: SmartAllocationMode) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.smartAllocationMode] = mode.name
         }
     }
 
     suspend fun updateVaultAllocationMode(mode: VaultAllocationMode) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.vaultAllocationMode] = mode.name
         }
     }
 
     suspend fun updateSavingTaxRate(rate: Double, fromAutomation: Boolean = false) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             val sanitized = rate.coerceIn(0.0, 1.0)
             prefs[PreferenceKeys.savingTaxRate] = sanitized
             if (fromAutomation) {
@@ -178,19 +206,19 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateDynamicSavingTaxEnabled(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.dynamicSavingTaxEnabled] = enabled
         }
     }
     
     suspend fun updateAutoDepositsEnabled(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.autoDepositsEnabled] = enabled
         }
     }
     
     suspend fun updateAutoDepositCheckHour(hour: Int) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.autoDepositCheckHour] = hour.coerceIn(0, 23)
         }
     }
@@ -204,31 +232,31 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateAge(age: Int) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.age] = age.coerceIn(13, 100)
         }
     }
 
     suspend fun updateEducationStatus(status: EducationStatus) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.educationStatus] = status.name
         }
     }
 
     suspend fun updateEmploymentStatus(status: EmploymentStatus) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.employmentStatus] = status.name
         }
     }
 
     suspend fun updateLivingSituation(situation: LivingSituation) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.livingSituation] = situation.name
         }
     }
 
     suspend fun updateOccupation(occupation: String?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (occupation.isNullOrBlank()) {
                 prefs.remove(PreferenceKeys.occupation)
             } else {
@@ -238,43 +266,43 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateMainAccountBalance(balance: Double) {
-        context.dataStore.edit { prefs ->
-            prefs[PreferenceKeys.mainAccountBalance] = balance.coerceAtLeast(0.0)
+        editSafely { prefs ->
+            prefs[PreferenceKeys.mainAccountBalance] = balance
         }
     }
 
     suspend fun updateSavingsAccountBalance(balance: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.savingsAccountBalance] = balance.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updateVaultsBalance(balance: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.vaultsBalance] = balance.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updateSubscriptionTotal(amount: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.subscriptionTotal] = amount.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updateHasDebts(hasDebts: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.hasDebts] = hasDebts
         }
     }
 
     suspend fun updateEmergencyFund(amount: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.emergencyFund] = amount.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updatePrimaryGoal(goal: String?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (goal.isNullOrBlank()) {
                 prefs.remove(PreferenceKeys.primaryGoal)
             } else {
@@ -284,7 +312,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateDisplayName(name: String?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (name.isNullOrBlank()) {
                 prefs.remove(PreferenceKeys.displayName)
             } else {
@@ -294,7 +322,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateBirthday(date: LocalDate?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (date == null) {
                 prefs.remove(PreferenceKeys.birthdayEpochDay)
             } else {
@@ -305,8 +333,8 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun refreshAgeFromBirthday() {
-        context.dataStore.edit { prefs ->
-            val epoch = prefs[PreferenceKeys.birthdayEpochDay] ?: return@edit
+        editSafely { prefs ->
+            val epoch = prefs[PreferenceKeys.birthdayEpochDay] ?: return@editSafely
             val birthday = LocalDate.ofEpochDay(epoch)
             val computed = ChronoUnit.YEARS.between(birthday, LocalDate.now()).coerceAtLeast(0).toInt()
             val stored = prefs[PreferenceKeys.age]
@@ -317,7 +345,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
     
     suspend fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.countryCode] = countryCode
             prefs[PreferenceKeys.languageCode] = languageCode
             prefs[PreferenceKeys.currencyCode] = currencyCode
@@ -341,7 +369,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateBrandfetchClientId(clientId: String?) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             if (clientId.isNullOrBlank()) {
                 prefs.remove(PreferenceKeys.brandfetchClientId)
             } else {
@@ -351,7 +379,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updateExpenseHistoryRetention(retention: ExpenseHistoryRetention) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.expenseHistoryRetention] = retention.name
         }
     }
@@ -361,7 +389,7 @@ class UserPreferencesRepository(private val context: Context) {
         daysBefore: Int,
         hour: Int
     ) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.creditCardReminderEnabled] = enabled
             prefs[PreferenceKeys.creditCardReminderDaysBefore] = daysBefore.coerceIn(1, 14)
             prefs[PreferenceKeys.creditCardReminderHour] = hour.coerceIn(0, 23)
@@ -369,7 +397,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun updatePromptPayOnCreditCardExpense(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.promptPayOnCreditCardExpense] = enabled
         }
     }
@@ -378,51 +406,51 @@ class UserPreferencesRepository(private val context: Context) {
         enabled: Boolean,
         threshold: Int
     ) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.creditCardUtilizationAlertEnabled] = enabled
             prefs[PreferenceKeys.creditCardUtilizationThreshold] = threshold.coerceIn(1, 100)
         }
     }
 
     suspend fun updateBiometricEnabled(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.biometricEnabled] = enabled
         }
     }
 
     suspend fun updateSmartTransferMinimumAmount(amount: Double) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.smartTransferMinimumAmount] = amount.coerceAtLeast(0.0)
         }
     }
 
     suspend fun updateAutoBackupSettings(enabled: Boolean, frequencyDays: Int) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.autoBackupEnabled] = enabled
             prefs[PreferenceKeys.autoBackupFrequencyDays] = frequencyDays.coerceIn(1, 30)
         }
     }
 
     suspend fun updateLastAutoBackupTimestamp(timestamp: Long) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.lastAutoBackupTimestamp] = timestamp
         }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.onboardingCompleted] = completed
         }
     }
 
     suspend fun setJoinedDate(date: LocalDate) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.joinedDateEpochDay] = date.toEpochDay()
         }
     }
 
     suspend fun updateReminders(enabled: Boolean, hour: Int? = null, frequencyDays: Int? = null) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.remindersEnabled] = enabled
             hour?.let { prefs[PreferenceKeys.reminderHour] = it.coerceIn(0, 23) }
             frequencyDays?.let { prefs[PreferenceKeys.reminderFrequencyDays] = it.coerceAtLeast(1) }
@@ -435,7 +463,7 @@ class UserPreferencesRepository(private val context: Context) {
         minute: Int,
         suggestAverage: Boolean
     ) {
-        context.dataStore.edit { prefs ->
+        editSafely { prefs ->
             prefs[PreferenceKeys.paydayReminderEnabled] = enabled
             prefs[PreferenceKeys.paydayReminderHour] = hour.coerceIn(0, 23)
             prefs[PreferenceKeys.paydayReminderMinute] = minute.coerceIn(0, 59)
@@ -445,8 +473,8 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun recordPaycheckHistory(amount: Double) {
         if (amount <= 0.0) return
-        context.dataStore.edit { prefs ->
-            val accumulated = prefs[PreferenceKeys.payHistoryTotal] ?: 0.0
+        editSafely { prefs ->
+            val accumulated = prefs.finite(PreferenceKeys.payHistoryTotal) ?: 0.0
             val count = prefs[PreferenceKeys.payHistoryCount] ?: 0
             prefs[PreferenceKeys.payHistoryTotal] = accumulated + amount
             prefs[PreferenceKeys.payHistoryCount] = count + 1
@@ -456,7 +484,7 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun getPayHistoryStats(): PayHistoryStats {
         val prefs = context.dataStore.data.first()
         val count = prefs[PreferenceKeys.payHistoryCount] ?: 0
-        val total = prefs[PreferenceKeys.payHistoryTotal] ?: 0.0
+        val total = prefs.finite(PreferenceKeys.payHistoryTotal) ?: 0.0
         return PayHistoryStats(count, total)
     }
 
@@ -464,15 +492,15 @@ class UserPreferencesRepository(private val context: Context) {
         val defaults = SparelySettings()
         val scheduleDefaults = defaults.paySchedule
 
-        val emergency = this[PreferenceKeys.emergencyPercent] ?: defaults.defaultPercentages.emergency
-        val invest = this[PreferenceKeys.investPercent] ?: defaults.defaultPercentages.invest
-        val funPercent = this[PreferenceKeys.funPercent] ?: defaults.defaultPercentages.`fun`
-        val safeSplit = this[PreferenceKeys.safeSplit] ?: defaults.defaultPercentages.safeInvestmentSplit
+        val emergency = this.finite(PreferenceKeys.emergencyPercent) ?: defaults.defaultPercentages.emergency
+        val invest = this.finite(PreferenceKeys.investPercent) ?: defaults.defaultPercentages.invest
+        val funPercent = this.finite(PreferenceKeys.funPercent) ?: defaults.defaultPercentages.`fun`
+        val safeSplit = this.finite(PreferenceKeys.safeSplit) ?: defaults.defaultPercentages.safeInvestmentSplit
         val riskLevel = this[PreferenceKeys.riskLevel]?.let { runCatching { RiskLevel.valueOf(it) }.getOrNull() }
             ?: defaults.riskLevel
         val autoRecommend = this[PreferenceKeys.autoRecommend] ?: defaults.autoRecommendationsEnabled
         val includeTax = this[PreferenceKeys.includeTax] ?: defaults.includeTaxByDefault
-        val income = this[PreferenceKeys.monthlyIncome] ?: defaults.monthlyIncome
+        val income = this.finite(PreferenceKeys.monthlyIncome) ?: defaults.monthlyIncome
         val remindersEnabled = this[PreferenceKeys.remindersEnabled] ?: defaults.remindersEnabled
         val reminderHour = this[PreferenceKeys.reminderHour] ?: defaults.reminderHour
         val reminderFrequency = this[PreferenceKeys.reminderFrequencyDays] ?: defaults.reminderFrequencyDays
@@ -481,50 +509,50 @@ class UserPreferencesRepository(private val context: Context) {
     val paydayReminderMinute = this[PreferenceKeys.paydayReminderMinute] ?: defaults.paydayReminderMinute
     val paydaySuggestAverage = this[PreferenceKeys.paydaySuggestAverage] ?: defaults.paydaySuggestAverageIncome
         val age = this[PreferenceKeys.age] ?: defaults.age
-        val joinedDate = this[PreferenceKeys.joinedDateEpochDay]?.let { LocalDate.ofEpochDay(it) }
+        val joinedDate = this[PreferenceKeys.joinedDateEpochDay]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
         val education = this[PreferenceKeys.educationStatus]?.let { runCatching { EducationStatus.valueOf(it) }.getOrNull() }
             ?: defaults.educationStatus
         val employment = this[PreferenceKeys.employmentStatus]?.let { runCatching { EmploymentStatus.valueOf(it) }.getOrNull() } ?: defaults.employmentStatus
         val living = this[PreferenceKeys.livingSituation]?.let { runCatching { LivingSituation.valueOf(it) }.getOrNull() } ?: defaults.livingSituation
         val occupation = this[PreferenceKeys.occupation]
-        val mainAccountBalance = this[PreferenceKeys.mainAccountBalance] ?: 0.0
-        val savingsAccountBalance = this[PreferenceKeys.savingsAccountBalance] ?: 0.0
-        val vaultsBalance = this[PreferenceKeys.vaultsBalance] ?: 0.0
-        val subscriptionTotal = this[PreferenceKeys.subscriptionTotal] ?: 0.0
+        val mainAccountBalance = this.finite(PreferenceKeys.mainAccountBalance) ?: 0.0
+        val savingsAccountBalance = this.finite(PreferenceKeys.savingsAccountBalance) ?: 0.0
+        val vaultsBalance = this.finite(PreferenceKeys.vaultsBalance) ?: 0.0
+        val subscriptionTotal = this.finite(PreferenceKeys.subscriptionTotal) ?: 0.0
         val hasDebts = this[PreferenceKeys.hasDebts] ?: defaults.hasDebts
-        val emergencyFund = this[PreferenceKeys.emergencyFund] ?: defaults.currentEmergencyFund
+        val emergencyFund = this.finite(PreferenceKeys.emergencyFund) ?: defaults.currentEmergencyFund
         val primaryGoal = this[PreferenceKeys.primaryGoal]
         val displayName = this[PreferenceKeys.displayName]
-        val birthday = this[PreferenceKeys.birthdayEpochDay]?.let { LocalDate.ofEpochDay(it) }
+        val birthday = this[PreferenceKeys.birthdayEpochDay]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
 
         val incomeTrackingMode = this[PreferenceKeys.incomeTrackingMode]?.let { runCatching { IncomeTrackingMode.valueOf(it) }.getOrNull() } ?: scheduleDefaults.trackingMode
         val payInterval = this[PreferenceKeys.payInterval]?.let { runCatching { PayInterval.valueOf(it) }.getOrNull() } ?: scheduleDefaults.interval
-        val payDefaultNet = this[PreferenceKeys.payDefaultNet] ?: scheduleDefaults.defaultNetPay
-        val payDefaultSaveRate = this[PreferenceKeys.payDefaultSaveRate] ?: scheduleDefaults.defaultSaveRate
-        val payWeeklyDay = this[PreferenceKeys.payWeeklyDay]?.let { DayOfWeek.of(it) } ?: scheduleDefaults.weeklyDayOfWeek
+        val payDefaultNet = this.finite(PreferenceKeys.payDefaultNet) ?: scheduleDefaults.defaultNetPay
+        val payDefaultSaveRate = this.finite(PreferenceKeys.payDefaultSaveRate) ?: scheduleDefaults.defaultSaveRate
+        val payWeeklyDay = this[PreferenceKeys.payWeeklyDay]?.takeIf { it in 1..7 }?.let { DayOfWeek.of(it) } ?: scheduleDefaults.weeklyDayOfWeek
         val paySemiDay1 = this[PreferenceKeys.paySemiDay1] ?: scheduleDefaults.semiMonthlyDay1
         val paySemiDay2 = this[PreferenceKeys.paySemiDay2] ?: scheduleDefaults.semiMonthlyDay2
         val payMonthlyDay = this[PreferenceKeys.payMonthlyDay] ?: scheduleDefaults.monthlyDay
         val payCustomDays = this[PreferenceKeys.payCustomDays]
-        val payNextDate = this[PreferenceKeys.payNextDate]?.let { LocalDate.ofEpochDay(it) }
-        val payLastDate = this[PreferenceKeys.payLastDate]?.let { LocalDate.ofEpochDay(it) }
-        val payLastAmount = this[PreferenceKeys.payLastAmount] ?: scheduleDefaults.lastPayAmount
+        val payNextDate = this[PreferenceKeys.payNextDate]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
+        val payLastDate = this[PreferenceKeys.payLastDate]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
+        val payLastAmount = this.finite(PreferenceKeys.payLastAmount) ?: scheduleDefaults.lastPayAmount
         val payAutoDistribute = this[PreferenceKeys.payAutoDistribute] ?: scheduleDefaults.autoDistributeToVaults
         val payAutoPending = this[PreferenceKeys.payAutoPending] ?: scheduleDefaults.autoCreatePendingTransfers
         val payDynamicSaveEnabled = this[PreferenceKeys.payDynamicSaveEnabled] ?: scheduleDefaults.dynamicSaveRateEnabled
-        val payLastComputedSaveRate = this[PreferenceKeys.payLastComputedSaveRate]
+        val payLastComputedSaveRate = this.finite(PreferenceKeys.payLastComputedSaveRate)
 
         val smartAllocationMode = this[PreferenceKeys.smartAllocationMode]?.let { runCatching { SmartAllocationMode.valueOf(it) }.getOrNull() } ?: defaults.smartAllocationMode
-        val targetSavingsRate = this[PreferenceKeys.targetSavingsRate] ?: defaults.targetSavingsRate
-        val savingTaxRate = this[PreferenceKeys.savingTaxRate] ?: defaults.savingTaxRate
+        val targetSavingsRate = this.finite(PreferenceKeys.targetSavingsRate) ?: defaults.targetSavingsRate
+        val savingTaxRate = this.finite(PreferenceKeys.savingTaxRate) ?: defaults.savingTaxRate
         val vaultAllocationMode = this[PreferenceKeys.vaultAllocationMode]?.let { runCatching { VaultAllocationMode.valueOf(it) }.getOrNull() } ?: defaults.vaultAllocationMode
         val dynamicSavingTaxEnabled = this[PreferenceKeys.dynamicSavingTaxEnabled] ?: defaults.dynamicSavingTaxEnabled
-        val lastComputedSavingTaxRate = this[PreferenceKeys.lastComputedSavingTaxRate]
+        val lastComputedSavingTaxRate = this.finite(PreferenceKeys.lastComputedSavingTaxRate)
         
         val countryCode = this[PreferenceKeys.countryCode] ?: defaults.regionalSettings.countryCode
         val languageCode = this[PreferenceKeys.languageCode] ?: defaults.regionalSettings.languageCode
         val currencyCode = this[PreferenceKeys.currencyCode] ?: defaults.regionalSettings.currencyCode
-        val customIncomeTaxRate = this[PreferenceKeys.customIncomeTaxRate]
+        val customIncomeTaxRate = this.finite(PreferenceKeys.customIncomeTaxRate)
         val brandfetchClientId = this[PreferenceKeys.brandfetchClientId]
         val expenseHistoryRetention = this[PreferenceKeys.expenseHistoryRetention]?.let { runCatching { ExpenseHistoryRetention.valueOf(it) }.getOrNull() } ?: ExpenseHistoryRetention.INDEFINITELY
         val creditCardReminderEnabled = this[PreferenceKeys.creditCardReminderEnabled] ?: defaults.creditCardReminderEnabled
@@ -609,13 +637,13 @@ class UserPreferencesRepository(private val context: Context) {
             creditCardUtilizationAlertEnabled = creditCardUtilizationAlertEnabled,
             creditCardUtilizationThreshold = creditCardUtilizationThreshold,
             biometricEnabled = biometricEnabled,
-            smartTransferMinimumAmount = this[PreferenceKeys.smartTransferMinimumAmount] ?: 0.0,
+            smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
             lastAutoBackupTimestamp = this[PreferenceKeys.lastAutoBackupTimestamp],
             mainOverflowAccountId = this[PreferenceKeys.mainOverflowAccountId],
-            minMainAccountBalance = this[PreferenceKeys.minMainAccountBalance] ?: 0.0,
-            autoCreateAssetThreshold = this[PreferenceKeys.autoCreateAssetThreshold] ?: 0.0
+            minMainAccountBalance = this.finite(PreferenceKeys.minMainAccountBalance) ?: 0.0,
+            autoCreateAssetThreshold = this.finite(PreferenceKeys.autoCreateAssetThreshold) ?: 0.0
         )
     }
     private object PreferenceKeys {

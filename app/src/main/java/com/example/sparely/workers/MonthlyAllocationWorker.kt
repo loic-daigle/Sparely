@@ -24,7 +24,8 @@ class MonthlyAllocationWorker(
             // Read settings snapshot for monthly income and main account balance
             val settings = prefs.getSettingsSnapshot()
             val monthlyIncome = settings.monthlyIncome.coerceAtLeast(0.0)
-            val mainAccountBalance = settings.mainAccountBalance.coerceAtLeast(0.0)
+            // Pass the real (possibly overdrawn) balance: a negative balance means a bigger buffer shortfall.
+            val mainAccountBalance = settings.mainAccountBalance
 
             // Run allocation (service persists allocation suggestions)
             container.smartAllocationService.runMonthlyAllocation(

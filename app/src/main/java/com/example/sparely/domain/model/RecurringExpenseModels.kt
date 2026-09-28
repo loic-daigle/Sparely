@@ -68,6 +68,47 @@ enum class RecurringFrequency(val daysInterval: Int) {
 }
 
 /**
+ * Returns the [index]-th occurrence of a schedule that started on [anchor].
+ * Computed from the anchor (not by repeatedly adding to the previous date) so month-based
+ * schedules keep their day of month: Jan 31 -> Feb 28 -> Mar 31, instead of drifting to the 28th.
+ */
+fun RecurringFrequency.occurrenceAt(anchor: LocalDate, index: Long): LocalDate = when (this) {
+    RecurringFrequency.DAILY -> anchor.plusDays(index)
+    RecurringFrequency.WEEKLY -> anchor.plusWeeks(index)
+    RecurringFrequency.BIWEEKLY -> anchor.plusWeeks(2 * index)
+    RecurringFrequency.MONTHLY -> anchor.plusMonths(index)
+    RecurringFrequency.QUARTERLY -> anchor.plusMonths(3 * index)
+    RecurringFrequency.YEARLY -> anchor.plusYears(index)
+}
+
+/**
+ * First occurrence of the schedule anchored on [anchor] that falls strictly after [date].
+ * If [date] is before the anchor, the anchor itself is returned.
+ */
+fun RecurringFrequency.nextOccurrenceAfter(anchor: LocalDate, date: LocalDate): LocalDate {
+    if (date.isBefore(anchor)) return anchor
+    val estimate = when (this) {
+        RecurringFrequency.DAILY -> java.time.temporal.ChronoUnit.DAYS.between(anchor, date)
+        RecurringFrequency.WEEKLY -> java.time.temporal.ChronoUnit.DAYS.between(anchor, date) / 7
+        RecurringFrequency.BIWEEKLY -> java.time.temporal.ChronoUnit.DAYS.between(anchor, date) / 14
+        RecurringFrequency.MONTHLY -> java.time.temporal.ChronoUnit.MONTHS.between(anchor, date)
+        RecurringFrequency.QUARTERLY -> java.time.temporal.ChronoUnit.MONTHS.between(anchor, date) / 3
+        RecurringFrequency.YEARLY -> java.time.temporal.ChronoUnit.YEARS.between(anchor, date)
+    }
+    var index = (estimate - 1).coerceAtLeast(0)
+    var candidate = occurrenceAt(anchor, index)
+    while (!candidate.isAfter(date)) {
+        index++
+        candidate = occurrenceAt(anchor, index)
+    }
+    return candidate
+}
+
+/** Next scheduled date for this recurring expense strictly after [date], anchored on its start date. */
+fun RecurringExpense.nextOccurrenceAfter(date: LocalDate): LocalDate =
+    frequency.nextOccurrenceAfter(startDate, date)
+
+/**
  * Input for creating recurring expense.
  */
 data class RecurringExpenseInput(
