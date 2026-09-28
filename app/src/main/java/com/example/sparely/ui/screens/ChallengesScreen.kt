@@ -21,6 +21,9 @@ import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SingleLineText
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.theme.MaterialSymbolIcon
@@ -37,68 +40,69 @@ fun ChallengesScreen(
 ) {
     var showChallengeDialog by remember { mutableStateOf(false) }
     
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                IconButton(onClick = { showChallengeDialog = true }) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, stringResource(R.string.challenges_new_title))
+    val runningChallenges = uiState.activeChallenges.filter { it.isActive && !it.isCompleted }
+    val completedChallenges = uiState.activeChallenges.filter { it.isCompleted }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            // Content padding (not Modifier.padding) avoids clipping; bottom room for the FAB
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Running challenges first: they're what people come here to check
+            if (runningChallenges.isNotEmpty()) {
+                item(key = "header_active") {
+                    Text(
+                        text = stringResource(R.string.challenges_active_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                items(runningChallenges, key = { "active_${it.id}" }) { challenge ->
+                    ChallengeCard(challenge)
+                }
+            } else {
+                // Nothing running (none yet, or all finished): invite starting one
+                item(key = "empty") {
+                    EmptyChallengesState(onStartChallenge = { showChallengeDialog = true })
+                }
+                item(key = "overview") {
+                    ChallengeOverviewCard()
+                }
+            }
+
+            if (uiState.achievements.isNotEmpty()) {
+                item(key = "achievements") {
+                    AchievementsSection(uiState.achievements.take(5))
+                }
+            }
+
+            if (completedChallenges.isNotEmpty()) {
+                item(key = "header_completed") {
+                    Text(
+                        text = stringResource(R.string.challenges_completed_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                items(completedChallenges, key = { "completed_${it.id}" }) { challenge ->
+                    CompletedChallengeCard(challenge)
                 }
             }
         }
 
-        item {
-            ChallengeOverviewCard()
-        }
-
-        if (uiState.achievements.isNotEmpty()) {
-            item {
-                AchievementsSection(uiState.achievements.take(5))
-            }
-        }
-
-        if (uiState.activeChallenges.isNotEmpty()) {
-            item {
-                Text(
-                    text = stringResource(R.string.challenges_active_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            items(uiState.activeChallenges.filter { it.isActive && !it.isCompleted }) { challenge ->
-                ChallengeCard(challenge)
-            }
-        }
-
-        val completedChallenges = uiState.activeChallenges.filter { it.isCompleted }
-        if (completedChallenges.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.challenges_completed_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            items(completedChallenges) { challenge ->
-                CompletedChallengeCard(challenge)
-            }
-        }
-
-        if (uiState.activeChallenges.isEmpty()) {
-            item {
-                EmptyChallengesState(onStartChallenge = { showChallengeDialog = true })
-            }
-        }
+        ExtendedFloatingActionButton(
+            onClick = { showChallengeDialog = true },
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null) },
+            text = { Text(stringResource(R.string.challenges_new_title)) },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
     }
 
     if (showChallengeDialog) {
@@ -123,21 +127,21 @@ fun ChallengeCard(challenge: SavingsChallenge) {
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = challenge.title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = challenge.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
@@ -167,25 +171,26 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                         text = challenge.currentAmount.formatCurrency(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(R.string.challenges_target_label, challenge.targetAmount.formatCurrency()),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 LinearProgressIndicator(
-                progress = { challenge.progressPercent.toFloat() },
-                modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(12.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    progress = { challenge.progressPercent.toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -193,7 +198,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 Text(
                     text = stringResource(R.string.challenges_percent_complete, "${String.format("%.0f", challenge.progressPercent * 100)}%"),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -213,7 +218,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                         text = stringResource(R.string.challenges_streak_label, challenge.streakDays),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -262,14 +267,14 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = stringResource(R.string.challenges_days_remaining, challenge.daysRemaining),
+                    text = stringResource(R.string.challenges_days_remaining, challenge.daysRemaining.coerceAtLeast(0)),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = stringResource(R.string.challenges_ends_label, challenge.endDate.format(DateTimeFormatter.ofPattern("MMM d"))),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -299,7 +304,7 @@ private fun ChallengeOverviewCard() {
             Text(
                 text = stringResource(R.string.challenges_help_desc_2),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -319,11 +324,14 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 MaterialSymbolIcon(
                     icon = MaterialSymbols.CHECK_CIRCLE,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.success,
                     modifier = Modifier.size(32.dp),
                     size = 32.dp
                 )
@@ -396,7 +404,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
                         Text(
                             text = achievement.description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
