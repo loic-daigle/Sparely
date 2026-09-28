@@ -2,6 +2,10 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.MenuDefaults
@@ -807,7 +811,7 @@ private fun RecurringExpenseDialog(
     var expenseType by remember { mutableStateOf(expense?.type ?: prefillInput?.type ?: ExpenseType.PRODUCT) }
     var frequency by remember { mutableStateOf(expense?.frequency ?: prefillInput?.frequency ?: RecurringFrequency.MONTHLY) }
     var startDate by remember { mutableStateOf(expense?.startDate ?: prefillInput?.startDate ?: LocalDate.now()) }
-    var endDateText by remember { mutableStateOf(expense?.endDate?.toString().orEmpty()) }
+    var endDate by remember { mutableStateOf(expense?.endDate ?: prefillInput?.endDate) }
     var reminderDays by remember { mutableStateOf(expense?.reminderDaysBefore?.toString() ?: prefillInput?.reminderDaysBefore?.toString() ?: "2") }
     var autoLog by remember { mutableStateOf(expense?.autoLog ?: prefillInput?.autoLog ?: true) }
     var executeAutomatically by remember { mutableStateOf(expense?.executeAutomatically ?: prefillInput?.executeAutomatically ?: false) }
@@ -816,8 +820,13 @@ private fun RecurringExpenseDialog(
     var deductFromMainAccount by remember { mutableStateOf(expense?.deductFromMainAccount ?: prefillInput?.deductFromMainAccount ?: false) }
     var deductFromVaultId by remember { mutableStateOf(expense?.deductedFromVaultId ?: prefillInput?.deductedFromVaultId) }
     var showError by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var isVariableAmount by remember { mutableStateOf(expense?.isVariableAmount ?: false) }
-    var selectedAssetAllocations by remember { mutableStateOf<Map<Long, Double>>(prefillInput?.assetAllocations ?: emptyMap()) }
+    // Editing starts from the saved links; otherwise saving an edit would wipe them
+    var selectedAssetAllocations by remember {
+        mutableStateOf<Map<Long, Double>>(expense?.assetAllocations ?: prefillInput?.assetAllocations ?: emptyMap())
+    }
     var assetSelectorExpanded by remember { mutableStateOf(false) }
     var necessityOverride by remember { mutableStateOf(expense?.necessityOverride ?: prefillInput?.necessityOverride) }
 
@@ -830,7 +839,12 @@ private fun RecurringExpenseDialog(
     var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
 
     // Line Items State
-    val expenseItems = remember { androidx.compose.runtime.mutableStateListOf<ExpenseItem>() }
+    // Editing starts from the saved items; otherwise saving an edit would wipe the itemized receipt
+    val expenseItems = remember {
+        androidx.compose.runtime.mutableStateListOf<ExpenseItem>().apply {
+            addAll(expense?.items ?: prefillInput?.items ?: emptyList())
+        }
+    }
 
     // Collapsible section states
     var allocationsExpanded by remember { mutableStateOf(false) }
@@ -890,40 +904,35 @@ private fun RecurringExpenseDialog(
 
                 // ========== SECTION 1: CRITICAL FIELDS ==========
                 FormSection(
-                    title = "Required Information",
+                    title = stringResource(R.string.expense_entry_section_basics),
                     isCollapsible = false,
                     defaultExpanded = true
                 ) { _ ->
-                    // Description (Required)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        RequiredFieldLabel(stringResource(R.string.onboarding_financial_description_label))
-                        SparelyTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            label = { Text(stringResource(R.string.onboarding_financial_description_label)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
+                    SparelyTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text(stringResource(R.string.onboarding_financial_description_label)) },
+                        isError = showError && description.isBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
-                    // Amount (Required)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        RequiredFieldLabel(stringResource(R.string.onboarding_financial_amount_label))
-                        SparelyTextField(
-                            value = amountText,
-                            onValueChange = { amountText = it.filterCurrencyInput() },
-                            label = { Text(stringResource(R.string.onboarding_financial_amount_label)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
+                    SparelyTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(R.string.onboarding_financial_amount_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = showError && (amountText.toSafeDouble() ?: 0.0) <= 0.0,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
                     // Category (Required)
                     CategorySelector(selected = category, onSelect = { category = it }, isRequired = true)
 
                     // Necessity: how essential is this bill (defaults from category)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("How essential is it?", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.recurring_form_necessity_title), style = MaterialTheme.typography.labelLarge)
                         val effectiveNecessity = necessityOverride ?: category.defaultNecessity()
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Necessity.values().forEach { option ->
@@ -1009,13 +1018,13 @@ private fun RecurringExpenseDialog(
                                         )
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = "You'll confirm the amount",
+                                                text = stringResource(R.string.recurring_form_variable_title),
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.tertiary
                                             )
                                             Text(
-                                                text = "When this bill is due, you'll receive a notification asking for the actual amount charged. We'll use that to update our prediction for next time.",
+                                                text = stringResource(R.string.recurring_form_variable_desc),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.padding(top = 4.dp)
@@ -1030,7 +1039,7 @@ private fun RecurringExpenseDialog(
 
                 // ========== SECTION 2: SCHEDULE ==========
                 FormSection(
-                    title = "Schedule",
+                    title = stringResource(R.string.recurring_form_section_schedule),
                     isCollapsible = false,
                     defaultExpanded = true
                 ) { _ ->
@@ -1044,18 +1053,35 @@ private fun RecurringExpenseDialog(
                         )
                     }
 
-                    // End Date (Optional)
+                    // End Date (Optional): picked from a calendar, never typed
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(R.string.onboarding_financial_end_date_label), style = MaterialTheme.typography.titleSmall)
-                        SparelyTextField(
-                            value = endDateText,
-                            onValueChange = { endDateText = it },
-                            label = { Text(stringResource(R.string.onboarding_financial_end_date_label)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            placeholder = { Text("Optional") }
-                        )
-                        FieldDescription("Leave empty for no end date")
+                        val currentEndDate = endDate
+                        if (currentEndDate == null) {
+                            Text(stringResource(R.string.onboarding_financial_end_date_label), style = MaterialTheme.typography.titleSmall)
+                            FieldDescription(stringResource(R.string.recurring_form_no_end_date))
+                            SparelyTonalButton(
+                                onClick = { endDate = startDate.plusYears(1) },
+                                icon = { MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null, size = 18.dp) }
+                            ) {
+                                Text(stringResource(R.string.recurring_form_add_end_date))
+                            }
+                        } else {
+                            DateSelector(
+                                label = stringResource(R.string.onboarding_financial_end_date_label),
+                                date = currentEndDate,
+                                onDateSelected = { endDate = it }
+                            )
+                            if (currentEndDate.isBefore(startDate)) {
+                                Text(
+                                    text = stringResource(R.string.recurring_form_end_before_start),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            SparelyTextButton(onClick = { endDate = null }) {
+                                Text(stringResource(R.string.recurring_form_remove_end_date))
+                            }
+                        }
                     }
 
                     // Reminder Days Before
@@ -1065,16 +1091,17 @@ private fun RecurringExpenseDialog(
                             value = reminderDays,
                             onValueChange = { reminderDays = it.filter { ch -> ch.isDigit() } },
                             label = { Text(stringResource(R.string.onboarding_financial_reminder_label)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        FieldDescription("Remind this many days before due date")
+                        FieldDescription(stringResource(R.string.recurring_form_reminder_help))
                     }
                 }
 
                 // ========== SECTION 3: FINANCIAL ==========
                 FormSection(
-                    title = "Payment & Financial Settings",
+                    title = stringResource(R.string.expense_entry_section_payment),
                     isCollapsible = false,
                     defaultExpanded = true
                 ) { _ ->
@@ -1182,7 +1209,7 @@ private fun RecurringExpenseDialog(
                                     deductFromVaultId = selectedVault?.id
                                 },
                                 optionLabel = { selectedVault ->
-                                    selectedVault?.name ?: "None"
+                                    selectedVault?.name ?: stringResource(R.string.expense_entry_none)
                                 },
                                 supportingText = { vault ->
                                     if (vault == null) {
@@ -1198,10 +1225,10 @@ private fun RecurringExpenseDialog(
 
                 // ========== SECTION 4: ALLOCATIONS (COLLAPSIBLE) ==========
                 FormSection(
-                    title = "Asset Allocations",
+                    title = stringResource(R.string.recurring_form_section_assets),
                     isCollapsible = true,
                     defaultExpanded = allocationsExpanded,
-                    helpText = "Link assets and adjust allocation percentages"
+                    helpText = stringResource(R.string.recurring_form_section_assets_help)
                 ) { isExpanded ->
                     allocationsExpanded = isExpanded
 
@@ -1211,12 +1238,12 @@ private fun RecurringExpenseDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Link to Assets",
+                                text = stringResource(R.string.expense_entry_link_assets_title),
                                 style = MaterialTheme.typography.titleSmall
                             )
                             if (selectedAssetAllocations.isEmpty()) {
                                 Text(
-                                    text = "No assets linked to this expense",
+                                    text = stringResource(R.string.expense_entry_no_assets_linked),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1259,7 +1286,7 @@ private fun RecurringExpenseDialog(
                                                     ) {
                                                         MaterialSymbolIcon(
                                                             icon = MaterialSymbols.CLOSE,
-                                                            contentDescription = "Remove asset",
+                                                            contentDescription = stringResource(R.string.expense_entry_remove_asset),
                                                             tint = MaterialTheme.colorScheme.error
                                                         )
                                                     }
@@ -1272,7 +1299,7 @@ private fun RecurringExpenseDialog(
                                                         horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
                                                         Text(
-                                                            "Allocation",
+                                                            stringResource(R.string.expense_entry_asset_allocation),
                                                             style = MaterialTheme.typography.labelSmall
                                                         )
                                                         Text(
@@ -1304,7 +1331,7 @@ private fun RecurringExpenseDialog(
                                     onClick = { assetSelectorExpanded = true },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Add Asset")
+                                    Text(stringResource(R.string.expense_entry_add_asset))
                                 }
                             }
                         }
@@ -1323,16 +1350,16 @@ private fun RecurringExpenseDialog(
                             }
                         },
                         onDismiss = { assetSelectorExpanded = false },
-                        title = "Link Asset to Subscription"
+                        title = stringResource(R.string.recurring_form_link_asset_title)
                     )
                 }
 
                 // ========== SECTION 5: DETAILS (COLLAPSIBLE) ==========
                 FormSection(
-                    title = "Additional Settings",
+                    title = stringResource(R.string.recurring_form_section_automation),
                     isCollapsible = true,
                     defaultExpanded = detailsExpanded,
-                    helpText = "Optional automation and tracking settings"
+                    helpText = stringResource(R.string.recurring_form_section_automation_help)
                 ) { isExpanded ->
                     detailsExpanded = isExpanded
 
@@ -1354,7 +1381,7 @@ private fun RecurringExpenseDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.recurring_auto_log_history), style = MaterialTheme.typography.bodyMedium)
-                            FieldDescription("Automatically log this expense when due")
+                            FieldDescription(stringResource(R.string.recurring_form_autolog_help))
                         }
                         Switch(checked = autoLog, onCheckedChange = { autoLog = it }, modifier = Modifier.scale(0.8f))
                     }
@@ -1367,7 +1394,7 @@ private fun RecurringExpenseDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.recurring_execute_auto), style = MaterialTheme.typography.bodyMedium)
-                            FieldDescription("Execute this recurring expense automatically")
+                            FieldDescription(stringResource(R.string.recurring_form_execute_help))
                         }
                         Switch(checked = executeAutomatically, onCheckedChange = { executeAutomatically = it }, modifier = Modifier.scale(0.8f))
                     }
@@ -1375,10 +1402,10 @@ private fun RecurringExpenseDialog(
 
                 // ========== SECTION 6: LINE ITEMS (COLLAPSIBLE) ==========
                 FormSection(
-                    title = "Itemized Details",
+                    title = stringResource(R.string.expense_entry_section_items),
                     isCollapsible = true,
                     defaultExpanded = lineItemsExpanded,
-                    helpText = "Break down the expense into individual items (optional)"
+                    helpText = stringResource(R.string.expense_entry_section_items_help)
                 ) { isExpanded ->
                     lineItemsExpanded = isExpanded
 
@@ -1410,12 +1437,22 @@ private fun RecurringExpenseDialog(
                     onClick = {
                         val amount = amountText.toSafeDouble()
                         val reminder = reminderDays.toIntOrNull()
-                        val endDate = endDateText.takeIf { it.isNotBlank() }?.let {
-                            kotlin.runCatching { LocalDate.parse(it) }.getOrNull()
-                        }
-                        if (description.isBlank() || amount == null || amount <= 0 || reminder == null) {
+                        val endDateInvalid = endDate?.isBefore(startDate) == true
+                        if (description.isBlank() || amount == null || amount <= 0 || reminder == null || endDateInvalid) {
                             showError = true
                             return@SparelyButton
+                        }
+                        if (isSaving) return@SparelyButton
+                        isSaving = true
+                        scope.launch {
+                        // A store name typed but not picked from the list is resolved or created,
+                        // matching the expense form (it used to be silently dropped)
+                        val typedStore = storeSearchQuery.trim()
+                        val finalStoreId = selectedStore?.id ?: if (typedStore.isNotEmpty()) {
+                            stores.find { it.name.equals(typedStore, ignoreCase = true) }?.id
+                                ?: onCreateStore(StoreInput(name = typedStore))?.id
+                        } else {
+                            null
                         }
                         val input = RecurringExpenseInput(
                             description = description.trim(),
@@ -1428,7 +1465,7 @@ private fun RecurringExpenseDialog(
                             executeAutomatically = executeAutomatically,
                             reminderDaysBefore = reminder,
                             notes = notes.takeIf { it.isNotBlank() },
-                            storeId = selectedStore?.id,
+                            storeId = finalStoreId,
                             includesTax = includesTax,
                             deductFromMainAccount = deductFromMainAccount,
                             deductedFromVaultId = deductFromVaultId,
@@ -1440,7 +1477,9 @@ private fun RecurringExpenseDialog(
                             necessityOverride = necessityOverride
                         )
                         onConfirm(input, expense)
+                        }
                     },
+                    enabled = !isSaving,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.save))
