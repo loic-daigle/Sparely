@@ -27,109 +27,109 @@ import java.time.ZoneOffset
  */
 class Converters {
     @TypeConverter
-    fun fromEpochDay(value: Long?): LocalDate? = value?.let(LocalDate::ofEpochDay)
+    fun fromEpochDay(value: Long?): LocalDate? = value?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
 
     @TypeConverter
     fun toEpochDay(date: LocalDate?): Long? = date?.toEpochDay()
 
     @TypeConverter
-    fun fromEpochSecond(value: Long?): LocalDateTime? = value?.let { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }
+    fun fromEpochSecond(value: Long?): LocalDateTime? = value?.let { runCatching { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }.getOrNull() }
 
     @TypeConverter
     fun toEpochSecond(dateTime: LocalDateTime?): Long? = dateTime?.toEpochSecond(ZoneOffset.UTC)
 
     @TypeConverter
-    fun fromRisk(value: String?): RiskLevel? = value?.let { RiskLevel.valueOf(it) }
+    fun fromRisk(value: String?): RiskLevel? = value?.let { safeEnumValueOf(it, RiskLevel.BALANCED) }
 
     @TypeConverter
     fun toRisk(level: RiskLevel?): String? = level?.name
 
     @TypeConverter
-    fun fromSavingsCategory(value: String?): SavingsCategory? = value?.let { SavingsCategory.valueOf(it) }
+    fun fromSavingsCategory(value: String?): SavingsCategory? = value?.let { safeEnumValueOf(it, SavingsCategory.EMERGENCY) }
 
     @TypeConverter
     fun toSavingsCategory(category: SavingsCategory?): String? = category?.name
 
     @TypeConverter
-    fun fromExpenseCategory(value: String?): ExpenseCategory? = value?.let { ExpenseCategory.valueOf(it) }
+    fun fromExpenseCategory(value: String?): ExpenseCategory? = value?.let { safeEnumValueOf(it, ExpenseCategory.OTHER) }
 
     @TypeConverter
     fun toExpenseCategory(category: ExpenseCategory?): String? = category?.name
 
     @TypeConverter
-    fun fromChallengeType(value: String?): ChallengeType? = value?.let { ChallengeType.valueOf(it) }
+    fun fromChallengeType(value: String?): ChallengeType? = value?.let { safeEnumValueOf(it, ChallengeType.CUSTOM) }
 
     @TypeConverter
     fun toChallengeType(type: ChallengeType?): String? = type?.name
 
     @TypeConverter
-    fun fromAchievementCategory(value: String?): AchievementCategory? = value?.let { AchievementCategory.valueOf(it) }
+    fun fromAchievementCategory(value: String?): AchievementCategory? = value?.let { safeEnumValueOf(it, AchievementCategory.SAVINGS_MILESTONE) }
 
     @TypeConverter
     fun toAchievementCategory(category: AchievementCategory?): String? = category?.name
 
     @TypeConverter
-    fun fromRecurringFrequency(value: String?): RecurringFrequency? = value?.let { RecurringFrequency.valueOf(it) }
+    fun fromRecurringFrequency(value: String?): RecurringFrequency? = value?.let { safeEnumValueOf(it, RecurringFrequency.MONTHLY) }
 
     @TypeConverter
     fun toRecurringFrequency(freq: RecurringFrequency?): String? = freq?.name
 
     @TypeConverter
-    fun fromInstant(value: Long?): Instant? = value?.let { Instant.ofEpochMilli(it) }
+    fun fromInstant(value: Long?): Instant? = value?.let { runCatching { Instant.ofEpochMilli(it) }.getOrNull() }
 
     @TypeConverter
     fun toInstant(instant: Instant?): Long? = instant?.toEpochMilli()
 
     @TypeConverter
-    fun fromBankSyncProvider(value: String?): BankSyncProvider? = value?.let { BankSyncProvider.valueOf(it) }
+    fun fromBankSyncProvider(value: String?): BankSyncProvider? = value?.let { safeEnumValueOf(it, BankSyncProvider.MOCK) }
 
     @TypeConverter
     fun toBankSyncProvider(provider: BankSyncProvider?): String? = provider?.name
 
     @TypeConverter
-    fun fromVaultPriority(value: String?): VaultPriority? = value?.let { VaultPriority.valueOf(it) }
+    fun fromVaultPriority(value: String?): VaultPriority? = value?.let { safeEnumValueOf(it, VaultPriority.MEDIUM) }
 
     @TypeConverter
     fun toVaultPriority(priority: VaultPriority?): String? = priority?.name
 
     @TypeConverter
-    fun fromVaultType(value: String?): VaultType? = value?.let { VaultType.valueOf(it) }
+    fun fromVaultType(value: String?): VaultType? = value?.let { safeEnumValueOf(it, VaultType.GOAL) }
 
     @TypeConverter
     fun toVaultType(type: VaultType?): String? = type?.name
 
     @TypeConverter
-    fun fromVaultAllocationMode(value: String?): VaultAllocationMode? = value?.let { VaultAllocationMode.valueOf(it) }
+    fun fromVaultAllocationMode(value: String?): VaultAllocationMode? = value?.let { safeEnumValueOf(it, VaultAllocationMode.DYNAMIC_AUTO) }
 
     @TypeConverter
     fun toVaultAllocationMode(mode: VaultAllocationMode?): String? = mode?.name
 
     @TypeConverter
-    fun fromAutoDepositFrequency(value: String?): AutoDepositFrequency? = value?.let { AutoDepositFrequency.valueOf(it) }
+    fun fromAutoDepositFrequency(value: String?): AutoDepositFrequency? = value?.let { safeEnumValueOf(it, AutoDepositFrequency.MONTHLY) }
 
     @TypeConverter
     fun toAutoDepositFrequency(frequency: AutoDepositFrequency?): String? = frequency?.name
 
     @TypeConverter
-    fun fromVaultContributionSource(value: String?): VaultContributionSource? = value?.let { VaultContributionSource.valueOf(it) }
+    fun fromVaultContributionSource(value: String?): VaultContributionSource? = value?.let { safeEnumValueOf(it, VaultContributionSource.MANUAL) }
 
     @TypeConverter
     fun toVaultContributionSource(source: VaultContributionSource?): String? = source?.name
 
     @TypeConverter
-    fun fromVaultAdjustmentType(value: String?): VaultAdjustmentType? = value?.let { VaultAdjustmentType.valueOf(it) }
+    fun fromVaultAdjustmentType(value: String?): VaultAdjustmentType? = value?.let { safeEnumValueOf(it, VaultAdjustmentType.MANUAL_EDIT) }
 
     @TypeConverter
     fun toVaultAdjustmentType(type: VaultAdjustmentType?): String? = type?.name
 
     @TypeConverter
-    fun fromMainAccountTransactionType(value: String?): MainAccountTransactionType? = value?.let { MainAccountTransactionType.valueOf(it) }
+    fun fromMainAccountTransactionType(value: String?): MainAccountTransactionType? = value?.let { safeEnumValueOf(it, MainAccountTransactionType.ADJUSTMENT) }
 
     @TypeConverter
     fun toMainAccountTransactionType(type: MainAccountTransactionType?): String? = type?.name
 
     @TypeConverter
-    fun fromSavingsAccountTransactionType(value: String?): SavingsAccountTransactionType? = value?.let { SavingsAccountTransactionType.valueOf(it) }
+    fun fromSavingsAccountTransactionType(value: String?): SavingsAccountTransactionType? = value?.let { safeEnumValueOf(it, SavingsAccountTransactionType.DEPOSIT) }
 
     @TypeConverter
     fun toSavingsAccountTransactionType(type: SavingsAccountTransactionType?): String? = type?.name
@@ -138,9 +138,13 @@ class Converters {
 
     @TypeConverter
     fun fromAmountHistoryJson(value: String?): List<AmountHistoryEntry>? {
-        if (value == null) return null
+        if (value.isNullOrBlank()) return null
         val type = object : TypeToken<List<AmountHistoryEntry>>() {}.type
-        return gson.fromJson(value, type)
+        return runCatching { gson.fromJson<List<AmountHistoryEntry>?>(value, type) }
+            .getOrNull()
+            ?.filterNotNull()
+            // Gson bypasses Kotlin null-safety, so guard against partially written entries.
+            ?.filter { (it.date as LocalDate?) != null && it.amount.isFinite() }
     }
 
     @TypeConverter
@@ -150,13 +154,27 @@ class Converters {
 
     @TypeConverter
     fun fromAssetAllocationJson(value: String?): Map<Long, Double>? {
-        if (value == null) return null
+        if (value.isNullOrBlank()) return null
         val type = object : TypeToken<Map<Long, Double>>() {}.type
-        return gson.fromJson(value, type)
+        return runCatching { gson.fromJson<Map<Long, Double>?>(value, type) }
+            .getOrNull()
+            ?.filterValues { it != null && it.isFinite() }
     }
 
     @TypeConverter
     fun toAssetAllocationJson(allocations: Map<Long, Double>?): String? {
         return gson.toJson(allocations)
     }
+}
+
+/**
+ * Resolves an enum constant by name without throwing. Unknown names (for example values written
+ * by a newer app version or restored from an old backup) fall back to [default] instead of
+ * crashing every query that touches the row.
+ */
+internal inline fun <reified T : Enum<T>> safeEnumValueOf(name: String?, default: T): T {
+    if (name == null) return default
+    return enumValues<T>().firstOrNull { it.name == name }
+        ?: enumValues<T>().firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
+        ?: default
 }

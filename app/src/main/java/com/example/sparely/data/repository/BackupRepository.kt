@@ -19,6 +19,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Instant
 import java.time.YearMonth
+import com.example.sparely.domain.model.EducationStatus
+import com.example.sparely.domain.model.EmploymentStatus
+import com.example.sparely.domain.model.ExpenseHistoryRetention
+import com.example.sparely.domain.model.LivingSituation
+import com.example.sparely.domain.model.RiskLevel
+import com.example.sparely.domain.model.SparelySettings
 
 class BackupRepository(
     private val savingsRepository: SavingsRepository,
@@ -40,7 +46,7 @@ class BackupRepository(
 
     suspend fun exportData(): String = withContext(Dispatchers.IO) {
         val settings = preferencesRepository.settingsFlow.first()
-        val vaults = savingsRepository.observeSmartVaults().first()
+        val vaults = savingsRepository.observeAllSmartVaults().first()
         val budgets = savingsRepository.observeBudgets().first()
         val expenses = savingsRepository.observeExpenses().first()
         val savingsAccounts = savingsRepository.observeSavingsAccounts().first()
@@ -62,9 +68,9 @@ class BackupRepository(
         val expenseItems = savingsRepository.getAllExpenseItems()
 
         // New: Assets, wishlists, and refunds
-        val assets = savingsRepository.getActiveAssets()
+        val assets = savingsRepository.getAllAssetsIncludingArchived()
         val assetExpenseLinks = savingsRepository.getAllAssetExpenseLinks()
-        val wishlists = savingsRepository.getActiveWishlists()
+        val wishlists = savingsRepository.getAllWishlistsIncludingArchived()
         val wishlistSavings = savingsRepository.getAllWishlistSavings()
         val expenseRefunds = savingsRepository.getAllExpenseRefunds()
 
@@ -101,12 +107,15 @@ class BackupRepository(
     suspend fun restoreData(json: String) = withContext(Dispatchers.IO) {
         android.util.Log.d("BackupRepository", "Starting restore...")
         
-        val backup = try {
+        val parsed: BackupData? = try {
             gson.fromJson(json, BackupData::class.java)
         } catch (e: Exception) {
             android.util.Log.e("BackupRepository", "Failed to parse backup JSON", e)
-            throw e
+            throw IllegalArgumentException("The selected file is not a valid Sparely backup.", e)
         }
+        // Gson bypasses Kotlin constructors, so fields missing from the file come back as null
+        // even when declared non-null. Normalise everything before touching the database.
+        val backup = sanitizeBackup(parsed)
         
         android.util.Log.d("BackupRepository", "Parsed backup: ${backup.expenses.size} expenses, ${backup.vaults.size} vaults, ${backup.transactions.size} transactions")
 
@@ -151,8 +160,8 @@ class BackupRepository(
             // already overwritten DataStore settings, which Room's transaction can't undo)
             // 1. Accounts & Vaults (parents)
             try {
-                backup.savingsAccounts.forEach { savingsRepository.upsertSavingsAccount(it) }
-                backup.vaults.forEach { savingsRepository.upsertSmartVault(it) }
+                backup.savingsAccounts.orEmpty().restoreEach("savingsAccounts") { savingsRepository.upsertSavingsAccount(it) }
+                backup.vaults.orEmpty().restoreEach("vaults") { savingsRepository.upsertSmartVault(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.vaults.size} vaults")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore vaults", e)
@@ -161,8 +170,8 @@ class BackupRepository(
             
             // 2. Budgets & Recurring
             try {
-                backup.budgets.forEach { savingsRepository.upsertBudget(it) }
-                backup.recurringExpenses.forEach { savingsRepository.upsertRecurringExpense(it) }
+                backup.budgets.orEmpty().restoreEach("budgets") { savingsRepository.upsertBudget(it) }
+                backup.recurringExpenses.orEmpty().restoreEach("recurringExpenses") { savingsRepository.upsertRecurringExpense(it) }
                 android.util.Log.d("BackupRepository", "Restored budgets and recurring")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore budgets/recurring", e)
@@ -171,7 +180,7 @@ class BackupRepository(
             
             // 3. Transactions & History
             try {
-                backup.transactions.forEach { savingsRepository.insertMainAccountTransaction(it) }
+                backup.transactions.orEmpty().restoreEach("transactions") { savingsRepository.insertMainAccountTransaction(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.transactions.size} transactions")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore transactions", e)
@@ -179,7 +188,7 @@ class BackupRepository(
             }
             
             try {
-                backup.frozenFunds.forEach { savingsRepository.upsertFrozenFund(it) }
+                backup.frozenFunds.orEmpty().restoreEach("frozenFunds") { savingsRepository.upsertFrozenFund(it) }
                 android.util.Log.d("BackupRepository", "Restored frozen funds")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore frozen funds", e)
@@ -218,7 +227,7 @@ class BackupRepository(
             // 4. Missing pieces (these fields may be null in older backups)
             try {
                 savingsRepository.insertTransfers(backup.transfers.orEmpty())
-                backup.challenges.orEmpty().forEach { savingsRepository.upsertSavingsChallenge(it) }
+                backup.challenges.orEmpty().restoreEach("challenges") { savingsRepository.upsertSavingsChallenge(it) }
                 savingsRepository.insertAchievements(backup.achievements.orEmpty())
                 android.util.Log.d("BackupRepository", "Restored transfers, challenges, achievements")
             } catch (e: Exception) {
@@ -239,7 +248,7 @@ class BackupRepository(
             
             // 6. Stores (may be null in older backups)
             try {
-                backup.stores.orEmpty().forEach { savingsRepository.insertStore(it) }
+                backup.stores.orEmpty().restoreEach("stores") { savingsRepository.insertStore(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.stores?.size ?: 0} stores")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore stores", e)
@@ -248,8 +257,8 @@ class BackupRepository(
             
             // 7. Payment Methods and Credit Card Payments (may be null in older backups)
             try {
-                backup.paymentMethods.orEmpty().forEach { savingsRepository.insertPaymentMethod(it) }
-                backup.creditCardPayments.orEmpty().forEach { savingsRepository.insertCreditCardPayment(it) }
+                backup.paymentMethods.orEmpty().restoreEach("paymentMethods") { savingsRepository.insertPaymentMethod(it) }
+                backup.creditCardPayments.orEmpty().restoreEach("creditCardPayments") { savingsRepository.insertCreditCardPayment(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.paymentMethods?.size ?: 0} payment methods, ${backup.creditCardPayments?.size ?: 0} credit card payments")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore payment methods/credit card payments", e)
@@ -267,8 +276,8 @@ class BackupRepository(
 
             // 9. Assets & Asset Links (may be null in older backups)
             try {
-                backup.assets.orEmpty().forEach { savingsRepository.upsertAsset(it) }
-                backup.assetExpenseLinks.orEmpty().forEach { savingsRepository.insertAssetExpenseLink(it) }
+                backup.assets.orEmpty().restoreEach("assets") { savingsRepository.upsertAsset(it) }
+                backup.assetExpenseLinks.orEmpty().restoreEach("assetExpenseLinks") { savingsRepository.insertAssetExpenseLink(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.assets?.size ?: 0} assets, ${backup.assetExpenseLinks?.size ?: 0} asset links")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore assets/links", e)
@@ -277,8 +286,8 @@ class BackupRepository(
 
             // 10. Wishlists & Wishlist Savings (may be null in older backups)
             try {
-                backup.wishlists.orEmpty().forEach { savingsRepository.upsertWishlist(it) }
-                backup.wishlistSavings.orEmpty().forEach { savingsRepository.insertWishlistSavings(it) }
+                backup.wishlists.orEmpty().restoreEach("wishlists") { savingsRepository.upsertWishlist(it) }
+                backup.wishlistSavings.orEmpty().restoreEach("wishlistSavings") { savingsRepository.insertWishlistSavings(it) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.wishlists?.size ?: 0} wishlists, ${backup.wishlistSavings?.size ?: 0} wishlist savings")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore wishlists", e)
@@ -287,7 +296,7 @@ class BackupRepository(
 
             // 11. Expense Refunds (may be null in older backups)
             try {
-                backup.expenseRefunds.orEmpty().forEach { savingsRepository.recordRefund(it.expenseId, it.refundedAmount, it.refundDate, it.refundMethod, it.reason, it.refundedItemIds) }
+                backup.expenseRefunds.orEmpty().restoreEach("expenseRefunds") { savingsRepository.recordRefund(it.expenseId, it.refundedAmount, it.refundDate, it.refundMethod, it.reason, it.refundedItemIds) }
                 android.util.Log.d("BackupRepository", "Restored ${backup.expenseRefunds?.size ?: 0} expense refunds")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore expense refunds", e)
@@ -299,7 +308,7 @@ class BackupRepository(
             // rollback. Running it after every Room write succeeds means a failure anywhere above
             // leaves settings untouched instead of ending up out of sync with reverted entities.
             try {
-                val s = backup.settings
+                val s = sanitizeSettings(backup.settings)
                 preferencesRepository.updateMonthlyIncome(s.monthlyIncome)
                 preferencesRepository.updateAge(s.age)
                 preferencesRepository.updateRiskLevel(s.riskLevel)
@@ -308,7 +317,7 @@ class BackupRepository(
                 preferencesRepository.updateLivingSituation(s.livingSituation)
                 preferencesRepository.updateOccupation(s.occupation)
 
-                val balanceToRestore = backup.mainAccountBalance ?: s.mainAccountBalance
+                val balanceToRestore = backup.mainAccountBalance?.takeIf { it.isFinite() } ?: s.mainAccountBalance
                 preferencesRepository.updateMainAccountBalance(balanceToRestore)
 
                 preferencesRepository.updateSavingsAccountBalance(s.savingsAccountBalance)
@@ -330,5 +339,83 @@ class BackupRepository(
 
             android.util.Log.d("BackupRepository", "Restore complete!")
         }
+    }
+
+    /**
+     * Restores items one by one so a single malformed record (e.g. a row written by an older
+     * app version) is skipped and logged instead of aborting the whole restore.
+     */
+    private inline fun <T> List<T>.restoreEach(label: String, block: (T) -> Unit) {
+        var failures = 0
+        forEach { item ->
+            try {
+                block(item)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failures++
+                android.util.Log.w("BackupRepository", "Skipping invalid $label record", e)
+            }
+        }
+        if (failures > 0) {
+            android.util.Log.w("BackupRepository", "Skipped $failures of $size $label records")
+        }
+    }
+
+    /**
+     * Replaces every null collection / element produced by Gson with safe defaults and rejects
+     * files that are clearly not Sparely backups.
+     */
+    @Suppress("USELESS_CAST", "SENSELESS_COMPARISON")
+    private fun sanitizeBackup(parsed: BackupData?): BackupData {
+        if (parsed == null || (parsed.settings as SparelySettings?) == null) {
+            throw IllegalArgumentException("The selected file is not a valid Sparely backup.")
+        }
+        fun <T> List<T>?.clean(): List<T> = (this as List<T?>?).orEmpty().filterNotNull()
+        return parsed.copy(
+            vaults = parsed.vaults.clean(),
+            budgets = parsed.budgets.clean(),
+            expenses = parsed.expenses.clean().filter { (it.date as LocalDate?) != null && it.amount.isFinite() },
+            savingsAccounts = parsed.savingsAccounts.clean(),
+            recurringExpenses = parsed.recurringExpenses.clean(),
+            transactions = parsed.transactions.clean(),
+            frozenFunds = parsed.frozenFunds.clean(),
+            challenges = parsed.challenges.clean(),
+            achievements = parsed.achievements.clean(),
+            transfers = parsed.transfers.clean(),
+            vaultContributions = parsed.vaultContributions.clean(),
+            vaultAdjustments = parsed.vaultAdjustments.clean(),
+            allocationHistory = parsed.allocationHistory.clean(),
+            stores = parsed.stores.clean(),
+            paymentMethods = parsed.paymentMethods.clean(),
+            creditCardPayments = parsed.creditCardPayments.clean(),
+            expenseItems = parsed.expenseItems.clean(),
+            assets = parsed.assets.clean(),
+            assetExpenseLinks = parsed.assetExpenseLinks.clean(),
+            wishlists = parsed.wishlists.clean(),
+            wishlistSavings = parsed.wishlistSavings.clean(),
+            expenseRefunds = parsed.expenseRefunds.clean()
+        )
+    }
+
+    /** Fills in defaults for settings fields that are missing or invalid in the backup file. */
+    @Suppress("USELESS_CAST", "USELESS_ELVIS")
+    private fun sanitizeSettings(settings: SparelySettings): SparelySettings {
+        val d = SparelySettings()
+        fun Double?.finiteOr(default: Double): Double = this?.takeIf { it.isFinite() } ?: default
+        return settings.copy(
+            monthlyIncome = (settings.monthlyIncome as Double?).finiteOr(d.monthlyIncome).coerceAtLeast(0.0),
+            age = (settings.age as Int?)?.takeIf { it in 1..130 } ?: d.age,
+            riskLevel = (settings.riskLevel as RiskLevel?) ?: d.riskLevel,
+            educationStatus = (settings.educationStatus as EducationStatus?) ?: d.educationStatus,
+            employmentStatus = (settings.employmentStatus as EmploymentStatus?) ?: d.employmentStatus,
+            livingSituation = (settings.livingSituation as LivingSituation?) ?: d.livingSituation,
+            mainAccountBalance = (settings.mainAccountBalance as Double?).finiteOr(d.mainAccountBalance),
+            savingsAccountBalance = (settings.savingsAccountBalance as Double?).finiteOr(d.savingsAccountBalance),
+            currentEmergencyFund = (settings.currentEmergencyFund as Double?).finiteOr(d.currentEmergencyFund).coerceAtLeast(0.0),
+            subscriptionTotal = (settings.subscriptionTotal as Double?).finiteOr(d.subscriptionTotal).coerceAtLeast(0.0),
+            hasDebts = (settings.hasDebts as Boolean?) ?: d.hasDebts,
+            expenseHistoryRetention = (settings.expenseHistoryRetention as ExpenseHistoryRetention?) ?: d.expenseHistoryRetention
+        )
     }
 }

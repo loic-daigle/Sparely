@@ -1,5 +1,6 @@
 package com.example.sparely.ui
 
+import com.example.sparely.domain.model.nextOccurrenceAfter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -829,12 +830,12 @@ class SparelyViewModel(
                 .filter { it.isActive }
                 .mapNotNull { expense ->
                     var nextDue = expense.nextRunAt?.toLocalDate() 
-                        ?: expense.lastProcessedDate?.let { addFrequencyInterval(it, expense.frequency) }
+                        ?: expense.lastProcessedDate?.let { expense.nextOccurrenceAfter(it) }
                         ?: expense.startDate
                     
                     // Advance until we reach a future date or today (if not processed today)
                     while (nextDue.isBefore(today) && expense.lastProcessedDate != today) {
-                        nextDue = addFrequencyInterval(nextDue, expense.frequency)
+                        nextDue = expense.nextOccurrenceAfter(nextDue)
                     }
                     
                     expense.endDate?.let { end ->
@@ -847,20 +848,6 @@ class SparelyViewModel(
                 .sortedBy { it.dueDate }
         }
         
-        /**
-         * Add one frequency interval to a date.
-         * For monthly/quarterly/yearly, this preserves the day of month.
-         */
-        private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
-            return when (frequency) {
-                RecurringFrequency.DAILY -> date.plusDays(1)
-                RecurringFrequency.WEEKLY -> date.plusWeeks(1)
-                RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
-                RecurringFrequency.MONTHLY -> date.plusMonths(1)
-                RecurringFrequency.QUARTERLY -> date.plusMonths(3)
-                RecurringFrequency.YEARLY -> date.plusYears(1)
-            }
-        }
 
     private fun buildSmartSavingSummary(
         settings: SparelySettings,

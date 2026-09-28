@@ -1,5 +1,6 @@
 package com.example.sparely.data.repository
 
+import com.example.sparely.domain.model.nextOccurrenceAfter
 import androidx.room.withTransaction
 import com.example.sparely.data.local.AchievementDao
 import com.example.sparely.data.local.BudgetDao
@@ -280,6 +281,15 @@ class SavingsRepository(
         }
     }
 
+    /** All assets including archived ones (used for backups so nothing is lost). */
+    suspend fun getAllAssetsIncludingArchived(): List<com.example.sparely.domain.model.Asset> {
+        val entities = assetDao.getAllAssets()
+        return entities.map { entity ->
+            val totalSpending = assetExpenseLinkDao.getTotalSpendingForAsset(entity.id)
+            entity.toDomain().copy(totalSpending = totalSpending)
+        }
+    }
+
     suspend fun deleteAsset(assetId: Long) {
         // Delete all links associated with this asset
         assetExpenseLinkDao.deleteLinksForAsset(assetId)
@@ -390,6 +400,10 @@ class SavingsRepository(
 
     suspend fun getActiveWishlists(): List<com.example.sparely.domain.model.Wishlist> =
         wishlistDao.getActiveWishlists().map { it.toDomain() }
+
+    /** All wishlists including archived ones (used for backups so nothing is lost). */
+    suspend fun getAllWishlistsIncludingArchived(): List<com.example.sparely.domain.model.Wishlist> =
+        wishlistDao.getAllWishlists().map { it.toDomain() }
 
     suspend fun getWishlistById(wishlistId: Long): com.example.sparely.domain.model.Wishlist? =
         wishlistDao.getWishlistById(wishlistId)?.toDomain()
@@ -505,6 +519,10 @@ class SavingsRepository(
 
     fun observeSmartVaults(): Flow<List<SmartVault>> =
         smartVaultDao.observeActiveVaults().map { rows -> rows.map { it.toDomain() } }
+
+    /** Active and archived vaults (used for backups so archived vault history keeps its parent). */
+    fun observeAllSmartVaults(): Flow<List<SmartVault>> =
+        smartVaultDao.observeAllVaults().map { rows -> rows.map { it.toDomain() } }
 
 
     
@@ -843,9 +861,10 @@ class SavingsRepository(
             // today (the default startDate) gets auto-processed within the hour and
             // creates a duplicate expense on the day it was added.
             val today = LocalDate.now()
-            var initialRunDate = expense.startDate
-            while (!initialRunDate.isAfter(today)) {
-                initialRunDate = addFrequencyInterval(initialRunDate, expense.frequency)
+            val initialRunDate = if (expense.startDate.isAfter(today)) {
+                expense.startDate
+            } else {
+                expense.nextOccurrenceAfter(today)
             }
             val initialRun = initialRunDate.atTime(9, 0)
             expense.copy(nextRunAt = initialRun)
@@ -873,20 +892,19 @@ class SavingsRepository(
 
     private fun computeNextRunForRecurring(expense: RecurringExpense, lastRun: LocalDate): java.time.LocalDateTime {
         val time = expense.nextRunAt?.toLocalTime() ?: java.time.LocalTime.of(9, 0)
-        val nextDate = addFrequencyInterval(lastRun, expense.frequency)
+        // The occurrence just handled is the scheduled one (nextRunAt), even when it was paid
+        // early or processed late. Schedule the next one after both the due date and the
+        // processing date, keeping at least half an interval after the due date so a date that
+        // drifted under the old "add one month to the previous run" logic (e.g. the 28th for a
+        // schedule anchored on the 31st) can't be charged twice in the same period.
+        val due = expense.nextRunAt?.toLocalDate() ?: lastRun
+        val minimumGapDays = (expense.frequency.daysInterval / 2).toLong()
+        val afterDue = expense.nextOccurrenceAfter(due.plusDays(minimumGapDays))
+        val afterProcessing = expense.nextOccurrenceAfter(lastRun)
+        val nextDate = if (afterDue.isAfter(afterProcessing)) afterDue else afterProcessing
         return nextDate.atTime(time)
     }
 
-    private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
-        return when (frequency) {
-            RecurringFrequency.DAILY -> date.plusDays(1)
-            RecurringFrequency.WEEKLY -> date.plusWeeks(1)
-            RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
-            RecurringFrequency.MONTHLY -> date.plusMonths(1)
-            RecurringFrequency.QUARTERLY -> date.plusMonths(3)
-            RecurringFrequency.YEARLY -> date.plusYears(1)
-        }
-    }
 
     suspend fun clearRecurringExpenses() {
         recurringExpenseDao.clear()

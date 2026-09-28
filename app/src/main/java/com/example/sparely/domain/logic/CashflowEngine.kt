@@ -1,5 +1,6 @@
 package com.example.sparely.domain.logic
 
+import com.example.sparely.domain.model.nextOccurrenceAfter
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.Necessity
 import com.example.sparely.domain.model.PayScheduleSettings
@@ -232,28 +233,21 @@ object CashflowEngine {
     }
 
     private fun calculateNextDueDate(expense: RecurringExpense, today: LocalDate): LocalDate? {
+        // The scheduler's own next run date is the source of truth when it is still upcoming.
+        expense.nextRunAt?.toLocalDate()?.takeIf { !it.isBefore(today) }?.let { scheduled ->
+            return expense.endDate?.let { end -> scheduled.takeIf { !it.isAfter(end) } } ?: scheduled
+        }
         val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
-        var nextDue = addFrequencyInterval(baseDate, expense.frequency)
-
-        // Advance until we find a future date
-        repeat(100) { // Safety limit
-            if (!nextDue.isBefore(today)) return nextDue
-            nextDue = addFrequencyInterval(nextDue, expense.frequency)
+        var nextDue = expense.nextOccurrenceAfter(baseDate)
+        // Jump straight to the first occurrence on or after today (no iteration cap that could
+        // drop long-running daily/weekly schedules).
+        if (nextDue.isBefore(today)) {
+            nextDue = expense.nextOccurrenceAfter(today.minusDays(1))
         }
-
-        return null
+        expense.endDate?.let { end -> if (nextDue.isAfter(end)) return null }
+        return nextDue
     }
 
-    private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
-        return when (frequency) {
-            RecurringFrequency.DAILY -> date.plusDays(1)
-            RecurringFrequency.WEEKLY -> date.plusWeeks(1)
-            RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
-            RecurringFrequency.MONTHLY -> date.plusMonths(1)
-            RecurringFrequency.QUARTERLY -> date.plusMonths(3)
-            RecurringFrequency.YEARLY -> date.plusYears(1)
-        }
-    }
 
     private fun calculateExpectedIncome(
         monthlyIncome: Double,
