@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
@@ -157,6 +158,7 @@ fun InsightsScreen(
                     ExpressiveCard(
                         modifier = Modifier.fillMaxWidth(),
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(20.dp),
                         contentPadding = 8.dp
                     ) {
                         Column {
@@ -176,8 +178,22 @@ fun InsightsScreen(
                 item(key = "header_velocity") {
                     InsightsSectionTitle(stringResource(R.string.insights_velocity_title))
                 }
-                items(topVelocity.size, key = { "velocity_$it" }) { index ->
-                    CategoryVelocityItem(topVelocity[index])
+                item(key = "velocity") {
+                    ExpressiveCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = 8.dp
+                    ) {
+                        Column {
+                            topVelocity.forEachIndexed { index, velocity ->
+                                CategoryVelocityItem(velocity)
+                                if (index < topVelocity.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -360,8 +376,8 @@ private fun IdleMoneyCard(
 @Composable
 private fun RecurringPatternsCard(patterns: List<SmartInsightEngine.RecurringPatternInsight>) {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -379,7 +395,14 @@ private fun RecurringPatternsCard(patterns: List<SmartInsightEngine.RecurringPat
                 Text(
                     text = stringResource(R.string.insights_recurring_patterns),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.insights_patterns_monthly_total, patterns.sumOf { it.totalMonthlyImpact }.formatCurrency()),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             
@@ -409,14 +432,16 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
             Text(
                 text = pattern.description,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = pattern.frequency.label,
+                    text = pattern.frequency.localizedLabel(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -449,8 +474,8 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
 @Composable
 private fun SeasonalInsightsCard(insights: List<SmartInsightEngine.SeasonalInsight>) {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -550,8 +575,8 @@ private fun SeasonalInsightItem(insight: SmartInsightEngine.SeasonalInsight) {
 @Composable
 private fun UniqueExpensesCard(expenses: List<SmartInsightEngine.UniqueExpenseInsight>) {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -598,7 +623,7 @@ private fun UniqueExpensesCard(expenses: List<SmartInsightEngine.UniqueExpenseIn
 
 @Composable
 private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseInsight) {
-    val formatter = DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+    val formatter = remember { DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM) }
     
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -609,7 +634,9 @@ private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseIns
             Text(
                 text = uniqueExpense.expense.description,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             val reasonText = when(uniqueExpense.reasonType) {
                 SmartInsightEngine.UniqueReason.UNUSUALLY_LARGE -> {
@@ -664,8 +691,8 @@ private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseIns
 @Composable
 private fun CashflowForecastCard(forecast: CashflowEngine.CashflowForecast) {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -883,20 +910,23 @@ private fun MetricCard(
 ) {
     ExpressiveCard(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = 12.dp
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 16.dp
     ) {
         Column {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
                 fontWeight = FontWeight.Bold,
                 color = if (isPositive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
             )
@@ -911,7 +941,7 @@ private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly, onClick:
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         MaterialSymbolIcon(
@@ -925,7 +955,9 @@ private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly, onClick:
             Text(
                 text = anomaly.expense.description,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = DateUtils.formatDate(anomaly.expense.date),
@@ -953,7 +985,7 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -963,7 +995,7 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
                 fontWeight = FontWeight.SemiBold
             )
              Text(
-                text = "${stringResource(R.string.insights_projected_balance)}: ${velocityData.projectedMonthlyTotal.formatCurrency()}",
+                text = stringResource(R.string.insights_velocity_on_pace, velocityData.projectedMonthlyTotal.formatCurrency()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -980,3 +1012,11 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
     }
 }
 
+@Composable
+private fun SmartInsightEngine.PatternFrequency.localizedLabel(): String = when (this) {
+    SmartInsightEngine.PatternFrequency.DAILY -> stringResource(R.string.freq_daily)
+    SmartInsightEngine.PatternFrequency.EVERY_FEW_DAYS -> stringResource(R.string.insights_freq_every_few_days)
+    SmartInsightEngine.PatternFrequency.WEEKLY -> stringResource(R.string.freq_weekly)
+    SmartInsightEngine.PatternFrequency.BIWEEKLY -> stringResource(R.string.freq_biweekly)
+    SmartInsightEngine.PatternFrequency.MONTHLY -> stringResource(R.string.freq_monthly)
+}

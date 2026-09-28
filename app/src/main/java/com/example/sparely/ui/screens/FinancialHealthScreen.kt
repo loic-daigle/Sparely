@@ -2,6 +2,9 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,69 +43,109 @@ fun FinancialHealthScreen(
     onNavigateBack: () -> Unit
 ) {
     val healthScore = uiState.financialHealthScore
-    
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
 
-        if (healthScore != null) {
-            item {
-                HealthScoreCard(healthScore)
-            }
-
-            item {
+    if (healthScore == null) {
+        // No score yet (not enough data): explain instead of an indefinite "calculating" line
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.HEALTH_AND_SAFETY,
+                    contentDescription = null,
+                    size = 56.dp,
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Text(
-                    text = stringResource(R.string.health_score_breakdown),
+                    text = stringResource(R.string.health_empty_title),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(R.string.health_empty_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
                 )
             }
+        }
+        return
+    }
 
-            item {
-                ScoreBreakdownCard(healthScore)
+    // Most impactful tips first
+    val tips = remember(healthScore) {
+        healthScore.improvementAreas.sortedWith(
+            compareBy<ImprovementTip> { it.priority.ordinal }.thenByDescending { it.potentialScoreGain }
+        )
+    }
+    val potentialGain = tips.sumOf { it.potentialScoreGain }.coerceAtMost(100 - healthScore.overallScore)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        // Content padding (not Modifier.padding) so cards don't clip while scrolling
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item(key = "score") {
+            HealthScoreCard(healthScore, potentialGain = potentialGain)
+        }
+
+        // Actionable tips come before the breakdown and strengths
+        if (tips.isNotEmpty()) {
+            item(key = "header_improve") {
+                HealthSectionTitle(stringResource(R.string.health_improve))
             }
-
-            if (healthScore.topStrengths.isNotEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.health_strengths),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                items(healthScore.topStrengths) { strength ->
-                    StrengthCard(strength)
-                }
+            items(tips, key = { "tip_${it.title}" }) { tip ->
+                ImprovementTipCard(tip)
             }
+        }
 
-            if (healthScore.improvementAreas.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.health_improve),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        item(key = "header_breakdown") {
+            HealthSectionTitle(stringResource(R.string.health_score_breakdown))
+        }
+        item(key = "breakdown") {
+            ScoreBreakdownCard(healthScore)
+        }
 
-                items(healthScore.improvementAreas) { tip ->
-                    ImprovementTipCard(tip)
-                }
+        if (healthScore.topStrengths.isNotEmpty()) {
+            item(key = "header_strengths") {
+                HealthSectionTitle(stringResource(R.string.health_strengths))
             }
-        } else {
-            item {
-                Text(stringResource(R.string.health_loading))
+            items(healthScore.topStrengths, key = { "strength_$it" }) { strength ->
+                StrengthCard(strength)
             }
         }
     }
 }
 
 @Composable
-fun HealthScoreCard(healthScore: FinancialHealthScore) {
+private fun HealthSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+    )
+}
+
+/** Semantic color for a 0–100 score, shared by the ring, tiles and bars. */
+@Composable
+private fun scoreColor(score: Int): Color = when {
+    score >= 80 -> MaterialTheme.colorScheme.success
+    score >= 60 -> MaterialTheme.colorScheme.primary
+    score >= 40 -> MaterialTheme.colorScheme.warning
+    else -> MaterialTheme.colorScheme.critical
+}
+
+@Composable
+fun HealthScoreCard(healthScore: FinancialHealthScore, potentialGain: Int = 0) {
     // Determine gradient colors based on health level
     val (startColor, endColor) = when (healthScore.healthLevel) {
         HealthLevel.EXCELLENT -> MaterialTheme.colorScheme.success to MaterialTheme.colorScheme.success.copy(alpha = 0.72f)
@@ -116,7 +159,7 @@ fun HealthScoreCard(healthScore: FinancialHealthScore) {
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(32.dp),
-        contentPadding = 32.dp
+        contentPadding = 24.dp
     ) {
         Column(
             modifier = Modifier
@@ -128,17 +171,17 @@ fun HealthScoreCard(healthScore: FinancialHealthScore) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             EnhancedAnimatedScoreCircle(
                 score = healthScore.overallScore,
-                size = 240.dp,
-                strokeWidth = 24.dp,
+                size = 200.dp,
+                strokeWidth = 20.dp,
                 primaryColor = startColor,
                 secondaryColor = endColor
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Text(
                 text = healthScore.healthLevel.displayName(),
@@ -146,6 +189,15 @@ fun HealthScoreCard(healthScore: FinancialHealthScore) {
                 fontWeight = FontWeight.ExtraBold,
                 color = startColor
             )
+            if (potentialGain > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.health_potential_gain, potentialGain),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -224,7 +276,7 @@ fun EnhancedAnimatedScoreCircle(
                  color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "/100",
+                text = stringResource(R.string.health_out_of_100),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -259,50 +311,37 @@ fun ScoreBreakdownCard(healthScore: FinancialHealthScore) {
 
 @Composable
 fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
+    val color = scoreColor(score)
+    // Min height (not fixed) so longer, translated category names wrap instead of clipping
     ExpressiveCard(
-        modifier = modifier.height(110.dp),
+        modifier = modifier.heightIn(min = 104.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(16.dp),
         contentPadding = 16.dp
     ) {
-        Column(
-            modifier = Modifier,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = getCategoryDisplayName(category),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2
             )
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                 Text(
-                    text = "$score",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        score >= 80 -> MaterialTheme.colorScheme.primary
-                        score >= 60 -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
-                    }
-                )
-                // Mini indicator
-                CircularProgressIndicator(
-                    progress = { score / 100f },
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 3.dp,
-                    color = when {
-                        score >= 80 -> MaterialTheme.colorScheme.primary
-                        score >= 60 -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
-                    },
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
-            }
+            Text(
+                text = "$score",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            LinearProgressIndicator(
+                progress = { (score / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = color,
+                trackColor = color.copy(alpha = 0.18f),
+                strokeCap = StrokeCap.Round
+            )
         }
     }
 }
@@ -350,8 +389,9 @@ fun ScoreBreakdownRow(category: String, score: Int) {
 @Composable
 fun StrengthCard(strength: String) {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(16.dp),
         contentPadding = 16.dp
     ) {
         Row(
@@ -362,14 +402,14 @@ fun StrengthCard(strength: String) {
             MaterialSymbolIcon(
                 icon = MaterialSymbols.CHECK_CIRCLE,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.success,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = strength,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -377,59 +417,83 @@ fun StrengthCard(strength: String) {
 
 @Composable
 fun ImprovementTipCard(tip: ImprovementTip) {
+    val accent = when (tip.priority) {
+        Priority.HIGH -> MaterialTheme.colorScheme.critical
+        Priority.MEDIUM -> MaterialTheme.colorScheme.warning
+        Priority.LOW -> MaterialTheme.colorScheme.primary
+    }
     ExpressiveCard(
-        containerColor = when (tip.priority) {
-            Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
-            Priority.MEDIUM -> MaterialTheme.colorScheme.secondaryContainer
-            Priority.LOW -> MaterialTheme.colorScheme.surfaceVariant
-        },
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(16.dp),
         contentPadding = 16.dp
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = tip.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                AssistChip(
-                    onClick = {},
-                    label = { Text("+${tip.potentialScoreGain} pts") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        labelColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = tip.description,
-                style = MaterialTheme.typography.bodyMedium
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Priority shown by a colored bar (full card height), so text keeps full contrast
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(accent)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.LIGHTBULB,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = tip.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Static badge: it's information, not a button
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ) {
+                        Text(
+                            text = stringResource(R.string.health_tip_points, tip.potentialScoreGain),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
                 Text(
-                    text = tip.actionable,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = tip.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(verticalAlignment = Alignment.Top) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.LIGHTBULB,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = tip.actionable,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
 }
+
 @Composable
 fun HealthLevel.displayName(): String = when (this) {
     HealthLevel.EXCELLENT -> stringResource(R.string.health_level_excellent)
