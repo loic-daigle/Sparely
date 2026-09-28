@@ -1156,7 +1156,9 @@ private fun SparelyNavHost(
                     viewModel.payCreditCardBill(paymentMethodId, amount, note, deductFromMainAccount)
                     // Optional: Refresh data or show success message if not reactive
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                // Payment methods (including credit cards) are managed in Settings
+                onAddCard = { navController.navigate(SparelyDestination.Settings.route) }
             )
         }
         composable(SparelyDestination.Insights.route) {

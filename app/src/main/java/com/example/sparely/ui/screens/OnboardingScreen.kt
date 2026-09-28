@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.sparely.domain.model.CountryProfiles
 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,36 +57,39 @@ fun OnboardingScreen(
     onSkip: () -> Unit,
     snackbarHostState: SnackbarHostState? = null
 ) {
-    var currentStep by remember { mutableStateOf(0) }
-    var selectedCountry by remember { mutableStateOf<CountryConfig?>(null) }
-    var userName by remember { mutableStateOf("") }
+    // Saveable state: rotating the device or the system reclaiming the app mid-setup
+    // must not throw people back to step one with everything they typed lost.
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
+    var selectedCountryCode by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedCountry = selectedCountryCode?.let { CountryProfiles.getByCode(it) }
+    var userName by rememberSaveable { mutableStateOf("") }
 
     val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { onImportData(it) }
     }
-    var age by remember { mutableStateOf("30") }
-    var birthday by remember { mutableStateOf<LocalDate?>(null) }
-    var monthlyIncome by remember { mutableStateOf("") }
-    var selectedRiskLevel by remember { mutableStateOf(RiskLevel.BALANCED) }
-    var primaryGoal by remember { mutableStateOf("") }
-    var hasDebts by remember { mutableStateOf(false) }
-    var currentEmergencyFund by remember { mutableStateOf("0") }
-    var educationStatus by remember { mutableStateOf(EducationStatus.OTHER) }
-    var employmentStatus by remember { mutableStateOf(EmploymentStatus.EMPLOYED) }
-    var livingSituation by remember { mutableStateOf(LivingSituation.OTHER) }
-    var occupation by remember { mutableStateOf("") }
-    var mainAccountBalance by remember { mutableStateOf("") }
-    var savingsAccountBalance by remember { mutableStateOf("") }
-    var vaultsBalanceInput by remember { mutableStateOf("") }
+    var age by rememberSaveable { mutableStateOf("30") }
+    var birthday by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+    var monthlyIncome by rememberSaveable { mutableStateOf("") }
+    var selectedRiskLevel by rememberSaveable { mutableStateOf(RiskLevel.BALANCED) }
+    var primaryGoal by rememberSaveable { mutableStateOf("") }
+    var hasDebts by rememberSaveable { mutableStateOf(false) }
+    var currentEmergencyFund by rememberSaveable { mutableStateOf("0") }
+    var educationStatus by rememberSaveable { mutableStateOf(EducationStatus.OTHER) }
+    var employmentStatus by rememberSaveable { mutableStateOf(EmploymentStatus.EMPLOYED) }
+    var livingSituation by rememberSaveable { mutableStateOf(LivingSituation.OTHER) }
+    var occupation by rememberSaveable { mutableStateOf("") }
+    var mainAccountBalance by rememberSaveable { mutableStateOf("") }
+    var savingsAccountBalance by rememberSaveable { mutableStateOf("") }
+    var vaultsBalanceInput by rememberSaveable { mutableStateOf("") }
     val vaultDrafts = remember { mutableStateListOf<VaultDraft>() }
     var nextDraftId by remember { mutableStateOf(0L) }
     val subscriptionDrafts = remember { mutableStateListOf<SubscriptionDraft>() }
     var nextSubscriptionId by remember { mutableStateOf(0L) }
-    var reminderEnabled by remember { mutableStateOf(true) }
-    var reminderFrequency by remember { mutableStateOf(7) }
-    var reminderHour by remember { mutableStateOf(20) }
+    var reminderEnabled by rememberSaveable { mutableStateOf(true) }
+    var reminderFrequency by rememberSaveable { mutableStateOf(7) }
+    var reminderHour by rememberSaveable { mutableStateOf(20) }
 
     val totalSteps = 8  // Increased from 7 to 8
     val vaultsStepIndex = 6  // Shifted from 5 to 6
@@ -167,6 +173,9 @@ fun OnboardingScreen(
         }
     }
 
+    // System back steps backwards through onboarding instead of leaving it
+    BackHandler(enabled = currentStep > 0) { currentStep-- }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -202,14 +211,19 @@ fun OnboardingScreen(
                 AnimatedContent(
                     targetState = currentStep,
                     transitionSpec = {
-                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                        // Slide in the direction of travel so going back feels like going back
+                        if (targetState > initialState) {
+                            (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                        } else {
+                            (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
+                        }
                     },
                     label = "onboarding_step"
                 ) { step ->
                     when (step) {
                         0 -> CountrySelectionStep(
                             selectedCountry = selectedCountry,
-                            onCountrySelected = { selectedCountry = it },
+                            onCountrySelected = { selectedCountryCode = it.countryCode },
                             onNext = { currentStep = 1 }
                         )
                         1 -> WelcomeStep(
