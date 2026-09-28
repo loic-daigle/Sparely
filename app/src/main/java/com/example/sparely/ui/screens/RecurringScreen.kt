@@ -2,6 +2,11 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -151,18 +156,22 @@ fun RecurringExpensesScreen(
     var expenseToPayEarly by remember { mutableStateOf<RecurringExpense?>(null) }
     var overviewMode by remember { mutableStateOf(RecurringOverviewMode.OVERVIEW) }
 
+    // Active payments first, soonest due on top; paused ones go to the bottom
     val sortedExpenses = remember(recurringExpenses) {
-        recurringExpenses.sortedBy { calculateNextDue(it) ?: it.startDate }
+        recurringExpenses.sortedWith(
+            compareBy<RecurringExpense> { !it.isActive }
+                .thenBy { calculateNextDue(it) ?: it.startDate }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxSize(),
+            // Content padding (not Modifier.padding) so rows don't clip, and room to scroll past the FAB
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
+            item(key = "overview") {
                 RecurringOverviewCard(
                     expenses = sortedExpenses,
                     selectedMode = overviewMode,
@@ -191,17 +200,16 @@ fun RecurringExpensesScreen(
                 )
             }
             if (sortedExpenses.isEmpty()) {
-                item {
+                item(key = "empty") {
                     EmptyRecurringState(onAddRecurring = {
                         editingExpense = null
                         isDialogVisible = true
                     })
                 }
             }
-            item { Spacer(modifier = Modifier.height(32.dp)) }
         }
 
-        FloatingActionButton(
+        ExtendedFloatingActionButton(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
@@ -209,11 +217,11 @@ fun RecurringExpensesScreen(
                 editingExpense = null
                 isDialogVisible = true
             },
-            shape = ExpressiveShapes.small,
-            containerColor = MaterialTheme.colorScheme.primary
-        ) {
-            MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.recurring_add_title))
-        }
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null) },
+            text = { Text(stringResource(R.string.recurring_add_button)) },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 
     if (isDialogVisible) {
@@ -364,6 +372,10 @@ private fun RecurringOverviewCard(
         preview.daysUntil >= 0 && preview.daysUntil <= lead
     }
     val autoLogActive = activeExpenses.filter { it.autoLog }
+    val monthlyTotal = activeExpenses.sumOf { expense ->
+        val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
+        amount * monthlyFactor(expense.frequency)
+    }
     val autoLogUpcoming = upcomingPreviews.filter { it.expense.autoLog }
 
     val highlights = when (selectedMode) {
@@ -430,9 +442,33 @@ private fun RecurringOverviewCard(
         contentPadding = 24.dp
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Headline: what all active recurring payments cost per month
+            Column {
+                Text(
+                    text = stringResource(R.string.recurring_monthly_total_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = monthlyTotal.formatCurrency(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(
+                        R.string.recurring_monthly_total_detail,
+                        (monthlyTotal * 12).formatCurrency(),
+                        activeExpenses.size
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
                 text = stringResource(R.string.recurring_insights_title),
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Text(
@@ -482,10 +518,16 @@ private fun RecurringExpenseRow(
     val nextDue = calculateNextDue(expense)
     val daysUntil = nextDue?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
 
+    var showMenu by remember { mutableStateOf(false) }
+
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        // Paused payments are dimmed so active ones stand out
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (expense.isActive) 1f else 0.6f),
         shape = ExpressiveShapes.medium,
-        contentPadding = 16.dp
+        contentPadding = 16.dp,
+        onClick = onEdit
     ) {
         Column {
             Row(
@@ -565,7 +607,7 @@ private fun RecurringExpenseRow(
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -573,7 +615,10 @@ private fun RecurringExpenseRow(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Status / Next Due
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     val (statusIcon, statusColor, statusText) = when {
                         !expense.isActive -> Triple(MaterialSymbols.BLOCK, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.recurring_paused))
                         isAlreadyPaid -> Triple(MaterialSymbols.CHECK_CIRCLE, MaterialTheme.colorScheme.primary, stringResource(R.string.recurring_paid))
@@ -589,26 +634,68 @@ private fun RecurringExpenseRow(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = nextDue?.let { stringResource(R.string.recurring_due_date, it.format(formatter)) } ?: statusText,
+                        text = when {
+                            isAlreadyPaid || nextDue == null || daysUntil == null -> statusText
+                            // Date plus countdown ("Due Mar 3 · in 2d") so urgency is readable at a glance
+                            else -> stringResource(R.string.recurring_due_date, nextDue.format(formatter)) +
+                                " · " + formatCountdown(daysUntil)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = statusColor
+                        color = statusColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Actions
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = stringResource(R.string.edit), size = 18.dp)
+                // Secondary actions in an overflow menu (full 48dp target); tapping the card edits
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.MORE_VERT,
+                            contentDescription = stringResource(R.string.history_more_actions),
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = stringResource(R.string.delete), size = 18.dp)
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit)) },
+                            onClick = {
+                                showMenu = false
+                                onEdit()
+                            },
+                            leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, size = 20.dp) }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(stringResource(if (expense.isActive) R.string.recurring_action_pause else R.string.recurring_action_resume))
+                            },
+                            onClick = {
+                                showMenu = false
+                                onToggleActive(!expense.isActive)
+                            },
+                            leadingIcon = {
+                                MaterialSymbolIcon(
+                                    icon = if (expense.isActive) MaterialSymbols.BLOCK else MaterialSymbols.PLAY_ARROW,
+                                    contentDescription = null,
+                                    size = 20.dp
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete)) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null, size = 20.dp) },
+                            colors = MenuDefaults.itemColors(
+                                textColor = MaterialTheme.colorScheme.error,
+                                leadingIconColor = MaterialTheme.colorScheme.error
+                            )
+                        )
                     }
-                    Switch(
-                        checked = expense.isActive,
-                        onCheckedChange = onToggleActive,
-                        modifier = Modifier.scale(0.8f)
-                    )
                 }
             }
 
@@ -1432,6 +1519,16 @@ private fun formatCountdown(daysUntil: Int): String = when {
     daysUntil == 0 -> stringResource(R.string.countdown_today)
     daysUntil == 1 -> stringResource(R.string.countdown_tomorrow)
     else -> stringResource(R.string.countdown_days, daysUntil)
+}
+
+/** How many times per month a payment of this frequency occurs, for monthly-equivalent totals. */
+private fun monthlyFactor(frequency: RecurringFrequency): Double = when (frequency) {
+    RecurringFrequency.DAILY -> 365.0 / 12.0
+    RecurringFrequency.WEEKLY -> 52.0 / 12.0
+    RecurringFrequency.BIWEEKLY -> 26.0 / 12.0
+    RecurringFrequency.MONTHLY -> 1.0
+    RecurringFrequency.QUARTERLY -> 1.0 / 3.0
+    RecurringFrequency.YEARLY -> 1.0 / 12.0
 }
 
 private fun getMaxDaysBefore(frequency: RecurringFrequency): Int {

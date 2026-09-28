@@ -1524,4 +1524,8 @@
     <string name="history_store_history_subtitle">Expense history</string>
     <string name="history_store_no_expenses">No recent expenses</string>
     <string name="budget_limit_label">Limit</string>
+    <string name="recurring_monthly_total_label">Recurring per month</string>
+    <string name="recurring_monthly_total_detail">≈ %1$s per year · %2$d active</string>
+    <string name="recurring_action_pause">Pause</string>
+    <string name="recurring_action_resume">Resume</string>
 </resources>
