@@ -840,6 +840,9 @@ private fun SparelyNavHost(
                 assets = uiState.assets,
                 onAddRecurring = viewModel::addRecurringExpense,
                 pendingDetectedRecurring = uiState.pendingDetectedRecurring,
+                detectedRecurring = uiState.detectedRecurringTransactions,
+                // Opens the add form prefilled from the pattern (same flow as the dashboard card)
+                onAddDetected = viewModel::startRecurringFromInsight,
                 onAddDetectedRecurring = viewModel::addDetectedRecurring,
                 onClearPendingDetectedRecurring = viewModel::clearPendingDetectedRecurring,
                 onUpdateRecurring = viewModel::updateRecurringExpense,

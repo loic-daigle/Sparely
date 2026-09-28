@@ -2,6 +2,9 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.res.pluralStringResource
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.KeyboardType
@@ -138,6 +141,9 @@ fun RecurringExpensesScreen(
     assets: List<Asset> = emptyList(),
     onAddRecurring: (RecurringExpenseInput) -> Unit,
     pendingDetectedRecurring: DetectedRecurringTransaction? = null,
+    // Patterns found in spending history that aren't saved as recurring payments yet
+    detectedRecurring: List<DetectedRecurringTransaction> = emptyList(),
+    onAddDetected: (DetectedRecurringTransaction) -> Unit = {},
     onAddDetectedRecurring: (RecurringExpenseInput, DetectedRecurringTransaction) -> Unit = { _, _ -> },
     onClearPendingDetectedRecurring: () -> Unit = {},
     onUpdateRecurring: (RecurringExpense) -> Unit,
@@ -175,12 +181,22 @@ fun RecurringExpensesScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Defensive: never count a detected pattern that already has a saved recurring payment
+            val savedNames = recurringExpenses.map { it.description.trim().lowercase() }.toSet()
+            val unsavedDetected = detectedRecurring.filter { it.description.trim().lowercase() !in savedNames }
+
             item(key = "overview") {
                 RecurringOverviewCard(
                     expenses = sortedExpenses,
+                    detected = unsavedDetected,
                     selectedMode = overviewMode,
                     onModeChange = { overviewMode = it }
                 )
+            }
+            if (unsavedDetected.isNotEmpty()) {
+                item(key = "detected") {
+                    DetectedRecurringCard(detected = unsavedDetected, onAdd = onAddDetected)
+                }
             }
             items(sortedExpenses, key = { it.id }) { expense ->
                 val store = stores.find { it.id == expense.storeId }
@@ -358,6 +374,7 @@ private fun buildPrefillFromInsight(insight: DetectedRecurringTransaction): Recu
 @Composable
 private fun RecurringOverviewCard(
     expenses: List<RecurringExpense>,
+    detected: List<DetectedRecurringTransaction>,
     selectedMode: RecurringOverviewMode,
     onModeChange: (RecurringOverviewMode) -> Unit
 ) {
@@ -376,10 +393,13 @@ private fun RecurringOverviewCard(
         preview.daysUntil >= 0 && preview.daysUntil <= lead
     }
     val autoLogActive = activeExpenses.filter { it.autoLog }
-    val monthlyTotal = activeExpenses.sumOf { expense ->
+    val savedMonthly = activeExpenses.sumOf { expense ->
         val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
         amount * monthlyFactor(expense.frequency)
     }
+    // Detected-but-unsaved patterns still cost money every month, so they count toward the total
+    val detectedMonthly = detected.sumOf { detectedMonthlyAmount(it) }
+    val monthlyTotal = savedMonthly + detectedMonthly
     val autoLogUpcoming = upcomingPreviews.filter { it.expense.autoLog }
 
     val highlights = when (selectedMode) {
@@ -468,6 +488,18 @@ private fun RecurringOverviewCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (detected.isNotEmpty()) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.recurring_monthly_total_detected,
+                            detected.size,
+                            detectedMonthly.formatCurrency(),
+                            detected.size
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
@@ -1558,6 +1590,96 @@ private fun formatCountdown(daysUntil: Int): String = when {
     daysUntil == 0 -> stringResource(R.string.countdown_today)
     daysUntil == 1 -> stringResource(R.string.countdown_tomorrow)
     else -> stringResource(R.string.countdown_days, daysUntil)
+}
+
+/** Monthly cost of a detected pattern from its average amount and cadence in days. */
+private fun detectedMonthlyAmount(pattern: DetectedRecurringTransaction): Double =
+    if (pattern.cadenceDays > 0) pattern.averageAmount * (365.25 / 12.0) / pattern.cadenceDays else 0.0
+
+/** Detected patterns not yet saved: shown so they can be confirmed with one tap. */
+@Composable
+private fun DetectedRecurringCard(
+    detected: List<DetectedRecurringTransaction>,
+    onAdd: (DetectedRecurringTransaction) -> Unit
+) {
+    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentPadding = 16.dp
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.AUTORENEW,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        size = 20.dp
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.recurring_detected_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.recurring_detected_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            detected.forEach { pattern ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = pattern.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.recurring_detected_detail,
+                                pattern.averageAmount.formatCurrency(),
+                                pattern.cadenceDays,
+                                pattern.lastOccurrence.format(formatter)
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.recurring_detected_per_month, detectedMonthlyAmount(pattern).formatCurrency()),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    SparelyTextButton(onClick = { onAdd(pattern) }) {
+                        Text(stringResource(R.string.recurring_detected_add))
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** How many times per month a payment of this frequency occurs, for monthly-equivalent totals. */

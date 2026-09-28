@@ -1242,4 +1242,9 @@
     <string name="recurring_form_section_automation_help">Paramètres facultatifs d\'automatisation et de suivi</string>
     <string name="recurring_form_autolog_help">Enregistrer automatiquement cette dépense à l\'échéance</string>
     <string name="recurring_form_execute_help">Exécuter automatiquement cette dépense récurrente</string>
+    <string name="recurring_detected_title">Détectés, pas encore ajoutés</string>
+    <string name="recurring_detected_desc">Trouvés dans votre historique. Ils sont inclus dans le total mensuel ; ajoutez-les pour recevoir des rappels.</string>
+    <string name="recurring_detected_detail">~%1$s tous les %2$d jours · dernier %3$s</string>
+    <string name="recurring_detected_per_month">%1$s/mois</string>
+    <string name="recurring_detected_add">Ajouter</string>
 </resources>

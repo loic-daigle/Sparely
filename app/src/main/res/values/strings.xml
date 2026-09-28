@@ -1545,4 +1545,9 @@
     <string name="recurring_form_section_automation_help">Optional automation and tracking settings</string>
     <string name="recurring_form_autolog_help">Automatically log this expense when it\'s due</string>
     <string name="recurring_form_execute_help">Execute this recurring expense automatically</string>
+    <string name="recurring_detected_title">Detected, not added yet</string>
+    <string name="recurring_detected_desc">Found in your spending history. They\'re counted in the monthly total; add them to get reminders.</string>
+    <string name="recurring_detected_detail">~%1$s every %2$d days · last %3$s</string>
+    <string name="recurring_detected_per_month">%1$s/mo</string>
+    <string name="recurring_detected_add">Add</string>
 </resources>

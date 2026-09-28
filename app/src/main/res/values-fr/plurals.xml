@@ -52,4 +52,8 @@
         <item quantity="one">%1$d achat · %2$s au total</item>
         <item quantity="other">%1$d achats · %2$s au total</item>
     </plurals>
+    <plurals name="recurring_monthly_total_detected">
+        <item quantity="one">Inclut %1$s de %2$d paiement détecté non ajouté</item>
+        <item quantity="other">Inclut %1$s de %2$d paiements détectés non ajoutés</item>
+    </plurals>
 </resources>
