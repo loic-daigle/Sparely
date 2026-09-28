@@ -1080,6 +1080,10 @@ class SavingsRepository(
         mainAccountDao.getRecentTransactions(limit).map { it.toDomain() }
 
     suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long {
+        // A NaN/Infinity here would poison every later balance computed from the latest row.
+        require(transaction.amount.isFinite() && transaction.balanceAfter.isFinite()) {
+            "Refusing to record a main account transaction with an invalid amount"
+        }
         val transactionId = mainAccountDao.insertTransaction(transaction.toEntity())
         transaction.relatedVaultContributionIds?.forEach { contributionId ->
             mainAccountDao.insertTransactionVaultCrossRef(

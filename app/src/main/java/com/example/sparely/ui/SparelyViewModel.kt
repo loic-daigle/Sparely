@@ -1487,7 +1487,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
 
     fun depositToMainAccount(amount: Double, description: String, incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null) {
-        if (amount <= 0.0) return
+        if (!amount.isFinite() || amount <= 0.0) return
         safeLaunch {
             savingsRepository.withMainAccountLock {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
@@ -1507,7 +1507,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     }
 
     fun withdrawFromMainAccount(amount: Double, description: String) {
-        if (amount <= 0.0) return
+        if (!amount.isFinite() || amount <= 0.0) return
         safeLaunch {
             savingsRepository.withMainAccountLock {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
@@ -1526,6 +1526,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     }
 
     fun adjustMainAccountBalance(newBalance: Double, reason: String) {
+        if (!newBalance.isFinite()) return
         safeLaunch {
             savingsRepository.withMainAccountLock {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
@@ -1553,7 +1554,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null,
         description: String = "Paycheck"
     ) {
-        if (amount <= 0.0) return
+        if (!amount.isFinite() || amount <= 0.0) return
         safeLaunch {
             val settingsSnapshot = preferencesRepository.getSettingsSnapshot()
             val schedule = settingsSnapshot.paySchedule
