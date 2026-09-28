@@ -59,6 +59,8 @@ import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.displayName
 import com.sparely.app.R
+import java.time.format.TextStyle
+import java.util.Locale
 @Composable
 fun BudgetScreen(
     uiState: SparelyUiState,
@@ -69,7 +71,6 @@ fun BudgetScreen(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var budgetToEdit by remember { mutableStateOf<CategoryBudget?>(null) }
-    var budgetToDelete by remember { mutableStateOf<CategoryBudget?>(null) }
     val budgetLookup = remember(uiState.budgets) {
         uiState.budgets.associateBy { it.category to it.yearMonth }
     }
@@ -77,34 +78,15 @@ fun BudgetScreen(
     val summary = uiState.budgetSummary
     val currentMonth = YearMonth.now()
     
+    Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Bottom padding keeps the last card clear of the floating action button
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Add budget button
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                SparelyButton(
-                    onClick = { showAddDialog = true },
-                    icon = {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.ADD,
-                            contentDescription = stringResource(R.string.budget_add_budget),
-                            size = 18.dp
-                        )
-                    }
-                ) {
-                    Text(text = stringResource(R.string.budget_add_budget))
-                }
-            }
-        }
-
         summary?.let {
-            item {
+            item(key = "summary") {
                 BudgetSummaryCard(it)
             }
         }
@@ -113,7 +95,7 @@ fun BudgetScreen(
         val totalBudgets = uiState.budgets.filter { it.isActive && it.yearMonth == currentMonth }.sumOf { it.monthlyLimit }
         val monthlyIncome = uiState.settings.monthlyIncome
         if (totalBudgets > monthlyIncome && monthlyIncome > 0.0) {
-            item {
+            item(key = "exceeds_income") {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.fillMaxWidth(),
@@ -158,8 +140,39 @@ fun BudgetScreen(
             }
         }
 
+        // Your budgets come first: they are what this screen is for.
+        // Most-used first, so categories that are over or close to their limit lead.
+        if (summary?.categoryStatuses?.isNotEmpty() == true) {
+            item(key = "header_budgets") {
+                BudgetSectionHeader(
+                    title = stringResource(R.string.budget_category_budgets_title),
+                    subtitle = stringResource(R.string.budget_active_budgets_count, summary.categoryStatuses.size),
+                    icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET
+                )
+            }
+
+            items(
+                summary.categoryStatuses.sortedByDescending { it.percentageUsed },
+                key = { "budget_${it.category.name}_${it.yearMonth}" }
+            ) { status ->
+                val budget = budgetLookup[status.category to status.yearMonth]
+                CategoryBudgetCard(
+                    status = status,
+                    onEdit = {
+                        budget?.let { budgetToEdit = it }
+                    }
+                )
+            }
+        }
+
+        if (uiState.budgets.isEmpty()) {
+            item(key = "empty") {
+                EmptyBudgetState(onAddBudget = { showAddDialog = true })
+            }
+        }
+
         if (uiState.budgetForecasts.isNotEmpty()) {
-            item {
+            item(key = "header_forecast") {
                 BudgetSectionHeader(
                     title = stringResource(R.string.budget_forecast_section_title),
                     subtitle = stringResource(R.string.budget_forecast_section_desc),
@@ -175,17 +188,12 @@ fun BudgetScreen(
         // Filter suggestions to only show those with meaningful differences
         val meaningfulSuggestions = suggestions.filter { suggestion ->
             val existing = budgetLookup[suggestion.category to currentMonth]
-            if (existing == null) {
-                // Show if no budget exists
-                true
-            } else {
-                // Only show if difference is significant (more than $1)
-                abs(suggestion.suggestedLimit - existing.monthlyLimit) >= 1.0
-            }
+            // Show if no budget exists, or if the difference is significant (at least 1 unit)
+            existing == null || abs(suggestion.suggestedLimit - existing.monthlyLimit) >= 1.0
         }
 
         if (meaningfulSuggestions.isNotEmpty()) {
-            item {
+            item(key = "header_suggestions") {
                 BudgetSectionHeader(
                     title = stringResource(R.string.budget_smart_suggestions_title),
                     subtitle = stringResource(R.string.budget_smart_suggestions_desc),
@@ -193,7 +201,7 @@ fun BudgetScreen(
                 )
             }
 
-            items(meaningfulSuggestions, key = { it.category.name }) { suggestion ->
+            items(meaningfulSuggestions, key = { "suggestion_${it.category.name}" }) { suggestion ->
                 val existing = budgetLookup[suggestion.category to currentMonth]
                 BudgetSuggestionCard(
                     suggestion = suggestion,
@@ -209,35 +217,24 @@ fun BudgetScreen(
                 )
             }
         }
+    }
 
-        if (summary?.categoryStatuses?.isNotEmpty() == true) {
-            item {
-                BudgetSectionHeader(
-                    title = stringResource(R.string.budget_category_budgets_title),
-                    subtitle = stringResource(R.string.budget_active_budgets_count, summary.categoryStatuses.size),
-                    icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET
+        ExtendedFloatingActionButton(
+            onClick = { showAddDialog = true },
+            icon = {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ADD,
+                    contentDescription = null,
+                    size = 24.dp
                 )
-            }
-
-            items(summary.categoryStatuses) { status ->
-                val budget = budgetLookup[status.category to status.yearMonth]
-                CategoryBudgetCard(
-                    status = status,
-                    onEdit = {
-                        budget?.let { budgetToEdit = it }
-                    },
-                    onDelete = {
-                        budget?.let { budgetToDelete = it }
-                    }
-                )
-            }
-        }
-
-        if (uiState.budgets.isEmpty()) {
-            item {
-                EmptyBudgetState(onAddBudget = { showAddDialog = true })
-            }
-        }
+            },
+            text = { Text(stringResource(R.string.budget_add_budget)) },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
     }
 
     if (showAddDialog) {
@@ -265,16 +262,6 @@ fun BudgetScreen(
         )
     }
 
-    budgetToDelete?.let { budget ->
-        DeleteBudgetConfirmationDialog(
-            budget = budget,
-            onConfirm = {
-                onDeleteBudget(budget.id)
-                budgetToDelete = null
-            },
-            onDismiss = { budgetToDelete = null }
-        )
-    }
 }
 
 @Composable
@@ -298,7 +285,8 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                  Column {
-                    val currentMonthName = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() }
+                    val currentMonthName = YearMonth.now().month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+                        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
                     Text(
                         text = stringResource(R.string.budget_month_budget_title, currentMonthName),
                         style = MaterialTheme.typography.titleLarge,
@@ -428,7 +416,8 @@ private fun BudgetDonutChart(
         )
 
         var startAngle = -90f
-        val total = summary.totalBudget.coerceAtLeast(1.0)
+        // Scale by whichever is larger so overspending fills the ring instead of overlapping itself
+        val total = maxOf(summary.totalBudget, summary.categoryStatuses.sumOf { it.spent }).coerceAtLeast(1.0)
         
         for (status in sortedCategories) {
             val sweepAngle = ((status.spent / total) * 360f).toFloat()
@@ -453,8 +442,7 @@ private fun BudgetDonutChart(
 @Composable
 fun CategoryBudgetCard(
     status: BudgetStatus,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onEdit: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val categoryColor = getCategoryColor(status.category)
@@ -475,7 +463,9 @@ fun CategoryBudgetCard(
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(24.dp),
         containerColor = colorScheme.surfaceContainerHigh,
-        contentPadding = 0.dp
+        contentPadding = 0.dp,
+        // Tap to edit; deleting lives in the edit sheet (with confirmation)
+        onClick = onEdit
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Subtle Gradient Background
@@ -538,7 +528,9 @@ fun CategoryBudgetCard(
                             Text(
                                 text = status.category.displayName(),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -549,8 +541,12 @@ fun CategoryBudgetCard(
                         }
                     }
 
-                    // Action Buttons
-
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.EDIT,
+                        contentDescription = stringResource(R.string.edit),
+                        size = 20.dp,
+                        tint = colorScheme.onSurfaceVariant
+                    )
                 }
 
                 // Balance Display
@@ -575,7 +571,7 @@ fun CategoryBudgetCard(
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = stringResource(R.string.budget_category_budgets_title),
+                                text = stringResource(R.string.budget_limit_label),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -597,7 +593,7 @@ fun CategoryBudgetCard(
                         .height(10.dp)
                         .clip(RoundedCornerShape(999.dp)),
                     color = statusColor,
-                    trackColor = colorScheme.surfaceVariant
+                    trackColor = statusColor.copy(alpha = 0.18f)
                 )
 
                 // Footer Stats
@@ -623,41 +619,6 @@ fun CategoryBudgetCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    SparelyButton(
-                        onClick = onDelete,
-                        modifier = Modifier.weight(1f),
-                        containerColor = colorScheme.errorContainer,
-                        contentColor = colorScheme.error,
-                        icon = {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.DELETE,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                        }
-                    ) {
-                        Text(stringResource(R.string.delete))
-                    }
-                    SparelyButton(
-                        onClick = onEdit,
-                        modifier = Modifier.weight(1f),
-                        icon = {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.EDIT,
-                                contentDescription = null,
-                                size = 18.dp
-                            )
-                        }
-                    ) {
-                        Text(stringResource(R.string.edit))
-                    }
-                }
             }
         }
     }
@@ -1417,107 +1378,3 @@ private fun BudgetHealthStatus.displayName(): String = when (this) {
 // Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
 // (It's defined as a public function there, so we can use it directly)
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeleteBudgetConfirmationDialog(
-    budget: CategoryBudget,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val categoryColor = getCategoryColor(budget.category)
-    val categoryIcon = getCategoryIcon(budget.category)
-    
-    SparelyBottomSheet(
-        isOpen = true,
-        onDismiss = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.WARNING,
-                    contentDescription = null,
-                    size = 32.dp,
-                    tint = MaterialTheme.colorScheme.error
-                )
-                Text(
-                    text = stringResource(R.string.budget_delete_confirmation_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Text(
-                text = stringResource(R.string.budget_delete_warning_desc, budget.category.displayName()),
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Surface(
-                color = categoryColor.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MaterialSymbolIcon(
-                        icon = categoryIcon,
-                        contentDescription = null,
-                        size = 24.dp,
-                        tint = categoryColor
-                    )
-                    Column {
-                        Text(
-                            text = budget.category.displayName(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.budget_monthly_limit_stat, budget.monthlyLimit.formatCurrency()),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = stringResource(R.string.budget_delete_undone),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTonalButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.cancel))
-                }
-
-                SparelyButton(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f),
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            }
-        }
-    }
-}

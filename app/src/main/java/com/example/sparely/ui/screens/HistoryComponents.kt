@@ -5,6 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.sparely.domain.model.displayName
+import com.example.sparely.ui.theme.ExpressiveShapes
+import com.sparely.app.R
+import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,182 +82,136 @@ fun HistoryDateHeader(
 
 
 
+/**
+ * Compact expense row for the per-store history dialog. The store is the dialog's subject, so the
+ * row leads with the description and date; actions live in an overflow menu.
+ */
 @Composable
-fun ModernExpenseCard(
+fun StoreHistoryExpenseRow(
     expense: Expense,
-    store: com.example.sparely.domain.model.Store? = null,
-    brandfetchClientId: String? = null,
     onClick: () -> Unit,
-    isSelected: Boolean,
-    isSelectionMode: Boolean,
-    onLongClick: () -> Unit = {},
-    onToggleSelection: () -> Unit = {},
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
     onRefund: () -> Unit = {}
 ) {
     val categoryColor = getCategoryColor(expense.category)
-    val categoryIcon = getCategoryIcon(expense.category)
-    var showMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    var showMenu by remember { mutableStateOf(false) }
+
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .combinedClickable(
-                onClick = {
-                    if (isSelectionMode) {
-                        onToggleSelection()
-                    } else {
-                        onClick()
-                    }
-                },
-                onLongClick = {
-                    if (!isSelectionMode) {
-                        onLongClick()
-                    }
-                }
-            ),
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) 
-                else MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = MaterialTheme.shapes.medium
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = ExpressiveShapes.medium
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Selection Checkbox or Store/Category Icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary 
-                        else if (store != null) MaterialTheme.colorScheme.surfaceVariant
-                        else categoryColor.copy(alpha = 0.2f)
-                    ),
+                    .background(categoryColor.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (isSelected) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.CHECK,
-                        contentDescription = "Selected",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else if (store != null) {
-                    com.example.sparely.ui.components.StoreIcon(
-                        store = store,
-                        brandfetchClientId = brandfetchClientId,
-                        size = 40
-                    )
-                } else {
-                    MaterialSymbolIcon(
-                        icon = categoryIcon,
-                        contentDescription = null,
-                        tint = categoryColor
-                    )
-                }
+                MaterialSymbolIcon(
+                    icon = getCategoryIcon(expense.category),
+                    contentDescription = null,
+                    tint = categoryColor,
+                    size = 20.dp
+                )
             }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Content
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = store?.name ?: expense.description.ifBlank { "Unspecified" },
+                    text = expense.description.ifBlank { stringResource(R.string.history_unnamed_expense) },
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (store != null && expense.description.isNotBlank()) {
-                     Text(
-                        text = expense.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
+                Text(
+                    text = "${expense.date.format(dateFormatter)} · ${expense.category.displayName()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            
-            // Amount and Menu
+
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = expense.amount.formatCurrency(),
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (expense.refundedAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.Bold
                 )
-                
-                if (!isSelectionMode) {
-                    Box {
-                        androidx.compose.material3.IconButton(
-                            onClick = { showMenu = true },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.MORE_VERT,
-                                contentDescription = "More actions",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
+                if (expense.refundedAmount > 0) {
+                    Text(
+                        text = stringResource(
+                            if (expense.isRefunded) R.string.history_card_refunded_badge
+                            else R.string.history_card_partial_refund_badge
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+
+            // Full 48dp touch target for the overflow menu
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.MORE_VERT,
+                        contentDescription = stringResource(R.string.history_more_actions),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 20.dp
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.edit)) },
+                        onClick = {
+                            showMenu = false
+                            onEdit()
+                        },
+                        leadingIcon = {
+                            MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, size = 20.dp)
                         }
-                        
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("Edit") },
-                                onClick = {
-                                    showMenu = false
-                                    onEdit()
-                                },
-                                leadingIcon = {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.EDIT,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            )
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("Delete") },
-                                onClick = {
-                                    showMenu = false
-                                    onDelete()
-                                },
-                                leadingIcon = {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.DELETE,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                colors = androidx.compose.material3.MenuDefaults.itemColors(
-                                    textColor = MaterialTheme.colorScheme.error,
-                                    leadingIconColor = MaterialTheme.colorScheme.error
-                                )
-                            )
-                            if (expense.refundedAmount < expense.amount) {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Refund") },
-                                    onClick = {
-                                        showMenu = false
-                                        onRefund()
-                                    },
-                                    leadingIcon = {
-                                        MaterialSymbolIcon(
-                                            icon = MaterialSymbols.SWAP_HORIZ,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                )
+                    )
+                    if (!expense.isRefunded) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.history_action_refund)) },
+                            onClick = {
+                                showMenu = false
+                                onRefund()
+                            },
+                            leadingIcon = {
+                                MaterialSymbolIcon(icon = MaterialSymbols.UNDO, contentDescription = null, size = 20.dp)
                             }
-                        }
+                        )
                     }
+                    // Destructive action last
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete)) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = {
+                            MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null, size = 20.dp)
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = MaterialTheme.colorScheme.error,
+                            leadingIconColor = MaterialTheme.colorScheme.error
+                        )
+                    )
                 }
             }
         }
@@ -283,20 +250,30 @@ fun StoreHistoryDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = store.name,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
+                        // Summary: how often and how much you spend here
                         Text(
-                            text = "Expense History",
+                            text = if (isLoading || history.isEmpty()) {
+                                stringResource(R.string.history_store_history_subtitle)
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.history_store_summary,
+                                    history.size,
+                                    history.size,
+                                    history.sumOf { it.amount }.formatCurrency()
+                                )
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     androidx.compose.material3.IconButton(onClick = onDismiss) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = "Close")
+                        MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = stringResource(R.string.action_close))
                     }
                 }
 
@@ -306,21 +283,18 @@ fun StoreHistoryDialog(
                     }
                 } else if (history.isEmpty()) {
                     Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text("No recent expenses", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.history_store_no_expenses), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     LazyColumn(
                         modifier = Modifier.heightIn(max = 400.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(history) { expense ->
-                            ModernExpenseCard(
+                        items(history, key = { it.id }) { expense ->
+                            StoreHistoryExpenseRow(
                                 expense = expense,
-                                store = store,
-                                brandfetchClientId = brandfetchClientId,
-                                onClick = {},
-                                isSelected = false,
-                                isSelectionMode = false,
+                                // Tapping a row opens it for editing, like the main list
+                                onClick = { onEditExpense(expense) },
                                 onEdit = { onEditExpense(expense) },
                                 onDelete = { onDeleteExpense(expense) },
                                 onRefund = { onRefundExpense(expense) }

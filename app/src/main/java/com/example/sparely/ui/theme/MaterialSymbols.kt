@@ -107,10 +107,12 @@ object MaterialSymbols {
 
     val SWAP_HORIZ = R.drawable.swap_horiz_48px
     val DOWNLOAD = R.drawable.download_48px
-    val MORE_VERT = LIST
+    val MORE_VERT = R.drawable.more_vert_48px
     val STORE = SHOPPING_BAG
     var SEARCH = R.drawable.search_48px
     var AUTORENEW = R.drawable.autorenew_48px
+    val CONTENT_COPY = R.drawable.content_copy_48px
+    val UNDO = R.drawable.undo_48px
     val UPLOAD_FILE = R.drawable.upload_file_48px
     val CSV = R.drawable.list_48px
 

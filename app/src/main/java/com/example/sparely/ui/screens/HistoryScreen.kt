@@ -84,8 +84,6 @@ fun HistoryScreen(
     var highlightedExpenseId by remember { mutableStateOf(highlightExpenseId) }
 
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
-    var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
-    var editExpenseAssetAllocations by remember { mutableStateOf<Map<Long, Double>>(emptyMap()) }
     var expenseToRefund by remember { mutableStateOf<Expense?>(null) }
     
     // Determine if we are in "Browsing Mode" (All Time, no filters) where infinite scroll applies
@@ -106,15 +104,6 @@ fun HistoryScreen(
         }.sortedByDescending { it.date }
     }
 
-    // Load asset allocations when opening edit
-    LaunchedEffect(expenseToEdit) {
-        if (expenseToEdit != null) {
-            editExpenseAssetAllocations = onLoadAssetAllocationsForExpense(expenseToEdit!!.id)
-        } else {
-            editExpenseAssetAllocations = emptyMap()
-        }
-    }
-    
     // If not filtering (and thus showing All Time), use pagedExpenses to support infinite scroll.
     // Otherwise, use the filtered subset of the full expenses list.
     val listToDisplay = if (isFiltering) filteredExpenses else pagedExpenses
@@ -417,7 +406,8 @@ fun HistoryScreen(
                                 selectedExpenseIds + expense.id
                             }
                         },
-                        onEdit = { expenseToEdit = expense },
+                        // Edits open the full expense editor (same form as adding)
+                        onEdit = { onEditExpense(expense) },
                         onDelete = { expenseToDelete = expense },
                         onRefund = { expenseToRefund = expense },
                         onDuplicate = { onDuplicateExpense(expense) }
@@ -510,7 +500,10 @@ fun HistoryScreen(
             isLoading = isStoreHistoryLoading,
             onDismiss = onClearSelectedStore,
             stores = stores,
-            onEditExpense = { expenseToEdit = it },
+            onEditExpense = {
+                onClearSelectedStore()
+                onEditExpense(it)
+            },
             onDeleteExpense = { expenseToDelete = it },
             onRefundExpense = { expenseToRefund = it },
             brandfetchClientId = brandfetchClientId
@@ -529,33 +522,6 @@ fun HistoryScreen(
         )
     }
     
-    // Edit dialog
-    expenseToEdit?.let { expense ->
-        EditExpenseDialog(
-            expense = expense,
-            stores = stores,
-            paymentMethods = paymentMethods,
-            vaults = vaults,
-            assets = assets,
-            assetAllocations = editExpenseAssetAllocations,
-            onConfirm = { editedExpense, assetAllocations ->
-                onEditExpenseWithAssets(editedExpense, assetAllocations)
-                expenseToEdit = null
-                editExpenseAssetAllocations = emptyMap()
-            },
-            onDismiss = {
-                expenseToEdit = null
-                editExpenseAssetAllocations = emptyMap()
-            },
-            onCreateStore = onCreateStore,
-            onEditStore = onEditStore,
-            onDeleteStore = onDeleteStore,
-            brandfetchClientId = brandfetchClientId,
-            brandSearchResults = brandSearchResults,
-            onBrandSearch = onBrandSearch
-        )
-    }
-
     // Refund Dialog
     expenseToRefund?.let { expense ->
         RefundExpenseDialog(
@@ -1025,7 +991,7 @@ private fun ModernExpenseCard(
                                 if (isSelected) {
                                     MaterialSymbolIcon(
                                         icon = MaterialSymbols.CHECK,
-                                        contentDescription = "Selected",
+                                        contentDescription = stringResource(R.string.history_card_selected),
                                         tint = colorScheme.onPrimary,
                                         size = 24.dp
                                     )
@@ -1098,6 +1064,23 @@ private fun ModernExpenseCard(
                         )
                     }
 
+                    if (expense.refundedAmount > 0) {
+                        Surface(
+                            shape = ExpressiveShapes.extraSmall,
+                            color = colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (expense.isRefunded) R.string.history_card_refunded_badge
+                                    else R.string.history_card_partial_refund_badge
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
                     if (expense.isRecurring) {
                         Surface(
                             shape = ExpressiveShapes.extraSmall,
@@ -1112,10 +1095,10 @@ private fun ModernExpenseCard(
                                     icon = MaterialSymbols.AUTORENEW,
                                     size = 12.dp,
                                     tint = colorScheme.onTertiaryContainer,
-                                    contentDescription = stringResource(R.string.recurring_paused)
+                                    contentDescription = null
                                 )
                                 Text(
-                                    text = "Recurring",
+                                    text = stringResource(R.string.history_card_recurring),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = colorScheme.onTertiaryContainer
                                 )
@@ -1148,7 +1131,7 @@ private fun ModernExpenseCard(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Savings Rate",
+                                    text = stringResource(R.string.history_savings_rate),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = colorScheme.onSurfaceVariant
                                 )
@@ -1163,7 +1146,7 @@ private fun ModernExpenseCard(
                                         tint = colorScheme.primary
                                     )
                                     Text(
-                                        text = savingsRate.formatPercent(0) + " saved",
+                                        text = stringResource(R.string.history_card_saved_percent, savingsRate.formatPercent(0)),
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = colorScheme.primary
@@ -1203,13 +1186,16 @@ private fun ModernExpenseCard(
                                 ) {
                                     MaterialSymbolIcon(
                                         icon = MaterialSymbols.REFRESH,
-                                        contentDescription = "Refunded",
+                                        contentDescription = null,
                                         size = 16.dp,
                                         tint = colorScheme.tertiary
                                     )
                                     Text(
-                                        text = if (expense.isRefunded) "Refunded ${formatCurrency(expense.refundedAmount)}"
-                                        else "Partially Refunded: ${formatCurrency(expense.refundedAmount)}",
+                                        text = stringResource(
+                                            if (expense.isRefunded) R.string.history_card_refunded_amount
+                                            else R.string.history_card_partially_refunded_amount,
+                                            formatCurrency(expense.refundedAmount)
+                                        ),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = colorScheme.onTertiaryContainer
@@ -1234,13 +1220,13 @@ private fun ModernExpenseCard(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "${expense.items.size} item${if (expense.items.size > 1) "s" else ""}",
+                                            text = pluralStringResource(R.plurals.history_card_items_count, expense.items.size, expense.items.size),
                                             style = MaterialTheme.typography.labelMedium,
                                             color = colorScheme.onSurfaceVariant
                                         )
                                         MaterialSymbolIcon(
                                             icon = if (itemsExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                                            contentDescription = if (itemsExpanded) "Collapse" else "Expand",
+                                            contentDescription = stringResource(if (itemsExpanded) R.string.dashboard_collapse else R.string.dashboard_expand),
                                             size = 20.dp,
                                             tint = colorScheme.onSurfaceVariant
                                         )
@@ -1273,74 +1259,45 @@ private fun ModernExpenseCard(
                             }
                         }
 
+                        // Labeled actions: clearer than icon-only buttons (Duplicate/Refund icons were ambiguous)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Surface(
-                                    shape = ExpressiveShapes.small,
-                                    color = colorScheme.primaryContainer,
-                                    tonalElevation = 0.dp
-                                ) {
-                                    IconButton(onClick = onDuplicate) {
-                                        MaterialSymbolIcon(
-                                            icon = MaterialSymbols.ADD,
-                                            contentDescription = "Duplicate",
-                                            size = 20.dp,
-                                            tint = colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                }
-
-                                Surface(
-                                    shape = ExpressiveShapes.small,
-                                    color = colorScheme.surfaceContainerLow,
-                                    tonalElevation = 0.dp
-                                ) {
-                                    IconButton(onClick = onEdit) {
-                                        MaterialSymbolIcon(
-                                            icon = MaterialSymbols.EDIT,
-                                            contentDescription = stringResource(R.string.edit),
-                                            size = 20.dp,
-                                            tint = colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                if (!expense.isRefunded) {
-                                    Surface(
-                                        shape = ExpressiveShapes.small,
-                                        color = colorScheme.tertiaryContainer,
-                                        tonalElevation = 0.dp
-                                    ) {
-                                        IconButton(onClick = onRefund) {
-                                            MaterialSymbolIcon(
-                                                icon = MaterialSymbols.REFRESH,
-                                                contentDescription = "Refund",
-                                                size = 20.dp,
-                                                tint = colorScheme.onTertiaryContainer
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Surface(
-                                    shape = ExpressiveShapes.small,
-                                    color = colorScheme.errorContainer,
-                                    tonalElevation = 0.dp
-                                ) {
-                                    IconButton(onClick = onDelete) {
-                                        MaterialSymbolIcon(
-                                            icon = MaterialSymbols.DELETE,
-                                            contentDescription = stringResource(R.string.delete),
-                                            size = 20.dp,
-                                            tint = colorScheme.onErrorContainer
-                                        )
-                                    }
-                                }
+                            ExpenseCardAction(
+                                icon = MaterialSymbols.EDIT,
+                                label = stringResource(R.string.edit),
+                                containerColor = colorScheme.secondaryContainer,
+                                contentColor = colorScheme.onSecondaryContainer,
+                                onClick = onEdit,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ExpenseCardAction(
+                                icon = MaterialSymbols.CONTENT_COPY,
+                                label = stringResource(R.string.history_action_duplicate),
+                                containerColor = colorScheme.surfaceContainerLow,
+                                contentColor = colorScheme.onSurfaceVariant,
+                                onClick = onDuplicate,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (!expense.isRefunded) {
+                                ExpenseCardAction(
+                                    icon = MaterialSymbols.UNDO,
+                                    label = stringResource(R.string.history_action_refund),
+                                    containerColor = colorScheme.surfaceContainerLow,
+                                    contentColor = colorScheme.onSurfaceVariant,
+                                    onClick = onRefund,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
+                            ExpenseCardAction(
+                                icon = MaterialSymbols.DELETE,
+                                label = stringResource(R.string.delete),
+                                containerColor = colorScheme.errorContainer,
+                                contentColor = colorScheme.onErrorContainer,
+                                onClick = onDelete,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
@@ -1359,6 +1316,36 @@ private fun ModernExpenseCard(
     }
 }
 
+
+@Composable
+private fun ExpenseCardAction(
+    @androidx.annotation.DrawableRes icon: Int,
+    label: String,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 56.dp),
+        shape = ExpressiveShapes.small,
+        color = containerColor,
+        contentColor = contentColor
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+        ) {
+            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 20.dp)
+            SingleLineText(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+            )
+        }
+    }
+}
 
 @Composable
 private fun AllocationChip(
@@ -1552,608 +1539,6 @@ private fun DeleteExpenseConfirmationDialog(
         }
     }
 }
-
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun EditExpenseDialog(
-    expense: Expense,
-    stores: List<Store>,
-    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
-    vaults: List<com.example.sparely.domain.model.SmartVault> = emptyList(),
-    assets: List<com.example.sparely.domain.model.Asset> = emptyList(),
-    assetAllocations: Map<Long, Double> = emptyMap(),
-    onConfirm: (Expense, Map<Long, Double>) -> Unit,
-    onDismiss: () -> Unit,
-    onCreateStore: suspend (StoreInput) -> Store?,
-    onEditStore: (Store) -> Unit,
-    onDeleteStore: (Store) -> Unit,
-    brandfetchClientId: String? = null,
-    brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
-    onBrandSearch: (String) -> Unit = {}
-) {
-    val scope = rememberCoroutineScope()
-    var description by remember { mutableStateOf(expense.description) }
-    var amountText by remember { mutableStateOf(expense.amount.toString()) }
-    var category by remember { mutableStateOf(expense.category) }
-    var expenseType by remember { mutableStateOf(expense.type) }
-    // Initialize with current stores, then update if store appears later (e.g. after loading)
-    var selectedStore by remember { mutableStateOf(stores.find { it.id == expense.storeId }) }
-    var searchQuery by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf(expense.notes ?: "") }
-    var orderNumber by remember { mutableStateOf(expense.orderNumber ?: "") }
-    var selectedPaymentMethod by remember { mutableStateOf(paymentMethods.find { it.id == expense.paymentMethodId }) }
-    var selectedDate by remember { mutableStateOf(expense.date) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    // Asset selection state
-    var selectedAssetAllocations by remember { mutableStateOf(assetAllocations) }
-    var assetSelectorExpanded by remember { mutableStateOf(false) }
-
-    // Update selectedAssetAllocations when assetAllocations parameter changes
-    LaunchedEffect(assetAllocations) {
-        selectedAssetAllocations = assetAllocations
-    }
-
-    LaunchedEffect(stores) {
-        if (selectedStore == null && expense.storeId != null) {
-            stores.find { it.id == expense.storeId }?.let { selectedStore = it }
-        }
-    }
-    LaunchedEffect(paymentMethods) {
-        if (selectedPaymentMethod == null && expense.paymentMethodId != null) {
-            paymentMethods.find { it.id == expense.paymentMethodId }?.let { selectedPaymentMethod = it }
-        }
-    }
-    var showError by remember { mutableStateOf(false) }
-    
-    // Line items state
-    val expenseItems = remember { 
-        androidx.compose.runtime.mutableStateListOf<com.example.sparely.domain.model.ExpenseItem>().apply {
-            addAll(expense.items)
-        }
-    }
-    var showAddItemDialog by remember { mutableStateOf(false) }
-    
-    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
-        Column(
-            modifier = Modifier
-                .padding(24.dp)
-                .padding(bottom = 32.dp)
-                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-                Text(
-                    text = "Edit Expense",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                if (showError) {
-                    Text(
-                        text = "Please fill out all required fields correctly.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                
-                // Description
-                SparelyTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                // Amount
-                SparelyTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Amount") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                    )
-                )
-                
-                // Category Selector
-                Column {
-                    Text("Category", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        for (cat in ExpenseCategory.entries) {
-                            com.example.sparely.ui.components.SparelyChip(
-                                onClick = { category = cat },
-                                label = { Text(cat.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                selected = category == cat
-                            )
-                        }
-                    }
-                }
-
-                // Type Selector (Product/Service)
-                Column {
-                    Text("Type", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        for (type in com.example.sparely.domain.model.ExpenseType.entries) {
-                            com.example.sparely.ui.components.SparelyChip(
-                                onClick = { expenseType = type },
-                                label = { Text(type.displayName()) },
-                                selected = expenseType == type
-                            )
-                        }
-                    }
-                }
-
-                // Store Selector
-                SearchableStoreSelector(
-                    stores = stores,
-                    selectedStore = selectedStore,
-                    onStoreSelected = { selectedStore = it },
-                    onCreateStore = onCreateStore,
-                    onEditStore = onEditStore,
-                    onDeleteStore = onDeleteStore,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    brandfetchClientId = brandfetchClientId,
-                    brandSearchResults = brandSearchResults,
-                    onBrandSearch = onBrandSearch
-                )
-                
-                // Notes
-                SparelyTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(stringResource(R.string.expense_notes_label)) },
-                    placeholder = { Text(stringResource(R.string.expense_notes_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = false,
-                    minLines = 2,
-                    maxLines = 4
-                )
-                
-                // Order Number
-                SparelyTextField(
-                    value = orderNumber,
-                    onValueChange = { orderNumber = it },
-                    label = { Text(stringResource(R.string.expense_order_number_label)) },
-                    placeholder = { Text(stringResource(R.string.expense_order_number_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                
-                // Date Selector
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.expense_entry_date_label),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Text(
-                            text = selectedDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy")),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    SparelyTextButton(onClick = { showDatePicker = true }) {
-                        Text(stringResource(R.string.expense_entry_change_date_button))
-                    }
-                }
-                
-                // Payment Method Selector (if payment methods exist)
-                if (paymentMethods.isNotEmpty()) {
-                    Column {
-                        Text(
-                            text = "Payment Method",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // None option
-                            com.example.sparely.ui.components.SparelyChip(
-                                onClick = { selectedPaymentMethod = null },
-                                label = { Text("None") },
-                                selected = selectedPaymentMethod == null
-                            )
-                            paymentMethods.forEach { pm ->
-                                com.example.sparely.ui.components.SparelyChip(
-                                    onClick = { selectedPaymentMethod = pm },
-                                    label = { Text(pm.name) },
-                                    selected = selectedPaymentMethod?.id == pm.id
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Asset Linking Section
-                if (assets.isNotEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Link to Assets",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        if (selectedAssetAllocations.isEmpty()) {
-                            Text(
-                                text = "No assets linked",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            selectedAssetAllocations.forEach { (assetId, percentage) ->
-                                val asset = assets.find { it.id == assetId }
-                                asset?.let { selectedAsset ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                selectedAsset.name,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Slider(
-                                                value = percentage.toFloat(),
-                                                onValueChange = { newValue ->
-                                                    selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                                        put(assetId, newValue.toDouble().coerceIn(0.01, 1.0))
-                                                    }
-                                                },
-                                                valueRange = 0.01f..1.0f,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            Text(
-                                                "${String.format("%.0f", percentage * 100)}%",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                        }
-                                        androidx.compose.material3.IconButton(
-                                            onClick = {
-                                                selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                                    remove(assetId)
-                                                }
-                                            }
-                                        ) {
-                                            MaterialSymbolIcon(
-                                                icon = MaterialSymbols.CLOSE,
-                                                contentDescription = "Remove asset",
-                                                tint = MaterialTheme.colorScheme.error,
-                                                size = 20.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (selectedAssetAllocations.size < assets.size) {
-                            SparelyTextButton(
-                                onClick = { assetSelectorExpanded = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("+ Add Asset")
-                            }
-                        }
-                    }
-                }
-
-                // Line Items Section
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Line Items (${expenseItems.size})",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        SparelyTextButton(onClick = { showAddItemDialog = true }) {
-                            Text("+ Add Item")
-                        }
-                    }
-                    
-                    if (expenseItems.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        expenseItems.forEachIndexed { index, item ->
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                shape = ExpressiveShapes.small
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = item.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text(
-                                            text = "${item.quantity} × ${formatCurrency(item.unitPrice)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = item.totalPrice.formatCurrency(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                                        androidx.compose.material3.IconButton(
-                                            onClick = { expenseItems.removeAt(index) }
-                                        ) {
-                                        MaterialSymbolIcon(
-                                                icon = MaterialSymbols.DELETE,
-                                                contentDescription = "Remove",
-                                                tint = MaterialTheme.colorScheme.error,
-                                                size = 20.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            if (index < expenseItems.lastIndex) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                        }
-                    }
-                }
-                
-                // Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancel")
-                    }
-                    SparelyButton(
-                        onClick = {
-                            val amount = amountText.toDoubleOrNull()
-                            if (description.isBlank() || amount == null || amount <= 0) {
-                                showError = true
-                                return@SparelyButton
-                            }
-                            
-                            scope.launch {
-                                var finalStoreId = selectedStore?.id
-                                
-                                // Auto-resolve store if name typed but not selected
-                                if (finalStoreId == null && searchQuery.isNotBlank()) {
-                                     val existing = stores.find { it.name.equals(searchQuery.trim(), ignoreCase = true) }
-                                     if (existing != null) {
-                                         finalStoreId = existing.id
-                                     } else {
-                                         // Create new store
-                                         val newStore = onCreateStore(StoreInput(name = searchQuery.trim()))
-                                         finalStoreId = newStore?.id
-                                     }
-                                }
-
-                                onConfirm(
-                                    expense.copy(
-                                        description = description.trim(),
-                                        amount = amount,
-                                        category = category,
-                                        storeId = finalStoreId,
-                                        notes = notes.trim().takeIf { it.isNotBlank() },
-                                        orderNumber = orderNumber.trim().takeIf { it.isNotBlank() },
-                                        date = selectedDate,
-                                        paymentMethodId = selectedPaymentMethod?.id,
-                                        type = expenseType,
-                                        items = expenseItems.toList()
-                                    ),
-                                    selectedAssetAllocations
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Save")
-                    }
-                }
-            }
-    }
-    if (assetSelectorExpanded) {
-        AlertDialog(
-            onDismissRequest = { assetSelectorExpanded = false },
-            title = { Text("Select Asset to Link") },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    assets.filter { !selectedAssetAllocations.containsKey(it.id) }.forEach { asset ->
-                        androidx.compose.material3.Button(
-                            onClick = {
-                                selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                    put(asset.id, 1.0)
-                                }
-                                assetSelectorExpanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.Start,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(asset.name)
-                                Text(
-                                    asset.category.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                androidx.compose.material3.Button(onClick = { assetSelectorExpanded = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Date Picker Dialog
-    if (showDatePicker) {
-        val datePickerState = androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        androidx.compose.material3.DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                SparelyTextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(java.time.ZoneOffset.UTC)
-                                .toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            androidx.compose.material3.DatePicker(state = datePickerState)
-        }
-    }
-    
-    // Add Item Dialog
-    if (showAddItemDialog) {
-        var itemName by remember { mutableStateOf("") }
-        var itemQuantity by remember { mutableStateOf("1") }
-        var itemUnitPrice by remember { mutableStateOf("") }
-
-        SparelyBottomSheet(isOpen = true, onDismiss = { showAddItemDialog = false }) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                    Text(
-                        text = "Add Item",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    SparelyTextField(
-                        value = itemName,
-                        onValueChange = { itemName = it },
-                        label = { Text("Item Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SparelyTextField(
-                            value = itemQuantity,
-                            onValueChange = { itemQuantity = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Qty") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                            )
-                        )
-                        SparelyTextField(
-                            value = itemUnitPrice,
-                            onValueChange = { itemUnitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            label = { Text("Unit Price") },
-                            modifier = Modifier.weight(2f),
-                            singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                            )
-                        )
-                    }
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SparelyTextButton(
-                            onClick = { showAddItemDialog = false },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Cancel")
-                        }
-                        SparelyButton(
-                            onClick = {
-                                val qty = itemQuantity.toIntOrNull() ?: 1
-                                val price = itemUnitPrice.toDoubleOrNull() ?: 0.0
-                                if (itemName.isNotBlank() && price > 0) {
-                                    expenseItems.add(
-                                        com.example.sparely.domain.model.ExpenseItem(
-                                            id = 0L,
-                                            expenseId = expense.id,
-                                            name = itemName.trim(),
-                                            quantity = qty.coerceAtLeast(1),
-                                            unitPrice = price,
-                                            totalPrice = qty * price
-                                        )
-                                    )
-                                    showAddItemDialog = false
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Add")
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-
 
 @Composable
 private fun StoreAnalyticsCard(
