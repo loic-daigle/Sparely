@@ -49,8 +49,15 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState(isLoading = true))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    // Last line of defence for every coroutine this ViewModel starts: an exception that escapes a
+    // viewModelScope coroutine would otherwise crash the whole app. Surface it instead.
+    private val errorHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e("SettingsViewModel", "Unhandled coroutine error", throwable)
+        _uiState.update { it.copy(isLoading = false, errorMessage = throwable.message ?: "Something went wrong") }
+    }
+
     init {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             combine(
                 preferencesRepository.settingsFlow,
                 preferencesRepository.autoDepositCheckHourFlow
@@ -71,14 +78,14 @@ class SettingsViewModel(
                 }
         }
         
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.observePaymentMethods()
                 .collect { methods ->
                     _uiState.update { it.copy(paymentMethods = methods) }
                 }
         }
 
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.observeSmartVaults()
                 .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load vaults: ${e.message}") } }
                 .collect { vaults ->
@@ -86,7 +93,7 @@ class SettingsViewModel(
                 }
         }
         
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.observeSavingsAccounts()
                 .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load savings accounts: ${e.message}") } }
                 .collect { accounts ->
@@ -98,37 +105,37 @@ class SettingsViewModel(
     // --- Settings Updates ---
 
     fun updatePercentages(percentages: SavingsPercentages) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updatePercentages(percentages)
         }
     }
 
     fun toggleAutoMode(enabled: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.toggleAutoRecommendations(enabled)
         }
     }
 
     fun updateRiskLevel(riskLevel: RiskLevel) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateRiskLevel(riskLevel)
         }
     }
 
     fun updateIncludeTax(defaultIncludeTax: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateIncludeTax(defaultIncludeTax)
         }
     }
 
     fun updateMonthlyIncome(income: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateMonthlyIncome(income)
         }
     }
 
     fun updateMainAccountBalance(balance: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.withMainAccountLock {
                 val currentBalance = savingsRepository.getLatestMainAccountBalance()
                 val delta = balance - currentBalance
@@ -148,13 +155,13 @@ class SettingsViewModel(
     }
     
     fun updateTargetSavingsRate(rate: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateTargetSavingsRate(rate)
         }
     }
 
     fun updateSmartAllocationMode(mode: SmartAllocationMode) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateSmartAllocationMode(mode)
             val enabled = mode == SmartAllocationMode.AUTOMATIC
             container.monthlyAllocationScheduler.schedule(enabled)
@@ -162,13 +169,13 @@ class SettingsViewModel(
     }
 
     fun updateMainOverflowAccountId(accountId: Long?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateMainOverflowAccountId(accountId)
         }
     }
     
     fun updateMinMainAccountBalance(amount: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateMinMainAccountBalance(amount)
         }
     }
@@ -177,13 +184,13 @@ class SettingsViewModel(
      * Trigger a one-off monthly allocation run immediately (useful for manual testing or "Run now" UI).
      */
     fun triggerRunMonthlyAllocation() {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             container.monthlyAllocationScheduler.runImmediate()
         }
     }
 
     fun updateVaultAllocationMode(mode: VaultAllocationMode) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateVaultAllocationMode(mode)
         }
     }
@@ -194,7 +201,7 @@ class SettingsViewModel(
         minute: Int,
         suggestAverage: Boolean
     ) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updatePaydayReminder(enabled, hour, minute, suggestAverage)
             val refreshedSettings = preferencesRepository.getSettingsSnapshot()
             notificationScheduler.schedulePaydayReminder(refreshedSettings)
@@ -202,19 +209,19 @@ class SettingsViewModel(
     }
 
     fun updateSavingTaxRate(rate: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateSavingTaxRate(rate)
         }
     }
 
     fun updateDynamicSavingTaxEnabled(enabled: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateDynamicSavingTaxEnabled(enabled)
         }
     }
 
     fun updateAutoDepositsEnabled(enabled: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAutoDepositsEnabled(enabled)
             val checkHour = preferencesRepository.getAutoDepositCheckHour()
             vaultAutoDepositScheduler.schedule(enabled, checkHour)
@@ -222,7 +229,7 @@ class SettingsViewModel(
     }
     
     fun updateAutoDepositCheckHour(hour: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAutoDepositCheckHour(hour)
             val enabled = preferencesRepository.getAutoDepositsEnabled()
             if (enabled) {
@@ -236,7 +243,7 @@ class SettingsViewModel(
     }
 
     fun updateCreditCardReminderSettings(enabled: Boolean, daysBefore: Int, hour: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateCreditCardReminderSettings(enabled, daysBefore, hour)
             val settings = preferencesRepository.getSettingsSnapshot()
             notificationScheduler.scheduleCreditCardReminders(settings)
@@ -244,31 +251,31 @@ class SettingsViewModel(
     }
 
     fun updatePromptPayOnCreditCardExpense(enabled: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updatePromptPayOnCreditCardExpense(enabled)
         }
     }
 
     fun updateCreditCardUtilizationAlert(enabled: Boolean, threshold: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateCreditCardUtilizationAlert(enabled, threshold)
         }
     }
 
     fun updateBiometricEnabled(enabled: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateBiometricEnabled(enabled)
         }
     }
 
     fun updateSmartTransferMinimumAmount(amount: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateSmartTransferMinimumAmount(amount)
         }
     }
 
     fun updateAutoBackupSettings(enabled: Boolean, frequencyDays: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAutoBackupSettings(enabled, frequencyDays)
             // Schedule or cancel auto backup based on enabled state
             container.autoBackupScheduler.schedule(enabled, frequencyDays)
@@ -276,7 +283,7 @@ class SettingsViewModel(
     }
 
     fun triggerManualBackup(context: android.content.Context, onResult: (Boolean, String) -> Unit) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             try {
                 container.autoBackupScheduler.runImmediateBackup(context, onResult)
             } catch (e: Exception) {
@@ -288,7 +295,7 @@ class SettingsViewModel(
     }
 
     fun updatePaySchedule(schedule: PayScheduleSettings) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updatePaySchedule(schedule)
             val refreshedSettings = preferencesRepository.getSettingsSnapshot()
             notificationScheduler.schedulePaydayReminder(refreshedSettings)
@@ -298,80 +305,80 @@ class SettingsViewModel(
     // --- Profile Updates ---
 
     fun updateAge(age: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAge(age)
         }
     }
 
     fun updateEducationStatus(status: EducationStatus) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateEducationStatus(status)
         }
     }
 
     fun updateEmploymentStatus(status: EmploymentStatus) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateEmploymentStatus(status)
         }
     }
 
     fun updateLivingSituation(situation: LivingSituation) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateLivingSituation(situation)
         }
     }
 
     fun updateOccupation(occupation: String?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateOccupation(occupation)
         }
     }
 
     fun updateHasDebts(hasDebts: Boolean) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateHasDebts(hasDebts)
         }
     }
 
     fun updateEmergencyFund(amount: Double) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateEmergencyFund(amount)
         }
     }
 
     fun updatePrimaryGoal(goal: String?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updatePrimaryGoal(goal)
         }
     }
 
     fun updateDisplayName(name: String?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateDisplayName(name)
         }
     }
     
     fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateRegionalSettings(countryCode, languageCode, currencyCode, customTaxRate)
         }
     }
 
     fun updateBrandfetchClientId(clientId: String?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateBrandfetchClientId(clientId)
         }
     }
 
     fun updateBirthday(date: LocalDate?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateBirthday(date)
             preferencesRepository.refreshAgeFromBirthday()
         }
     }
 
     fun updateReminderSettings(enabled: Boolean, hour: Int, frequencyDays: Int) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateReminders(enabled, hour, frequencyDays)
             if (enabled) {
                 // We use the current settings state as a base for scheduling
@@ -386,13 +393,13 @@ class SettingsViewModel(
     // --- Payment Methods ---
 
     fun addPaymentMethod(method: PaymentMethod) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.insertPaymentMethod(method)
         }
     }
 
     fun addPaymentMethod(name: String, type: PaymentMethodType, defaultDeduct: Boolean, iconName: String?) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             val method = PaymentMethod(
                 name = name,
                 type = type,
@@ -404,13 +411,13 @@ class SettingsViewModel(
     }
 
     fun updatePaymentMethod(method: PaymentMethod) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.updatePaymentMethod(method)
         }
     }
 
     fun deletePaymentMethod(method: PaymentMethod) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.deletePaymentMethod(method)
         }
     }
@@ -418,7 +425,7 @@ class SettingsViewModel(
     // --- Data Management ---
 
     fun resetHistory(clearVaults: Boolean = false) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.clearExpenses()
             savingsRepository.clearTransfers()
             if (clearVaults) {
@@ -428,7 +435,7 @@ class SettingsViewModel(
     }
 
     fun updateExpenseHistoryRetention(retention: ExpenseHistoryRetention) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateExpenseHistoryRetention(retention)
             pruneHistory(retention)
         }
@@ -442,7 +449,7 @@ class SettingsViewModel(
     }
 
     fun exportData(uri: android.net.Uri, context: android.content.Context) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             try {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 val json = backupRepository.exportData()
@@ -457,7 +464,7 @@ class SettingsViewModel(
     }
 
     fun exportExpensesToCsv(uri: android.net.Uri, context: android.content.Context, expenses: List<Expense>, stores: List<Store>) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             try {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 val success = com.example.sparely.ui.utils.CsvExporter.exportExpenses(context, uri, expenses, stores)
@@ -474,7 +481,7 @@ class SettingsViewModel(
     }
 
     fun importData(uri: android.net.Uri, context: android.content.Context, onSuccess: (() -> Unit)? = null) {
-        viewModelScope.launch(dispatcher) {
+        viewModelScope.launch(dispatcher + errorHandler) {
             try {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 val json = context.contentResolver.openInputStream(uri)?.use { inputStream ->

@@ -36,6 +36,16 @@ interface MainAccountDao {
     @Query("SELECT * FROM main_account_transactions ORDER BY timestamp DESC, id DESC LIMIT 1")
     suspend fun getLatestTransaction(): MainAccountTransactionDetails?
 
+    /**
+     * Net amount the main account paid for an expense: debits (EXPENSE) minus credits linked to
+     * the same expense (refunds and downward price corrections are recorded as DEPOSIT).
+     */
+    @Query("SELECT IFNULL(SUM(CASE WHEN type = 'EXPENSE' THEN amount WHEN type = 'DEPOSIT' THEN -amount ELSE 0 END), 0.0) FROM main_account_transactions WHERE relatedExpenseId = :expenseId")
+    suspend fun netDebitForExpense(expenseId: Long): Double
+
+    @Query("SELECT COUNT(*) FROM main_account_transactions WHERE relatedExpenseId = :expenseId")
+    suspend fun countTransactionsForExpense(expenseId: Long): Int
+
     @Query("SELECT COUNT(*) FROM transaction_vault_contribution_cross_ref WHERE contributionId = :contributionId")
     suspend fun countTransactionsForContribution(contributionId: Long): Int
 

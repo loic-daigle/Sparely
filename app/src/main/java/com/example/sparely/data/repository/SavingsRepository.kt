@@ -1099,6 +1099,23 @@ class SavingsRepository(
         return transactionBalance ?: preferencesRepository.getSettingsSnapshot().mainAccountBalance
     }
 
+    /**
+     * How much the main account actually paid for [expense] (net of refunds already credited
+     * back), based on the main-account transactions linked to it. Expenses paid from a vault,
+     * by credit card, or not deducted at all return 0.
+     *
+     * Recurring expenses logged by older versions weren't linked to their transaction; for
+     * those the legacy assumption (amount minus refunds) is kept.
+     */
+    suspend fun getMainAccountDebitForExpense(expense: ExpenseEntity): Double {
+        if (mainAccountDao.countTransactionsForExpense(expense.id) == 0) {
+            val isLegacyUnlinkedRecurring = expense.isRecurring && expense.deductedFromVaultId == null &&
+                expense.paymentMethodId?.let { paymentMethodDao.getPaymentMethodById(it)?.isCreditCard } != true
+            return if (isLegacyUnlinkedRecurring) (expense.amount - expense.refundedAmount).coerceAtLeast(0.0) else 0.0
+        }
+        return mainAccountDao.netDebitForExpense(expense.id).coerceAtLeast(0.0)
+    }
+
     suspend fun calculateMainAccountBalance(): Double =
         mainAccountDao.calculateBalanceFromTransactions()
 
@@ -1668,7 +1685,8 @@ class SavingsRepository(
                         amount = overflowToMainAccount,
                         balanceAfter = newBalance,
                         timestamp = java.time.LocalDateTime.now(),
-                        description = "Overflow from ${vault.name} - recurring: ${recurringEntity.description.take(70)}"
+                        description = "Overflow from ${vault.name} - recurring: ${recurringEntity.description.take(70)}",
+                        relatedExpenseId = createdExpense
                     )
                     insertMainAccountTransaction(transaction)
                     preferencesRepository.updateMainAccountBalance(newBalance)
@@ -1682,7 +1700,8 @@ class SavingsRepository(
                 amount = amount,
                 balanceAfter = newBalance,
                 timestamp = java.time.LocalDateTime.now(),
-                description = "Auto-logged recurring: ${recurringEntity.description.take(100)}"
+                description = "Auto-logged recurring: ${recurringEntity.description.take(100)}",
+                        relatedExpenseId = createdExpense
             )
             insertMainAccountTransaction(transaction)
             preferencesRepository.updateMainAccountBalance(newBalance)
@@ -2103,7 +2122,8 @@ class SavingsRepository(
                         amount = overflowToMainAccount,
                         balanceAfter = newBalance,
                         timestamp = java.time.LocalDateTime.now(),
-                        description = "Overflow from ${vault.name} - variable recurring: ${recurringEntity.description.take(70)}"
+                        description = "Overflow from ${vault.name} - variable recurring: ${recurringEntity.description.take(70)}",
+                        relatedExpenseId = createdExpense
                     )
                     insertMainAccountTransaction(transaction)
                     preferencesRepository.updateMainAccountBalance(newBalance)
@@ -2117,7 +2137,8 @@ class SavingsRepository(
                 amount = amount,
                 balanceAfter = newBalance,
                 timestamp = java.time.LocalDateTime.now(),
-                description = "Variable amount: ${recurringEntity.description.take(100)}"
+                description = "Variable amount: ${recurringEntity.description.take(100)}",
+                        relatedExpenseId = createdExpense
             )
             insertMainAccountTransaction(transaction)
             preferencesRepository.updateMainAccountBalance(newBalance)
