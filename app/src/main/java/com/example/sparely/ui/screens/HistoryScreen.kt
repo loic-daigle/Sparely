@@ -1,6 +1,9 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.*
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -1532,7 +1535,7 @@ private fun EditExpenseDialog(
 ) {
     val scope = rememberCoroutineScope()
     var description by remember { mutableStateOf(expense.description) }
-    var amountText by remember { mutableStateOf(expense.amount.toString()) }
+    var amountText by remember { mutableStateOf(expense.amount.toInputString()) }
     var category by remember { mutableStateOf(expense.category) }
     var expenseType by remember { mutableStateOf(expense.type) }
     // Initialize with current stores, then update if store appears later (e.g. after loading)
@@ -1607,7 +1610,7 @@ private fun EditExpenseDialog(
                 // Amount
                 SparelyTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    onValueChange = { amountText = it.filterCurrencyInput() },
                     label = { Text("Amount") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1900,7 +1903,7 @@ private fun EditExpenseDialog(
                     }
                     SparelyButton(
                         onClick = {
-                            val amount = amountText.toDoubleOrNull()
+                            val amount = amountText.toSafeDouble()
                             if (description.isBlank() || amount == null || amount <= 0) {
                                 showError = true
                                 return@SparelyButton
@@ -2063,7 +2066,7 @@ private fun EditExpenseDialog(
                         )
                         SparelyTextField(
                             value = itemUnitPrice,
-                            onValueChange = { itemUnitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                            onValueChange = { itemUnitPrice = it.filterCurrencyInput() },
                             label = { Text("Unit Price") },
                             modifier = Modifier.weight(2f),
                             singleLine = true,
@@ -2086,7 +2089,7 @@ private fun EditExpenseDialog(
                         SparelyButton(
                             onClick = {
                                 val qty = itemQuantity.toIntOrNull() ?: 1
-                                val price = itemUnitPrice.toDoubleOrNull() ?: 0.0
+                                val price = itemUnitPrice.toSafeDouble() ?: 0.0
                                 if (itemName.isNotBlank() && price > 0) {
                                     expenseItems.add(
                                         com.example.sparely.domain.model.ExpenseItem(
@@ -2257,7 +2260,7 @@ private fun RefundExpenseDialog(
     onDismiss: () -> Unit
 ) {
     val maxRefundable = expense.amount - expense.refundedAmount
-    var amountText by remember { mutableStateOf(maxRefundable.toString()) }
+    var amountText by remember { mutableStateOf(maxRefundable.toInputString()) }
     var selectedItemIds by remember { mutableStateOf(emptySet<Long>()) }
     var showError by remember { mutableStateOf(false) }
     var wasManuallyEdited by remember { mutableStateOf(false) }
@@ -2371,7 +2374,7 @@ private fun RefundExpenseDialog(
                 SparelyTextField(
                     value = amountText,
                     onValueChange = { 
-                        amountText = it.filter { c -> c.isDigit() || c == '.' }
+                        amountText = it.filterCurrencyInput()
                         wasManuallyEdited = true
                     },
                     label = { Text("Refund Amount") },
@@ -2387,13 +2390,13 @@ private fun RefundExpenseDialog(
             ) {
                 SparelyButton(
                     onClick = {
-                        val refundAmt = amountText.toDoubleOrNull() ?: 0.0
+                        val refundAmt = amountText.toSafeDouble() ?: 0.0
                         if (refundAmt > 0 && refundAmt <= maxRefundable + 0.01) {
                             onConfirm(refundAmt, selectedItemIds.toList())
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = (amountText.toDoubleOrNull() ?: 0.0) > 0 && (amountText.toDoubleOrNull() ?: 0.0) <= maxRefundable + 0.01
+                    enabled = (amountText.toSafeDouble() ?: 0.0) > 0 && (amountText.toSafeDouble() ?: 0.0) <= maxRefundable + 0.01
                 ) {
                     Text("Refund")
                 }

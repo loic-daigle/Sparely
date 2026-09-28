@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.background
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1277,7 +1278,7 @@ fun EditBudgetDialog(
     onConfirm: (Double) -> Unit,
     onDelete: () -> Unit
 ) {
-    var amount by remember { mutableStateOf(budget.monthlyLimit.toString()) }
+    var amount by remember { mutableStateOf(budget.monthlyLimit.toInputString()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     SparelyBottomSheet(

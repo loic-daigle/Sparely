@@ -734,11 +734,11 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = { offset: Offset ->
-                        val index = (offset.x / stepX).roundToInt().coerceIn(0, values.lastIndex)
+                        val index = indexForX(offset.x, stepX, values.lastIndex)
                         selectedIndex = index
                     },
                     onTap = { offset: Offset ->
-                         val index = (offset.x / stepX).roundToInt().coerceIn(0, values.lastIndex)
+                         val index = indexForX(offset.x, stepX, values.lastIndex)
                          selectedIndex = index
                     }
                 )
@@ -746,11 +746,11 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset: Offset ->
-                        val index = (offset.x / stepX).roundToInt().coerceIn(0, values.lastIndex)
+                        val index = indexForX(offset.x, stepX, values.lastIndex)
                         selectedIndex = index
                     },
                     onDrag = { change: PointerInputChange, _: Offset ->
-                        val index = (change.position.x / stepX).roundToInt().coerceIn(0, values.lastIndex)
+                        val index = indexForX(change.position.x, stepX, values.lastIndex)
                         selectedIndex = index
                     },
                     onDragEnd = {
@@ -848,7 +848,7 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
             
             // Adjust to keep on screen
             val centerOffset = xOffsetDp - (tooltipWidth / 2)
-            val finalOffset = centerOffset.coerceIn(0.dp, maxWidth - tooltipWidth)
+            val finalOffset = centerOffset.coerceAtMost(maxWidth - tooltipWidth).coerceAtLeast(0.dp)
 
             Box(
                 modifier = Modifier
@@ -987,3 +987,8 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
     }
 }
 
+/** Maps a touch x-position to a data index without crashing on zero-width layouts. */
+private fun indexForX(x: Float, stepX: Float, lastIndex: Int): Int {
+    if (lastIndex <= 0 || stepX <= 0f || !stepX.isFinite() || !x.isFinite()) return 0
+    return (x / stepX).roundToInt().coerceIn(0, lastIndex)
+}

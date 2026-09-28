@@ -100,6 +100,9 @@ class SavingsRepository(
         override val key: CoroutineContext.Key<*> get() = MainAccountLockKey
     }
 
+    /** True for amounts that can safely move money: finite and strictly positive. */
+    private fun Double.isValidAmount(): Boolean = isFinite() && this > 0.0
+
     suspend fun <T> withMainAccountLock(block: suspend () -> T): T {
         if (coroutineContext[MainAccountLockKey] != null) {
             return block()
@@ -191,10 +194,10 @@ class SavingsRepository(
         }
     }
 
-    suspend fun deleteExpensesBefore(date: LocalDate): Int {
+    suspend fun deleteExpensesBefore(date: LocalDate): Int = database.withTransaction {
         val expenses = expenseDao.getExpensesBetween(LocalDate.MIN, date.minusDays(1))
         batchCorrectBalances(expenses, reverse = true)
-        return expenseDao.deleteExpensesBefore(date)
+        expenseDao.deleteExpensesBefore(date)
     }
 
     suspend fun countExpensesBefore(date: LocalDate): Int {
@@ -290,7 +293,7 @@ class SavingsRepository(
         }
     }
 
-    suspend fun deleteAsset(assetId: Long) {
+    suspend fun deleteAsset(assetId: Long) = database.withTransaction {
         // Delete all links associated with this asset
         assetExpenseLinkDao.deleteLinksForAsset(assetId)
         assetDao.deleteAssetById(assetId)
@@ -388,7 +391,7 @@ class SavingsRepository(
         wishlistDao.insertWishlist(wishlist.toEntity())
     }
 
-    suspend fun deleteWishlist(wishlistId: Long) {
+    suspend fun deleteWishlist(wishlistId: Long) = database.withTransaction {
         wishlistSavingsDao.deleteSavingsForWishlist(wishlistId)
         wishlistDao.deleteWishlistById(wishlistId)
     }
@@ -413,18 +416,21 @@ class SavingsRepository(
         amount: Double,
         source: String = "MANUAL_ALLOCATION"
     ) {
-        if (amount <= 0.0) return
-        wishlistDao.incrementWishlistSavings(wishlistId, amount)
-        val savingsRecord = com.example.sparely.data.local.WishlistSavingsEntity(
-            wishlistId = wishlistId,
-            amount = amount,
-            date = java.time.LocalDateTime.now(),
-            source = source
-        )
-        wishlistSavingsDao.insertSavings(savingsRecord)
+        if (!amount.isValidAmount()) return
+        database.withTransaction {
+            wishlistDao.incrementWishlistSavings(wishlistId, amount)
+            val savingsRecord = com.example.sparely.data.local.WishlistSavingsEntity(
+                wishlistId = wishlistId,
+                amount = amount,
+                date = java.time.LocalDateTime.now(),
+                source = source
+            )
+            wishlistSavingsDao.insertSavings(savingsRecord)
+        }
     }
 
     suspend fun setSavingsForWishlist(wishlistId: Long, amount: Double) {
+        if (!amount.isFinite() || amount < 0.0) return
         wishlistDao.updateWishlistSavings(wishlistId, amount)
     }
 
@@ -454,7 +460,7 @@ class SavingsRepository(
     suspend fun getTotalSavingsForWishlist(wishlistId: Long): Double =
         wishlistSavingsDao.getTotalSavingsForWishlist(wishlistId)
 
-    suspend fun clearExpenses() {
+    suspend fun clearExpenses() = database.withTransaction {
         // Fetch all expenses to reverse impacts
         val expenses = expenseDao.getExpensesBetween(LocalDate.MIN, LocalDate.MAX)
         batchCorrectBalances(expenses, reverse = true)
@@ -497,8 +503,10 @@ class SavingsRepository(
     fun observeTransfers(): Flow<List<SavingsTransferEntity>> = transferDao.observeTransfers()
 
     suspend fun logTransfer(entity: SavingsTransferEntity) {
-        transferDao.upsert(entity)
-        reconcileAccountsForTransfer(entity)
+        database.withTransaction {
+            transferDao.upsert(entity)
+            reconcileAccountsForTransfer(entity)
+        }
     }
 
     suspend fun getTransfersForAccount(accountId: Long): List<SavingsTransfer> =
@@ -544,8 +552,8 @@ class SavingsRepository(
         savingsAccountDao.deleteById(id)
     }
 
-    suspend fun recordInterestEarned(accountId: Long, amount: Double, entryDate: LocalDate = LocalDate.now()) {
-        if (amount <= 0) return
+    suspend fun recordInterestEarned(accountId: Long, amount: Double, entryDate: LocalDate = LocalDate.now()): Unit = withMainAccountLock { database.withTransaction {
+        if (!amount.isValidAmount()) return@withTransaction
         savingsAccountDao.recordInterestEarned(accountId, amount, entryDate)
         
         // Log as a contribution for history/analytics (Vault logic)
@@ -571,7 +579,7 @@ class SavingsRepository(
             description = "Interest Earned"
         )
         savingsAccountTransactionDao.insert(transaction)
-    }
+    } }
 
 
 
@@ -594,7 +602,7 @@ class SavingsRepository(
      * Increment savings account balance (for overflow deposits).
      */
     suspend fun incrementSavingsAccountBalance(accountId: Long, amount: Double) {
-        if (amount == 0.0) return
+        if (amount == 0.0 || !amount.isFinite()) return
         savingsAccountDao.incrementBalance(accountId, amount)
     }
 
@@ -605,7 +613,7 @@ class SavingsRepository(
         savingsAccountDao.archiveAccount(accountId)
     }
 
-    suspend fun upsertSmartVault(vault: SmartVault) {
+    suspend fun upsertSmartVault(vault: SmartVault) = database.withTransaction {
         val assignedId = smartVaultDao.upsertVault(vault.toEntity())
         val resolvedId = if (vault.id == 0L) assignedId else vault.id
         syncVaultSchedules(resolvedId, vault.schedules)
@@ -633,6 +641,7 @@ class SavingsRepository(
     } }
 
     suspend fun logVaultContribution(contribution: VaultContribution): Long = withMainAccountLock { database.withTransaction {
+        require(contribution.amount.isFinite()) { "Contribution amount must be a finite number" }
         val entity = contribution.toEntity()
         val id = smartVaultDao.upsertContribution(entity)
         if (contribution.reconciled) {
@@ -708,16 +717,18 @@ class SavingsRepository(
     /**
      * Approve a pending contribution: reconcile it and remove any frozen funds associated with it.
      */
-    suspend fun approvePendingContribution(contributionId: Long) {
+    suspend fun approvePendingContribution(contributionId: Long): Unit = withMainAccountLock { database.withTransaction {
         reconcileVaultContribution(contributionId)
         removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
-    }
+    } }
 
     /**
      * Cancel a pending contribution: delete the pending contribution record and remove frozen funds.
      */
-    suspend fun cancelPendingContribution(contributionId: Long) {
-        val contribution = smartVaultDao.getContributionById(contributionId) ?: return
+    suspend fun cancelPendingContribution(contributionId: Long) = database.withTransaction {
+        val contribution = smartVaultDao.getContributionById(contributionId) ?: return@withTransaction
+        // Only pending rows may be cancelled; a reconciled one has already moved money.
+        if (contribution.reconciled) return@withTransaction
         // delete the pending contribution row
         smartVaultDao.deleteContribution(contributionId)
         // remove the frozen record(s) associated with this pending contribution
@@ -734,7 +745,7 @@ class SavingsRepository(
         smartVaultDao.getAdjustmentsForVault(vaultId).map { it.toDomain() }
 
     suspend fun depositToVault(vaultId: Long, amount: Double, reason: String?, adjustMainAccount: Boolean): Unit = withMainAccountLock { database.withTransaction {
-        if (amount <= 0.0) return@withTransaction
+        if (!amount.isValidAmount()) return@withTransaction
         val vault = smartVaultDao.getVaultById(vaultId) ?: return@withTransaction
         val sanitizedAmount = amount.coerceAtLeast(0.0)
         val newBalance = vault.currentBalance + sanitizedAmount
@@ -761,9 +772,12 @@ class SavingsRepository(
     } }
 
     suspend fun deductFromVault(vaultId: Long, amount: Double, reason: String?, creditMainAccount: Boolean): Unit = withMainAccountLock { database.withTransaction {
-        if (amount <= 0.0) return@withTransaction
+        if (!amount.isValidAmount()) return@withTransaction
         val vault = smartVaultDao.getVaultById(vaultId) ?: return@withTransaction
-        val sanitizedAmount = amount.coerceAtLeast(0.0)
+        // A vault can't go below zero, so never move (or credit) more than it actually holds;
+        // otherwise withdrawing $500 from a $100 vault would create $400 in the main account.
+        val sanitizedAmount = amount.coerceAtMost(vault.currentBalance.coerceAtLeast(0.0))
+        if (sanitizedAmount <= 0.0) return@withTransaction
         val newBalance = (vault.currentBalance - sanitizedAmount).coerceAtLeast(0.0)
         recordVaultBalanceAdjustment(
             vaultId = vaultId,
@@ -787,9 +801,9 @@ class SavingsRepository(
         }
     } }
 
-    suspend fun overrideVaultBalance(vaultId: Long, newBalance: Double, reason: String?) {
-        if (newBalance < 0.0) return
-        val vault = smartVaultDao.getVaultById(vaultId) ?: return
+    suspend fun overrideVaultBalance(vaultId: Long, newBalance: Double, reason: String?): Unit = withMainAccountLock { database.withTransaction {
+        if (!newBalance.isFinite() || newBalance < 0.0) return@withTransaction
+        val vault = smartVaultDao.getVaultById(vaultId) ?: return@withTransaction
         val sanitized = newBalance.coerceAtLeast(0.0)
         recordVaultBalanceAdjustment(
             vaultId = vaultId,
@@ -798,7 +812,7 @@ class SavingsRepository(
             type = VaultAdjustmentType.MANUAL_EDIT,
             reason = reason
         )
-    }
+    } }
 
     suspend fun updateVaultArchived(vaultId: Long, archived: Boolean) {
         smartVaultDao.updateVaultArchived(vaultId, archived)
@@ -811,7 +825,7 @@ class SavingsRepository(
         type: VaultAdjustmentType,
         reason: String?
     ) {
-        if (newBalance == previousBalance) return
+        if (newBalance == previousBalance || !newBalance.isFinite()) return
         val delta = newBalance - previousBalance
         val timestamp = Instant.now()
         smartVaultDao.setVaultBalance(vaultId, newBalance, LocalDate.now())
@@ -1016,7 +1030,7 @@ class SavingsRepository(
         }
     }
 
-    suspend fun deleteSavingsChallenge(id: Long) {
+    suspend fun deleteSavingsChallenge(id: Long) = database.withTransaction {
         challengeDao.deleteMilestonesForChallenge(id)
         challengeDao.deleteChallengeById(id)
     }
@@ -1040,7 +1054,7 @@ class SavingsRepository(
     }
 
     private suspend fun reconcileAccountsForTransfer(entity: SavingsTransferEntity) {
-        if (entity.amount <= 0.0) return
+        if (!entity.amount.isValidAmount()) return
         entity.sourceAccountId?.let { sourceId ->
             savingsAccountDao.incrementBalance(sourceId, -entity.amount)
         }
@@ -1120,13 +1134,19 @@ class SavingsRepository(
         reason: String? = null,
         refundedItemIds: List<Long> = emptyList()
     ): Double? {
-        val expense = expenseDao.findExpenseById(expenseId) ?: return null
-
-        val maxRefundable = expense.amount - expense.refundedAmount
-        val actualRefund = requestedAmount.coerceIn(0.0, maxRefundable)
-        if (actualRefund <= 0.0) return null
+        if (!requestedAmount.isValidAmount()) return null
 
         return withMainAccountLock { database.withTransaction {
+            // Read inside the lock/transaction so two quick refunds can't both see the same
+            // "already refunded" total and over-refund the expense.
+            val expense = expenseDao.findExpenseById(expenseId) ?: return@withTransaction null
+
+            val maxRefundable = expense.amount - expense.refundedAmount
+            // coerceIn would throw if maxRefundable were negative (expense edited below its refunds).
+            if (maxRefundable <= 0.0) return@withTransaction null
+            val actualRefund = requestedAmount.coerceAtMost(maxRefundable)
+            if (actualRefund <= 0.0) return@withTransaction null
+
             val newTotalRefunded = expense.refundedAmount + actualRefund
 
             flagExpenseAsRefunded(expenseId, actualRefund, newTotalRefunded)
@@ -1306,8 +1326,11 @@ class SavingsRepository(
         runTimestamp: LocalDateTime,
         notes: String?
     ): Boolean {
-        val vault = smartVaultDao.getVaultById(schedule.vaultId) ?: return false
-        return withMainAccountLock { database.withTransaction { when (schedule.direction) {
+        if (!amount.isValidAmount()) return false
+        return withMainAccountLock { database.withTransaction {
+            // Read the vault inside the lock so the balance can't change underneath us.
+            val vault = smartVaultDao.getVaultById(schedule.vaultId) ?: return@withTransaction false
+            when (schedule.direction) {
             VaultTransferDirection.MAIN_TO_VAULT -> {
                 val available = if (schedule.onlyIfBalanceAvailable) getAvailableMainAccountBalance() else Double.MAX_VALUE
                 if (available + 1e-6 < amount) {
@@ -1336,10 +1359,12 @@ class SavingsRepository(
             }
             VaultTransferDirection.VAULT_TO_MAIN -> {
                 val available = vault.currentBalance
-                if (schedule.onlyIfBalanceAvailable && available + 1e-6 < amount) {
+                // Never credit the main account with more than the vault actually held.
+                val moved = amount.coerceAtMost(available.coerceAtLeast(0.0))
+                if ((schedule.onlyIfBalanceAvailable && available + 1e-6 < amount) || moved <= 0.0) {
                     false
                 } else {
-                    val newBalance = (vault.currentBalance - amount).coerceAtLeast(0.0)
+                    val newBalance = (vault.currentBalance - moved).coerceAtLeast(0.0)
                     recordVaultBalanceAdjustment(
                         vaultId = vault.id,
                         previousBalance = vault.currentBalance,
@@ -1350,8 +1375,8 @@ class SavingsRepository(
                     val currentMain = getLatestMainAccountBalance()
                     val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                         type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                        amount = amount,
-                        balanceAfter = currentMain + amount,
+                        amount = moved,
+                        balanceAfter = currentMain + moved,
                         timestamp = runTimestamp,
                         description = notes ?: "Scheduled transfer from vault ${vault.name}"
                     )

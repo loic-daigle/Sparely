@@ -1,6 +1,8 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
@@ -557,7 +559,7 @@ private fun PayBillBottomSheet(
     var note by remember { mutableStateOf("") }
     var deductFromMainAccount by remember { mutableStateOf(true) }
     val currentBalance = card.currentBalance
-    val paymentAmount = amountText.toDoubleOrNull() ?: 0.0
+    val paymentAmount = amountText.toSafeDouble() ?: 0.0
     val hasInsufficientFunds = deductFromMainAccount && paymentAmount > mainAccountBalance
     val currencySymbol = stringResource(R.string.currency_symbol)
     
@@ -621,7 +623,7 @@ private fun PayBillBottomSheet(
                 
                 SparelyTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' } },
+                    onValueChange = { amountText = it.filterCurrencyInput() },
                     label = { Text(stringResource(R.string.credit_cards_payment_amount_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     leadingIcon = { Text(currencySymbol) },
@@ -714,12 +716,12 @@ private fun PayBillBottomSheet(
                 }
                 SparelyButton(
                     onClick = {
-                        val amount = amountText.toDoubleOrNull()
+                        val amount = amountText.toSafeDouble()
                         if (amount != null && amount > 0 && !hasInsufficientFunds) {
                             onPay(amount, note.takeIf { it.isNotBlank() }, deductFromMainAccount)
                         }
                     },
-                    enabled = amountText.toDoubleOrNull()?.let { it > 0 } == true && !hasInsufficientFunds,
+                    enabled = amountText.toSafeDouble()?.let { it > 0 } == true && !hasInsufficientFunds,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.credit_cards_pay_action_confirm))

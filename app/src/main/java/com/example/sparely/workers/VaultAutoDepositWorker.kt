@@ -1,5 +1,6 @@
 package com.example.sparely.workers
 
+import com.example.sparely.ui.utils.roundToTwoDecimals
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -321,7 +322,9 @@ class VaultAutoDepositWorker(
         return (base * percent).roundCurrency()
     }
 
-    private fun Double.roundCurrency(): Double = (this * 100.0).roundToInt() / 100.0
+    // Delegates to the shared BigDecimal rounding: NaN/Infinity become 0 instead of throwing,
+    // and large amounts no longer overflow Int cents.
+    private fun Double.roundCurrency(): Double = roundToTwoDecimals()
 
     private fun buildTransferNote(schedule: VaultSchedule, amount: Double, vaultName: String): String {
         val formattedAmount = NotificationHelper.formatAmount(amount)

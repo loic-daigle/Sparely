@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -314,7 +315,7 @@ fun SettingsSmartTransferCard(
     currencySymbol: String = "$"
 ) {
     var amountText by remember(minimumAmount) { 
-        mutableStateOf(if (minimumAmount > 0) minimumAmount.toString() else "") 
+        mutableStateOf(if (minimumAmount > 0) minimumAmount.toInputString() else "") 
     }
     
     ExpressiveCard(

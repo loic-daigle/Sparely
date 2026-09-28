@@ -144,14 +144,20 @@ class SparelyAppFunctions(
      */
     suspend fun recordExpense(request: RecordExpenseRequest): RecordExpenseResponse =
         withContext(Dispatchers.IO) {
+            if (!request.amount.isFinite() || request.amount <= 0.0) {
+                return@withContext RecordExpenseResponse(
+                    expenseId = 0L,
+                    message = "Could not record expense: amount must be a positive number"
+                )
+            }
             val expenseCategory = runCatching {
-                ExpenseCategory.valueOf(request.category)
+                ExpenseCategory.valueOf(request.category.trim().uppercase())
             }.getOrDefault(ExpenseCategory.OTHER)
 
             // Create expense entity with default allocation values
             val entity = ExpenseEntity(
                 id = 0,
-                description = request.description,
+                description = request.description.trim().ifEmpty { expenseCategory.name },
                 amount = request.amount,
                 category = expenseCategory,
                 date = LocalDate.now(),
@@ -187,12 +193,20 @@ class SparelyAppFunctions(
      */
     suspend fun linkExpenseToAsset(request: LinkExpenseToAssetRequest): String =
         withContext(Dispatchers.IO) {
+            val percent = request.percentageAllocation
+            if (!percent.isFinite() || percent <= 0.0 || percent > 100.0) {
+                return@withContext "Could not link expense: allocation must be between 0 and 100%"
+            }
+            if (repository.findExpenseById(request.expenseId) == null) {
+                return@withContext "Could not link expense: expense with ID ${request.expenseId} not found"
+            }
+            // The repository expects a fraction (1.0 = 100%); the request is expressed in percent.
             repository.linkExpenseToAsset(
                 request.expenseId,
                 request.assetId,
-                request.percentageAllocation
+                percent / 100.0
             )
-            "Successfully linked expense to asset with ${request.percentageAllocation}% allocation"
+            "Successfully linked expense to asset with ${percent}% allocation"
         }
 
     /**
@@ -207,7 +221,7 @@ class SparelyAppFunctions(
     suspend fun createAsset(request: CreateAssetRequest): CreateAssetResponse =
         withContext(Dispatchers.IO) {
             val assetCategory = runCatching {
-                AssetCategory.valueOf(request.category)
+                AssetCategory.valueOf(request.category.trim().uppercase())
             }.getOrDefault(AssetCategory.OTHER)
 
             val asset = Asset(
@@ -238,8 +252,14 @@ class SparelyAppFunctions(
      */
     suspend fun addToWishlist(request: AddToWishlistRequest): AddToWishlistResponse =
         withContext(Dispatchers.IO) {
+            if (!request.targetAmount.isFinite() || request.targetAmount < 0.0) {
+                return@withContext AddToWishlistResponse(
+                    wishlistId = 0L,
+                    message = "Could not add to wishlist: target amount must be a positive number"
+                )
+            }
             val wishlistCategory = runCatching {
-                WishlistCategory.valueOf(request.category)
+                WishlistCategory.valueOf(request.category.trim().uppercase())
             }.getOrNull()
 
             val wishlist = Wishlist(
@@ -270,6 +290,9 @@ class SparelyAppFunctions(
      */
     suspend fun recordRefund(request: RecordRefundRequest): String =
         withContext(Dispatchers.IO) {
+            if (!request.refundAmount.isFinite() || request.refundAmount <= 0.0) {
+                return@withContext "Could not record refund: amount must be a positive number"
+            }
             val actualRefund = repository.processExpenseRefund(
                 expenseId = request.expenseId,
                 requestedAmount = request.refundAmount,

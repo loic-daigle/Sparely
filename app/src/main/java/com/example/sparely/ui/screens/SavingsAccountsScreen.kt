@@ -1,6 +1,8 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toInputString
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -202,7 +204,7 @@ fun SavingsAccountsScreen(
         }
 
         accountToUpdateBalance?.let { account ->
-            var newBalanceText by remember { mutableStateOf(account.currentBalance.toString()) }
+            var newBalanceText by remember { mutableStateOf(account.currentBalance.toInputString()) }
             SparelyBottomSheet(
                 isOpen = true,
                 onDismiss = { accountToUpdateBalance = null }
@@ -225,7 +227,7 @@ fun SavingsAccountsScreen(
                     )
                     SparelyTextField(
                         value = newBalanceText,
-                        onValueChange = { newBalanceText = it },
+                        onValueChange = { newBalanceText = it.filterCurrencyInput() },
                         label = { Text(stringResource(id = R.string.savings_current_balance)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -290,7 +292,7 @@ fun SavingsAccountsScreen(
                     )
                     SparelyTextField(
                         value = interestAmountText,
-                        onValueChange = { interestAmountText = it },
+                        onValueChange = { interestAmountText = it.filterCurrencyInput() },
                         label = { Text(stringResource(id = R.string.savings_interest_amount)) },
                         singleLine = true,
                         prefix = { Text("$") },
@@ -778,8 +780,8 @@ fun SavingsAccountDialog(
     var termStartText by remember { mutableStateOf(initialAccount?.termStartDate?.toString() ?: java.time.LocalDate.now().toString()) }
     var graceDaysText by remember { mutableStateOf(initialAccount?.gracePeriodDays?.toString() ?: "") }
     var anniversaryDaysText by remember { mutableStateOf(initialAccount?.anniversaryWindowDays?.toString() ?: "") }
-    var minWithdrawalText by remember { mutableStateOf(initialAccount?.minWithdrawalAmount?.takeIf { it > 0 }?.toString() ?: "") }
-    var minRemainingText by remember { mutableStateOf(initialAccount?.minRemainingBalance?.takeIf { it > 0 }?.toString() ?: "") }
+    var minWithdrawalText by remember { mutableStateOf(initialAccount?.minWithdrawalAmount?.takeIf { it > 0 }?.toInputString() ?: "") }
+    var minRemainingText by remember { mutableStateOf(initialAccount?.minRemainingBalance?.takeIf { it > 0 }?.toInputString() ?: "") }
     var penaltyDaysText by remember { mutableStateOf(initialAccount?.earlyWithdrawalPenaltyDays?.toString() ?: "") }
 
     var productMenuExpanded by remember { mutableStateOf(false) }
@@ -816,7 +818,7 @@ fun SavingsAccountDialog(
                 )
                 SparelyTextField(
                     value = apyText,
-                    onValueChange = { apyText = it },
+                    onValueChange = { apyText = it.filterCurrencyInput() },
                     label = { Text(stringResource(id = R.string.savings_apy_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -940,7 +942,7 @@ fun SavingsAccountDialog(
 
                 SparelyTextField(
                     value = minWithdrawalText,
-                    onValueChange = { minWithdrawalText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    onValueChange = { minWithdrawalText = it.filterCurrencyInput() },
                     label = { Text(stringResource(id = R.string.savings_min_withdraw_amount)) },
                     singleLine = true,
                     prefix = { Text("$") },
@@ -949,7 +951,7 @@ fun SavingsAccountDialog(
 
                 SparelyTextField(
                     value = minRemainingText,
-                    onValueChange = { minRemainingText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    onValueChange = { minRemainingText = it.filterCurrencyInput() },
                     label = { Text(stringResource(id = R.string.savings_min_remaining_balance)) },
                     singleLine = true,
                     prefix = { Text("$") },
