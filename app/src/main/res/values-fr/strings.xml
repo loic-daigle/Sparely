@@ -1279,4 +1279,18 @@
     <string name="insights_patterns_monthly_total">%1$s/mois</string>
     <string name="insights_velocity_on_pace">En voie d\'atteindre %1$s ce mois-ci</string>
     <string name="insights_freq_every_few_days">Tous les quelques jours</string>
+    <string name="main_account_month_in">Entrées ce mois-ci : %1$s</string>
+    <string name="main_account_month_out">Sorties : %1$s</string>
+    <string name="main_account_no_filter_match">Aucune transaction ne correspond à ce filtre</string>
+    <string name="main_account_show_all">Tout afficher</string>
+    <string name="main_account_income_category">Catégorie</string>
+    <string name="main_account_withdraw_over_balance">C\'est plus que votre solde de %1$s</string>
+    <string name="main_account_adjust_delta">Variation : %1$s</string>
+    <string name="vault_transfers_source_interest">Intérêts</string>
+    <string name="vault_transfers_edit_amount">Modifier le montant</string>
+    <string name="vault_transfers_cancel_transfer">Annuler le transfert</string>
+    <string name="vault_transfers_mark_transferred">Marquer comme transféré</string>
+    <string name="vault_transfers_cancel_confirm_title">Annuler ce transfert ?</string>
+    <string name="vault_transfers_cancel_confirm_desc">Le transfert en attente de %1$s vers %2$s sera supprimé.</string>
+    <string name="vault_transfers_keep_transfer">Conserver</string>
 </resources>

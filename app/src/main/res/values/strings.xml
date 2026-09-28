@@ -1582,4 +1582,18 @@
     <string name="insights_patterns_monthly_total">%1$s/mo</string>
     <string name="insights_velocity_on_pace">On pace for %1$s this month</string>
     <string name="insights_freq_every_few_days">Every few days</string>
+    <string name="main_account_month_in">In this month: %1$s</string>
+    <string name="main_account_month_out">Out: %1$s</string>
+    <string name="main_account_no_filter_match">No transactions match this filter</string>
+    <string name="main_account_show_all">Show all</string>
+    <string name="main_account_income_category">Category</string>
+    <string name="main_account_withdraw_over_balance">This is more than your balance of %1$s</string>
+    <string name="main_account_adjust_delta">Change: %1$s</string>
+    <string name="vault_transfers_source_interest">Interest</string>
+    <string name="vault_transfers_edit_amount">Edit amount</string>
+    <string name="vault_transfers_cancel_transfer">Cancel transfer</string>
+    <string name="vault_transfers_mark_transferred">Mark as transferred</string>
+    <string name="vault_transfers_cancel_confirm_title">Cancel this transfer?</string>
+    <string name="vault_transfers_cancel_confirm_desc">The pending %1$s for %2$s will be removed.</string>
+    <string name="vault_transfers_keep_transfer">Keep</string>
 </resources>
