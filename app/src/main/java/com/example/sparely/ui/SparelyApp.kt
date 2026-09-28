@@ -33,6 +33,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -108,8 +109,8 @@ import kotlinx.coroutines.launch
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.formatCurrency
 import com.sparely.app.R
-import com.example.sparely.domain.model.displayName
 import com.example.sparely.domain.model.IncomeCategory
+import com.example.sparely.ui.utils.localizedName
 import com.example.sparely.ui.components.SparelyExpressiveDropdown
 import com.example.sparely.ui.components.SparelyTextField
 import com.example.sparely.ui.components.SparelyButton
@@ -358,6 +359,7 @@ private fun SparelyScaffold(
                 if (showIncomeDialog.value) {
                     val selectedCategory = remember { mutableStateOf<IncomeCategory?>(IncomeCategory.SALARY) }
                     val descriptionText = remember { mutableStateOf("") }
+                    val defaultIncomeDescription = stringResource(R.string.income_default_description)
 
                     SparelyBottomSheet(
                         isOpen = true,
@@ -383,7 +385,7 @@ private fun SparelyScaffold(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = stringResource(R.string.income_description_label),
+                                        text = stringResource(R.string.record_income_subtitle),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -408,7 +410,7 @@ private fun SparelyScaffold(
                                 onOptionSelected = { it ->
                                      selectedCategory.value = it
                                 },
-                                optionLabel = { it.displayName() },
+                                optionLabel = { it.localizedName() },
                                 optionIcon = { category ->
                                     when (category) {
                                         IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
@@ -435,7 +437,7 @@ private fun SparelyScaffold(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "${stringResource(R.string.income_date_label)}: ${manualDate.value.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
+                                    text = "${stringResource(R.string.income_date_label)}: ${manualDate.value.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 com.example.sparely.ui.components.SparelyTextButton(onClick = { showDatePicker.value = true }) {
@@ -443,28 +445,21 @@ private fun SparelyScaffold(
                                 }
                             }
 
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.income_distribute_vaults),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Switch(checked = manualDistribute.value, onCheckedChange = { manualDistribute.value = it })
-                            }
+                            IncomeToggleRow(
+                                title = stringResource(R.string.income_distribute_vaults),
+                                description = stringResource(R.string.income_distribute_vaults_desc),
+                                checked = manualDistribute.value,
+                                onCheckedChange = { manualDistribute.value = it }
+                            )
 
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.income_pending_transfers),
-                                    style = MaterialTheme.typography.bodyMedium
+                            // Pending transfers only apply to the vault split, so hide the option when it's off.
+                            if (manualDistribute.value) {
+                                IncomeToggleRow(
+                                    title = stringResource(R.string.income_pending_transfers),
+                                    description = stringResource(R.string.income_pending_transfers_desc),
+                                    checked = manualPending.value,
+                                    onCheckedChange = { manualPending.value = it }
                                 )
-                                Switch(checked = manualPending.value, onCheckedChange = { manualPending.value = it })
                             }
 
                             Row(
@@ -481,7 +476,7 @@ private fun SparelyScaffold(
                                     onClick = {
                                         val amt = manualAmountText.value.toSafeDouble()
                                         if (amt != null && amt > 0.0) {
-                                            val desc = descriptionText.value.ifEmpty { "Paycheck" }
+                                            val desc = descriptionText.value.ifEmpty { defaultIncomeDescription }
                                             viewModel.recordPaycheck(
                                                 amt,
                                                 manualDate.value,
@@ -1301,4 +1296,34 @@ private fun VaultArchiveConfirmationDialog(
             }
         }
     )
+}
+
+@Composable
+private fun IncomeToggleRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
 }

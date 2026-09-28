@@ -1431,7 +1431,16 @@
     <string name="income_date_label">Date</string>
     <string name="income_pick_date">Pick date</string>
     <string name="income_distribute_vaults">Distribute to vaults</string>
-    <string name="income_pending_transfers">Create pending transfers</string>
+    <string name="income_pending_transfers">Track as pending transfers</string>
+    <string name="record_income_subtitle">Add money you received to your main account</string>
+    <string name="income_distribute_vaults_desc">Set aside part of this income for your vaults, based on your save rate.</string>
+    <string name="income_pending_transfers_desc">Turn on if you still need to move the money to your savings accounts yourself. Each vault amount will show up in Pending transfers until you confirm it. Leave off if the money is already there.</string>
+    <string name="income_default_description">Paycheck</string>
+    <string name="income_category_salary">Salary</string>
+    <string name="income_category_freelance">Freelance</string>
+    <string name="income_category_gift">Gift</string>
+    <string name="income_category_investment">Investment</string>
+    <string name="income_category_other">Other</string>
     <string name="common_save">Save</string>
     <string name="history_undo_delete_message">Expense deleted</string>
     <string name="history_undo_delete_action">Undo</string>

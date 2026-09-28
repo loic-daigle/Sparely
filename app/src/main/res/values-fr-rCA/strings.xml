@@ -899,6 +899,8 @@
     <string name="dashboard_financial_health_title">Santé financière</string>
     <string name="dashboard_tap_for_analysis">Touche pour une analyse complète</string>
     <string name="dashboard_budget_usage_title">Utilisation du budget</string>
-
+    <string name="record_income_subtitle">Ajoute l\'argent reçu à ton compte principal</string>
+    <string name="income_distribute_vaults_desc">Mets de côté une partie de ce revenu pour tes coffres, selon ton taux d\'épargne.</string>
+    <string name="income_pending_transfers_desc">Active si tu dois encore transférer l\'argent vers tes comptes d\'épargne toi-même. Chaque montant apparaîtra dans les transferts en attente jusqu\'à ce que tu le confirmes. Laisse désactivé si l\'argent y est déjà.</string>
 
 </resources>
