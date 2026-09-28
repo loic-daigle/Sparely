@@ -482,7 +482,7 @@ fun SettingsScreen(
 
                         if (alerts.isNotEmpty()) {
                             ExpressiveCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(stringResource(R.string.settings_insights_title), style = MaterialTheme.typography.titleMedium)
                                     for (alert in alerts) {
                                         Text(alert.title, style = MaterialTheme.typography.titleSmall)
@@ -558,8 +558,7 @@ private fun ProfileCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.settings_profile_basics_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -642,8 +641,7 @@ private fun EducationEmploymentCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.settings_life_context_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -726,7 +724,7 @@ private fun LifeStageCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
                 text = stringResource(R.string.settings_age_label, age),
@@ -763,7 +761,7 @@ private fun RiskLevelCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_risk_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -808,7 +806,7 @@ private fun ReminderCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -878,7 +876,7 @@ private fun CreditCardReminderCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             // Due date reminders section
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1009,7 +1007,6 @@ private fun AutomationOverviewCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.settings_automation_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -1110,7 +1107,6 @@ private fun AutoDepositsCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
@@ -1293,7 +1289,6 @@ private fun IncomeSettingsCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
             Column(
-                modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(stringResource(R.string.settings_income_paydays_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -1670,8 +1665,7 @@ private fun RegionalSettingsCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
@@ -1699,7 +1693,7 @@ private fun RegionalSettingsCard(
                     )
                 }
                 SparelyTonalButton(onClick = { showCountryPicker = true }) {
-                    Text("Change")
+                    Text(stringResource(R.string.settings_change))
                 }
             }
             
@@ -1724,7 +1718,7 @@ private fun RegionalSettingsCard(
                     )
                 }
                 SparelyTonalButton(onClick = { showLanguagePicker = true }) {
-                    Text("Change")
+                    Text(stringResource(R.string.settings_change))
                 }
             }
             
@@ -1761,8 +1755,11 @@ private fun RegionalSettingsCard(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Override the default tax rate for ${currentCountry?.countryName ?: "your country"}. " +
-                            "Default: ${currentCountry?.taxConfig?.incomeTaxRate?.times(100)?.toInt() ?: 0}%",
+                    text = stringResource(
+                        R.string.settings_tax_override_desc,
+                        currentCountry?.countryName ?: stringResource(R.string.settings_your_country),
+                        currentCountry?.taxConfig?.incomeTaxRate?.times(100)?.toInt() ?: 0
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1844,7 +1841,7 @@ private fun RegionalSettingsCard(
                             else
                                 MaterialTheme.colorScheme.surface
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column {
                                 Text(
                                     text = country.countryName,
                                     style = MaterialTheme.typography.titleSmall,
@@ -1977,7 +1974,7 @@ private fun PaymentMethodsSettingsCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2094,17 +2091,17 @@ private fun PaymentMethodsSettingsCard(
                     SparelyTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Name (e.g. Visa, Cash)") },
+                        label = { Text(stringResource(R.string.settings_pm_name_hint)) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     
                     Column {
-                        Text("Type", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.settings_pm_type), style = MaterialTheme.typography.labelMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             SparelyChip(
                                 selected = type == com.example.sparely.domain.model.PaymentMethodType.CARD,
                                 onClick = { type = com.example.sparely.domain.model.PaymentMethodType.CARD },
-                                label = { Text("Card/Digital") }
+                                label = { Text(stringResource(R.string.settings_pm_type_card)) }
                             )
                             SparelyChip(
                                 selected = type == com.example.sparely.domain.model.PaymentMethodType.CASH,
@@ -2112,7 +2109,7 @@ private fun PaymentMethodsSettingsCard(
                                     type = com.example.sparely.domain.model.PaymentMethodType.CASH
                                     isCreditCard = false // Can't be credit card if cash
                                 },
-                                label = { Text("Cash") }
+                                label = { Text(stringResource(R.string.settings_pm_type_cash)) }
                             )
                         }
                     }
@@ -2129,7 +2126,7 @@ private fun PaymentMethodsSettingsCard(
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     MaterialSymbolIcon(icon = MaterialSymbols.CREDIT_CARD, contentDescription = null, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
-                                    Text("This is a Credit Card", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.settings_pm_is_credit), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Text(
                                     "Track balance and credit utilization",
@@ -2145,7 +2142,7 @@ private fun PaymentMethodsSettingsCard(
                             SparelyTextField(
                                 value = creditLimitText,
                                 onValueChange = { creditLimitText = it.filter { c -> c.isDigit() || c == '.' } },
-                                label = { Text("Credit Limit") },
+                                label = { Text(stringResource(R.string.settings_pm_credit_limit)) },
                                 leadingIcon = { Text("$", style = MaterialTheme.typography.bodyLarge) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.fillMaxWidth()
@@ -2158,8 +2155,8 @@ private fun PaymentMethodsSettingsCard(
                                     val num = filtered.toIntOrNull()
                                     billingCycleDayText = if (num != null && num in 1..31) filtered else filtered.take(2)
                                 },
-                                label = { Text("Billing Cycle Day (1-31)") },
-                                supportingText = { Text("Day of month when statement closes") },
+                                label = { Text(stringResource(R.string.settings_pm_billing_day)) },
+                                supportingText = { Text(stringResource(R.string.settings_pm_billing_day_help)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -2171,8 +2168,8 @@ private fun PaymentMethodsSettingsCard(
                                     shape = ExpressiveShapes.medium,
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                                 ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text("Current Balance", style = MaterialTheme.typography.labelMedium)
+                                    Column {
+                                        Text(stringResource(R.string.settings_pm_current_balance), style = MaterialTheme.typography.labelMedium)
                                         Text(
                                             text = editingMethod?.currentBalance?.formatCurrency() ?: 0.0.formatCurrency(),
                                             style = MaterialTheme.typography.titleLarge,
@@ -2214,7 +2211,7 @@ private fun PaymentMethodsSettingsCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Deduct from Main Account by default?", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.settings_pm_deduct_default), style = MaterialTheme.typography.bodyMedium)
                             Text(
                                 if (isCreditCard) "Credit cards don't deduct immediately."
                                 else "Turn off for Credit Cards, on for Debit/Cash.",
@@ -2234,7 +2231,7 @@ private fun PaymentMethodsSettingsCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                         Text("Set as default method", style = MaterialTheme.typography.bodyMedium)
+                         Text(stringResource(R.string.settings_pm_set_default), style = MaterialTheme.typography.bodyMedium)
                          Switch(checked = isDefault, onCheckedChange = { isDefault = it })
                     }
                 }
@@ -2262,7 +2259,7 @@ private fun PaymentMethodsSettingsCard(
                     },
                     enabled = name.isNotBlank() && (!isCreditCard || creditLimitText.toDoubleOrNull() != null)
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.action_save))
                 }
             },
             dismissButton = {
@@ -2272,14 +2269,14 @@ private fun PaymentMethodsSettingsCard(
                             editingMethod?.let { onDelete(it) }
                             editingMethod = null
                         }) {
-                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                         }
                      }
                     SparelyTextButton(onClick = {
                         showAddDialog = false
                         editingMethod = null
                     }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             }

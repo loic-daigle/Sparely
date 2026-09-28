@@ -56,7 +56,7 @@ fun SettingsMainAccountCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_income_tax_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             SparelyTextField(
                 value = monthlyIncomeText,
@@ -104,9 +104,9 @@ fun SettingsMainAccountCard(
             SparelyTextField(
                 value = minMainAccountBalanceText,
                 onValueChange = { onMinMainAccountBalanceTextChange(it.filterCurrencyInput()) },
-                label = { Text("Minimum Balance Protection") },
+                label = { Text(stringResource(R.string.settings_min_balance_label)) },
                 prefix = { Text("$") },
-                supportingText = { Text("Saving Tax & Transfers will stop if balance falls below this.") },
+                supportingText = { Text(stringResource(R.string.settings_min_balance_help)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -115,7 +115,7 @@ fun SettingsMainAccountCard(
                 onClick = onUpdateMinBalance,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Update Minimum Balance")
+                Text(stringResource(R.string.settings_min_balance_update))
             }
 
             HorizontalDivider()
@@ -127,9 +127,9 @@ fun SettingsMainAccountCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("High Interest Account (Overflow)", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_overflow_title), style = MaterialTheme.typography.titleSmall)
                     SparelyTextButton(onClick = onManageSavingsAccounts) {
-                        Text("Manage")
+                        Text(stringResource(R.string.settings_manage))
                     }
                 }
                 Text(
@@ -159,7 +159,7 @@ fun SettingsMainAccountCard(
                         onDismissRequest = { expanded = false }
                     ) {
                         SparelyDropdownMenuItem(
-                            text = { Text("None") },
+                            text = { Text(stringResource(R.string.settings_none)) },
                             isSelected = mainOverflowAccountId == null,
                             onClick = {
                                 onMainOverflowAccountIdChange(null)
@@ -210,7 +210,7 @@ fun SettingsSmartSavingsCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_vault_automation_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SparelyChip(
@@ -322,7 +322,7 @@ fun SettingsSmartTransferCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = stringResource(R.string.settings_smart_transfer_title), 
                 style = MaterialTheme.typography.titleSmall, 
@@ -375,7 +375,7 @@ fun SettingsAutoBackupCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = stringResource(R.string.settings_auto_backup_title),
                 style = MaterialTheme.typography.titleSmall,
@@ -387,7 +387,7 @@ fun SettingsAutoBackupCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Automatic backups are stored locally on your device and can be restored anytime.",
+                text = stringResource(R.string.settings_backup_local_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -456,7 +456,7 @@ fun SettingsAutoBackupCard(
                 onClick = onBackupNowClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Trigger Backup Now")
+                Text(stringResource(R.string.settings_backup_now))
             }
 
             Text(
@@ -487,7 +487,7 @@ fun SettingsBudgetCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -538,7 +538,7 @@ fun SettingsSecurityCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_security_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             
             Row(
@@ -595,7 +595,7 @@ fun SettingsDataCard(
         shape = ExpressiveShapes.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_data_privacy_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
             // Backup & Restore Section
@@ -636,12 +636,12 @@ fun SettingsDataCard(
             // Export Data Section
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Export Expenses",
+                    text = stringResource(R.string.settings_export_expenses_title),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Export your expense history as a spreadsheet for analysis or records",
+                    text = stringResource(R.string.settings_export_expenses_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
