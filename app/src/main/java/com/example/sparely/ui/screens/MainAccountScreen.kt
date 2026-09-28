@@ -35,6 +35,7 @@ import com.example.sparely.domain.model.IncomeCategory
 import com.example.sparely.ui.utils.localizedName
 import com.example.sparely.ui.utils.DateUtils
 import com.example.sparely.ui.utils.formatCurrency
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,20 +71,28 @@ fun MainAccountScreen(
         base.sortedByDescending { it.timestamp }
     }
 
+    // This month's money in and out, so the balance has context
+    val (monthIn, monthOut) = remember(transactions) {
+        val now = java.time.YearMonth.now()
+        val thisMonth = transactions.filter { java.time.YearMonth.from(it.timestamp) == now }
+        val incoming = thisMonth.filter { it.isIncoming() }.sumOf { kotlin.math.abs(it.amount) }
+        val outgoing = thisMonth.filter { it.isOutgoing() }.sumOf { kotlin.math.abs(it.amount) }
+        incoming to outgoing
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(padding),
+            // Content padding (not Modifier.padding) so cards don't clip while scrolling
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            
             // Balance Card
-            item {
+            item(key = "balance") {
                 ExpressiveCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
@@ -107,12 +116,29 @@ fun MainAccountScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                        if (monthIn > 0 || monthOut > 0) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(
+                                    text = stringResource(R.string.main_account_month_in, monthIn.formatCurrency()),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = stringResource(R.string.main_account_month_out, monthOut.formatCurrency()),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             // Action Buttons
-            item {
+            item(key = "actions") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -135,10 +161,9 @@ fun MainAccountScreen(
                 }
             }
 
-            item {
+            item(key = "adjust") {
                 SparelyTextButton(
                     onClick = { showAdjustDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
                     icon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, null, modifier = Modifier.size(18.dp)) }
                 ) {
                     Text(stringResource(R.string.main_account_adjust_balance))
@@ -146,7 +171,7 @@ fun MainAccountScreen(
             }
 
             // Filter Row
-            item {
+            item(key = "filters") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -171,7 +196,7 @@ fun MainAccountScreen(
             }
 
             // Transaction History Header
-            item {
+            item(key = "header_history") {
                 Text(
                     text = stringResource(R.string.main_account_transaction_history),
                     style = MaterialTheme.typography.titleLarge,
@@ -183,12 +208,12 @@ fun MainAccountScreen(
 
 
             if (filteredTransactions.isEmpty()) {
-                item {
+                item(key = "empty") {
                     ExpressiveCard(
                         modifier = Modifier.fillMaxWidth(),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = MaterialTheme.shapes.large,
-                        contentPadding = 48.dp
+                        contentPadding = 32.dp
                     ) {
                         Column(
                             modifier = Modifier
@@ -211,21 +236,26 @@ fun MainAccountScreen(
                                  }
                             }
                             Text(
-                                text = if (transactions.isEmpty()) stringResource(R.string.main_account_no_transactions) 
-                                       else stringResource(R.string.history_search_clear), // Reuse or specific string
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
+                                text = if (transactions.isEmpty()) stringResource(R.string.main_account_no_transactions)
+                                       else stringResource(R.string.main_account_no_filter_match),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
                             )
+                            if (transactions.isNotEmpty()) {
+                                SparelyTonalButton(onClick = { selectedFilter = MainAccountFilter.ALL }) {
+                                    Text(stringResource(R.string.main_account_show_all))
+                                }
+                            }
                         }
                     }
                 }
             } else {
-                items(filteredTransactions) { transaction ->
+                items(filteredTransactions, key = { it.id }) { transaction ->
                     TransactionItem(transaction, onClick = { onTransactionNavigate(transaction) })
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 
@@ -250,6 +280,7 @@ fun MainAccountScreen(
             icon = MaterialSymbols.REMOVE,
             positiveLabel = stringResource(R.string.vault_withdraw),
             descriptionLabel = stringResource(R.string.vault_reason_label),
+            availableBalance = currentBalance,
             onDismiss = { showWithdrawDialog = false },
             onConfirm = { amount, description, _ ->
                 onWithdraw(amount, description)
@@ -275,9 +306,9 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.large,
-        contentPadding = 20.dp
+        contentPadding = 16.dp
     ) {
         Row(
             modifier = Modifier
@@ -302,7 +333,7 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = color.copy(alpha = 0.15f), // Slightly more opaque
-                modifier = Modifier.size(48.dp) // Larger icon container
+                modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     MaterialSymbolIcon(
@@ -363,13 +394,15 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
                     MainAccountTransactionType.HISA_TRANSFER -> if (transaction.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 }
                 
+                // Amount is shown unsigned with our own sign: negative stored amounts
+                // (outgoing savings transfers) used to render as "--12.00", without a currency symbol
                 Text(
                     // The sign is shown explicitly, so display the magnitude (older credit card
                     // payments were stored as negative amounts and rendered as "--50.00").
                     text = if (transaction.type == MainAccountTransactionType.ADJUSTMENT) {
-                        transaction.amount.formatCurrency("")
+                        transaction.amount.formatCurrency()
                     } else {
-                        "$sign${kotlin.math.abs(transaction.amount).formatCurrency("")}"
+                        "$sign${kotlin.math.abs(transaction.amount).formatCurrency()}"
                     },
                     style = MaterialTheme.typography.titleMedium, // Larger amount
                     fontWeight = FontWeight.ExtraBold,
@@ -393,6 +426,8 @@ private fun TransactionDialog(
     positiveLabel: String,
     descriptionLabel: String,
     isIncome: Boolean = false,
+    // When set (withdrawals), warn if the amount is more than the available balance
+    availableBalance: Double? = null,
     onDismiss: () -> Unit,
     onConfirm: (Double, String, com.example.sparely.domain.model.IncomeCategory?) -> Unit
 ) {
@@ -437,7 +472,7 @@ private fun TransactionDialog(
                 SparelyExpressiveDropdown(
                     modifier = Modifier.fillMaxWidth(),
                     selectedOption = selectedCategory,
-                    label = stringResource(R.string.income_category_label),
+                    label = stringResource(R.string.main_account_income_category),
                     options = com.example.sparely.domain.model.IncomeCategory.entries.toList(),
                     onOptionSelected = { selectedCategory = it },
                     optionLabel = { it.localizedName() },
@@ -462,27 +497,36 @@ private fun TransactionDialog(
                 maxLines = 2
             )
 
+            val amountValue = amount.toSafeDouble()
+            if (availableBalance != null && amountValue != null && amountValue > availableBalance) {
+                Text(
+                    text = stringResource(R.string.main_account_withdraw_over_balance, availableBalance.formatCurrency()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            // Cancel left, confirm right: same order as every other sheet in the app
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                SparelyButton(
-                    onClick = {
-                        val amountValue = amount.toSafeDouble()
-                        if (amountValue != null && amountValue > 0) {
-                            onConfirm(amountValue, description.ifEmpty { title }, selectedCategory)
-                        }
-                    },
-                    enabled = amount.toSafeDouble()?.let { it > 0 } == true,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(positiveLabel)
-                }
                 SparelyTonalButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.common_cancel))
+                }
+                SparelyButton(
+                    onClick = {
+                        if (amountValue != null && amountValue > 0) {
+                            onConfirm(amountValue, description.ifEmpty { title }, selectedCategory)
+                        }
+                    },
+                    enabled = amountValue != null && amountValue > 0,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(positiveLabel)
                 }
             }
         }
@@ -548,33 +592,58 @@ private fun AdjustBalanceDialog(
                 maxLines = 2
             )
 
+            // Show the effect before committing: an adjustment rewrites the balance
+            val balanceValue = newBalance.toSafeDouble()
+            if (balanceValue != null && balanceValue != currentBalance) {
+                val delta = balanceValue - currentBalance
+                Text(
+                    text = stringResource(
+                        R.string.main_account_adjust_delta,
+                        (if (delta > 0) "+" else "-") + kotlin.math.abs(delta).formatCurrency()
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (delta > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                SparelyButton(
-                    onClick = {
-                        val balanceValue = newBalance.toSafeDouble()
-                        if (balanceValue != null && balanceValue >= 0) {
-                            onConfirm(balanceValue, reason.ifEmpty { context.getString(R.string.main_account_adjustment_default_reason) })
-                        }
-                    },
-                    enabled = newBalance.toSafeDouble()?.let { it >= 0 } == true,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.main_account_adjust_button))
-                }
                 SparelyTonalButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.common_cancel))
                 }
+                SparelyButton(
+                    onClick = {
+                        if (balanceValue != null && balanceValue >= 0) {
+                            onConfirm(balanceValue, reason.ifEmpty { context.getString(R.string.main_account_adjustment_default_reason) })
+                        }
+                    },
+                    enabled = balanceValue != null && balanceValue >= 0 && balanceValue != currentBalance,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.main_account_adjust_button))
+                }
             }
         }
     }
 }
 
+
+private fun MainAccountTransaction.isIncoming(): Boolean =
+    type == MainAccountTransactionType.DEPOSIT ||
+        (type == MainAccountTransactionType.HISA_TRANSFER && amount >= 0)
+
+private fun MainAccountTransaction.isOutgoing(): Boolean =
+    type == MainAccountTransactionType.WITHDRAWAL ||
+        type == MainAccountTransactionType.EXPENSE ||
+        type == MainAccountTransactionType.VAULT_CONTRIBUTION ||
+        type == MainAccountTransactionType.CREDIT_CARD_PAYMENT ||
+        (type == MainAccountTransactionType.HISA_TRANSFER && amount < 0)
 
 private enum class MainAccountFilter {
     ALL, INCOME, EXPENSE

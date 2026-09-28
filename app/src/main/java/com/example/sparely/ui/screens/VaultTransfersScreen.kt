@@ -40,6 +40,7 @@ import com.sparely.app.R
 import com.example.sparely.ui.theme.ExpressiveShapes
 import com.example.sparely.ui.components.SparelyTextField
 import com.example.sparely.ui.utils.formatCurrency
+import androidx.compose.material3.FilledTonalIconButton
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,69 +58,73 @@ fun VaultTransfersScreen(
     onNavigateBack: () -> Unit
 ) {
     // Removed local TopAppBar - using global SparelyTopBar instead
+    // Group by destination: a vault, or a savings account for HISA transfers. Grouping by vault
+    // alone merged transfers to different savings accounts (all have no vault) into one card.
+    val groups = remember(pendingContributions) {
+        pendingContributions.groupBy { TransferDestination(it.vaultId, if (it.vaultId == null) it.savingsAccountId else null) }
+    }
+
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (pendingContributions.isEmpty()) {
-            item {
-                    EmptyStateCard()
-                }
-            } else {
-                item {
-                    SummaryCard(pendingContributions, vaults, savingsAccounts)
-                }
-                
-                item {
-                    NotificationWorkflowButton(onStartWorkflow = onStartNotificationWorkflow)
-                }
-
-                
-                
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.vault_transfers_pending_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                
-                val grouped = pendingContributions.groupBy { it.vaultId }
-                items(grouped.entries.toList(), key = { it.key ?: -1L }) { (vaultId, contributionsForVault) ->
-                    val vault = vaults.find { it.id == vaultId }
-                    // Resolve display name: for HISA transfers (vaultId==null) look up the savings account
-                    val displayName = if (vault != null) {
-                        vault.name
-                    } else {
-                        val accountId = contributionsForVault.firstOrNull()?.savingsAccountId
-                        savingsAccounts.find { it.id == accountId }?.name
-                            ?: stringResource(R.string.vault_transfers_unknown_vault)
-                    }
-                    val isHisaTransfer = vaultId == null && contributionsForVault.any { it.savingsAccountId != null }
-                    AggregatedPendingContributionCard(
-                        vault = vault,
-                        displayName = displayName,
-                        isHisaTransfer = isHisaTransfer,
-                        contributions = contributionsForVault,
-                        onApproveAll = { ids -> onApproveGroup(ids) },
-                        onApproveIndividual = onApproveContribution,
-                        onCancelIndividual = onCancelContribution,
-                        onUpdateAmount = onUpdateContributionAmount
-                    )
-                }
+            item(key = "empty") {
+                EmptyStateCard()
             }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                InstructionsCard()
+        } else {
+            item(key = "summary") {
+                SummaryCard(groups, vaults, savingsAccounts)
+            }
+
+            item(key = "workflow") {
+                NotificationWorkflowButton(onStartWorkflow = onStartNotificationWorkflow)
+            }
+
+            item(key = "header_pending") {
+                Text(
+                    text = stringResource(R.string.vault_transfers_pending_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                )
+            }
+
+            items(groups.entries.toList(), key = { "${it.key.vaultId}_${it.key.savingsAccountId}" }) { (destination, contributionsForGroup) ->
+                val vault = vaults.find { it.id == destination.vaultId }
+                val displayName = destinationName(destination, vaults, savingsAccounts)
+                AggregatedPendingContributionCard(
+                    vault = vault,
+                    displayName = displayName,
+                    isHisaTransfer = destination.savingsAccountId != null,
+                    contributions = contributionsForGroup,
+                    onApproveAll = { ids -> onApproveGroup(ids) },
+                    onApproveIndividual = onApproveContribution,
+                    onCancelIndividual = onCancelContribution,
+                    onUpdateAmount = onUpdateContributionAmount
+                )
             }
         }
-    }
 
+        item(key = "instructions") {
+            InstructionsCard()
+        }
+    }
+}
+
+/** Where a pending transfer goes: a vault, or (for HISA transfers) a savings account. */
+private data class TransferDestination(val vaultId: Long?, val savingsAccountId: Long?)
+
+@Composable
+private fun destinationName(
+    destination: TransferDestination,
+    vaults: List<SmartVault>,
+    savingsAccounts: List<SavingsAccount>
+): String =
+    vaults.find { it.id == destination.vaultId }?.name
+        ?: savingsAccounts.find { it.id == destination.savingsAccountId }?.name
+        ?: stringResource(R.string.vault_transfers_unknown_vault)
 
 @Composable
 private fun EmptyStateCard() {
@@ -131,7 +136,7 @@ private fun EmptyStateCard() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(48.dp),
+                .padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -169,14 +174,14 @@ private fun EmptyStateCard() {
 
 @Composable
 private fun SummaryCard(
-    pendingContributions: List<VaultContribution>,
+    groups: Map<TransferDestination, List<VaultContribution>>,
     vaults: List<SmartVault>,
     savingsAccounts: List<SavingsAccount> = emptyList()
 ) {
-    val totalPending = pendingContributions.sumOf { it.amount }
-    val vaultBreakdown = pendingContributions
-        .groupBy { it.vaultId }
+    val totalPending = groups.values.sumOf { list -> list.sumOf { it.amount } }
+    val vaultBreakdown = groups
         .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
+        .entries.sortedByDescending { it.value }
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
@@ -185,10 +190,8 @@ private fun SummaryCard(
         shape = ExpressiveShapes.large
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column {
                 Text(
@@ -206,13 +209,9 @@ private fun SummaryCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
             
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                vaultBreakdown.entries.take(4).forEach { (vaultId, amount) ->
-                    val vault = vaults.find { it.id == vaultId }
-                    // Resolve name: vault name or savings account name for HISA transfers
-                    val entryName = vault?.name
-                        ?: pendingContributions.firstOrNull { it.vaultId == vaultId }?.savingsAccountId
-                            ?.let { accountId -> savingsAccounts.find { it.id == accountId }?.name }
-                    if (entryName != null) {
+                vaultBreakdown.take(4).forEach { (destination, amount) ->
+                    val entryName = destinationName(destination, vaults, savingsAccounts)
+                    run {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -221,7 +220,10 @@ private fun SummaryCard(
                             Text(
                                 text = entryName,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                             Text(
                                 text = amount.formatCurrency(),
@@ -258,6 +260,8 @@ private fun AggregatedPendingContributionCard(
     var expanded by remember { mutableStateOf(false) }
     var showConfirmAll by remember { mutableStateOf(false) }
     var editingContributionId by remember { mutableStateOf<Long?>(null) }
+    // Cancelling removes a pending transfer, so it asks first (it sat next to Approve)
+    var cancellingContributionId by remember { mutableStateOf<Long?>(null) }
     
     if (editingContributionId != null) {
         val contribution = contributions.find { it.id == editingContributionId }
@@ -274,7 +278,7 @@ private fun AggregatedPendingContributionCard(
     }
 
     val totalAmount = contributions.sumOf { it.amount }
-    val formatter = DateTimeFormatter.ofPattern("MMM dd")
+    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
     val sources = contributions.groupBy { it.source }
 
     ExpressiveCard(
@@ -283,17 +287,18 @@ private fun AggregatedPendingContributionCard(
         shape = ExpressiveShapes.medium
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                 Row(
+                     modifier = Modifier.weight(1f),
+                     horizontalArrangement = Arrangement.spacedBy(16.dp)
+                 ) {
                      // Vault Icon / Placeholder
                      Surface(
                          shape = ExpressiveShapes.small,
@@ -313,7 +318,9 @@ private fun AggregatedPendingContributionCard(
                         Text(
                             text = displayName,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = stringResource(R.string.vault_transfers_pending_count, contributions.size),
@@ -340,7 +347,7 @@ private fun AggregatedPendingContributionCard(
                         VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_transfers_source_auto_deposit)
                         VaultContributionSource.MANUAL -> stringResource(R.string.vault_transfers_source_manual)
                         VaultContributionSource.TRANSFER -> stringResource(R.string.vault_transfers_source_transfer)
-                        VaultContributionSource.INTEREST -> "Interest"
+                        VaultContributionSource.INTEREST -> stringResource(R.string.vault_transfers_source_interest)
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
@@ -401,26 +408,63 @@ private fun AggregatedPendingContributionCard(
                                     overflow = TextOverflow.Ellipsis
                                  )
                              }
-                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                 Text(
-                                     text = contribution.amount.formatCurrency(),
-                                     style = MaterialTheme.typography.bodyMedium,
-                                     fontWeight = FontWeight.Bold
-                                 )
-                                 IconButton(onClick = { onApproveIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
-                                     MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = "Approve", size = 20.dp, tint = MaterialTheme.colorScheme.primary)
-                                 }
-                                 IconButton(onClick = { editingContributionId = contribution.id }, modifier = Modifier.size(32.dp)) {
-                                     MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit Amount", size = 20.dp, tint = MaterialTheme.colorScheme.primary)
-                                 }
-                                 IconButton(onClick = { onCancelIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
-                                     MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = "Cancel", size = 20.dp, tint = MaterialTheme.colorScheme.error)
-                                 }
+                             Text(
+                                 text = contribution.amount.formatCurrency(),
+                                 style = MaterialTheme.typography.bodyMedium,
+                                 fontWeight = FontWeight.Bold
+                             )
+                             // Full 48dp targets; cancel (destructive) is separated from approve and confirms first
+                             IconButton(onClick = { editingContributionId = contribution.id }) {
+                                 MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = stringResource(R.string.vault_transfers_edit_amount), size = 20.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                             }
+                             IconButton(onClick = { cancellingContributionId = contribution.id }) {
+                                 MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = stringResource(R.string.vault_transfers_cancel_transfer), size = 20.dp, tint = MaterialTheme.colorScheme.error)
+                             }
+                             FilledTonalIconButton(onClick = { onApproveIndividual(contribution.id) }) {
+                                 MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = stringResource(R.string.vault_transfers_mark_transferred), size = 20.dp)
                              }
                         }
                     }
                 }
             }
+        }
+    }
+
+    cancellingContributionId?.let { id ->
+        val contribution = contributions.find { it.id == id }
+        if (contribution == null) {
+            cancellingContributionId = null
+        } else {
+            SparelyAlertDialog(
+                onDismissRequest = { cancellingContributionId = null },
+                title = { Text(stringResource(R.string.vault_transfers_cancel_confirm_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.vault_transfers_cancel_confirm_desc,
+                            contribution.amount.formatCurrency(),
+                            displayName
+                        )
+                    )
+                },
+                confirmButton = {
+                    SparelyButton(
+                        onClick = {
+                            onCancelIndividual(id)
+                            cancellingContributionId = null
+                        },
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ) {
+                        Text(stringResource(R.string.vault_transfers_cancel_transfer))
+                    }
+                },
+                dismissButton = {
+                    SparelyTextButton(onClick = { cancellingContributionId = null }) {
+                        Text(stringResource(R.string.vault_transfers_keep_transfer))
+                    }
+                }
+            )
         }
     }
 
@@ -432,7 +476,7 @@ private fun AggregatedPendingContributionCard(
                 Text(stringResource(
                     R.string.vault_transfers_confirm_desc,
                     totalAmount.formatCurrency(),
-                    vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
+                    displayName,
                     contributions.size
                 ))
             },
@@ -463,9 +507,7 @@ private fun InstructionsCard() {
         shape = ExpressiveShapes.large
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -487,7 +529,7 @@ private fun InstructionsCard() {
                 }
                 Text(
                     text = stringResource(R.string.vault_transfers_how_it_works),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -533,13 +575,12 @@ private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        shape = ExpressiveShapes.large
+        shape = ExpressiveShapes.large,
+        // Whole card is the tap target (was an inner row inset by padding)
+        onClick = onStartWorkflow
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-                .clickable(onClick = onStartWorkflow),
+            modifier = Modifier.fillMaxWidth(),
              horizontalArrangement = Arrangement.SpaceBetween,
              verticalAlignment = Alignment.CenterVertically
         ) {
@@ -572,35 +613,34 @@ private fun EditAmountDialog(
     onConfirm: (Double) -> Unit
 ) {
     var amountText by remember { mutableStateOf(initialAmount.toInputString()) }
-    
+    val parsed = amountText.toSafeDouble()
+    val isValid = parsed != null && parsed > 0
+
     SparelyAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Amount") },
+        title = { Text(stringResource(R.string.vault_transfers_edit_amount)) },
         text = {
             SparelyTextField(
                 value = amountText,
                 onValueChange = { amountText = it.filterCurrencyInput() },
-                label = { Text("Amount") },
+                label = { Text(stringResource(R.string.vault_amount_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = !isValid,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         },
-         confirmButton = {
+        confirmButton = {
             SparelyTextButton(
-                onClick = {
-                    val newAmount = amountText.toSafeDouble()
-                    if (newAmount != null && newAmount > 0) {
-                        onConfirm(newAmount)
-                    }
-                }
+                onClick = { parsed?.takeIf { it > 0 }?.let(onConfirm) },
+                enabled = isValid
             ) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
             SparelyTextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )
