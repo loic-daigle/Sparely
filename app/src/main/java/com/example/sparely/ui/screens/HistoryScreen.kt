@@ -104,8 +104,6 @@ fun HistoryScreen(
         }.sortedByDescending { it.date }
     }
 
-    }
-    
     // If not filtering (and thus showing All Time), use pagedExpenses to support infinite scroll.
     // Otherwise, use the filtered subset of the full expenses list.
     val listToDisplay = if (isFiltering) filteredExpenses else pagedExpenses
