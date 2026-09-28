@@ -1148,6 +1148,22 @@
     <string name="dashboard_recurring_pattern_detail">Tous les %1$d jours • Prochain : %2$s</string>
     <string name="dashboard_add_subscriptions_prompt">Ajoutez des abonnements pour suivre automatiquement les coûts récurrents.</string>
     <string name="dashboard_vault_progress_text"> %1$s sur %2$s</string>
+    <string name="record_income_title">Enregistrer un revenu</string>
+    <string name="record_income_subtitle">Ajoutez l\'argent reçu à votre compte principal</string>
+    <string name="income_category_label">Catégorie</string>
+    <string name="income_category_select">Choisir une catégorie</string>
+    <string name="income_description_label">Description</string>
+    <string name="income_date_label">Date</string>
+    <string name="income_pick_date">Choisir la date</string>
+    <string name="income_distribute_vaults">Répartir dans les coffres</string>
+    <string name="income_distribute_vaults_desc">Mettez de côté une partie de ce revenu pour vos coffres, selon votre taux d\'épargne.</string>
+    <string name="income_pending_transfers">Suivre comme transferts en attente</string>
+    <string name="income_pending_transfers_desc">Activez si vous devez encore transférer l\'argent vers vos comptes d\'épargne vous-même. Chaque montant apparaîtra dans les transferts en attente jusqu\'à ce que vous le confirmiez. Laissez désactivé si l\'argent y est déjà.</string>
+    <string name="income_default_description">Paie</string>
+    <string name="income_category_salary">Salaire</string>
+    <string name="income_category_freelance">Travail autonome</string>
+    <string name="income_category_gift">Cadeau</string>
+    <string name="income_category_investment">Placement</string>
+    <string name="income_category_other">Autre</string>
 
 </resources>
-

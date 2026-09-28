@@ -30,7 +30,7 @@ import com.example.sparely.ui.components.SparelyTonalButton
 import com.sparely.app.R
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.domain.model.IncomeCategory
-import com.example.sparely.domain.model.displayName
+import com.example.sparely.ui.utils.localizedName
 import com.example.sparely.ui.utils.DateUtils
 import com.example.sparely.ui.utils.formatCurrency
 
@@ -326,7 +326,7 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
                 )
                 if (transaction.type == MainAccountTransactionType.DEPOSIT && transaction.incomeCategory != null) {
                     Text(
-                        text = transaction.incomeCategory.displayName(),
+                        text = transaction.incomeCategory.localizedName(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -429,10 +429,10 @@ private fun TransactionDialog(
                 SparelyExpressiveDropdown(
                     modifier = Modifier.fillMaxWidth(),
                     selectedOption = selectedCategory,
-                    label = "Category",
+                    label = stringResource(R.string.income_category_label),
                     options = com.example.sparely.domain.model.IncomeCategory.entries.toList(),
                     onOptionSelected = { selectedCategory = it },
-                    optionLabel = { it.displayName() },
+                    optionLabel = { it.localizedName() },
                     optionIcon = { category ->
                         when (category) {
                             com.example.sparely.domain.model.IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
