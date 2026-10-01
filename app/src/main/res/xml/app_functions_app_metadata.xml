@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Describes Sparely to AI assistants as a whole; each function's own description comes from its
+     KDoc in SparelyAppFunctionServiceBase. -->
+<AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:description="Sparely is a personal finance and savings app. These functions are read-only: they answer questions about the user's spending, monthly budgets, savings vaults, account balances, upcoming bills and wishlist, and cannot change any data.
+Operational patterns:
+  - Amounts are in the currency given by each response's currencyCode.
+  - Dates are ISO-8601: YYYY-MM-DD for days and YYYY-MM for months.
+  - Use 'searchExpenses' for individual transactions and 'getSpendingSummary' for totals.
+Constraints:
+  - If a function fails because assistant access is turned off, tell the user to enable 'Allow AI assistants' in Sparely under Settings > Security. Do not retry until they have."
+    appfn:displayDescription="@string/app_functions_display_description" />

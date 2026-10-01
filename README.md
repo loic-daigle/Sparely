@@ -91,6 +91,20 @@ To enable store logo fetching:
 
 The backup includes all expenses, vaults, budgets, stores, recurring expenses, and settings.
 
+## 🤖 AI Assistant Access (AppFunctions)
+
+On Android 16+ (API 36), Sparely exposes read-only [AppFunctions](https://developer.android.com/ai/appfunctions) so on-device assistants such as Gemini can answer questions like "How much did I spend on dining this month?". Assistants can read spending, budgets, vaults, account balances, upcoming bills and the wishlist. They cannot change anything.
+
+Access is **off by default**. The user turns it on under Settings > Security > "Allow AI assistants". If biometric unlock is on, turning it on requires authentication. Until then, every call fails with an error that tells the assistant how to ask the user to enable it.
+
+- Functions and their descriptions: `appfunctions/SparelyAppFunctionServiceBase.kt` (the KDoc is what the assistant reads)
+- Query logic: `appfunctions/SparelyAssistantQueries.kt`
+
+**Testing:**
+- Unit tests (JVM): `./gradlew testDebugUnitTest --tests "*SparelyAssistantQueriesTest"`
+- End-to-end on an API 36+ emulator or device: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.sparely.appfunctions.SparelyAppFunctionsInstrumentedTest`
+- Check the functions are registered: `adb shell cmd app_function list-app-functions`
+
 ## 🤝 Contributing
 
 We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.

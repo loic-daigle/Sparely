@@ -268,6 +268,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updateAiAssistantAccessEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateAiAssistantAccessEnabled(enabled)
+        }
+    }
+
     fun updateSmartTransferMinimumAmount(amount: Double) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateSmartTransferMinimumAmount(amount)

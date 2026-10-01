@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.kapt")
+    alias(libs.plugins.ksp)
 }
 
 // Release signing: reads from keystore.properties (gitignored, not committed) if present,
@@ -21,7 +22,8 @@ val hasReleaseSigningConfig = keystorePropertiesFile.exists() &&
 
 android {
     namespace = "com.sparely.app"
-    compileSdk = 36
+    // 37: androidx.appfunctions is built against it. targetSdk is unchanged.
+    compileSdk = 37
 
     signingConfigs {
         if (hasReleaseSigningConfig) {
@@ -88,6 +90,11 @@ kapt {
     correctErrorTypes = true
 }
 
+// AppFunctions: generate the app-wide function inventory (as in Google's AppFunctions sample).
+ksp {
+    arg("appfunctions:aggregateAppFunctions", "true")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -123,9 +130,9 @@ dependencies {
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
 
-    // AppFunctions - Expose functions to AI assistants
-    implementation("androidx.appfunctions:appfunctions:1.0.0-alpha08")
-    implementation("androidx.appfunctions:appfunctions-service:1.0.0-alpha08")
+    // AppFunctions - expose read-only functions to on-device AI assistants (Android 16+)
+    implementation(libs.androidx.appfunctions)
+    ksp(libs.androidx.appfunctions.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -240,6 +240,8 @@ data class SparelySettings(
     val creditCardUtilizationAlertEnabled: Boolean = true,
     val creditCardUtilizationThreshold: Int = 30,  // Default 30%, common recommended threshold
     val biometricEnabled: Boolean = false,
+    // Lets AI assistants read Sparely data through AppFunctions. Off until the user opts in.
+    val aiAssistantAccessEnabled: Boolean = false,
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

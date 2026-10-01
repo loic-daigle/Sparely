@@ -532,6 +532,8 @@ fun SettingsBudgetCard(
 fun SettingsSecurityCard(
     biometricEnabled: Boolean,
     onBiometricEnabledChange: (Boolean) -> Unit,
+    aiAssistantAccessEnabled: Boolean,
+    onAiAssistantAccessEnabledChange: (Boolean) -> Unit,
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
     ExpressiveCard(
@@ -568,6 +570,37 @@ fun SettingsSecurityCard(
                         } else {
                             // Enabling: just do it
                             onBiometricEnabledChange(true)
+                        }
+                    }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_ai_assistant_access_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(R.string.settings_ai_assistant_access_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = aiAssistantAccessEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled && biometricEnabled) {
+                            // Assistants bypass the app lock, so opening that door needs the same
+                            // authentication as opening the app.
+                            onAuthenticateUser { success ->
+                                if (success) {
+                                    onAiAssistantAccessEnabledChange(true)
+                                }
+                            }
+                        } else {
+                            onAiAssistantAccessEnabledChange(enabled)
                         }
                     }
                 )

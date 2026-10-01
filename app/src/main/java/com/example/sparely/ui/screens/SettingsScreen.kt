@@ -162,6 +162,7 @@ fun SettingsScreen(
     onCreditCardReminderChange: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
     onCreditCardUtilizationChange: (Boolean, Int) -> Unit = { _, _ -> },
     onBiometricEnabledChange: (Boolean) -> Unit = {},
+    onAiAssistantAccessEnabledChange: (Boolean) -> Unit = {},
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
     stores: List<com.example.sparely.domain.model.Store> = emptyList(),
     onExportExpensesToCsv: (android.net.Uri, android.content.Context, List<Expense>, List<com.example.sparely.domain.model.Store>) -> Unit = { _, _, _, _ -> },
@@ -356,6 +357,8 @@ fun SettingsScreen(
                         SettingsSecurityCard(
                             biometricEnabled = settings.biometricEnabled,
                             onBiometricEnabledChange = onBiometricEnabledChange,
+                            aiAssistantAccessEnabled = settings.aiAssistantAccessEnabled,
+                            onAiAssistantAccessEnabledChange = onAiAssistantAccessEnabledChange,
                             onAuthenticateUser = onAuthenticateUser
                         )
                     }

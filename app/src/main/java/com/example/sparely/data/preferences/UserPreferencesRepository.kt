@@ -418,6 +418,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateAiAssistantAccessEnabled(enabled: Boolean) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.aiAssistantAccessEnabled] = enabled
+        }
+    }
+
     suspend fun updateSmartTransferMinimumAmount(amount: Double) {
         editSafely { prefs ->
             prefs[PreferenceKeys.smartTransferMinimumAmount] = amount.coerceAtLeast(0.0)
@@ -562,6 +568,7 @@ class UserPreferencesRepository(private val context: Context) {
         val creditCardUtilizationAlertEnabled = this[PreferenceKeys.creditCardUtilizationAlertEnabled] ?: defaults.creditCardUtilizationAlertEnabled
         val creditCardUtilizationThreshold = this[PreferenceKeys.creditCardUtilizationThreshold] ?: defaults.creditCardUtilizationThreshold
         val biometricEnabled = this[PreferenceKeys.biometricEnabled] ?: defaults.biometricEnabled
+        val aiAssistantAccessEnabled = this[PreferenceKeys.aiAssistantAccessEnabled] ?: defaults.aiAssistantAccessEnabled
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -637,6 +644,7 @@ class UserPreferencesRepository(private val context: Context) {
             creditCardUtilizationAlertEnabled = creditCardUtilizationAlertEnabled,
             creditCardUtilizationThreshold = creditCardUtilizationThreshold,
             biometricEnabled = biometricEnabled,
+            aiAssistantAccessEnabled = aiAssistantAccessEnabled,
             smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
@@ -729,6 +737,7 @@ class UserPreferencesRepository(private val context: Context) {
         val creditCardUtilizationAlertEnabled = booleanPreferencesKey("credit_card_utilization_alert_enabled")
         val creditCardUtilizationThreshold = intPreferencesKey("credit_card_utilization_threshold")
         val biometricEnabled = booleanPreferencesKey("biometric_enabled")
+        val aiAssistantAccessEnabled = booleanPreferencesKey("ai_assistant_access_enabled")
         
         // Smart transfer notification threshold
         val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")

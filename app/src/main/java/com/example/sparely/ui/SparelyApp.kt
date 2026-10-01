@@ -926,6 +926,7 @@ private fun SparelyNavHost(
                 onCreditCardReminderChange = settingsViewModel::updateCreditCardReminderSettings,
                 onCreditCardUtilizationChange = settingsViewModel::updateCreditCardUtilizationAlert,
                 onBiometricEnabledChange = settingsViewModel::updateBiometricEnabled,
+                onAiAssistantAccessEnabledChange = settingsViewModel::updateAiAssistantAccessEnabled,
                 onAuthenticateUser = onAuthenticateUser,
                 onSmartTransferMinimumChange = settingsViewModel::updateSmartTransferMinimumAmount,
                 onAutoBackupSettingsChange = settingsViewModel::updateAutoBackupSettings,

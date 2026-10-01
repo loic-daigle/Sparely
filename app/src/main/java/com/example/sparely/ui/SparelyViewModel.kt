@@ -28,6 +28,7 @@ import com.example.sparely.domain.logic.EmergencyFundCalculator
 import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SpendingPatternEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
+import com.example.sparely.domain.logic.UpcomingRecurringCalculator
 import com.example.sparely.domain.model.Achievement
 import com.example.sparely.domain.model.Asset
 import com.example.sparely.domain.model.ExpenseHistoryRetention
@@ -77,6 +78,7 @@ import com.example.sparely.domain.model.Store
 import com.example.sparely.domain.model.StoreInput
 import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultArchivePrompt
+import com.example.sparely.domain.usecase.AddExpenseUseCase
 import com.example.sparely.ui.state.SparelyUiState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +119,8 @@ class SparelyViewModel(
 
     // Expose container for UI that needs app-level dependencies (e.g., vaultRepository)
     val appContainer: AppContainer get() = container
+
+    private val addExpenseUseCase = AddExpenseUseCase(savingsRepository, preferencesRepository)
 
     private val _uiState = MutableStateFlow(SparelyUiState())
     val uiState: StateFlow<SparelyUiState> = _uiState.asStateFlow()
@@ -379,7 +383,7 @@ class SparelyViewModel(
                         }
                     }
 
-                    val upcomingRecurring = computeUpcomingRecurring(feed.recurring)
+                    val upcomingRecurring = UpcomingRecurringCalculator.compute(feed.recurring)
                     val enrichedChallenges = feed.challenges.map { challenge ->
                         val streak = ChallengeEngine.calculateStreak(challenge, domainExpenses)
                         if (challenge.streakDays != streak) {
@@ -827,33 +831,6 @@ class SparelyViewModel(
                 savingsRepository.upsertSavingsChallenge(challenge)
             }
         }
-
-        private fun computeUpcomingRecurring(
-            recurring: List<RecurringExpense>,
-            today: LocalDate = LocalDate.now()
-        ): List<UpcomingRecurringExpense> {
-            val windowDays = 30
-            return recurring
-                .filter { it.isActive }
-                .mapNotNull { expense ->
-                    var nextDue = expense.nextRunAt?.toLocalDate() 
-                        ?: expense.lastProcessedDate?.let { expense.nextOccurrenceAfter(it) }
-                        ?: expense.startDate
-                    
-                    // Advance until we reach a future date or today (if not processed today)
-                    while (nextDue.isBefore(today) && expense.lastProcessedDate != today) {
-                        nextDue = expense.nextOccurrenceAfter(nextDue)
-                    }
-                    
-                    expense.endDate?.let { end ->
-                        if (nextDue.isAfter(end)) return@mapNotNull null
-                    }
-                    val daysUntilDue = ChronoUnit.DAYS.between(today, nextDue).toInt()
-                    if (daysUntilDue < 0 || daysUntilDue > windowDays) return@mapNotNull null
-                    UpcomingRecurringExpense(expense, nextDue, daysUntilDue)
-                }
-                .sortedBy { it.dueDate }
-        }
         
 
     private fun buildSmartSavingSummary(
@@ -978,194 +955,18 @@ class SparelyViewModel(
         }
         safeLaunch {
             val currentState = _uiState.value
-            val settings = currentState.settings
-            val recommendedPercentages = when {
-                input.manualPercentages != null -> input.manualPercentages
-                settings.autoRecommendationsEnabled && currentState.recommendation != null ->
-                    currentState.recommendation.recommendedPercentages
-                else -> settings.defaultPercentages
-            }
-            val allocation = SavingsCalculator.calculateAllocation(input, recommendedPercentages, settings.riskLevel)
-            val applied = recommendedPercentages.adjustWithinBudget()
-            val entity = ExpenseEntity(
-                id = input.id ?: 0L,
-                description = input.description.trim().ifEmpty { "General purchase" },
-                amount = input.amount,
-                category = input.category,
-                date = input.date,
-                includesTax = input.includesTax,
-                emergencyAmount = allocation.emergencyAmount,
-                investmentAmount = allocation.investmentAmount,
-                funAmount = allocation.funAmount,
-                safeInvestmentAmount = allocation.safeInvestmentAmount,
-                highRiskInvestmentAmount = allocation.highRiskInvestmentAmount,
-                autoRecommended = input.manualPercentages == null && settings.autoRecommendationsEnabled,
-                appliedPercentEmergency = applied.emergency,
-                appliedPercentInvest = applied.invest,
-                appliedPercentFun = applied.`fun`,
-                appliedSafeSplit = applied.safeInvestmentSplit,
-                riskLevelUsed = settings.riskLevel,
-                deductedFromVaultId = input.deductFromVaultId,
-                storeId = input.storeId,
-                paymentMethodId = input.paymentMethodId,
-                isRecurring = input.isRecurring,
-                notes = input.notes,
-                orderNumber = input.orderNumber,
-                type = input.type.name
-            )
-            // Everything below (expense row, items, links, vault/main-account movements) is one
-            // atomic unit: a failure halfway must not leave an expense without its money moves.
-            savingsRepository.withMainAccountLock { savingsRepository.runInTransaction {
-            val insertedExpenseId = savingsRepository.upsertExpense(entity)
-
-            // Save line items if present (filter out items with no name or price)
-            val validItems = input.items.filter { it.name.isNotBlank() && it.totalPrice > 0 }
-            if (validItems.isNotEmpty()) {
-                val itemsWithId = validItems.map { it.copy(expenseId = insertedExpenseId, id = 0L) }
-                savingsRepository.insertExpenseItems(itemsWithId)
-            }
-
-            // Link assets if specified
-            if (input.assetAllocations.isNotEmpty()) {
-                input.assetAllocations.forEach { (assetId, percentageAllocated) ->
-                    savingsRepository.linkExpenseToAsset(insertedExpenseId, assetId, percentageAllocated)
-                }
-            }
-
-            savingsRepository.withMainAccountLock {
-            // Get current balance once at the start
-            var currentBalance = savingsRepository.getLatestMainAccountBalance()
-
-            // Handle vault deduction if specified
-            if (input.deductFromVaultId != null) {
-                // Read the vault fresh: the UI copy can be stale (e.g. right after another deduction).
-                val vault = savingsRepository.getSmartVaultById(input.deductFromVaultId)
-                if (vault != null) {
-                    val vaultBalanceBefore = vault.currentBalance
-                    val expenseAmount = input.amount
-                    
-                    // Calculate how much to deduct from vault and overflow
-                    val deductFromVault = expenseAmount.coerceAtMost(vaultBalanceBefore)
-                    val overflowToMainAccount = (expenseAmount - vaultBalanceBefore).coerceAtLeast(0.0)
-                    val vaultBalanceAfter = (vaultBalanceBefore - deductFromVault).coerceAtLeast(0.0)
-                    
-                    // Deduct from vault
-                    if (deductFromVault > 0.0) {
-                        savingsRepository.recordVaultBalanceAdjustment(
-                            vaultId = vault.id,
-                            previousBalance = vaultBalanceBefore,
-                            newBalance = vaultBalanceAfter,
-                            type = VaultAdjustmentType.MANUAL_DEDUCTION,
-                            reason = "Expense: ${input.description.take(100)}",
-                            relatedExpenseId = insertedExpenseId
-                        )
-                    }
-                    
-                    // Deduct overflow from main account if specified
-                    if (overflowToMainAccount > 0.0 && input.deductFromMainAccount) {
-                        val newBalance = currentBalance - overflowToMainAccount
-                        val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                            type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
-                            amount = overflowToMainAccount,
-                            balanceAfter = newBalance,
-                            timestamp = java.time.LocalDateTime.now(),
-                            description = "Overflow from ${vault.name} expense: ${input.description.take(70)}",
-                            relatedExpenseId = insertedExpenseId
-                        )
-                        savingsRepository.insertMainAccountTransaction(transaction)
-                        preferencesRepository.updateMainAccountBalance(newBalance)
-                        currentBalance = newBalance
-                    }
-                    
-                    // Check if we should prompt for archive (90% or more of vault used)
-                    val percentageUsed = if (vaultBalanceBefore > 0.0) {
-                        (deductFromVault / vaultBalanceBefore)
-                    } else {
-                        0.0
-                    }
-                    
-                    if (percentageUsed >= 0.90) {
-                        _uiState.update { state ->
-                            state.copy(
-                                vaultArchivePrompt = VaultArchivePrompt(
-                                    vaultId = vault.id,
-                                    vaultName = vault.name,
-                                    expenseAmount = expenseAmount,
-                                    vaultBalanceBefore = vaultBalanceBefore,
-                                    vaultBalanceAfter = vaultBalanceAfter,
-                                    overflowToMainAccount = overflowToMainAccount
-                                )
-                            )
-                        }
-                    }
-                }
-            } else if (input.deductFromMainAccount) {
-                // Check if payment method is a credit card
-                val paymentMethod = if (input.paymentMethodId != null) {
-                    currentState.paymentMethods.find { it.id == input.paymentMethodId }
-                } else null
-                val isCreditCardPayment = paymentMethod?.isCreditCard == true
-                
-                if (isCreditCardPayment) {
-                    // Credit card payment: DO NOTHING here as SavingsRepository handles balance update.
-                    // We explicitly do NOT deduct from main account.
-                } else {
-                    // Non-credit card payment: deduct from main account
-                    val newBalance = (currentBalance - input.amount)
-                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                        type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
-                        amount = input.amount,
-                        balanceAfter = newBalance,
-                        timestamp = java.time.LocalDateTime.now(),
-                        description = input.description.take(100),
-                        relatedExpenseId = insertedExpenseId
-                    )
-                    savingsRepository.insertMainAccountTransaction(transaction)
-                    preferencesRepository.updateMainAccountBalance(newBalance)
-                    currentBalance = newBalance
-                }
-            }
-            
-            val savingTaxPlans = SavingTaxEngine.calculate(
-                SavingTaxEngine.Context(
-                    expenseAmount = input.amount,
-                    expenseDate = input.date,
-                    settings = settings,
-                    vaults = currentState.smartVaults,
-                    currentMainAccountBalance = currentBalance
+            val result = addExpenseUseCase(
+                input,
+                AddExpenseUseCase.Context(
+                    settings = currentState.settings,
+                    recommendedPercentages = currentState.recommendation?.recommendedPercentages,
+                    paymentMethods = currentState.paymentMethods,
+                    smartVaults = currentState.smartVaults
                 )
             )
-            if (savingTaxPlans.isNotEmpty()) {
-                val contributions = savingTaxPlans.map { plan ->
-                    VaultContribution(
-                        vaultId = plan.vaultId,
-                        amount = plan.amount,
-                        date = input.date,
-                        source = VaultContributionSource.SAVING_TAX,
-                        note = "Saving tax from ${input.description}".take(120),
-                        relatedExpenseId = insertedExpenseId
-                    )
-                }
-                val contributionIds = savingsRepository.logVaultContributions(contributions)
-            
-                // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
-                val totalSavingTax = savingTaxPlans.sumOf { it.amount }
-                if (totalSavingTax > 0.0) {
-                    val newBalance = (currentBalance - totalSavingTax)
-                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                        type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                        amount = totalSavingTax,
-                        balanceAfter = newBalance,
-                        timestamp = java.time.LocalDateTime.now(),
-                        description = "Saving tax to ${savingTaxPlans.size} vault(s)",
-                        relatedVaultContributionIds = contributionIds
-                    )
-                    savingsRepository.insertMainAccountTransaction(transaction)
-                    preferencesRepository.updateMainAccountBalance(newBalance)
-                }
+            result.vaultArchivePrompt?.let { prompt ->
+                _uiState.update { it.copy(vaultArchivePrompt = prompt) }
             }
-            }
-            } }
 
             // Refresh paged list to include new expense
             _uiState.update { it.copy(pagedExpenses = emptyList(), canLoadMoreExpenses = true) }

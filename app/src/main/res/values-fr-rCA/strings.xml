@@ -215,6 +215,9 @@
     <string name="settings_security_title">Sécurité</string>
     <string name="settings_biometric_unlock_title">Déverrouillage biométrique</string>
     <string name="settings_biometric_unlock_description">Exiger l\'empreinte ou la reconnaissance faciale pour ouvrir l\'app</string>
+    <string name="settings_ai_assistant_access_title">Autoriser les assistants IA</string>
+    <string name="settings_ai_assistant_access_description">Permettre aux assistants de cet appareil (comme Gemini) de consulter tes dépenses, budgets, coffres et factures. Ils ne peuvent rien modifier.</string>
+    <string name="app_functions_display_description">Répond aux questions sur tes dépenses, budgets, coffres d\'épargne et factures</string>
     <string name="auth_confirm_identity">Confirmer ton identité</string>
     <string name="auth_security_settings_desc">Authentifie-toi pour changer les paramètres de sécurité</string>
     <string name="auth_unlock_title">Déverrouiller Sparely</string>

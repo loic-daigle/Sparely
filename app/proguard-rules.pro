@@ -153,3 +153,5 @@
 -keepclassmembernames interface com.example.sparely.data.remote.BrandfetchApi {
     <methods>;
 }
+# AppFunctions: response types are (de)serialized by generated code.
+-keep class com.example.sparely.appfunctions.** { *; }

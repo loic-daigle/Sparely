@@ -293,6 +293,9 @@
     <string name="settings_security_title">Security</string>
     <string name="settings_biometric_unlock_title">Biometric unlock</string>
     <string name="settings_biometric_unlock_description">Require fingerprint or face unlock to open the app</string>
+    <string name="settings_ai_assistant_access_title">Allow AI assistants</string>
+    <string name="settings_ai_assistant_access_description">Let assistants on this device (such as Gemini) read your spending, budgets, vaults and bills. They can\'t change anything.</string>
+    <string name="app_functions_display_description">Answers questions about your spending, budgets, savings vaults and bills</string>
     <string name="auth_confirm_identity">Confirm identity</string>
     <string name="auth_security_settings_desc">Authenticate to change security settings</string>
     <string name="auth_unlock_title">Unlock Sparely</string>
