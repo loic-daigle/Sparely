@@ -123,7 +123,9 @@ Code:
 
 **Testing:**
 - Unit tests (JVM): `./gradlew testDebugUnitTest --tests "com.example.sparely.appfunctions.*"`
-- End-to-end on an API 36+ emulator or device: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.sparely.appfunctions.SparelyAppFunctionsInstrumentedTest`
+- End-to-end on an API 36+ **emulator**: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.sparely.appfunctions.SparelyAppFunctionsInstrumentedTest`
+
+  > ⚠️ **Never run instrumented tests on the phone that holds your real Sparely data.** Gradle (and Android Studio's default test runner) **uninstalls the app when the tests finish, which deletes all its data.** The tests also write to the app's real database: the income test leaves a deposit and its undo in the main-account history. Use an emulator (Device Manager > Pixel, API 36+). If you do run them on a phone, export a backup first.
 - Check the functions are registered: `adb shell cmd app_function list-app-functions`
 
 ## 🤝 Contributing
