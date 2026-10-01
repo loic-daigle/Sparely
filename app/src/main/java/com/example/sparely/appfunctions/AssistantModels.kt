@@ -1,5 +1,6 @@
 package com.example.sparely.appfunctions
 
+import android.app.PendingIntent
 import androidx.appfunctions.AppFunctionSerializable
 
 /*
@@ -214,4 +215,16 @@ data class RecordedEntry(
     val currencyCode: String,
     /** What was recorded, to confirm back to the user. */
     val message: String,
+)
+
+/** A money movement waiting for the user to approve it in Sparely. Nothing has moved yet. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class PendingConfirmation(
+    /** What will happen once the user confirms; relay it to the user. */
+    val summary: String,
+    /**
+     * Opens Sparely's confirmation screen for this request. Launch it so the user can approve or
+     * cancel. It works once and expires after 30 minutes.
+     */
+    val confirmationIntent: PendingIntent,
 )

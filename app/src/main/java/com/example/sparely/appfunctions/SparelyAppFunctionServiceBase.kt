@@ -1,5 +1,7 @@
 package com.example.sparely.appfunctions
 
+import android.app.PendingIntent
+import android.content.Intent
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.appfunctions.AppFunction
@@ -24,7 +26,9 @@ import kotlinx.coroutines.CancellationException
  *
  * Every function fails with [AppFunctionDisabledException] until the user turns on
  * "Allow AI assistants" in Settings > Security; the record functions also need
- * "Let assistants add entries". Write logic lives in [SparelyAssistantActions].
+ * "Let assistants add entries". Write logic lives in [SparelyAssistantActions]. Money movements
+ * (vault transfers, refunds) are only prepared here: the user approves them in
+ * [AssistantConfirmActivity] ([AssistantTransferPlanner] validates them).
  */
 @RequiresApi(36)
 @AppFunctionServiceEntryPoint(
@@ -38,6 +42,10 @@ abstract class SparelyAppFunctionServiceBase : AppFunctionService() {
         SparelyAssistantQueries(
             RepositoryAssistantDataSource(container.savingsRepository, container.preferencesRepository)
         )
+    }
+
+    private val transferPlanner: AssistantTransferPlanner by lazy {
+        AssistantTransferPlanner(RepositoryAssistantTransferGateway((application as SparelyApplication).container))
     }
 
     private val actions: SparelyAssistantActions by lazy {
@@ -195,6 +203,71 @@ abstract class SparelyAppFunctionServiceBase : AppFunctionService() {
         @AppFunctionStringValueConstraint(enumValues = ["SALARY", "FREELANCE", "GIFT", "INVESTMENT", "OTHER"])
         category: String? = null,
     ): RecordedEntry = call { actions.recordIncome(amount, description, category) }
+
+    /**
+     * Prepare moving money into one of the user's savings vaults, for the user to approve.
+     * This does NOT move any money: it returns a confirmation screen the user must open and approve in Sparely.
+     * Call listVaults first to get the vault ID. Relay the returned summary, then launch confirmationIntent.
+     *
+     * @param vaultId ID of the vault, from listVaults.
+     * @param amount Amount to put into the vault, in the user's currency. Must be greater than 0 and at most 100000.
+     * @param reason Optional short note saved with the transfer, e.g. "Bonus savings".
+     * @return A summary of the transfer and the intent that opens the confirmation screen.
+     * @throws AppFunctionInvalidArgumentException If the vault does not exist or the amount is invalid. The message says what to fix.
+     * @throws AppFunctionDisabledException If the user has not allowed assistants to add entries. Tell the user how to turn it on, using the exception message.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun prepareVaultDeposit(vaultId: Long, amount: Double, reason: String? = null): PendingConfirmation =
+        call { confirmation(transferPlanner.planVaultDeposit(vaultId, amount, reason)) }
+
+    /**
+     * Prepare taking money out of one of the user's savings vaults, for the user to approve.
+     * This does NOT move any money: it returns a confirmation screen the user must open and approve in Sparely.
+     * Call listVaults first to get the vault ID and check its balance. Relay the returned summary, then launch confirmationIntent.
+     *
+     * @param vaultId ID of the vault, from listVaults.
+     * @param amount Amount to take out, in the user's currency. Must be greater than 0 and no more than the vault's balance.
+     * @param reason Optional short note saved with the transfer, e.g. "Car repair".
+     * @return A summary of the transfer and the intent that opens the confirmation screen.
+     * @throws AppFunctionInvalidArgumentException If the vault does not exist, holds less than the amount, or the amount is invalid. The message says what to fix.
+     * @throws AppFunctionDisabledException If the user has not allowed assistants to add entries. Tell the user how to turn it on, using the exception message.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun prepareVaultWithdrawal(vaultId: Long, amount: Double, reason: String? = null): PendingConfirmation =
+        call { confirmation(transferPlanner.planVaultWithdrawal(vaultId, amount, reason)) }
+
+    /**
+     * Prepare recording a refund the user received for an expense, for the user to approve.
+     * This does NOT record anything yet: it returns a confirmation screen the user must open and approve in Sparely.
+     * Call searchExpenses first to get the expense ID. Relay the returned summary, then launch confirmationIntent.
+     *
+     * @param expenseId ID of the refunded expense, from searchExpenses.
+     * @param amount Amount refunded, in the user's currency. Defaults to everything not refunded yet.
+     * @param reason Optional short note, e.g. "Returned the shoes".
+     * @return A summary of the refund and the intent that opens the confirmation screen.
+     * @throws AppFunctionInvalidArgumentException If the expense does not exist, is already fully refunded, or the amount is more than can still be refunded. The message says what to fix.
+     * @throws AppFunctionDisabledException If the user has not allowed assistants to add entries. Tell the user how to turn it on, using the exception message.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun prepareRefund(expenseId: Long, amount: Double? = null, reason: String? = null): PendingConfirmation =
+        call { confirmation(transferPlanner.planRefund(expenseId, amount, reason)) }
+
+    private fun confirmation(plan: PlannedTransfer): PendingConfirmation {
+        val intent = AssistantMoneyRequestIntents.putInto(
+            Intent(this, AssistantConfirmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            plan.request
+        )
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            plan.request.requestId.hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return PendingConfirmation(
+            summary = plan.summary + " Nothing has moved yet: the user must approve this in Sparely.",
+            confirmationIntent = pendingIntent
+        )
+    }
 
     /** Runs [block], translating query failures into the AppFunction errors assistants understand. */
     private suspend fun <T> call(block: suspend () -> T): T =
