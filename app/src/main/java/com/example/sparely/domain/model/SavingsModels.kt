@@ -242,6 +242,8 @@ data class SparelySettings(
     val biometricEnabled: Boolean = false,
     // Lets AI assistants read Sparely data through AppFunctions. Off until the user opts in.
     val aiAssistantAccessEnabled: Boolean = false,
+    // Also lets them record expenses and income. Only effective while aiAssistantAccessEnabled is on.
+    val aiAssistantWriteEnabled: Boolean = false,
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

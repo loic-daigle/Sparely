@@ -22,6 +22,7 @@ import com.sparely.app.R
 import java.time.Instant
 import java.time.ZoneOffset
 import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -534,6 +535,11 @@ fun SettingsSecurityCard(
     onBiometricEnabledChange: (Boolean) -> Unit,
     aiAssistantAccessEnabled: Boolean,
     onAiAssistantAccessEnabledChange: (Boolean) -> Unit,
+    aiAssistantWriteEnabled: Boolean,
+    onAiAssistantWriteEnabledChange: (Boolean) -> Unit,
+    assistantActions: List<AssistantAction>,
+    currencySymbol: String,
+    onUndoAssistantAction: (Long) -> Unit,
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
     ExpressiveCard(
@@ -604,6 +610,101 @@ fun SettingsSecurityCard(
                         }
                     }
                 )
+            }
+
+            if (aiAssistantAccessEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_ai_assistant_write_title), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = stringResource(R.string.settings_ai_assistant_write_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = aiAssistantWriteEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled && biometricEnabled) {
+                                onAuthenticateUser { success ->
+                                    if (success) {
+                                        onAiAssistantWriteEnabledChange(true)
+                                    }
+                                }
+                            } else {
+                                onAiAssistantWriteEnabledChange(enabled)
+                            }
+                        }
+                    )
+                }
+            }
+
+            if (assistantActions.isNotEmpty()) {
+                AssistantActivityList(
+                    actions = assistantActions,
+                    currencySymbol = currencySymbol,
+                    onUndo = onUndoAssistantAction
+                )
+            }
+        }
+    }
+}
+
+/** Recent entries AI assistants added, each with an Undo button while it still stands. */
+@Composable
+private fun AssistantActivityList(
+    actions: List<AssistantAction>,
+    currencySymbol: String,
+    onUndo: (Long) -> Unit
+) {
+    val dateFormatter = remember { java.time.format.DateTimeFormatter.ofPattern("MMM d, HH:mm") }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(R.string.settings_ai_assistant_activity_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        actions.forEach { action ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    val label = when (action.type) {
+                        AssistantActionType.EXPENSE_RECORDED -> R.string.settings_ai_assistant_activity_expense
+                        AssistantActionType.INCOME_RECORDED -> R.string.settings_ai_assistant_activity_income
+                    }
+                    Text(
+                        text = stringResource(label, action.description),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${action.amount.formatCurrency(currencySymbol)} · " +
+                            Instant.ofEpochMilli(action.createdAtEpochMillis)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .format(dateFormatter),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.isUndone) {
+                    Text(
+                        stringResource(R.string.settings_ai_assistant_activity_undone),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    SparelyTextButton(onClick = { onUndo(action.id) }) {
+                        Text(stringResource(R.string.settings_ai_assistant_activity_undo))
+                    }
+                }
             }
         }
     }

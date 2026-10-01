@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import com.example.sparely.SparelyApplication
+import com.example.sparely.domain.usecase.UndoAssistantActionUseCase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -25,7 +26,8 @@ import org.junit.runner.RunWith
 /**
  * Calls Sparely's AppFunctions end to end through the platform, the same way an assistant does.
  * Needs an Android 16+ (API 36) device or emulator; an app may call its own functions without
- * the EXECUTE_APP_FUNCTIONS permission.
+ * the EXECUTE_APP_FUNCTIONS permission. Runs against the app's real database: the write test
+ * adds a small income and undoes it, leaving the balance unchanged.
  */
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 36)
@@ -35,19 +37,23 @@ class SparelyAppFunctionsInstrumentedTest {
     private val preferences = (context as SparelyApplication).container.preferencesRepository
     private val appFunctionManager = checkNotNull(AppFunctionManager.getInstance(context))
     private var accessWasEnabled = false
+    private var writeWasEnabled = false
 
     @Before
-    fun rememberAccessSetting() = runBlocking {
-        accessWasEnabled = preferences.getSettingsSnapshot().aiAssistantAccessEnabled
+    fun rememberAccessSettings() = runBlocking {
+        val settings = preferences.getSettingsSnapshot()
+        accessWasEnabled = settings.aiAssistantAccessEnabled
+        writeWasEnabled = settings.aiAssistantWriteEnabled
     }
 
     @After
-    fun restoreAccessSetting() = runBlocking {
+    fun restoreAccessSettings() = runBlocking {
         preferences.updateAiAssistantAccessEnabled(accessWasEnabled)
+        preferences.updateAiAssistantWriteEnabled(writeWasEnabled)
     }
 
     @Test
-    fun allReadOnlyFunctionsAreRegistered() = runBlocking {
+    fun allFunctionsAreRegistered() = runBlocking {
         val ids = searchOwnFunctions().map { it.id }.toSet()
 
         listOf(
@@ -58,6 +64,8 @@ class SparelyAppFunctionsInstrumentedTest {
             SparelyAppFunctionService.FUNCTION_ID_GET_ACCOUNT_BALANCES,
             SparelyAppFunctionService.FUNCTION_ID_LIST_UPCOMING_BILLS,
             SparelyAppFunctionService.FUNCTION_ID_LIST_WISHLIST,
+            SparelyAppFunctionService.FUNCTION_ID_RECORD_EXPENSE,
+            SparelyAppFunctionService.FUNCTION_ID_RECORD_INCOME,
         ).forEach { assertTrue("$it not registered; found $ids", it in ids) }
     }
 
@@ -96,6 +104,56 @@ class SparelyAppFunctionsInstrumentedTest {
 
         val error = (response as ExecuteAppFunctionResponse.Error).error
         assertTrue("Unexpected error $error", error is AppFunctionInvalidArgumentException)
+    }
+
+    @Test
+    fun recordingIsRefusedUntilWritesAreAllowed() = runBlocking {
+        preferences.updateAiAssistantAccessEnabled(true)
+        preferences.updateAiAssistantWriteEnabled(false)
+        val repository = (context as SparelyApplication).container.savingsRepository
+        val balanceBefore = repository.getLatestMainAccountBalance()
+
+        val response = execute(SparelyAppFunctionService.FUNCTION_ID_RECORD_INCOME) {
+            setDouble("amount", 12.34)
+            setString("description", "Instrumented test income")
+        }
+
+        val error = (response as ExecuteAppFunctionResponse.Error).error
+        assertTrue("Unexpected error $error", error is AppFunctionDisabledException)
+        assertEquals(balanceBefore, repository.getLatestMainAccountBalance(), 0.001)
+    }
+
+    @Test
+    fun recordedIncomeIsLoggedAndUndoRestoresTheBalance() = runBlocking {
+        preferences.updateAiAssistantAccessEnabled(true)
+        preferences.updateAiAssistantWriteEnabled(true)
+        val container = (context as SparelyApplication).container
+        val repository = container.savingsRepository
+        val balanceBefore = repository.getLatestMainAccountBalance()
+        // Unique so the duplicate guard never trips across test runs.
+        val description = "Instrumented test income ${System.nanoTime()}"
+
+        val response = execute(SparelyAppFunctionService.FUNCTION_ID_RECORD_INCOME) {
+            setDouble("amount", 12.34)
+            setString("description", description)
+        }
+
+        val entry = (response as ExecuteAppFunctionResponse.Success).returnValue
+            .getAppFunctionData(ExecuteAppFunctionResponse.Success.PROPERTY_RETURN_VALUE)
+            ?.deserialize(RecordedEntry::class.java)
+        assertNotNull(entry)
+        assertEquals(balanceBefore + 12.34, repository.getLatestMainAccountBalance(), 0.001)
+
+        val action = container.assistantActionRepository.actionsSince(0L)
+            .first { it.description == description }
+        assertEquals(entry!!.id, action.recordId)
+
+        val undo = UndoAssistantActionUseCase(repository, preferences, container.assistantActionRepository)
+        assertEquals(UndoAssistantActionUseCase.Outcome.UNDONE, undo(action.id))
+        assertEquals(balanceBefore, repository.getLatestMainAccountBalance(), 0.001)
+        // A second tap on Undo must not withdraw the money again.
+        assertEquals(UndoAssistantActionUseCase.Outcome.ALREADY_UNDONE, undo(action.id))
+        assertEquals(balanceBefore, repository.getLatestMainAccountBalance(), 0.001)
     }
 
     private suspend fun searchOwnFunctions(): List<AppFunctionMetadata> =

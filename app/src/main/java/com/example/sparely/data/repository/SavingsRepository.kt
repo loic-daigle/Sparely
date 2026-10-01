@@ -1081,6 +1081,9 @@ class SavingsRepository(
     suspend fun getRecentMainAccountTransactions(limit: Int = 50): List<com.example.sparely.domain.model.MainAccountTransaction> =
         mainAccountDao.getRecentTransactions(limit).map { it.toDomain() }
 
+    suspend fun getMainAccountTransactionById(id: Long): com.example.sparely.domain.model.MainAccountTransaction? =
+        mainAccountDao.getTransactionById(id)?.toDomain()
+
     suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long {
         // A NaN/Infinity here would poison every later balance computed from the latest row.
         require(transaction.amount.isFinite() && transaction.balanceAfter.isFinite()) {

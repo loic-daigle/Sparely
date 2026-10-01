@@ -24,6 +24,7 @@ interface AppContainer {
     // Expose smart allocation service for callers that need it
     val smartAllocationService: com.example.sparely.domain.allocation.SmartAllocationService
     val brandfetchRepository: com.example.sparely.data.repository.BrandfetchRepository
+    val assistantActionRepository: com.example.sparely.data.repository.AssistantActionRepository
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -59,6 +60,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
             preferencesRepository = preferencesRepository,
             database = database
         )
+    }
+
+    override val assistantActionRepository by lazy {
+        com.example.sparely.data.repository.AssistantActionRepository(database.assistantActionDao())
     }
 
     override val backupRepository: BackupRepository by lazy {

@@ -163,6 +163,9 @@ fun SettingsScreen(
     onCreditCardUtilizationChange: (Boolean, Int) -> Unit = { _, _ -> },
     onBiometricEnabledChange: (Boolean) -> Unit = {},
     onAiAssistantAccessEnabledChange: (Boolean) -> Unit = {},
+    onAiAssistantWriteEnabledChange: (Boolean) -> Unit = {},
+    assistantActions: List<com.example.sparely.domain.model.AssistantAction> = emptyList(),
+    onUndoAssistantAction: (Long) -> Unit = {},
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
     stores: List<com.example.sparely.domain.model.Store> = emptyList(),
     onExportExpensesToCsv: (android.net.Uri, android.content.Context, List<Expense>, List<com.example.sparely.domain.model.Store>) -> Unit = { _, _, _, _ -> },
@@ -359,6 +362,11 @@ fun SettingsScreen(
                             onBiometricEnabledChange = onBiometricEnabledChange,
                             aiAssistantAccessEnabled = settings.aiAssistantAccessEnabled,
                             onAiAssistantAccessEnabledChange = onAiAssistantAccessEnabledChange,
+                            aiAssistantWriteEnabled = settings.aiAssistantWriteEnabled,
+                            onAiAssistantWriteEnabledChange = onAiAssistantWriteEnabledChange,
+                            assistantActions = assistantActions,
+                            currencySymbol = settings.regionalSettings.getCurrencySymbol(),
+                            onUndoAssistantAction = onUndoAssistantAction,
                             onAuthenticateUser = onAuthenticateUser
                         )
                     }

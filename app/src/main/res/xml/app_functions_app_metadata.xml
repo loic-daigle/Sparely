@@ -2,11 +2,13 @@
 <!-- Describes Sparely to AI assistants as a whole; each function's own description comes from its
      KDoc in SparelyAppFunctionServiceBase. -->
 <AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
-    appfn:description="Sparely is a personal finance and savings app. These functions are read-only: they answer questions about the user's spending, monthly budgets, savings vaults, account balances, upcoming bills and wishlist, and cannot change any data.
+    appfn:description="Sparely is a personal finance and savings app. These functions answer questions about the user's spending, monthly budgets, savings vaults, account balances, upcoming bills and wishlist, and can record new expenses and income. They cannot edit or delete existing data.
 Operational patterns:
   - Amounts are in the currency given by each response's currencyCode.
   - Dates are ISO-8601: YYYY-MM-DD for days and YYYY-MM for months.
   - Use 'searchExpenses' for individual transactions and 'getSpendingSummary' for totals.
+  - Only call 'recordExpense' or 'recordIncome' when the user explicitly asks to record something, and relay the returned message so the user knows what was saved.
 Constraints:
-  - If a function fails because assistant access is turned off, tell the user to enable 'Allow AI assistants' in Sparely under Settings > Security. Do not retry until they have."
+  - If a function fails because assistant access is turned off, tell the user which setting to enable in Sparely under Settings > Security (the error message names it). Do not retry until they have.
+  - If a record function reports that an identical entry already exists, do not record it again unless the user confirms it is separate."
     appfn:displayDescription="@string/app_functions_display_description" />

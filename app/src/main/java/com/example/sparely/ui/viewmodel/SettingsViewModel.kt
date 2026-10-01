@@ -31,6 +31,7 @@ data class SettingsUiState(
     val paymentMethods: List<PaymentMethod> = emptyList(),
     val smartVaults: List<SmartVault> = emptyList(),
     val savingsAccounts: List<SavingsAccount> = emptyList(),
+    val assistantActions: List<AssistantAction> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -93,6 +94,14 @@ class SettingsViewModel(
                 }
         }
         
+        viewModelScope.launch(dispatcher + errorHandler) {
+            container.assistantActionRepository.observeRecent(RECENT_ASSISTANT_ACTIONS)
+                .catch { e -> android.util.Log.e("SettingsViewModel", "Failed to load assistant activity", e) }
+                .collect { actions ->
+                    _uiState.update { it.copy(assistantActions = actions) }
+                }
+        }
+
         viewModelScope.launch(dispatcher + errorHandler) {
             savingsRepository.observeSavingsAccounts()
                 .catch { e -> _uiState.update { it.copy(errorMessage = "Failed to load savings accounts: ${e.message}") } }
@@ -271,6 +280,25 @@ class SettingsViewModel(
     fun updateAiAssistantAccessEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAiAssistantAccessEnabled(enabled)
+        }
+    }
+
+    fun updateAiAssistantWriteEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateAiAssistantWriteEnabled(enabled)
+        }
+    }
+
+    fun undoAssistantAction(actionId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            val undo = com.example.sparely.domain.usecase.UndoAssistantActionUseCase(
+                savingsRepository,
+                preferencesRepository,
+                container.assistantActionRepository
+            )
+            if (undo(actionId) == com.example.sparely.domain.usecase.UndoAssistantActionUseCase.Outcome.UNDONE) {
+                com.example.sparely.notifications.AssistantActionNotifier.cancel(container.context, actionId)
+            }
         }
     }
 
@@ -510,6 +538,10 @@ class SettingsViewModel(
 
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    private companion object {
+        const val RECENT_ASSISTANT_ACTIONS = 10
     }
 }
 

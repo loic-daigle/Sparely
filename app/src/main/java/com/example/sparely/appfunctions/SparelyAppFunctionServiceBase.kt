@@ -5,6 +5,7 @@ import androidx.annotation.RequiresApi
 import androidx.appfunctions.AppFunction
 import androidx.appfunctions.AppFunctionAppUnknownException
 import androidx.appfunctions.AppFunctionDisabledException
+import androidx.appfunctions.AppFunctionElementAlreadyExistsException
 import androidx.appfunctions.AppFunctionInvalidArgumentException
 import androidx.appfunctions.AppFunctionService
 import androidx.appfunctions.AppFunctionServiceEntryPoint
@@ -13,15 +14,17 @@ import com.example.sparely.SparelyApplication
 import kotlinx.coroutines.CancellationException
 
 /**
- * Read-only AppFunctions that let on-device AI assistants (such as Gemini) answer questions about
- * the user's finances. Nothing here changes data.
+ * AppFunctions that let on-device AI assistants (such as Gemini) answer questions about the
+ * user's finances and, if the user allows it, record expenses and income. Nothing here edits or
+ * deletes existing data, and every entry an assistant adds can be undone by the user.
  *
  * The KSP compiler generates the concrete `SparelyAppFunctionService` (registered in the
  * manifest) and the function metadata from this class; the KDoc on each function is the
  * description the assistant sees. All logic lives in [SparelyAssistantQueries].
  *
  * Every function fails with [AppFunctionDisabledException] until the user turns on
- * "Allow AI assistants" in Settings > Security.
+ * "Allow AI assistants" in Settings > Security; the record functions also need
+ * "Let assistants add entries". Write logic lives in [SparelyAssistantActions].
  */
 @RequiresApi(36)
 @AppFunctionServiceEntryPoint(
@@ -34,6 +37,12 @@ abstract class SparelyAppFunctionServiceBase : AppFunctionService() {
         val container = (application as SparelyApplication).container
         SparelyAssistantQueries(
             RepositoryAssistantDataSource(container.savingsRepository, container.preferencesRepository)
+        )
+    }
+
+    private val actions: SparelyAssistantActions by lazy {
+        SparelyAssistantActions(
+            RepositoryAssistantWriteGateway(applicationContext, (application as SparelyApplication).container)
         )
     }
 
@@ -134,6 +143,59 @@ abstract class SparelyAppFunctionServiceBase : AppFunctionService() {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun listWishlist(): WishlistOverview = call { queries.listWishlist() }
 
+    /**
+     * Record an expense the user tells you they made, for example "I spent 42 dollars on groceries".
+     * Only call this when the user clearly asked to record a purchase. Confirm the amount and
+     * description with the user first if either is unclear. The expense is handled exactly as if the
+     * user had entered it in Sparely (savings allocation, main-account and vault balances), and the
+     * user gets a notification with an Undo button.
+     *
+     * @param description What the money was spent on, e.g. "Groceries at Costco". 1 to 100 characters.
+     * @param amount Amount spent, in the user's currency. Must be greater than 0 and at most 100000.
+     * @param category Expense category. Defaults to OTHER.
+     * @param date Date of the purchase, as YYYY-MM-DD. Defaults to today. Cannot be in the future or more than a year ago.
+     * @param notes Optional extra details, up to 500 characters.
+     * @return The new expense's ID and a confirmation message to relay to the user.
+     * @throws AppFunctionInvalidArgumentException If an argument is invalid. The message says which; fix it and retry.
+     * @throws AppFunctionElementAlreadyExistsException If an identical expense was recorded in the last few minutes. Do not retry unless the user confirms it is a separate purchase.
+     * @throws AppFunctionDisabledException If the user has not allowed assistants to add entries. Tell the user how to turn it on, using the exception message.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun recordExpense(
+        description: String,
+        amount: Double,
+        @AppFunctionStringValueConstraint(
+            enumValues = [
+                "GROCERIES", "DINING", "TRANSPORTATION", "ENTERTAINMENT", "UTILITIES",
+                "HEALTH", "EDUCATION", "SHOPPING", "TRAVEL", "OTHER",
+            ]
+        )
+        category: String? = null,
+        date: String? = null,
+        notes: String? = null,
+    ): RecordedEntry = call { actions.recordExpense(description, amount, category, date, notes) }
+
+    /**
+     * Record money the user received, for example "I got paid 1500 today" or "Add 50 dollars I got as a gift".
+     * The amount is added to the user's main account balance, and the user gets a notification with an Undo button.
+     * Only call this when the user clearly asked to record income.
+     *
+     * @param amount Amount received, in the user's currency. Must be greater than 0 and at most 100000.
+     * @param description Where the money came from, e.g. "Paycheck" or "Birthday gift". 1 to 100 characters.
+     * @param category Kind of income. Optional.
+     * @return The new transaction's ID and a confirmation message to relay to the user.
+     * @throws AppFunctionInvalidArgumentException If an argument is invalid. The message says which; fix it and retry.
+     * @throws AppFunctionElementAlreadyExistsException If identical income was recorded in the last few minutes. Do not retry unless the user confirms it is separate.
+     * @throws AppFunctionDisabledException If the user has not allowed assistants to add entries. Tell the user how to turn it on, using the exception message.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun recordIncome(
+        amount: Double,
+        description: String,
+        @AppFunctionStringValueConstraint(enumValues = ["SALARY", "FREELANCE", "GIFT", "INVESTMENT", "OTHER"])
+        category: String? = null,
+    ): RecordedEntry = call { actions.recordIncome(amount, description, category) }
+
     /** Runs [block], translating query failures into the AppFunction errors assistants understand. */
     private suspend fun <T> call(block: suspend () -> T): T =
         try {
@@ -144,9 +206,11 @@ abstract class SparelyAppFunctionServiceBase : AppFunctionService() {
             throw AppFunctionDisabledException(e.message)
         } catch (e: AssistantInvalidArgumentException) {
             throw AppFunctionInvalidArgumentException(e.message)
+        } catch (e: AssistantDuplicateException) {
+            throw AppFunctionElementAlreadyExistsException(e.message)
         } catch (e: Exception) {
             Log.e(TAG, "AppFunction call failed", e)
-            throw AppFunctionAppUnknownException("Sparely could not read this data. Ask the user to try again later.")
+            throw AppFunctionAppUnknownException("Sparely could not complete this request. Ask the user to try again later.")
         }
 
     private companion object {

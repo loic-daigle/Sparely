@@ -79,6 +79,8 @@ import com.example.sparely.domain.model.StoreInput
 import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultArchivePrompt
 import com.example.sparely.domain.usecase.AddExpenseUseCase
+import com.example.sparely.domain.usecase.DeleteExpenseUseCase
+import com.example.sparely.domain.usecase.RecordIncomeUseCase
 import com.example.sparely.ui.state.SparelyUiState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -121,6 +123,8 @@ class SparelyViewModel(
     val appContainer: AppContainer get() = container
 
     private val addExpenseUseCase = AddExpenseUseCase(savingsRepository, preferencesRepository)
+    private val deleteExpenseUseCase = DeleteExpenseUseCase(savingsRepository, preferencesRepository)
+    private val recordIncomeUseCase = RecordIncomeUseCase(savingsRepository, preferencesRepository)
 
     private val _uiState = MutableStateFlow(SparelyUiState())
     val uiState: StateFlow<SparelyUiState> = _uiState.asStateFlow()
@@ -980,56 +984,10 @@ class SparelyViewModel(
 
 fun deleteExpense(id: Long) {
     safeLaunch {
-        savingsRepository.withMainAccountLock { savingsRepository.runInTransaction {
-            val expenseEntity = savingsRepository.findExpenseById(id) ?: return@runInTransaction
-
-            // 1. Revert financial impact: give back exactly what the expense took, to where it
-            // came from - the vault part to the vault, the main-account part (net of refunds
-            // already credited) to the main account. Credit card impact is handled by the
-            // repository; expenses that were never deducted give nothing back.
-            val reversal = savingsRepository.computeExpenseReversal(expenseEntity)
-            var creditBack = reversal.mainAccountCredit
-            var restoredToVault = 0.0
-            val sourceVault = reversal.vaultId?.let { savingsRepository.getSmartVaultById(it) }
-            if (reversal.vaultCredit > 0.0) {
-                if (sourceVault != null) {
-                    savingsRepository.recordVaultBalanceAdjustment(
-                        vaultId = sourceVault.id,
-                        previousBalance = sourceVault.currentBalance,
-                        newBalance = sourceVault.currentBalance + reversal.vaultCredit,
-                        type = VaultAdjustmentType.MANUAL_DEPOSIT,
-                        reason = "Reversal of deleted expense: ${expenseEntity.description.take(80)}"
-                    )
-                    restoredToVault = reversal.vaultCredit
-                } else {
-                    // The vault no longer exists: return its share to the main account instead.
-                    creditBack += reversal.vaultCredit
-                }
-            }
-            if (creditBack > 0.0) {
-                val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                val newBalance = currentBalance + creditBack
-                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                    amount = creditBack,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Reversal of deleted expense: ${expenseEntity.description}",
-                    relatedExpenseId = null // Set to null since the expense is being deleted
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
-            }
-            lastDeletedExpenseMainCredit = creditBack
-            lastDeletedExpenseVaultCredit = if (restoredToVault > 0.0) sourceVault?.id?.let { it to restoredToVault } else null
-            _uiState.update { it.copy(lastDeletedExpense = expenseEntity.toDomain()) }
-
-            // 2. Cancel pending tax contributions
-            savingsRepository.deletePendingContributionsForExpense(id)
-
-            // 3. Delete the expense record
-            savingsRepository.deleteExpense(expenseEntity)
-        } }
+        val result = deleteExpenseUseCase(id) ?: return@safeLaunch
+        lastDeletedExpenseMainCredit = result.mainAccountCredit
+        lastDeletedExpenseVaultCredit = result.vaultCredit
+        _uiState.update { it.copy(lastDeletedExpense = result.deletedExpense.toDomain()) }
     }
 }
 
@@ -1329,20 +1287,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     fun depositToMainAccount(amount: Double, description: String, incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null) {
         if (!amount.isFinite() || amount <= 0.0) return
         safeLaunch {
-            savingsRepository.withMainAccountLock {
-                val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                val newBalance = currentBalance + amount
-                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
-                    amount = amount,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = description.take(100),
-                    incomeCategory = incomeCategory
-                )
-                savingsRepository.insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
-            }
+            recordIncomeUseCase(amount, description, incomeCategory)
         }
     }
 

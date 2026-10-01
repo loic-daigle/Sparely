@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
-const val SPARELY_DATABASE_VERSION = 46
+const val SPARELY_DATABASE_VERSION = 47
 
 @Database(
     entities = [
@@ -38,7 +38,8 @@ const val SPARELY_DATABASE_VERSION = 46
         WishlistEntity::class,
         WishlistSavingsEntity::class,
         PendingVariableRecurringExpenseEntity::class,
-        RecurringExpensePaidEntity::class
+        RecurringExpensePaidEntity::class,
+        AssistantActionEntity::class
     ],
 
     version = SPARELY_DATABASE_VERSION,
@@ -69,6 +70,7 @@ abstract class SparelyDatabase : RoomDatabase() {
     abstract fun savingsAccountTransactionDao(): SavingsAccountTransactionDao
     abstract fun pendingVariableRecurringExpenseDao(): PendingVariableRecurringExpenseDao
     abstract fun recurringExpensePaidDao(): RecurringExpensePaidDao
+    abstract fun assistantActionDao(): AssistantActionDao
 
     companion object {
         const val DATABASE_VERSION = SPARELY_DATABASE_VERSION
@@ -1282,13 +1284,30 @@ abstract class SparelyDatabase : RoomDatabase() {
             MIGRATION_42_43,
             MIGRATION_43_44,
             MIGRATION_44_45,
-            MIGRATION_45_46
+            MIGRATION_45_46,
+            MIGRATION_46_47
             )
         }
 
         val MIGRATION_45_46 = object : androidx.room.migration.Migration(45, 46) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE vault_balance_adjustments ADD COLUMN relatedExpenseId INTEGER")
+            }
+        }
+
+        // Audit log of changes made by AI assistants through AppFunctions.
+        val MIGRATION_46_47 = object : androidx.room.migration.Migration(46, 47) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS assistant_actions (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "actionType TEXT NOT NULL, " +
+                        "recordId INTEGER NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "createdAtEpochMillis INTEGER NOT NULL, " +
+                        "undoneAtEpochMillis INTEGER)"
+                )
             }
         }
     }

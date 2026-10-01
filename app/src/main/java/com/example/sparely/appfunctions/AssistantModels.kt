@@ -3,7 +3,7 @@ package com.example.sparely.appfunctions
 import androidx.appfunctions.AppFunctionSerializable
 
 /*
- * Read-only views of Sparely data returned to AI assistants. Amounts are in the user's currency
+ * Data returned to AI assistants. Amounts are in the user's currency
  * (see each response's currencyCode); dates are ISO-8601 strings (YYYY-MM-DD).
  */
 
@@ -203,4 +203,15 @@ data class WishlistOverview(
     val currencyCode: String,
     /** Active wishlist items, highest priority first. */
     val items: List<WishlistItem>,
+)
+
+/** Confirmation of an entry an assistant added. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class RecordedEntry(
+    /** ID of the new entry in Sparely (for an expense, usable with searchExpenses). */
+    val id: Long,
+    /** ISO 4217 code of the currency the amount was recorded in. */
+    val currencyCode: String,
+    /** What was recorded, to confirm back to the user. */
+    val message: String,
 )

@@ -93,15 +93,29 @@ The backup includes all expenses, vaults, budgets, stores, recurring expenses, a
 
 ## 🤖 AI Assistant Access (AppFunctions)
 
-On Android 16+ (API 36), Sparely exposes read-only [AppFunctions](https://developer.android.com/ai/appfunctions) so on-device assistants such as Gemini can answer questions like "How much did I spend on dining this month?". Assistants can read spending, budgets, vaults, account balances, upcoming bills and the wishlist. They cannot change anything.
+On Android 16+ (API 36), Sparely exposes [AppFunctions](https://developer.android.com/ai/appfunctions) so on-device assistants such as Gemini can help with your money:
 
-Access is **off by default**. The user turns it on under Settings > Security > "Allow AI assistants". If biometric unlock is on, turning it on requires authentication. Until then, every call fails with an error that tells the assistant how to ask the user to enable it.
+- **Read:** spending summaries, expense search, budgets, vaults, account balances, upcoming bills and the wishlist ("How much did I spend on dining this month?").
+- **Record:** new expenses and income ("I spent 42 dollars on groceries"). Assistants cannot edit or delete existing data.
 
+Both are **off by default**, under Settings > Security:
+- "Allow AI assistants" turns on reading.
+- "Let assistants add entries" also allows recording.
+
+If biometric unlock is on, turning either on requires authentication. Until a setting is on, the matching calls fail with an error that tells the assistant which setting to ask the user to enable.
+
+Every entry an assistant adds:
+- goes through the same code as entering it in the app, so balances, vaults and saving tax stay consistent
+- is logged and shows a notification with **Undo**; the last 10 also appear under Settings > Security with an Undo button
+- is refused if an identical one was added in the last 5 minutes, since assistants sometimes retry
+
+Code:
 - Functions and their descriptions: `appfunctions/SparelyAppFunctionServiceBase.kt` (the KDoc is what the assistant reads)
-- Query logic: `appfunctions/SparelyAssistantQueries.kt`
+- Read logic: `appfunctions/SparelyAssistantQueries.kt`; write logic: `appfunctions/SparelyAssistantActions.kt`
+- Undo: `domain/usecase/UndoAssistantActionUseCase.kt`
 
 **Testing:**
-- Unit tests (JVM): `./gradlew testDebugUnitTest --tests "*SparelyAssistantQueriesTest"`
+- Unit tests (JVM): `./gradlew testDebugUnitTest --tests "com.example.sparely.appfunctions.*"`
 - End-to-end on an API 36+ emulator or device: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.sparely.appfunctions.SparelyAppFunctionsInstrumentedTest`
 - Check the functions are registered: `adb shell cmd app_function list-app-functions`
 
