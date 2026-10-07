@@ -20,6 +20,7 @@ object NotificationHelper {
     const val VAULT_TRANSFER_CHANNEL_ID = "sparely_vault_transfers"
     const val PAYDAY_CHANNEL_ID = "sparely_payday_reminders"
     const val CREDIT_CARD_CHANNEL_ID = "sparely_credit_card_reminders"
+    const val WISHLIST_CHANNEL_ID = "sparely_wishlist"
     private const val REMINDER_NOTIFICATION_ID = 1001
     private const val AUTO_DEPOSIT_NOTIFICATION_ID = 3001
     private const val VAULT_TRANSFER_NOTIFICATION_ID = 4001
@@ -27,6 +28,7 @@ object NotificationHelper {
     private const val SCHEDULE_SUMMARY_NOTIFICATION_ID = 5001
     private const val CREDIT_CARD_BASE_NOTIFICATION_ID = 6001
     private const val VARIABLE_RECURRING_NOTIFICATION_ID = 7001
+    private const val WISHLIST_NOTIFICATION_BASE_ID = 100_000
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -69,12 +71,72 @@ object NotificationHelper {
                 description = "Reminders for credit card bill due dates"
                 setShowBadge(true)
             }
+            val wishlistChannel = NotificationChannel(
+                WISHLIST_CHANNEL_ID,
+                context.getString(R.string.wishlist_notif_channel),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = context.getString(R.string.wishlist_notif_channel_desc)
+            }
+            manager.createNotificationChannel(wishlistChannel)
             manager.createNotificationChannel(reminderChannel)
             manager.createNotificationChannel(autoDepositChannel)
             manager.createNotificationChannel(paydayChannel)
             manager.createNotificationChannel(vaultTransferChannel)
             manager.createNotificationChannel(creditCardChannel)
         }
+    }
+
+    /** One notification per wish, so answering or dismissing one never affects another. */
+    private fun wishlistNotificationId(wishlistId: Long): Int =
+        WISHLIST_NOTIFICATION_BASE_ID + (wishlistId % 1_000_000L).toInt()
+
+    /** "Do you still want it?" once the reflection time on a wish is over, answerable from the notification. */
+    fun showWishlistDecision(context: Context, wishlistId: Long, name: String) {
+        ensureChannels(context)
+        val notificationId = wishlistNotificationId(wishlistId)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
+        val open = PendingIntent.getActivity(
+            context,
+            notificationId,
+            Intent(context, MainActivity::class.java).apply {
+                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "wishlist")
+            },
+            flags
+        )
+        val stillWant = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            WishlistDecisionReceiver.createIntent(context, WishlistDecisionReceiver.ACTION_STILL_WANT, wishlistId),
+            flags
+        )
+        val notAnymore = PendingIntent.getBroadcast(
+            context,
+            notificationId + WISHLIST_NOTIFICATION_BASE_ID,
+            WishlistDecisionReceiver.createIntent(context, WishlistDecisionReceiver.ACTION_NOT_ANYMORE, wishlistId),
+            flags
+        )
+
+        val text = context.getString(R.string.wishlist_notif_text)
+        val notification = NotificationCompat.Builder(context, WISHLIST_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle(context.getString(R.string.wishlist_notif_title, name))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(open)
+            .addAction(0, context.getString(R.string.wishlist_notif_yes), stillWant)
+            .addAction(0, context.getString(R.string.wishlist_notif_no), notAnymore)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun dismissWishlistDecision(context: Context, wishlistId: Long) {
+        NotificationManagerCompat.from(context).cancel(wishlistNotificationId(wishlistId))
     }
 
     fun showReminder(context: Context, message: String) {

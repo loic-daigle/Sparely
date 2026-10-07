@@ -227,6 +227,7 @@ class SparelyViewModel(
         val vaults: List<SmartVault> = emptyList(),
         val savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
         val assets: List<Asset> = emptyList(),
+        val wishlists: List<com.example.sparely.domain.model.Wishlist> = emptyList(),
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
         val challenges: List<SavingsChallenge> = emptyList(),
@@ -240,6 +241,16 @@ class SparelyViewModel(
     init {
         // Initial load for paged expenses
         loadMoreExpenses()
+
+        // Make sure every wish still in its reflection time will ask "do you still want it?" when it ends
+        // (covers wishes added by an assistant or restored from a backup).
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.getActiveWishlists().forEach { wish ->
+                wish.cooldownExpiresAt?.takeIf { it.isAfter(java.time.LocalDateTime.now()) }?.let {
+                    notificationScheduler.scheduleWishlistCooldown(wish.id, it)
+                }
+            }
+        }
 
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.refreshAgeFromBirthday()
@@ -275,6 +286,9 @@ class SparelyViewModel(
                 }
                 .combine(savingsRepository.observeActiveAssets()) { feed: AggregatedFeeds, assets: List<Asset> ->
                     feed.copy(assets = assets)
+                }
+                .combine(savingsRepository.observeActiveWishlists()) { feed: AggregatedFeeds, wishlists: List<com.example.sparely.domain.model.Wishlist> ->
+                    feed.copy(wishlists = wishlists)
                 }
                 .combine(savingsRepository.observeRecurringExpenses()) { feed: AggregatedFeeds, recurring: List<RecurringExpense> ->
                     feed.copy(recurring = recurring)
@@ -424,19 +438,21 @@ class SparelyViewModel(
                     val totalUsableMoney = feed.settings.mainAccountBalance + totalHisaBalance
 
                     // Compute cashflow forecast for Safe to Spend display
-                    val cashflowForecast = CashflowEngine.forecast(
-                        CashflowEngine.ForecastInput(
-                            currentBalance = feed.settings.mainAccountBalance,
-                            totalHisaBalance = totalHisaBalance,
-                            minMainAccountBalance = feed.settings.minMainAccountBalance,
-                            recentExpenses = predictionExpenses,
-                            recurringExpenses = feed.recurring,
-                            expectedMonthlyIncome = feed.settings.monthlyIncome,
-                            nextPayDate = feed.settings.paySchedule.nextPayDate,
-                            nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 },
-                            paySchedule = feed.settings.paySchedule
-                        )
+                    // Money set aside for wishes stays in the bank but is not available to spend.
+                    val wishlistReserved = com.example.sparely.domain.logic.WishPlan.totalReserved(feed.wishlists)
+                    val forecastInput = CashflowEngine.ForecastInput(
+                        currentBalance = feed.settings.mainAccountBalance,
+                        totalHisaBalance = totalHisaBalance,
+                        minMainAccountBalance = feed.settings.minMainAccountBalance,
+                        earmarkedMoney = wishlistReserved,
+                        recentExpenses = predictionExpenses,
+                        recurringExpenses = feed.recurring,
+                        expectedMonthlyIncome = feed.settings.monthlyIncome,
+                        nextPayDate = feed.settings.paySchedule.nextPayDate,
+                        nextPayAmount = feed.settings.paySchedule.defaultNetPay.takeIf { it > 0 },
+                        paySchedule = feed.settings.paySchedule
                     )
+                    val cashflowForecast = CashflowEngine.forecast(forecastInput)
 
                     // Compute spending pattern analysis for anomaly detection and trends
                     val categoryBudgetMap = activeBudgets.associate { it.category to it.monthlyLimit }
@@ -564,6 +580,8 @@ class SparelyViewModel(
                         smartVaults = sortedVaults,
                         savingsAccounts = feed.savingsAccounts,
                         assets = feed.assets,
+                        wishlists = feed.wishlists,
+                        wishlistReserved = wishlistReserved,
                         totalVaultBalance = totalVaultBalance,
                         totalHisaBalance = totalHisaBalance,
                         totalUsableMoney = totalUsableMoney,
@@ -604,6 +622,7 @@ class SparelyViewModel(
                         creditCardPayments = feed.creditCardPayments.groupBy { it.paymentMethodId }, // Group by card ID
                         mainAccountTransactions = mainAccountTransactions,
                         cashflowForecast = cashflowForecast,
+                        forecastInput = forecastInput,
                         spendingPatterns = spendingPatterns,
                         // Smart Insight Engine data
                         recurringPatterns = recurringPatterns,
@@ -1771,6 +1790,71 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     fun archiveSavingsAccount(accountId: Long) {
         viewModelScope.launch(errorHandler) {
             savingsRepository.archiveSavingsAccount(accountId)
+        }
+    }
+
+    // Wishlist: purchases the user is thinking about, re-checked against their finances over time.
+
+    /** Saves a considered purchase. [cooldownDays] is how long to sleep on it before buying. */
+    fun addWishlistItem(
+        description: String,
+        targetAmount: Double,
+        cooldownDays: Int,
+        isReallyNeeded: Boolean,
+        targetDate: java.time.LocalDate? = null
+    ) {
+        val name = description.trim()
+        if (name.isEmpty() || !targetAmount.isFinite() || targetAmount <= 0.0) return
+        viewModelScope.launch(dispatcher + errorHandler) {
+            val now = java.time.LocalDateTime.now()
+            val cooldownEnds = now.plusDays(cooldownDays.coerceAtLeast(0).toLong())
+            val id = savingsRepository.addWishlist(
+                com.example.sparely.domain.model.Wishlist(
+                    description = name,
+                    targetAmount = targetAmount,
+                    createdAt = now,
+                    cooldownExpiresAt = cooldownEnds,
+                    targetDate = targetDate,
+                    isReallyNeeded = isReallyNeeded
+                )
+            )
+            notificationScheduler.scheduleWishlistCooldown(id, cooldownEnds)
+        }
+    }
+
+    /** Sets or clears the date a wish should be bought by; the reserve builds up evenly until then. */
+    fun setWishlistTargetDate(wishlistId: Long, targetDate: java.time.LocalDate?) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.setWishlistTargetDate(wishlistId, targetDate)
+        }
+    }
+
+    fun addSavingsToWishlist(wishlistId: Long, amount: Double) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.allocateSavingsToWishlist(wishlistId, amount)
+        }
+    }
+
+    /** Marks a wish as bought (or given up on) without deleting its history. */
+    /** The user still wants the item: ends the reflection time now (e.g. because it is on sale today). */
+    fun confirmWishlistStillWanted(wishlistId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.clearWishlistCooldown(wishlistId)
+            notificationScheduler.cancelWishlistCooldown(wishlistId)
+        }
+    }
+
+    fun archiveWishlistItem(wishlistId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.archiveWishlist(wishlistId)
+            notificationScheduler.cancelWishlistCooldown(wishlistId)
+        }
+    }
+
+    fun deleteWishlistItem(wishlistId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.deleteWishlist(wishlistId)
+            notificationScheduler.cancelWishlistCooldown(wishlistId)
         }
     }
 

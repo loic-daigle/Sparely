@@ -60,6 +60,10 @@
             android:name="com.example.sparely.notifications.AssistantActionReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name="com.example.sparely.notifications.WishlistDecisionReceiver"
+            android:exported="false" />
+
         <!-- Where the user approves vault transfers and refunds an AI assistant prepared. Only
              reachable through the one-time PendingIntent the AppFunction returns. -->
         <activity

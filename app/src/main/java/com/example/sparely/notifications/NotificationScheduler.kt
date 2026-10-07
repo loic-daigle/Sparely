@@ -13,6 +13,7 @@ import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.logic.PayScheduleCalculator
 import kotlinx.coroutines.flow.first
 import java.time.Duration
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
@@ -83,6 +84,23 @@ class NotificationScheduler(context: Context) {
             request
         )
     }
+
+    /** Asks "do you still want it?" when the reflection time on a wish ends. Replaces any earlier schedule for it. */
+    fun scheduleWishlistCooldown(wishlistId: Long, expiresAt: LocalDateTime) {
+        val delay = Duration.between(LocalDateTime.now(), expiresAt).coerceAtLeast(Duration.ZERO)
+        val request = OneTimeWorkRequestBuilder<WishlistCooldownWorker>()
+            .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
+            .setInputData(workDataOf(WishlistCooldownWorker.KEY_WISHLIST_ID to wishlistId))
+            .build()
+        workManager.enqueueUniqueWork(wishlistWorkName(wishlistId), ExistingWorkPolicy.REPLACE, request)
+    }
+
+    fun cancelWishlistCooldown(wishlistId: Long) {
+        workManager.cancelUniqueWork(wishlistWorkName(wishlistId))
+        NotificationHelper.dismissWishlistDecision(appContext, wishlistId)
+    }
+
+    private fun wishlistWorkName(wishlistId: Long) = "wishlist_cooldown_$wishlistId"
 
     fun cancelPaydayReminder() {
         workManager.cancelUniqueWork(PAYDAY_WORK_NAME)

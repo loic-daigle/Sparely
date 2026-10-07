@@ -372,6 +372,18 @@ class BackupRepository(
             throw IllegalArgumentException("The selected file is not a valid Sparely backup.")
         }
         fun <T> List<T>?.clean(): List<T> = (this as List<T?>?).orEmpty().filterNotNull()
+        // Gson can leave "non-null" fields null. A wish that cannot be rebuilt is dropped, and so is any
+        // saving that points at a wish that is gone: it would break the foreign key and abort the restore.
+        @Suppress("USELESS_CAST")
+        val wishlists = parsed.wishlists.clean().filter {
+            (it.description as String?) != null && (it.createdAt as LocalDateTime?) != null &&
+                it.targetAmount.isFinite() && it.currentSavings.isFinite()
+        }
+        val wishlistIds = wishlists.map { it.id }.toSet()
+        @Suppress("USELESS_CAST")
+        val wishlistSavings = parsed.wishlistSavings.clean().filter {
+            it.wishlistId in wishlistIds && it.amount.isFinite() && (it.date as LocalDateTime?) != null
+        }
         return parsed.copy(
             vaults = parsed.vaults.clean(),
             budgets = parsed.budgets.clean(),
@@ -392,8 +404,8 @@ class BackupRepository(
             expenseItems = parsed.expenseItems.clean(),
             assets = parsed.assets.clean(),
             assetExpenseLinks = parsed.assetExpenseLinks.clean(),
-            wishlists = parsed.wishlists.clean(),
-            wishlistSavings = parsed.wishlistSavings.clean(),
+            wishlists = wishlists,
+            wishlistSavings = wishlistSavings,
             expenseRefunds = parsed.expenseRefunds.clean()
         )
     }

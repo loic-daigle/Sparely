@@ -85,6 +85,8 @@ import com.example.sparely.ui.screens.ChallengesScreen
 import com.example.sparely.ui.screens.DashboardScreen
 import com.example.sparely.ui.screens.ExpenseEntryScreen
 import com.example.sparely.ui.screens.FinancialHealthScreen
+import com.example.sparely.ui.screens.PurchaseCheckScreen
+import com.example.sparely.ui.screens.WishlistScreen
 import com.example.sparely.ui.screens.HistoryScreen
 import com.example.sparely.ui.screens.MainAccountScreen
 import com.example.sparely.ui.screens.OnboardingScreen
@@ -701,6 +703,7 @@ private fun SparelyNavHost(
                 onNavigateToBudgets = { navController.navigate(SparelyDestination.Budgets.route) },
                 onNavigateToChallenges = { navController.navigate(SparelyDestination.Challenges.route) },
                 onNavigateToHealth = { navController.navigate(SparelyDestination.Health.route) },
+                onNavigateToPurchaseCheck = { navController.navigate(SparelyDestination.PurchaseCheck.route) },
                 onNavigateToRecurring = { navController.navigate(SparelyDestination.Recurring.route) },
                 onManageVaults = { navController.navigate(SparelyDestination.Vaults.route) },
                 onManageSavingsAccounts = { navController.navigate(SparelyDestination.ManageSavingsAccounts.route) },
@@ -855,6 +858,25 @@ private fun SparelyNavHost(
                 onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
                 brandSearchResults = brandSearchResults,
                 onBrandSearch = viewModel::searchBrands
+            )
+        }
+        composable(SparelyDestination.PurchaseCheck.route) {
+            PurchaseCheckScreen(
+                uiState = uiState,
+                onOpenWishlist = { navController.navigate(SparelyDestination.Wishlist.route) },
+                onSaveToWishlist = viewModel::addWishlistItem
+            )
+        }
+        composable(SparelyDestination.Wishlist.route) {
+            WishlistScreen(
+                uiState = uiState,
+                onQuickCheck = { navController.navigate(SparelyDestination.PurchaseCheck.route) },
+                onAddSavings = viewModel::addSavingsToWishlist,
+                onBought = viewModel::archiveWishlistItem,
+                onStillWant = viewModel::confirmWishlistStillWanted,
+                onNotAnymore = viewModel::archiveWishlistItem,
+                onSetTargetDate = viewModel::setWishlistTargetDate,
+                onDelete = viewModel::deleteWishlistItem
             )
         }
         composable(SparelyDestination.Health.route) {
@@ -1200,6 +1222,8 @@ private enum class SparelyDestination(
     Challenges("challenges", null, MaterialSymbols.TROPHY, R.string.challenges_title),
     Recurring("recurring", null, MaterialSymbols.SCHEDULE, R.string.recurring_title),
     Health("health", null, MaterialSymbols.FAVORITE, R.string.health_title),
+    PurchaseCheck("purchaseCheck", null, MaterialSymbols.SHOPPING_BAG, R.string.purchase_check_title),
+    Wishlist("wishlist", null, MaterialSymbols.SHOPPING_CART, R.string.wishlist_title),
     Settings("settings", null, MaterialSymbols.SETTINGS, R.string.settings_title),
     ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title),
     CreditCards("creditCards?cardId={cardId}", null, MaterialSymbols.CREDIT_CARD, R.string.dashboard_credit_cards_title),

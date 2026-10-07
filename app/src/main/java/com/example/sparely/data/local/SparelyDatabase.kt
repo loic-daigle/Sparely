@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
-const val SPARELY_DATABASE_VERSION = 47
+const val SPARELY_DATABASE_VERSION = 48
 
 @Database(
     entities = [
@@ -1285,8 +1285,16 @@ abstract class SparelyDatabase : RoomDatabase() {
             MIGRATION_43_44,
             MIGRATION_44_45,
             MIGRATION_45_46,
-            MIGRATION_46_47
+            MIGRATION_46_47,
+            MIGRATION_47_48
             )
+        }
+
+        val MIGRATION_47_48 = object : androidx.room.migration.Migration(47, 48) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Wishlist items can carry a target purchase date (epoch day), which drives the reserve
+                db.execSQL("ALTER TABLE wishlists ADD COLUMN targetDate INTEGER")
+            }
         }
 
         val MIGRATION_45_46 = object : androidx.room.migration.Migration(45, 46) {

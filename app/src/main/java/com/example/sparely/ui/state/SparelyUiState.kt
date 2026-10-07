@@ -18,6 +18,9 @@ data class SparelyUiState(
     val smartVaults: List<SmartVault> = emptyList(),
     val savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
     val assets: List<Asset> = emptyList(),
+    val wishlists: List<Wishlist> = emptyList(),
+    /** Money held back for wishes: in the bank, but subtracted from what is available to spend. */
+    val wishlistReserved: Double = 0.0,
     val totalVaultBalance: Double = 0.0,
 
     val emergencyFundGoal: EmergencyFundGoal? = null,
@@ -53,6 +56,8 @@ data class SparelyUiState(
     
     // Cashflow and spending insights
     val cashflowForecast: CashflowEngine.CashflowForecast? = null,
+    /** What the forecast was computed from; lets screens re-run it for "what if" questions. */
+    val forecastInput: CashflowEngine.ForecastInput? = null,
     val spendingPatterns: SpendingPatternEngine.SpendingPatternResult? = null,
     
     // Smart Insight Engine data

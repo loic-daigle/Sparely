@@ -1,5 +1,6 @@
 package com.example.sparely.domain.model
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 data class Wishlist(
@@ -10,6 +11,8 @@ data class Wishlist(
     val priority: Int = 1, // 1-5
     val createdAt: LocalDateTime,
     val cooldownExpiresAt: LocalDateTime? = null,
+    /** When the user would like to buy it; money is held back evenly until then. */
+    val targetDate: LocalDate? = null,
     val isReallyNeeded: Boolean = true,
     val category: WishlistCategory? = null,
     val notes: String? = null,
@@ -59,6 +62,16 @@ enum class WishlistCategory {
     HEALTH,
     OTHER
 }
+
+/** How many days before the reflection time ends the user may already answer "do you still want it?". */
+const val EARLY_DECISION_DAYS = 3L
+
+/**
+ * True from [EARLY_DECISION_DAYS] days before the reflection time ends, and after it, until the user
+ * answers (answering clears the reflection time). Answering early lets someone act on a sale.
+ */
+fun Wishlist.needsDecision(now: LocalDateTime = LocalDateTime.now()): Boolean =
+    !archived && (cooldownExpiresAt?.let { !now.isBefore(it.minusDays(EARLY_DECISION_DAYS)) } ?: false)
 
 enum class SavingsSource {
     MANUAL_ALLOCATION,

@@ -429,6 +429,10 @@ class SavingsRepository(
         }
     }
 
+    suspend fun setWishlistTargetDate(wishlistId: Long, date: java.time.LocalDate?) {
+        wishlistDao.updateTargetDate(wishlistId, date)
+    }
+
     suspend fun setSavingsForWishlist(wishlistId: Long, amount: Double) {
         if (!amount.isFinite() || amount < 0.0) return
         wishlistDao.updateWishlistSavings(wishlistId, amount)
@@ -444,6 +448,11 @@ class SavingsRepository(
 
     suspend fun archiveWishlist(wishlistId: Long, archived: Boolean = true) {
         wishlistDao.updateWishlistArchived(wishlistId, archived)
+    }
+
+    /** Ends the reflection time, e.g. once the user has confirmed they still want the item. */
+    suspend fun clearWishlistCooldown(wishlistId: Long) {
+        wishlistDao.clearCooldown(wishlistId)
     }
 
     suspend fun setCooldownExpiry(

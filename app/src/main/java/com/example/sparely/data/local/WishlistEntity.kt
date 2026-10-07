@@ -2,6 +2,7 @@ package com.example.sparely.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity(tableName = "wishlists")
@@ -13,6 +14,7 @@ data class WishlistEntity(
     val priority: Int = 1, // 1-5 scale
     val createdAt: LocalDateTime,
     val cooldownExpiresAt: LocalDateTime? = null, // 3 days from creation
+    val targetDate: LocalDate? = null, // when the user wants to buy it
     val isReallyNeeded: Boolean = true,
     val category: String? = null, // HOBBY, HOUSE, CAR, GADGET, OTHER
     val notes: String? = null,
@@ -33,6 +35,7 @@ data class WishlistEntity(
         if (priority != other.priority) return false
         if (createdAt != other.createdAt) return false
         if (cooldownExpiresAt != other.cooldownExpiresAt) return false
+        if (targetDate != other.targetDate) return false
         if (isReallyNeeded != other.isReallyNeeded) return false
         if (category != other.category) return false
         if (notes != other.notes) return false
@@ -54,6 +57,7 @@ data class WishlistEntity(
         result = 31 * result + priority
         result = 31 * result + createdAt.hashCode()
         result = 31 * result + (cooldownExpiresAt?.hashCode() ?: 0)
+        result = 31 * result + (targetDate?.hashCode() ?: 0)
         result = 31 * result + isReallyNeeded.hashCode()
         result = 31 * result + (category?.hashCode() ?: 0)
         result = 31 * result + (notes?.hashCode() ?: 0)

@@ -117,6 +117,7 @@ fun DashboardScreen(
     onNavigateToBudgets: () -> Unit = {},
     onNavigateToChallenges: () -> Unit = {},
     onNavigateToHealth: () -> Unit = {},
+    onNavigateToPurchaseCheck: () -> Unit = {},
     onNavigateToRecurring: () -> Unit = {},
     onManageVaults: () -> Unit = {},
     onNavigateToVaultTransfers: () -> Unit = {},
@@ -168,7 +169,7 @@ fun DashboardScreen(
     val lastExpense = uiState.expenses.firstOrNull()
     val activeVaults = uiState.smartVaults.filter { !it.archived }
     val creditCards = uiState.paymentMethods.filter { it.isCreditCard }
-    val netUsable = (uiState.totalUsableMoney - uiState.settings.minMainAccountBalance).coerceAtLeast(0.0)
+    val netUsable = (uiState.totalUsableMoney - uiState.settings.minMainAccountBalance - uiState.wishlistReserved).coerceAtLeast(0.0)
     val showUsable = netUsable > 0 || uiState.settings.mainAccountBalance != 0.0 || savingsAccounts.isNotEmpty()
     val pendingVaultCount = pendingVaultContributions.mapNotNull { it.vaultId }.distinct().size
     val attentionItems = buildAttentionItems(
@@ -311,6 +312,14 @@ fun DashboardScreen(
                         }
                     }
                 }
+            }
+
+            item(key = "purchase_check") {
+                PurchaseCheckCard(
+                    wishlistCount = uiState.wishlists.size,
+                    decisionCount = uiState.wishlists.count { it.needsDecision() },
+                    onClick = onNavigateToPurchaseCheck
+                )
             }
 
             item(key = "upcoming_bills") {
@@ -1488,6 +1497,43 @@ private fun BillRow(upcoming: UpcomingRecurringExpense, formatter: DateTimeForma
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@Composable
+private fun PurchaseCheckCard(wishlistCount: Int, decisionCount: Int, onClick: () -> Unit) {
+    ExpressiveCard(onClick = onClick, modifier = Modifier.fillMaxWidth(), contentPadding = 16.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            IconBadge(icon = MaterialSymbols.SHOPPING_BAG, color = MaterialTheme.colorScheme.primary, size = 48.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.purchase_check_card_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (decisionCount > 0) {
+                        stringResource(R.string.purchase_check_card_subtitle_decisions, decisionCount)
+                    } else if (wishlistCount > 0) {
+                        stringResource(R.string.purchase_check_card_subtitle_wishlist, wishlistCount)
+                    } else {
+                        stringResource(R.string.purchase_check_card_subtitle)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ARROW_FORWARD,
+                contentDescription = null,
+                size = 20.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

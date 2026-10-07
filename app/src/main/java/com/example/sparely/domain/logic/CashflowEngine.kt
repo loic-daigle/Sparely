@@ -62,6 +62,8 @@ object CashflowEngine {
         val currentBalance: Double,
         val totalHisaBalance: Double = 0.0,
         val minMainAccountBalance: Double = 0.0,
+        /** Money held back for wishlist items: still in the bank, but not available to spend. */
+        val earmarkedMoney: Double = 0.0,
         val recentExpenses: List<Expense>,
         val recurringExpenses: List<RecurringExpense>,
         val expectedMonthlyIncome: Double,
@@ -85,7 +87,7 @@ object CashflowEngine {
         val totalLiquidMoney = input.currentBalance + input.totalHisaBalance
         
         // Reserved Money = Minimum Balance setting
-        val reservedMoney = input.minMainAccountBalance
+        val reservedMoney = input.minMainAccountBalance + input.earmarkedMoney
 
         // Safe to spend = Total Liquid - Upcoming Obligations - Buffer - Reserved
         // We use a buffer on the MAIN account specifically to avoid overdrafts there, 

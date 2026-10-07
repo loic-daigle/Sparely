@@ -691,6 +691,7 @@ fun WishlistEntity.toDomain(): com.example.sparely.domain.model.Wishlist =
         priority = priority,
         createdAt = createdAt,
         cooldownExpiresAt = cooldownExpiresAt,
+        targetDate = targetDate,
         isReallyNeeded = isReallyNeeded,
         category = category?.let {
             try {
@@ -713,6 +714,7 @@ fun com.example.sparely.domain.model.Wishlist.toEntity(): WishlistEntity =
         priority = priority,
         createdAt = createdAt,
         cooldownExpiresAt = cooldownExpiresAt,
+        targetDate = targetDate,
         isReallyNeeded = isReallyNeeded,
         category = category?.name,
         notes = notes,

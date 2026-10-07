@@ -45,8 +45,14 @@ interface WishlistDao {
     @Query("UPDATE wishlists SET archived = :archived WHERE id = :wishlistId")
     suspend fun updateWishlistArchived(wishlistId: Long, archived: Boolean)
 
+    @Query("UPDATE wishlists SET cooldownExpiresAt = NULL WHERE id = :wishlistId")
+    suspend fun clearCooldown(wishlistId: Long)
+
     @Query("UPDATE wishlists SET cooldownExpiresAt = :expiryTime WHERE id = :wishlistId")
     suspend fun updateCooldownExpiry(wishlistId: Long, expiryTime: java.time.LocalDateTime)
+
+    @Query("UPDATE wishlists SET targetDate = :date WHERE id = :wishlistId")
+    suspend fun updateTargetDate(wishlistId: Long, date: java.time.LocalDate?)
 
     @Query("SELECT * FROM wishlists WHERE cooldownExpiresAt IS NOT NULL AND cooldownExpiresAt <= :now AND archived = 0")
     suspend fun getExpiredCooldownWishlists(now: java.time.LocalDateTime): List<WishlistEntity>

@@ -523,6 +523,13 @@ class SettingsViewModel(
                 }
                 if (json != null) {
                     backupRepository.restoreData(json)
+                    // Reminders live outside the database, so wishes that are still in their reflection
+                    // time need their "do you still want it?" notification scheduled again.
+                    savingsRepository.getActiveWishlists().forEach { wish ->
+                        wish.cooldownExpiresAt?.takeIf { it.isAfter(java.time.LocalDateTime.now()) }?.let {
+                            notificationScheduler.scheduleWishlistCooldown(wish.id, it)
+                        }
+                    }
                     withContext(Dispatchers.Main) {
                         onSuccess?.invoke()
                     }
