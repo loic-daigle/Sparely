@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -47,8 +48,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilledTonalButton
@@ -62,6 +62,7 @@ import com.sparely.app.R
 import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -238,34 +239,31 @@ fun SettingsScreen(
         uri?.let { onExportExpensesToCsv(it, context, expenses, stores) }
     }
 
-    // Saveable so the chosen tab survives rotation and returning from sub-screens
-    var selectedTab by rememberSaveable { mutableStateOf(SettingsTab.General) }
-    // One scroll position per tab, so switching tabs doesn't open mid-page
-    val tabScrollStates = SettingsTab.entries.associateWith { rememberScrollState() }
+    // null shows the hub. Saveable so the open section survives rotation and returning from sub-screens
+    var openSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    BackHandler(enabled = openSection != null) { openSection = null }
+    val hubScrollState = rememberScrollState()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTab.ordinal) {
-            SettingsTab.entries.forEach { tab ->
-                Tab(
-                    selected = selectedTab == tab,
-                    onClick = { selectedTab = tab },
-                    text = { Text(stringResource(tab.titleRes)) },
-                    icon = { Icon(painter = androidx.compose.ui.res.painterResource(id = tab.icon), contentDescription = null, modifier = Modifier.size(24.dp)) }
-                )
-            }
+        val section = openSection
+        if (section != null) {
+            SettingsSectionHeader(title = stringResource(section.titleRes), onBack = { openSection = null })
         }
 
         Box(modifier = Modifier.weight(1f)) {
+            // Each section opens at the top; the hub keeps its position when you come back
+            val scrollState = if (section == null) hubScrollState else key(section) { rememberScrollState() }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(tabScrollStates.getValue(selectedTab))
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                when (selectedTab) {
-                    SettingsTab.General -> {
-                        SettingsGroupLabel(stringResource(R.string.settings_group_profile))
+                when (section) {
+                    null -> SettingsHub(onOpen = { openSection = it })
+
+                    SettingsSection.Profile -> {
                         ProfileCard(
                             displayName = displayName,
                             onDisplayNameChange = {
@@ -345,17 +343,23 @@ fun SettingsScreen(
 
                         RiskLevelCard(current = settings.riskLevel, onRiskChange = onRiskChange)
 
-                        LifeStageCard(age = age, onAgeChange = { updated ->
-                            age = updated
-                            onAgeChange(updated)
-                        })
+                        // A birthday already gives the age, so the slider would do nothing
+                        if (settings.birthday == null) {
+                            LifeStageCard(age = age, onAgeChange = { updated ->
+                                age = updated
+                                onAgeChange(updated)
+                            })
+                        }
+                    }
 
-                        SettingsGroupLabel(stringResource(R.string.settings_group_region_security))
+                    SettingsSection.Region -> {
                         RegionalSettingsCard(
                             settings = settings,
                             onRegionalSettingsChange = onRegionalSettingsChange
                         )
+                    }
 
+                    SettingsSection.Security -> {
                         SettingsSecurityCard(
                             biometricEnabled = settings.biometricEnabled,
                             onBiometricEnabledChange = onBiometricEnabledChange,
@@ -370,8 +374,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    SettingsTab.Finances -> {
-                        SettingsGroupLabel(stringResource(R.string.settings_group_income_accounts))
+                    SettingsSection.Income -> {
                         IncomeSettingsCard(
                             schedule = settings.paySchedule,
                             activeSaveRate = activeSaveRate,
@@ -395,8 +398,9 @@ fun SettingsScreen(
                             onMainOverflowAccountIdChange = onMainOverflowAccountIdChange,
                             onManageSavingsAccounts = onManageSavingsAccounts
                         )
+                    }
 
-                        SettingsGroupLabel(stringResource(R.string.settings_group_saving_automation))
+                    SettingsSection.Automation -> {
                         SettingsSmartSavingsCard(
                             settings = settings,
                             selectedAllocationMode = selectedAllocationMode,
@@ -409,13 +413,6 @@ fun SettingsScreen(
                             onSavingTaxRateCommit = onSavingTaxRateChange,
                             activeSavingTaxRate = activeSavingTaxRate,
                             onDynamicSavingTaxToggle = onDynamicSavingTaxToggle
-                        )
-
-                        AutomationOverviewCard(
-                            settings = settings,
-                            activeSaveRate = activeSaveRate,
-                            activeSavingTaxRate = activeSavingTaxRate,
-                            automationNotes = automationNotes
                         )
 
                         AutoDepositsCard(
@@ -455,8 +452,9 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
 
-                        SettingsGroupLabel(stringResource(R.string.settings_group_payment_methods))
+                    SettingsSection.PaymentMethods -> {
                         PaymentMethodsSettingsCard(
                             paymentMethods = paymentMethods,
                             onAdd = onAddPaymentMethod,
@@ -465,8 +463,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    SettingsTab.System -> {
-                        SettingsGroupLabel(stringResource(R.string.settings_group_notifications))
+                    SettingsSection.Notifications -> {
                         ReminderCard(
                             remindersEnabled = remindersEnabled,
                             reminderHour = reminderHour,
@@ -489,6 +486,12 @@ fun SettingsScreen(
                             onUtilizationChange = onCreditCardUtilizationChange
                         )
 
+                        SettingsSmartTransferCard(
+                            minimumAmount = settings.smartTransferMinimumAmount,
+                            onMinimumAmountChange = onSmartTransferMinimumChange,
+                            currencySymbol = settings.regionalSettings.getCurrencySymbol()
+                        )
+
                         if (alerts.isNotEmpty()) {
                             ExpressiveCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -501,11 +504,12 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                    }
 
-                        SettingsGroupLabel(stringResource(R.string.settings_group_data_backup))
+                    SettingsSection.Data -> {
                         SettingsDataCard(
                             settings = settings,
-                            expensesSize = expenses.size,
+                            expenses = expenses,
                             onResetHistory = onResetHistory,
                             onExpenseHistoryRetentionChange = onExpenseHistoryRetentionChange,
                             brandfetchClientId = brandfetchClientId,
@@ -529,11 +533,6 @@ fun SettingsScreen(
                             lastAutoBackupTimestamp = settings.lastAutoBackupTimestamp,
                             onAutoBackupEnabledChange = onAutoBackupSettingsChange,
                             onBackupNowClick = onBackupNowClick
-                        )
-
-                        SettingsSmartTransferCard(
-                            minimumAmount = settings.smartTransferMinimumAmount,
-                            onMinimumAmountChange = onSmartTransferMinimumChange
                         )
                     }
                 }
@@ -992,106 +991,6 @@ private fun CreditCardReminderCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AutomationOverviewCard(
-    settings: SparelySettings,
-    activeSaveRate: Double,
-    activeSavingTaxRate: Double,
-    automationNotes: List<String>
-) {
-    val schedule = settings.paySchedule
-    val payReference = listOf(schedule.lastPayAmount, schedule.defaultNetPay).firstOrNull { it > 0.0 } ?: 0.0
-    val estimatedPerPay = (payReference * activeSaveRate).takeIf { payReference > 0.0 }
-    val estimatedMonthly = settings.monthlyIncome.takeIf { it > 0.0 }?.let { it * activeSaveRate }
-
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(stringResource(R.string.settings_automation_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text(if (schedule.dynamicSaveRateEnabled) stringResource(R.string.settings_save_rate_automatic) else stringResource(R.string.settings_save_rate_manual)) },
-                    colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    border = null
-                )
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text(if (settings.dynamicSavingTaxEnabled) stringResource(R.string.settings_saving_tax_automatic) else stringResource(R.string.settings_saving_tax_manual_label)) },
-                    colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
-                    border = null
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(R.string.settings_paycheck_save_rate_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = activeSaveRate.coerceIn(0.0, 1.0).formatPercent(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                if (estimatedPerPay != null) {
-                    Text(
-                        text = stringResource(R.string.settings_estimated_per_pay, estimatedPerPay.formatCurrency()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (estimatedMonthly != null) {
-                    Text(
-                        text = stringResource(R.string.settings_estimated_monthly, estimatedMonthly.formatCurrency()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(R.string.settings_saving_tax_skim_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = activeSavingTaxRate.coerceIn(0.0, 1.0).formatPercent(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = stringResource(R.string.settings_saving_tax_skim_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            val notesToShow = automationNotes.take(4)
-            if (notesToShow.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.settings_why_these_numbers), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    for (note in notesToShow) {
-                        Text(
-                            text = "• ${note}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (automationNotes.size > notesToShow.size) {
-                        Text(
-                            text = stringResource(R.string.settings_automation_insights_trimmed),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-                        )
-                    }
                 }
             }
         }
@@ -2293,16 +2192,26 @@ private fun PaymentMethodsSettingsCard(
     }
 }
 
-/** Small uppercase-style label that groups related settings cards within a tab. */
+/** Back arrow and title shown above an open settings section; the app bar above still says "Settings". */
 @Composable
-private fun SettingsGroupLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
+private fun SettingsSectionHeader(title: String, onBack: () -> Unit) {
+    Row(
         modifier = Modifier
-            .padding(start = 4.dp, top = 8.dp)
-            .semantics { heading() }
-    )
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 16.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ARROW_BACK,
+                contentDescription = stringResource(R.string.action_back)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
+        )
+    }
 }

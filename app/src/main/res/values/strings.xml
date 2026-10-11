@@ -1351,9 +1351,6 @@
     <string name="dashboard_repeat_last_desc">Quick repeat your last expense</string>
     <string name="dashboard_last_expense">Last Expense</string>
     <string name="dashboard_no_recent_expense">No recorded expense to repeat.</string>
-    <string name="settings_tab_general">General</string>
-    <string name="settings_tab_finances">Finances</string>
-    <string name="settings_tab_system">System</string>
 
     <!-- Bulk Expense Actions -->
     <string name="history_bulk_selected">%d selected</string>
@@ -1522,12 +1519,24 @@
     <string name="vault_completed_goals">Completed Goals</string>
     <string name="vault_balance_edited_note">Balance edited in vault settings</string>
     <string name="settings_group_profile">Profile</string>
-    <string name="settings_group_region_security">Region &amp; security</string>
+    <string name="settings_group_region">Region &amp; language</string>
+    <string name="settings_group_security">Security &amp; assistant</string>
     <string name="settings_group_income_accounts">Income &amp; accounts</string>
     <string name="settings_group_saving_automation">Saving &amp; automation</string>
     <string name="settings_group_payment_methods">Payment methods</string>
     <string name="settings_group_notifications">Notifications</string>
     <string name="settings_group_data_backup">Data &amp; backup</string>
+    <string name="settings_hub_you">You</string>
+    <string name="settings_hub_money">Money</string>
+    <string name="settings_hub_app">App</string>
+    <string name="settings_hub_profile_desc">Name, birthday, goals and investing style</string>
+    <string name="settings_hub_region_desc">Country, language, currency and tax rate</string>
+    <string name="settings_hub_income_desc">Paydays, main account and savings accounts</string>
+    <string name="settings_hub_automation_desc">How much is set aside from each paycheck and expense</string>
+    <string name="settings_hub_payment_methods_desc">The cards and cash you pay with</string>
+    <string name="settings_hub_notifications_desc">Reminders, card alerts and transfer alerts</string>
+    <string name="settings_hub_security_desc">App lock and AI assistant access</string>
+    <string name="settings_hub_data_desc">Backups, exports and history cleanup</string>
     <string name="expense_entry_section_basics">Basics</string>
     <string name="expense_entry_section_payment">Payment</string>
     <string name="expense_entry_section_allocations">Savings &amp; asset allocations</string>

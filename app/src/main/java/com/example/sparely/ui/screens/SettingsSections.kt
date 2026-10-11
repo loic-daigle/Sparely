@@ -20,11 +20,19 @@ import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import com.example.sparely.ui.utils.toSafeDouble
 import com.sparely.app.R
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import androidx.compose.ui.res.pluralStringResource
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.ExpressiveShapes
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -702,7 +710,7 @@ private fun AssistantActivityList(
 @Composable
 fun SettingsDataCard(
     settings: SparelySettings,
-    expensesSize: Int,
+    expenses: List<Expense>,
     onResetHistory: (Boolean) -> Unit,
     onExpenseHistoryRetentionChange: (ExpenseHistoryRetention) -> Unit,
     brandfetchClientId: String?,
@@ -815,7 +823,7 @@ fun SettingsDataCard(
             val currentRetention = settings.expenseHistoryRetention
             if (currentRetention == ExpenseHistoryRetention.INDEFINITELY) {
                  Text(
-                    text = stringResource(R.string.settings_history_retention_all, expensesSize),
+                    text = stringResource(R.string.settings_history_retention_all, expenses.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                  )
@@ -898,10 +906,87 @@ fun SettingsDataCard(
 }
 
 
-enum class SettingsTab(val titleRes: Int, val icon: Int) {
-    General(R.string.settings_tab_general, MaterialSymbols.PERSON),
-    Finances(R.string.settings_tab_finances, MaterialSymbols.PAYMENTS),
-    System(R.string.settings_tab_system, MaterialSymbols.SETTINGS)
+/** One page of the settings hub; [groupRes] decides which hub card lists it. */
+enum class SettingsSection(val titleRes: Int, val descRes: Int, val icon: Int, val groupRes: Int) {
+    Profile(R.string.settings_group_profile, R.string.settings_hub_profile_desc, MaterialSymbols.PERSON, R.string.settings_hub_you),
+    Region(R.string.settings_group_region, R.string.settings_hub_region_desc, MaterialSymbols.PUBLIC, R.string.settings_hub_you),
+    Income(R.string.settings_group_income_accounts, R.string.settings_hub_income_desc, MaterialSymbols.ACCOUNT_BALANCE, R.string.settings_hub_money),
+    Automation(R.string.settings_group_saving_automation, R.string.settings_hub_automation_desc, MaterialSymbols.SAVINGS, R.string.settings_hub_money),
+    PaymentMethods(R.string.settings_group_payment_methods, R.string.settings_hub_payment_methods_desc, MaterialSymbols.CREDIT_CARD, R.string.settings_hub_money),
+    Notifications(R.string.settings_group_notifications, R.string.settings_hub_notifications_desc, MaterialSymbols.NOTIFICATIONS, R.string.settings_hub_app),
+    Security(R.string.settings_group_security, R.string.settings_hub_security_desc, MaterialSymbols.LOCK, R.string.settings_hub_app),
+    Data(R.string.settings_group_data_backup, R.string.settings_hub_data_desc, MaterialSymbols.HISTORY, R.string.settings_hub_app)
+}
+
+/** The settings landing page: sections grouped into cards, each row a title, one-line description and chevron. */
+@Composable
+fun SettingsHub(onOpen: (SettingsSection) -> Unit) {
+    val groups = SettingsSection.entries.groupBy { it.groupRes }
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        for ((groupRes, sections) in groups) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(groupRes),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .semantics { heading() }
+                )
+                ExpressiveCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = ExpressiveShapes.large,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentPadding = 0.dp
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        sections.forEachIndexed { index, section ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 64.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            }
+                            SettingsHubRow(section = section, onClick = { onOpen(section) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHubRow(section: SettingsSection, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        MaterialSymbolIcon(
+            icon = section.icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(section.titleRes), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(
+                text = stringResource(section.descRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.ARROW_FORWARD,
+            contentDescription = null,
+            size = 18.dp,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable
