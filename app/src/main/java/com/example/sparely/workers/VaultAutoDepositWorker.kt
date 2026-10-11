@@ -193,7 +193,9 @@ class VaultAutoDepositWorker(
                 )
                 // processRecurringExpensePayment advances the schedule in the same transaction.
             } else {
-                // Not auto-execute - create frozen fund
+                // Not auto-execute - freeze the bill's amount until the user pays it. One freeze per
+                // recurring expense: a newer occurrence replaces an unpaid older one instead of stacking.
+                repository.removeFrozenForPending("RECURRING_PAYMENT", re.id)
                 repository.insertFrozenFund(
                     pendingType = "RECURRING_PAYMENT",
                     pendingId = re.id,

@@ -439,12 +439,22 @@ class SparelyViewModel(
 
 
                     // Calculate Total Liquid Money
-                    val totalHisaBalance = feed.savingsAccounts.filter { !it.archived }.sumOf { it.currentBalance }
+                    // Only money that can be withdrawn today counts as usable: locked terms, accounts
+                    // still in their notice period and required minimum balances are held back.
+                    val today = LocalDate.now()
+                    val activeSavingsAccounts = feed.savingsAccounts.filter { !it.archived }
+                    val totalHisaBalance = activeSavingsAccounts.sumOf { it.accessibleBalance(today) }
+                    val lockedSavingsBalance = activeSavingsAccounts.sumOf { it.lockedBalance(today) }
                     val totalUsableMoney = feed.settings.mainAccountBalance + totalHisaBalance
 
                     // Compute cashflow forecast for Safe to Spend display
                     // Money set aside for wishes stays in the bank but is not available to spend.
                     val wishlistReserved = com.example.sparely.domain.logic.WishPlan.totalReserved(feed.wishlists)
+                    // What can really be spent: everything liquid, minus the main-account minimum, money held
+                    // for wishes, and money already promised to pending transfers.
+                    val pendingTransfersTotal = feed.frozenFundsTotal.coerceAtLeast(0.0)
+                    val netUsableMoney = (totalUsableMoney - feed.settings.minMainAccountBalance - wishlistReserved - pendingTransfersTotal)
+                        .coerceAtLeast(0.0)
                     val forecastInput = CashflowEngine.ForecastInput(
                         currentBalance = feed.settings.mainAccountBalance,
                         totalHisaBalance = totalHisaBalance,
@@ -594,6 +604,9 @@ class SparelyViewModel(
                         totalVaultBalance = totalVaultBalance,
                         totalHisaBalance = totalHisaBalance,
                         totalUsableMoney = totalUsableMoney,
+                        netUsableMoney = netUsableMoney,
+                        pendingTransfersTotal = pendingTransfersTotal,
+                        lockedSavingsBalance = lockedSavingsBalance,
                         emergencyFundGoal = emergencyGoal,
                         onboardingCompleted = onboardingCompleted,
                         activeSaveRate = activeSaveRate,
@@ -638,6 +651,11 @@ class SparelyViewModel(
                         seasonalInsights = seasonalInsights,
                         idleMoneyInsight = idleMoneyInsight,
                         uniqueExpenses = uniqueExpenses,
+                        knownTitles = TitleSuggestionEngine.buildIndex(
+                            expenses = domainExpenses,
+                            validStoreIds = feed.stores.mapTo(HashSet()) { it.id },
+                            validPaymentMethodIds = feed.paymentMethods.mapTo(HashSet()) { it.id }
+                        ),
                         isLoading = false,
                         errorMessage = null
                     )
@@ -657,11 +675,6 @@ class SparelyViewModel(
                     monthlyLimit = sanitizedLimit,
                     isActive = true
                 ) ?: CategoryBudget(
-                        knownTitles = TitleSuggestionEngine.buildIndex(
-                            expenses = domainExpenses,
-                            validStoreIds = feed.stores.mapTo(HashSet()) { it.id },
-                            validPaymentMethodIds = feed.paymentMethods.mapTo(HashSet()) { it.id }
-                        ),
                     category = input.category,
                     monthlyLimit = sanitizedLimit,
                     yearMonth = currentMonth,
@@ -735,6 +748,8 @@ class SparelyViewModel(
 
         fun markRecurringProcessed(id: Long) {
             viewModelScope.launch(dispatcher + errorHandler) {
+                // Paying the bill turns the frozen amount into a real expense: release the freeze.
+                savingsRepository.removeFrozenForPending("RECURRING_PAYMENT", id)
                 // Find the expense to mark
                 val recurring = _uiState.value.recurringExpenses.find { it.id == id }
                 if (recurring != null) {
@@ -810,6 +825,7 @@ class SparelyViewModel(
                                         paidDate = paidDate,
                                         notes = notes
                                     )
+                                    savingsRepository.removeFrozenForPending("RECURRING_PAYMENT", recurringExpenseId)
                                     // Also mark as processed to advance the schedule
                                     savingsRepository.updateRecurringExpenseProcessed(
                                         recurringExpenseId,
@@ -1267,7 +1283,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                         expenseDate = expense.date,
                         settings = currentState.settings,
                         vaults = currentState.smartVaults,
-                        currentMainAccountBalance = effectiveMainBalance
+                        currentMainAccountBalance = effectiveMainBalance - savingsRepository.getTotalFrozenAmount()
                     )
                 )
                 
@@ -1283,6 +1299,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                         )
                     }
                     val contributionIds = savingsRepository.logVaultContributions(contributions)
+                    // Like every pending vault transfer: frozen now, deducted when marked transferred.
+                    savingsRepository.freezePendingContributions(contributions, contributionIds)
                     
                     // Note: We are NOT automatically deducting the new tax from main account here to avoid double whammy if user already paid old tax?
                     // Actually, if we deleted pending tax, we assume it wasn't paid.
@@ -1411,7 +1429,6 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                 }
             }
 
-            var vaultContributionAmount = 0.0
             val balanceAfterPaycheck = savingsRepository.withMainAccountLock {
             if (autoDistribute) {
                 val saveRate = if (schedule.dynamicSaveRateEnabled) {
@@ -1433,10 +1450,19 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                         mainAccountBalance = expectedMainAccountBalance
                     )
                     if (planned.isNotEmpty()) {
+                        // Reconciled contributions are debited from the main account by logVaultContributions;
+                        // pending ones are debited when approved, and meanwhile the money is frozen so it
+                        // isn't shown as spendable. Debiting here as well would take the vault share twice.
                         val contributionIds = savingsRepository.logVaultContributions(planned)
-                        vaultContributionAmount = amountForVaults
                         if (createPendingTransfers) {
-                            // UI refresh handled by flows
+                            planned.zip(contributionIds).forEach { (contribution, id) ->
+                                savingsRepository.insertFrozenFund(
+                                    pendingType = "VAULT_CONTRIBUTION",
+                                    pendingId = id,
+                                    amount = contribution.amount,
+                                    description = contribution.note
+                                )
+                            }
                         }
                     }
                 }
@@ -1456,7 +1482,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
             preferencesRepository.updatePaySchedule(mutatedSchedule)
             preferencesRepository.recordPaycheckHistory(normalizedAmount)
             
-            // Add paycheck to main account and deduct vault contributions
+            // Add the paycheck to the main account (vault shares are debited by the contributions themselves)
             var currentBalance = savingsRepository.getLatestMainAccountBalance()
             
             // 1. Add paycheck deposit
@@ -1472,19 +1498,6 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
             savingsRepository.insertMainAccountTransaction(depositTransaction)
             preferencesRepository.updateMainAccountBalance(currentBalance)
             
-            // 2. Deduct vault contributions if auto-distributed
-            if (vaultContributionAmount > 0.0) {
-                currentBalance -= vaultContributionAmount
-                val vaultTransaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                    amount = vaultContributionAmount,
-                    balanceAfter = currentBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Auto-distributed to vaults from paycheck"
-                )
-                savingsRepository.insertMainAccountTransaction(vaultTransaction)
-                preferencesRepository.updateMainAccountBalance(currentBalance)
-            }
             currentBalance
             }
             // Trigger allocation run now that the paycheck and any auto-distributions have been applied
@@ -1801,7 +1814,48 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
     fun updateSavingsAccount(account: com.example.sparely.domain.model.SavingsAccount) {
         viewModelScope.launch(errorHandler) {
-            savingsRepository.upsertSavingsAccount(account)
+            savingsRepository.updateSavingsAccountDetails(account)
+        }
+    }
+
+    /** Fixes an account's balance to match the bank. Doesn't move money to or from the main account. */
+    fun correctSavingsAccountBalance(accountId: Long, newBalance: Double) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.correctSavingsAccountBalance(accountId, newBalance)
+        }
+    }
+
+    /** Moves money from the main account into a savings account. */
+    fun depositToSavingsAccount(accountId: Long, amount: Double) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            reportSavingsMove(savingsRepository.transferToSavingsAccount(accountId, amount.toCurrencyPrecision()))
+        }
+    }
+
+    /** Moves money from a savings account back to the main account, respecting its lock rules. */
+    fun withdrawFromSavingsAccount(accountId: Long, amount: Double, acceptEarlyPenalty: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            reportSavingsMove(
+                savingsRepository.transferFromSavingsAccount(accountId, amount.toCurrencyPrecision(), acceptEarlyPenalty)
+            )
+        }
+    }
+
+    fun requestSavingsWithdrawalNotice(accountId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            reportSavingsMove(savingsRepository.requestSavingsWithdrawalNotice(accountId))
+        }
+    }
+
+    fun cancelSavingsWithdrawalNotice(accountId: Long) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            savingsRepository.cancelSavingsWithdrawalNotice(accountId)
+        }
+    }
+
+    private fun reportSavingsMove(result: com.example.sparely.domain.model.SavingsMoveResult) {
+        if (result is com.example.sparely.domain.model.SavingsMoveResult.Rejected) {
+            _uiState.update { it.copy(errorMessage = result.reason) }
         }
     }
 

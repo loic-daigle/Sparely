@@ -197,7 +197,10 @@ class VaultViewModel(
         if (amount <= 0.0) return
         viewModelScope.launch(errorHandler) {
             val settings = preferencesRepository.getSettingsSnapshot()
-            val overflowId = settings.mainOverflowAccountId
+            // An overflow account that is a locked term (or gone) can't take the money; fall back to the vault.
+            val overflowId = settings.mainOverflowAccountId?.takeIf { id ->
+                id != 0L && savingsRepository.getSavingsAccountById(id)?.let { !it.archived && it.acceptsDeposits() } == true
+            }
 
             // Check for existing pending "Suggested idle money transfer"
             // to prevent duplicates if clicked multiple times

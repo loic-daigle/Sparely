@@ -27,7 +27,7 @@
     <string name="insights_forecast_title">Prévision de trésorerie à 30 jours</string>
     <string name="insights_forecast_accuracy">Vérifié sur %2$d périodes de 30 jours passées : les prévisions de dépenses courantes étaient en général décalées de %1$d %%. « À dépenser » garde une marge de %3$s pour cela.</string>
     <string name="insights_forecast_accuracy_learning">La vérification de la précision commence après environ deux mois de dépenses.</string>
-    <string name="insights_anomaly_times_usual">%1$.1f× l'habitude</string>
+    <string name="insights_anomaly_times_usual">%1$.1f× l\'habitude</string>
     
     <!-- Idle Money Insight -->
     <string name="insights_idle_money_title">Argent dormant</string>
@@ -499,6 +499,8 @@
     <string name="vault_set_end_date">Définir la date de fin (optionnel)</string>
     <string name="vault_clear_end_date">Effacer la date de fin</string>
     <string name="vault_set_deadline">Définir une échéance (optionnel)</string>
+    <string name="vault_never_expires">N\'expire jamais</string>
+    <string name="vault_never_expires_desc">Continuez à épargner sans date de fin, par exemple pour des projets en cours</string>
     <string name="vault_days_until_deadline">%1$d jours (%2$d mois) avant l\'échéance</string>
     <string name="vault_suggested_priority">Suggéré : %1$s selon vos paramètres</string>
     <string name="vault_suggested">Suggéré</string>
@@ -1482,8 +1484,6 @@
     <string name="wishlist_decision_yes">Oui, je le veux toujours</string>
     <string name="wishlist_decision_no">Plus maintenant</string>
     <string name="purchase_check_card_subtitle_decisions">%1$d en attente de votre décision</string>
-    <string name="purchase_check_card_title">Un gros achat en vue ?</string>
-    <string name="purchase_check_card_subtitle">Vérifiez si vous pouvez vous le permettre</string>
     <string name="wishlist_detail_title">Détails du souhait</string>
     <string name="wishlist_detail_set_aside">Mis de côté</string>
     <string name="wishlist_detail_still_to_find">Reste à trouver</string>
@@ -1498,4 +1498,34 @@
     <string name="commit_total">Retiré de ce que vous pouvez dépenser</string>
     <string name="commit_note">Cet argent est toujours dans votre compte, mais il est dû ou promis ailleurs ; il n’est donc pas compté comme disponible.</string>
     <string name="purchase_check_f_tax_none">Il ne resterait pas assez dans votre compte pour prélever la taxe d\'épargne habituelle de %1$s vers vos coffres : ils ne recevraient rien de cet achat.</string>
+    <string name="purchase_check_card_title">Un gros achat en vue ?</string>
+    <string name="purchase_check_card_subtitle">Vérifiez si vous pouvez vous le permettre</string>
+    <string name="usable_money_locked_savings">Épargne bloquée (non dépensable)</string>
+    <string name="savings_deposit">Déposer</string>
+    <string name="savings_withdraw">Retirer</string>
+    <string name="savings_withdraw_pay_penalty">Retirer et payer la pénalité</string>
+    <string name="savings_amount">Montant</string>
+    <string name="savings_deposit_title">Déposer depuis le compte principal</string>
+    <string name="savings_deposit_desc">Déplacez de l\'argent de votre compte principal (%2$s disponibles) vers « %1$s ». Le montant est déduit tout de suite du compte principal.</string>
+    <string name="savings_deposit_term_warning">Un dépôt à terme n\'accepte normalement plus d\'argent une fois commencé, et l\'argent reste bloqué jusqu\'à l\'échéance.</string>
+    <string name="savings_deposit_not_enough">Votre compte principal n\'a pas autant de disponible.</string>
+    <string name="savings_deposit_closed">Ce terme est bloqué jusqu\'au %1$s et n\'accepte pas de nouvel argent.</string>
+    <string name="savings_withdraw_title">Retirer vers le compte principal</string>
+    <string name="savings_withdraw_desc">Ramenez de l\'argent de « %1$s » vers votre compte principal. %2$s peuvent être retirés sans enfreindre ses règles.</string>
+    <string name="savings_early_penalty_warning">Rompre ce terme plus tôt coûte %1$s d\'intérêts.</string>
+    <string name="savings_you_receive">Votre compte principal reçoit %1$s</string>
+    <string name="savings_available_now">Disponible maintenant</string>
+    <string name="savings_locked_amount">Bloqué</string>
+    <string name="savings_locked_until">Bloqué jusqu\'au %1$s</string>
+    <string name="savings_notice_needed">Préavis de %1$d jours requis avant un retrait</string>
+    <string name="savings_notice_ready_on">Préavis donné – disponible le %1$s</string>
+    <string name="savings_keeps_minimum">%1$s doivent rester dans le compte</string>
+    <string name="savings_available_to_withdraw">Retirable maintenant : %1$s</string>
+    <string name="savings_monthly_interest_est">Intérêts estimés : environ %1$s par mois, %2$s par an</string>
+    <string name="savings_projected_maturity">Vaudra environ %1$s à l\'échéance</string>
+    <string name="savings_notice_request">Demander un retrait</string>
+    <string name="savings_notice_cancel">Annuler la demande de retrait</string>
+    <string name="savings_interest_estimate_hint">Intérêts estimés depuis la dernière saisie : %1$s. Remplacez-les par le montant réellement versé par votre banque.</string>
+    <string name="usable_money_reserved_wishes">Réservé pour les souhaits</string>
+    <string name="usable_money_pending_transfers">Virements en attente</string>
 </resources>

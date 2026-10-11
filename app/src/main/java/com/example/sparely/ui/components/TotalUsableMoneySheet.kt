@@ -24,14 +24,20 @@ fun TotalUsableMoneyBottomSheet(
     sheetState: SheetState,
     mainBalance: Double,
     minMainBalance: Double,
+    wishlistReserved: Double,
+    pendingTransfers: Double,
+    netUsable: Double,
     hisaAccounts: List<SavingsAccount>,
     onNavigateToMainAccount: () -> Unit,
     onNavigateToAccount: (Long) -> Unit
 ) {
     val spacing = MaterialTheme.spacing
-    val totalHisa = hisaAccounts.sumOf { it.currentBalance }
+    val today = java.time.LocalDate.now()
+    // Locked terms, notice periods and required minimums can't be spent today.
+    val totalHisa = hisaAccounts.sumOf { it.accessibleBalance(today) }
+    val totalLocked = hisaAccounts.sumOf { it.lockedBalance(today) }
     val totalLiquid = mainBalance + totalHisa
-    val usable = (totalLiquid - minMainBalance).coerceAtLeast(0.0)
+    val usable = netUsable
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -68,12 +74,32 @@ fun TotalUsableMoneyBottomSheet(
                 BalanceRow(
                     title = account.name,
                     subtitle = "${account.annualPercentageYield.formatPercent(1)} APY",
-                    amount = account.currentBalance,
+                    amount = account.accessibleBalance(today),
                     onClick = {
                         onNavigateToAccount(account.id)
                         onDismissRequest()
                     }
                 )
+            }
+
+            // Money that exists but can't be withdrawn today
+            if (totalLocked > 0.005) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.usable_money_locked_savings),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = totalLocked.formatCurrency(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // Minimum Balance Deduction (if any)
@@ -98,6 +124,13 @@ fun TotalUsableMoneyBottomSheet(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
+            }
+
+            if (wishlistReserved > 0.005) {
+                ReservedRow(stringResource(R.string.usable_money_reserved_wishes), wishlistReserved)
+            }
+            if (pendingTransfers > 0.005) {
+                ReservedRow(stringResource(R.string.usable_money_pending_transfers), pendingTransfers)
             }
 
             HorizontalDivider()
@@ -163,3 +196,24 @@ private fun BalanceRow(
     }
 }
 
+
+@Composable
+private fun ReservedRow(title: String, amount: Double) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "-${amount.formatCurrency()}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+}

@@ -1325,6 +1325,7 @@ private fun SmartVaultEditorDialog(
     var priority by remember { mutableStateOf(vault?.priority ?: VaultPriority.MEDIUM) }
     var type by remember { mutableStateOf(vault?.type ?: VaultType.GOAL) }
     var targetDate by remember { mutableStateOf(vault?.targetDate) }
+    var neverExpires by remember { mutableStateOf(vault != null && vault.targetDate == null && vault.endDate == null) }
     var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
     var priorityWeight by remember { mutableStateOf(vault?.priorityWeight?.toString() ?: "1.0") }
     var excludedFromAutoAllocation by remember { mutableStateOf(!(vault?.allowAutoIncome ?: true)) }
@@ -1691,7 +1692,18 @@ private fun SmartVaultEditorDialog(
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NeverExpiresRow(
+                    checked = neverExpires,
+                    onCheckedChange = {
+                        neverExpires = it
+                        if (it) {
+                            endDate = null
+                            targetDate = null
+                        }
+                    }
+                )
+
+                if (!neverExpires) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SparelyTonalButton(
                         onClick = { showEndPicker = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -1765,7 +1777,18 @@ private fun SmartVaultEditorDialog(
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NeverExpiresRow(
+                    checked = neverExpires,
+                    onCheckedChange = {
+                        neverExpires = it
+                        if (it) {
+                            endDate = null
+                            targetDate = null
+                        }
+                    }
+                )
+
+                if (!neverExpires) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SparelyTonalButton(
                         onClick = { showTargetDatePicker = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -2263,9 +2286,9 @@ private fun SmartVaultEditorDialog(
                                 type = type,
                                 allocationMode = VaultAllocationMode.DYNAMIC_AUTO,
                                 manualAllocationPercent = null,
-                                targetDate = if (isFlowGoal) endDate else targetDate,
+                                targetDate = if (neverExpires) null else if (isFlowGoal) endDate else targetDate,
                                 startDate = if (isFlowGoal) startDate else null,
-                                endDate = if (isFlowGoal) endDate else null,
+                                endDate = if (isFlowGoal && !neverExpires) endDate else null,
                                 monthlyNeed = monthly,
                                 accountNotes = accountNotes.takeIf { it.isNotBlank() },
                                 allowAutoIncome = !excludedFromAutoAllocation,
@@ -2296,6 +2319,31 @@ private fun SmartVaultEditorDialog(
             }
 }
 
+
+@Composable
+private fun NeverExpiresRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.vault_never_expires),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = stringResource(R.string.vault_never_expires_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
 
 @Composable
 private fun GoalTypeCard(

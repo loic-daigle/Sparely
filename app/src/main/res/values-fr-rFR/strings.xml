@@ -504,6 +504,8 @@
     <string name="vault_set_end_date">Définir la date de fin (optionnel)</string>
     <string name="vault_clear_end_date">Effacer la date de fin</string>
     <string name="vault_set_deadline">Définir une échéance (optionnel)</string>
+    <string name="vault_never_expires">N\'expire jamais</string>
+    <string name="vault_never_expires_desc">Continuez à épargner sans date de fin, par exemple pour des projets en cours</string>
     <string name="vault_days_until_deadline">%1$d jours (%2$d mois) avant l\'échéance</string>
     <string name="vault_suggested_priority">Suggéré : %1$s selon vos paramètres</string>
     <string name="vault_suggested">Suggéré</string>

@@ -160,6 +160,9 @@ fun DashboardScreen(
             sheetState = sheetState,
             mainBalance = uiState.settings.mainAccountBalance,
             minMainBalance = uiState.settings.minMainAccountBalance,
+            wishlistReserved = uiState.wishlistReserved,
+            pendingTransfers = uiState.pendingTransfersTotal,
+            netUsable = uiState.netUsableMoney,
             hisaAccounts = uiState.savingsAccounts.filter { !it.archived },
             onNavigateToMainAccount = onNavigateToMainAccount,
             onNavigateToAccount = { _ -> onManageSavingsAccounts() } // Fallback to list for now
@@ -169,7 +172,7 @@ fun DashboardScreen(
     val lastExpense = uiState.expenses.firstOrNull()
     val activeVaults = uiState.smartVaults.filter { !it.archived }
     val creditCards = uiState.paymentMethods.filter { it.isCreditCard }
-    val netUsable = (uiState.totalUsableMoney - uiState.settings.minMainAccountBalance - uiState.wishlistReserved).coerceAtLeast(0.0)
+    val netUsable = uiState.netUsableMoney
     val showUsable = netUsable > 0 || uiState.settings.mainAccountBalance != 0.0 || savingsAccounts.isNotEmpty()
     val pendingVaultCount = pendingVaultContributions.mapNotNull { it.vaultId }.distinct().size
     val attentionItems = buildAttentionItems(

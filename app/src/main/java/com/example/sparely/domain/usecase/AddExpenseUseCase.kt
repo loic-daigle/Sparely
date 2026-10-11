@@ -187,7 +187,7 @@ class AddExpenseUseCase(
                     expenseDate = input.date,
                     settings = settings,
                     vaults = context.smartVaults,
-                    currentMainAccountBalance = currentBalance
+                    currentMainAccountBalance = currentBalance - savingsRepository.getTotalFrozenAmount()
                 )
             )
             if (savingTaxPlans.isNotEmpty()) {
@@ -203,22 +203,9 @@ class AddExpenseUseCase(
                 }
                 val contributionIds = savingsRepository.logVaultContributions(contributions)
 
-                // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
-                val totalSavingTax = savingTaxPlans.sumOf { it.amount }
-                if (totalSavingTax > 0.0) {
-                    val newBalance = currentBalance - totalSavingTax
-                    savingsRepository.insertMainAccountTransaction(
-                        MainAccountTransaction(
-                            type = MainAccountTransactionType.VAULT_CONTRIBUTION,
-                            amount = totalSavingTax,
-                            balanceAfter = newBalance,
-                            timestamp = LocalDateTime.now(),
-                            description = "Saving tax to ${savingTaxPlans.size} vault(s)",
-                            relatedVaultContributionIds = contributionIds
-                        )
-                    )
-                    preferencesRepository.updateMainAccountBalance(newBalance)
-                }
+                // The transfer is only pending: freeze the money so it isn't counted as spendable, and
+                // leave the main balance alone until the user marks the transfer as done.
+                savingsRepository.freezePendingContributions(contributions, contributionIds)
             }
         } }
 

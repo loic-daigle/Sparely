@@ -83,6 +83,11 @@ data class SparelyUiState(
 
     val totalHisaBalance: Double = 0.0,
     val totalUsableMoney: Double = 0.0,
+    /** [totalUsableMoney] minus the minimum balance, wish reserves and pending transfers: what is safe to spend. */
+    val netUsableMoney: Double = 0.0,
+    val pendingTransfersTotal: Double = 0.0,
+    /** Savings-account money that exists but can't be withdrawn today (locked term, notice period, minimum balance). */
+    val lockedSavingsBalance: Double = 0.0,
     
     val isLoading: Boolean = true,
     val errorMessage: String? = null

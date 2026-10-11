@@ -166,7 +166,8 @@ fun SettingsMainAccountCard(
                                 expanded = false
                             },
                         )
-                        savingsAccounts.forEach { account ->
+                        // Locked term deposits can't take overflow money; keep the current pick visible either way.
+                        savingsAccounts.filter { it.acceptsDeposits() || it.id == mainOverflowAccountId }.forEach { account ->
                             SparelyDropdownMenuItem(
                                 text = { Text(account.name) },
                                 isSelected = mainOverflowAccountId == account.id,

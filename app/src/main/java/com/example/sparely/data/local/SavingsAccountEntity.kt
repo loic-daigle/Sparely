@@ -32,5 +32,6 @@ data class SavingsAccountEntity(
     val anniversaryWindowDays: Int? = null,
     val minWithdrawalAmount: Double? = null,
     val minRemainingBalance: Double? = null,
-    val earlyWithdrawalPenaltyDays: Int? = null
+    val earlyWithdrawalPenaltyDays: Int? = null,
+    val noticeRequestedDate: LocalDate? = null
 )

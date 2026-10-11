@@ -23,7 +23,11 @@ import com.example.sparely.data.local.MainAccountTransactionType
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.local.toEntity
 import com.example.sparely.data.local.PendingVariableRecurringExpenseDao
+import com.example.sparely.domain.model.SavingsAccess
 import com.example.sparely.domain.model.SavingsAccount
+import com.example.sparely.domain.model.SavingsMoveResult
+import com.example.sparely.domain.model.SavingsProductType
+import com.example.sparely.domain.model.WithdrawalQuote
 import com.example.sparely.domain.model.SavingsAccountTransaction
 import com.example.sparely.domain.model.SavingsAccountTransactionDisplayType
 import com.example.sparely.domain.model.Achievement
@@ -553,6 +557,27 @@ class SavingsRepository(
         }
     }
 
+    /**
+     * Save edits to an account's details and rules. Balance, interest totals and the pending
+     * notice request are live data owned by transfers, so they are kept from the database
+     * rather than overwritten with whatever the edit form was opened with.
+     */
+    suspend fun updateSavingsAccountDetails(account: SavingsAccount): Unit = withMainAccountLock { database.withTransaction {
+        val existing = savingsAccountDao.getAccountById(account.id)
+        if (existing == null) {
+            upsertSavingsAccount(account)
+            return@withTransaction
+        }
+        upsertSavingsAccount(
+            account.copy(
+                currentBalance = existing.currentBalance,
+                totalInterestEarned = existing.totalInterestEarned,
+                lastInterestEntryDate = existing.lastInterestEntryDate,
+                noticeRequestedDate = existing.noticeRequestedDate.takeIf { account.productType == SavingsProductType.NOTICE }
+            )
+        )
+    } }
+
     suspend fun getSavingsAccountById(id: Long): SavingsAccount? {
         return savingsAccountDao.getAccountById(id)?.toDomain()
     }
@@ -565,8 +590,9 @@ class SavingsRepository(
         if (!amount.isValidAmount()) return@withTransaction
         savingsAccountDao.recordInterestEarned(accountId, amount, entryDate)
         
-        // Log as a contribution for history/analytics (Vault logic)
-        logVaultContribution(
+        // Log as a contribution for history/analytics. Written straight to the DAO: going through
+        // logVaultContribution would add the interest to the account balance a second time.
+        smartVaultDao.upsertContribution(
             com.example.sparely.domain.model.VaultContribution(
                 savingsAccountId = accountId,
                 vaultId = null,
@@ -575,7 +601,7 @@ class SavingsRepository(
                 source = com.example.sparely.domain.model.VaultContributionSource.INTEREST,
                 note = "Manual interest entry",
                 reconciled = true
-            )
+            ).toEntity()
         )
 
         // Log to HISA transaction history
@@ -690,6 +716,8 @@ class SavingsRepository(
                 smartVaultDao.incrementVaultBalance(contribution.vaultId, contribution.amount, contribution.date)
             }
             deductFromMainAccountForContribution(contribution.toDomain())
+            // Whoever confirms the transfer, the money it froze is now really gone from the balance.
+            removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
         }
     } }
 
@@ -738,17 +766,56 @@ class SavingsRepository(
     } }
 
     /**
+     * Pending vault transfers don't touch the main balance: each one is frozen (so it isn't
+     * counted as spendable) until the user marks it transferred, which is when it is deducted.
+     */
+    suspend fun freezePendingContributions(contributions: List<VaultContribution>, ids: List<Long>) {
+        contributions.zip(ids).forEach { (contribution, id) ->
+            if (!contribution.reconciled && contribution.amount > 0.0) {
+                insertFrozenFund(
+                    pendingType = "VAULT_CONTRIBUTION",
+                    pendingId = id,
+                    amount = contribution.amount,
+                    description = contribution.note
+                )
+            }
+        }
+    }
+
+    /**
+     * Older versions debited the main account as soon as a saving-tax transfer was created. If a
+     * pending transfer like that is cancelled, give the money back. Must run before it is deleted.
+     */
+    private suspend fun refundDebitedPendingContribution(contributionId: Long) {
+        val contribution = smartVaultDao.getContributionById(contributionId) ?: return
+        if (contribution.reconciled || contribution.amount <= 0.0) return
+        if (mainAccountDao.countTransactionsForContribution(contributionId) == 0) return
+        val newBalance = (getLatestMainAccountBalance() + contribution.amount).roundCurrency()
+        insertMainAccountTransaction(
+            com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                amount = contribution.amount,
+                balanceAfter = newBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = "Cancelled vault transfer: ${contribution.note.orEmpty()}".take(100)
+            )
+        )
+        preferencesRepository.updateMainAccountBalance(newBalance)
+    }
+
+    /**
      * Cancel a pending contribution: delete the pending contribution record and remove frozen funds.
      */
-    suspend fun cancelPendingContribution(contributionId: Long) = database.withTransaction {
+    suspend fun cancelPendingContribution(contributionId: Long): Unit = withMainAccountLock { database.withTransaction {
         val contribution = smartVaultDao.getContributionById(contributionId) ?: return@withTransaction
         // Only pending rows may be cancelled; a reconciled one has already moved money.
         if (contribution.reconciled) return@withTransaction
+        refundDebitedPendingContribution(contributionId)
         // delete the pending contribution row
         smartVaultDao.deleteContribution(contributionId)
         // remove the frozen record(s) associated with this pending contribution
         removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
-    }
+    } }
 
     suspend fun getVaultContributions(vaultId: Long): List<VaultContribution> =
         smartVaultDao.getContributionsForVault(vaultId).map { it.toDomain() }
@@ -903,9 +970,12 @@ class SavingsRepository(
             expense
         }
         recurringExpenseDao.upsert(toPersist.toEntity())
+        // A paused bill is no longer waiting to be paid.
+        if (!toPersist.isActive && toPersist.id != 0L) removeFrozenForPending("RECURRING_PAYMENT", toPersist.id)
     }
 
     suspend fun deleteRecurringExpense(id: Long) {
+        removeFrozenForPending("RECURRING_PAYMENT", id)
         recurringExpenseDao.deleteById(id)
     }
 
@@ -1259,6 +1329,7 @@ class SavingsRepository(
         // Find them first to remove frozen funds
         val contributions = smartVaultDao.getContributionsForExpense(expenseId).filter { !it.reconciled }
         contributions.forEach { c ->
+             refundDebitedPendingContribution(c.id)
              removeFrozenForPending("VAULT_CONTRIBUTION", c.id)
         }
         smartVaultDao.deletePendingContributionsForExpense(expenseId)
@@ -1771,7 +1842,7 @@ class SavingsRepository(
             vaults = vaults,
             // Without this the engine assumes an unlimited balance and ignores the user's
             // minimum main-account balance protection.
-            currentMainAccountBalance = currentBalance
+            currentMainAccountBalance = currentBalance - getTotalFrozenAmount()
         )
         val savingTaxPlans = com.example.sparely.domain.logic.SavingTaxEngine.calculate(savingTaxContext)
         
@@ -1786,21 +1857,8 @@ class SavingsRepository(
                 )
             }
             val contributionIds = logVaultContributions(contributions)
-            
-            val totalSavingTax = savingTaxPlans.sumOf { it.amount }
-            if (totalSavingTax > 0.0) {
-                val newBalance = (currentBalance - totalSavingTax)
-                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                    amount = totalSavingTax,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Saving tax to ${savingTaxPlans.size} vault(s)",
-                    relatedVaultContributionIds = contributionIds
-                )
-                insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
-            }
+            // Nothing leaves the main account until the user marks the transfer as done.
+            freezePendingContributions(contributions, contributionIds)
         }
         }
 
@@ -1899,33 +1957,42 @@ class SavingsRepository(
     // ============================================================================
 
     /**
-     * Transfer money FROM Main Account TO Savings Account.
-     * This decreases Main Account balance and increases HISA balance.
+     * Move money FROM the Main Account INTO a savings account.
+     * Rejected when the main account can't cover it (money already promised to pending
+     * transfers is not available) or when the account is a locked term deposit.
      */
     suspend fun transferToSavingsAccount(
         accountId: Long,
         amount: Double,
-        description: String = "Transfer to HISA"
-    ) {
-        if (!amount.isValidAmount()) return
+        description: String = "Transfer to savings account"
+    ): SavingsMoveResult {
+        if (!amount.isValidAmount()) return SavingsMoveResult.Rejected("Enter an amount greater than zero.")
 
-        withMainAccountLock { database.withTransaction {
-            // Get current balances
-            val account = savingsAccountDao.getAccountById(accountId) ?: return@withTransaction
+        return withMainAccountLock { database.withTransaction {
+            val entity = savingsAccountDao.getAccountById(accountId)
+                ?: return@withTransaction SavingsMoveResult.Rejected("Account not found.")
+            val account = entity.toDomain()
+            if (account.archived) return@withTransaction SavingsMoveResult.Rejected("This account is archived.")
+            if (!account.acceptsDeposits()) {
+                return@withTransaction SavingsMoveResult.Rejected(
+                    "This term deposit is locked until ${account.maturityDate} and can't take new money."
+                )
+            }
+
             // Latest transaction balance is the canonical main-account balance used everywhere else.
             val currentMainBalance = getLatestMainAccountBalance()
+            val available = currentMainBalance - getTotalFrozenAmount()
+            if (amount > available + 0.005) {
+                return@withTransaction SavingsMoveResult.Rejected("The main account doesn't have enough available money for this.")
+            }
 
-            // Update main account balance
             val newMainBalance = (currentMainBalance - amount).roundCurrency()
             preferencesRepository.updateMainAccountBalance(newMainBalance)
 
-            // Update savings account balance
             savingsAccountDao.incrementBalance(accountId, amount)
-            val newHisaBalance = (account.currentBalance + amount).roundCurrency()
+            val newAccountBalance = (entity.currentBalance + amount).roundCurrency()
 
             val now = LocalDateTime.now()
-
-            // Log main account transaction (negative amount = outflow)
             val mainTxId = mainAccountDao.insertTransaction(
                 MainAccountTransactionEntity(
                     type = MainAccountTransactionType.HISA_TRANSFER,
@@ -1935,107 +2002,136 @@ class SavingsRepository(
                     description = description
                 )
             )
-
-            // Log HISA transaction
             savingsAccountTransactionDao.insert(
                 SavingsAccountTransactionEntity(
                     accountId = accountId,
                     type = SavingsAccountTransactionType.TRANSFER_IN,
                     amount = amount,
-                    balanceAfter = newHisaBalance,
+                    balanceAfter = newAccountBalance,
                     timestamp = now,
                     description = description,
                     relatedMainAccountTransactionId = mainTxId
                 )
             )
+            SavingsMoveResult.Success
         } }
     }
 
     /**
-     * Transfer money FROM Savings Account TO Main Account.
-     * This increases Main Account balance and decreases HISA balance.
+     * Move money FROM a savings account BACK TO the Main Account, enforcing the account's rules
+     * (lock / notice period, minimum withdrawal, minimum remaining balance).
+     *
+     * Breaking a locked term early is only done when [acceptEarlyPenalty] is true; the penalty
+     * (days of interest) stays with the bank, so the main account receives less than leaves the account.
      */
     suspend fun transferFromSavingsAccount(
         accountId: Long,
         amount: Double,
-        description: String = "Transfer from HISA"
-    ) {
-        if (!amount.isValidAmount()) return
+        acceptEarlyPenalty: Boolean = false,
+        description: String = "Transfer from savings account"
+    ): SavingsMoveResult {
+        if (!amount.isValidAmount()) return SavingsMoveResult.Rejected("Enter an amount greater than zero.")
 
-        withMainAccountLock { database.withTransaction {
-            // Get current balances
-            val account = savingsAccountDao.getAccountById(accountId) ?: return@withTransaction
-            if (account.currentBalance < amount) return@withTransaction // Insufficient funds
+        return withMainAccountLock { database.withTransaction {
+            val entity = savingsAccountDao.getAccountById(accountId)
+                ?: return@withTransaction SavingsMoveResult.Rejected("Account not found.")
+            val account = entity.toDomain()
 
-            // Latest transaction balance is the canonical main-account balance used everywhere else.
+            val quote = when (val q = account.quoteWithdrawal(amount)) {
+                is WithdrawalQuote.Blocked -> return@withTransaction SavingsMoveResult.Rejected(q.reason)
+                is WithdrawalQuote.Allowed -> q
+            }
+            if (quote.isEarlyBreak && !acceptEarlyPenalty) {
+                return@withTransaction SavingsMoveResult.Rejected("Confirm the early-withdrawal penalty to continue.")
+            }
+
+            val net = quote.net.roundCurrency()
             val currentMainBalance = getLatestMainAccountBalance()
-
-            // Update main account balance
-            val newMainBalance = (currentMainBalance + amount).roundCurrency()
+            val newMainBalance = (currentMainBalance + net).roundCurrency()
             preferencesRepository.updateMainAccountBalance(newMainBalance)
 
-            // Update savings account balance
             savingsAccountDao.incrementBalance(accountId, -amount)
-            val newHisaBalance = (account.currentBalance - amount).roundCurrency()
+            val newAccountBalance = (entity.currentBalance - amount).roundCurrency()
+            // A completed NOTICE withdrawal uses up the request; the next one needs fresh notice.
+            if (account.productType == SavingsProductType.NOTICE) {
+                savingsAccountDao.setNoticeRequestedDate(accountId, null)
+            }
 
             val now = LocalDateTime.now()
-
-            // Log main account transaction (positive amount = inflow)
             val mainTxId = mainAccountDao.insertTransaction(
                 MainAccountTransactionEntity(
                     type = MainAccountTransactionType.HISA_TRANSFER,
-                    amount = amount, // Positive = inflow to main
+                    amount = net, // Positive = inflow to main
                     balanceAfter = newMainBalance,
                     timestamp = now,
                     description = description
                 )
             )
-
-            // Log HISA transaction
+            val penaltyNote = if (quote.penalty > 0.0) " (early-withdrawal penalty ${quote.penalty.roundCurrency()})" else ""
             savingsAccountTransactionDao.insert(
                 SavingsAccountTransactionEntity(
                     accountId = accountId,
                     type = SavingsAccountTransactionType.TRANSFER_OUT,
                     amount = amount,
-                    balanceAfter = newHisaBalance,
+                    balanceAfter = newAccountBalance,
                     timestamp = now,
-                    description = description,
+                    description = description + penaltyNote,
                     relatedMainAccountTransactionId = mainTxId
                 )
             )
+            SavingsMoveResult.Success
         } }
     }
 
     /**
-     * Record interest earned on a HISA with transaction logging.
+     * Tell a NOTICE account's bank you want your money; the funds become available once the
+     * notice period ends. Asking again is a no-op while a request is pending.
      */
+    suspend fun requestSavingsWithdrawalNotice(accountId: Long, today: LocalDate = LocalDate.now()): SavingsMoveResult {
+        val account = savingsAccountDao.getAccountById(accountId)?.toDomain()
+            ?: return SavingsMoveResult.Rejected("Account not found.")
+        if (account.productType != SavingsProductType.NOTICE) {
+            return SavingsMoveResult.Rejected("Only notice accounts need a withdrawal request.")
+        }
+        if (account.accessStatus(today) != SavingsAccess.NOTICE_NOT_REQUESTED) return SavingsMoveResult.Success
+        savingsAccountDao.setNoticeRequestedDate(accountId, today)
+        return SavingsMoveResult.Success
+    }
+
+    /** Withdraw a pending notice request (e.g. the user changed their mind). */
+    suspend fun cancelSavingsWithdrawalNotice(accountId: Long) {
+        savingsAccountDao.setNoticeRequestedDate(accountId, null)
+    }
+
+    /**
+     * Correct an account's balance to match the real bank balance. Does NOT touch the main
+     * account (use a transfer for real money movements); the correction is written to the history.
+     */
+    suspend fun correctSavingsAccountBalance(accountId: Long, newBalance: Double): Unit = withMainAccountLock { database.withTransaction {
+        if (!newBalance.isFinite() || newBalance < 0.0) return@withTransaction
+        val entity = savingsAccountDao.getAccountById(accountId) ?: return@withTransaction
+        val rounded = newBalance.roundCurrency()
+        val delta = (rounded - entity.currentBalance).roundCurrency()
+        if (delta == 0.0) return@withTransaction
+        savingsAccountDao.updateBalance(accountId, rounded)
+        savingsAccountTransactionDao.insert(
+            SavingsAccountTransactionEntity(
+                accountId = accountId,
+                type = if (delta > 0) SavingsAccountTransactionType.DEPOSIT else SavingsAccountTransactionType.WITHDRAWAL,
+                amount = kotlin.math.abs(delta),
+                balanceAfter = rounded,
+                timestamp = LocalDateTime.now(),
+                description = "Balance correction"
+            )
+        )
+    } }
+
+    /** Record interest earned on a savings account (kept for existing callers). */
     suspend fun recordInterestWithTransaction(
         accountId: Long,
         amount: Double,
         entryDate: LocalDate = LocalDate.now()
-    ) {
-        if (!amount.isValidAmount()) return
-        
-        database.withTransaction {
-            // Update balance and interest totals
-            savingsAccountDao.recordInterestEarned(accountId, amount, entryDate)
-            
-            // Get new balance
-            val account = savingsAccountDao.getAccountById(accountId) ?: return@withTransaction
-            
-            // Log the transaction
-            savingsAccountTransactionDao.insert(
-                SavingsAccountTransactionEntity(
-                    accountId = accountId,
-                    type = SavingsAccountTransactionType.INTEREST,
-                    amount = amount,
-                    balanceAfter = account.currentBalance,
-                    timestamp = entryDate.atStartOfDay(),
-                    description = "Interest credited"
-                )
-            )
-        }
-    }
+    ) = recordInterestEarned(accountId, amount, entryDate)
 
     /**
      * Observe all transactions for a savings account.
@@ -2208,7 +2304,7 @@ class SavingsRepository(
             vaults = vaults,
             // Without this the engine assumes an unlimited balance and ignores the user's
             // minimum main-account balance protection.
-            currentMainAccountBalance = currentBalance
+            currentMainAccountBalance = currentBalance - getTotalFrozenAmount()
         )
         val savingTaxPlans = com.example.sparely.domain.logic.SavingTaxEngine.calculate(savingTaxContext)
 
@@ -2223,21 +2319,8 @@ class SavingsRepository(
                 )
             }
             val contributionIds = logVaultContributions(contributions)
-
-            val totalSavingTax = savingTaxPlans.sumOf { it.amount }
-            if (totalSavingTax > 0.0) {
-                val newBalance = (currentBalance - totalSavingTax)
-                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
-                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                    amount = totalSavingTax,
-                    balanceAfter = newBalance,
-                    timestamp = java.time.LocalDateTime.now(),
-                    description = "Saving tax to ${savingTaxPlans.size} vault(s)",
-                    relatedVaultContributionIds = contributionIds
-                )
-                insertMainAccountTransaction(transaction)
-                preferencesRepository.updateMainAccountBalance(newBalance)
-            }
+            // Nothing leaves the main account until the user marks the transfer as done.
+            freezePendingContributions(contributions, contributionIds)
         }
         }
 

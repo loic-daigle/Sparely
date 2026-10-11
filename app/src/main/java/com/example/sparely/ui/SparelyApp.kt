@@ -1020,7 +1020,13 @@ private fun SparelyNavHost(
                 onAddInterest = viewModel::recordSavingsAccountInterest,
                 onViewHistory = { accountId, accountName ->
                     navController.navigate(SparelyDestination.SavingsHistory.createRoute(accountId, accountName))
-                }
+                },
+                mainAccountBalance = uiState.settings.mainAccountBalance,
+                onCorrectBalance = viewModel::correctSavingsAccountBalance,
+                onDeposit = viewModel::depositToSavingsAccount,
+                onWithdraw = viewModel::withdrawFromSavingsAccount,
+                onRequestNotice = viewModel::requestSavingsWithdrawalNotice,
+                onCancelNotice = viewModel::cancelSavingsWithdrawalNotice
             )
         }
         composable(SparelyDestination.SavingsHistory.route) { backStackEntry ->
@@ -1281,13 +1287,13 @@ private enum class SparelyDestination(
     Health("health", null, MaterialSymbols.FAVORITE, R.string.health_title),
     PurchaseCheck("purchaseCheck", null, MaterialSymbols.SHOPPING_BAG, R.string.purchase_check_title),
     Wishlist("wishlist", null, MaterialSymbols.SHOPPING_CART, R.string.wishlist_title),
+    WishDetail("wishlist/{wishId}", null, MaterialSymbols.SHOPPING_BAG, R.string.wishlist_detail_title),
     Settings("settings", null, MaterialSymbols.SETTINGS, R.string.settings_title),
     ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title),
     CreditCards("creditCards?cardId={cardId}", null, MaterialSymbols.CREDIT_CARD, R.string.dashboard_credit_cards_title),
     VaultTransfers("vaultTransfers", null, MaterialSymbols.SWAP_HORIZ, R.string.vault_transfers_title),
     VaultHistory("vaultHistory/{vaultId}", null, MaterialSymbols.HISTORY, R.string.vault_history_screen_title),
 
-    WishDetail("wishlist/{wishId}", null, MaterialSymbols.SHOPPING_BAG, R.string.wishlist_detail_title),
     MainAccount("mainAccount", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.dashboard_main_account_title),
     Insights("insights", null, MaterialSymbols.LIGHTBULB, R.string.insights_title),
     ManageSavingsAccounts("manage_savings", null, MaterialSymbols.SAVINGS, R.string.savings_accounts_title),

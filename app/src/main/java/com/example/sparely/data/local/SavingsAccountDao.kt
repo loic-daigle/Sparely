@@ -45,6 +45,9 @@ interface SavingsAccountDao {
     """)
     suspend fun recordInterestEarned(id: Long, amount: Double, entryDate: LocalDate)
 
+    @Query("UPDATE savings_accounts SET noticeRequestedDate = :date WHERE id = :id")
+    suspend fun setNoticeRequestedDate(id: Long, date: LocalDate?)
+
     @Query("SELECT IFNULL(SUM(currentBalance), 0.0) FROM savings_accounts WHERE archived = 0")
     suspend fun getTotalBalance(): Double
     

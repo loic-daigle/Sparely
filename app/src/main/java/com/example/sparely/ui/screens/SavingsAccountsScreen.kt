@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import com.sparely.app.R
+import com.example.sparely.domain.model.SavingsAccess
 import com.example.sparely.domain.model.SavingsAccount
+import com.example.sparely.domain.model.WithdrawalQuote
 import com.example.sparely.domain.model.SavingsProductType
 import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyBottomSheet
@@ -52,13 +54,22 @@ fun SavingsAccountsScreen(
     onUpdateAccount: (SavingsAccount) -> Unit,
     onArchiveAccount: (Long) -> Unit,
     onAddInterest: (Long, Double) -> Unit,
-    onViewHistory: (Long, String) -> Unit
+    onViewHistory: (Long, String) -> Unit,
+    mainAccountBalance: Double = 0.0,
+    onCorrectBalance: (Long, Double) -> Unit = { _, _ -> },
+    onDeposit: (Long, Double) -> Unit = { _, _ -> },
+    onWithdraw: (Long, Double, Boolean) -> Unit = { _, _, _ -> },
+    onRequestNotice: (Long) -> Unit = {},
+    onCancelNotice: (Long) -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var accountToEdit by remember { mutableStateOf<SavingsAccount?>(null) }
     var accountToArchive by remember { mutableStateOf<SavingsAccount?>(null) }
     var accountToUpdateBalance by remember { mutableStateOf<SavingsAccount?>(null) }
     var accountToAddInterest by remember { mutableStateOf<SavingsAccount?>(null) }
+    var accountToDeposit by remember { mutableStateOf<SavingsAccount?>(null) }
+    var accountToWithdraw by remember { mutableStateOf<SavingsAccount?>(null) }
+    val today = remember { java.time.LocalDate.now() }
     val currencyFormatter = remember {
         NumberFormat.getCurrencyInstance().apply {
             isGroupingUsed = false
@@ -69,6 +80,7 @@ fun SavingsAccountsScreen(
 
     // Calculate summary stats
     val totalBalance = remember(savingsAccounts) { savingsAccounts.sumOf { it.currentBalance } }
+    val totalAccessible = remember(savingsAccounts, today) { savingsAccounts.sumOf { it.accessibleBalance(today) } }
     val totalInterest = remember(savingsAccounts) { savingsAccounts.sumOf { it.totalInterestEarned } }
     val avgApy = remember(savingsAccounts) {
         if (savingsAccounts.isNotEmpty()) savingsAccounts.map { it.annualPercentageYield }.average() else 0.0
@@ -109,6 +121,7 @@ fun SavingsAccountsScreen(
                 item {
                     OverallSavingsSummaryCard(
                         totalBalance = totalBalance,
+                        accessibleBalance = totalAccessible,
                         totalInterest = totalInterest,
                         avgApy = avgApy,
                         accountCount = savingsAccounts.size
@@ -128,7 +141,11 @@ fun SavingsAccountsScreen(
                         onArchiveClick = { accountToArchive = account },
                         onUpdateBalanceClick = { accountToUpdateBalance = account },
                         onAddInterestClick = { accountToAddInterest = account },
-                        onViewHistoryClick = { onViewHistory(account.id, account.name) }
+                        onViewHistoryClick = { onViewHistory(account.id, account.name) },
+                        onDepositClick = { accountToDeposit = account },
+                        onWithdrawClick = { accountToWithdraw = account },
+                        onRequestNoticeClick = { onRequestNotice(account.id) },
+                        onCancelNoticeClick = { onCancelNotice(account.id) }
                     )
                 }
             }
@@ -246,7 +263,7 @@ fun SavingsAccountsScreen(
                             onClick = {
                                 val newBalance = newBalanceText.toSafeDouble()
                                 if (newBalance != null) {
-                                    onUpdateAccount(account.copy(currentBalance = newBalance))
+                                    onCorrectBalance(account.id, newBalance)
                                     accountToUpdateBalance = null
                                 }
                             },
@@ -259,9 +276,163 @@ fun SavingsAccountsScreen(
             }
         }
 
+        accountToDeposit?.let { account ->
+            var amountText by remember { mutableStateOf("") }
+            val amount = amountText.toSafeDouble()
+            val tooMuch = amount != null && amount > mainAccountBalance + 0.005
+            val closed = !account.acceptsDeposits(today)
+            SparelyBottomSheet(isOpen = true, onDismiss = { accountToDeposit = null }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.savings_deposit_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.savings_deposit_desc, account.name, mainAccountBalance.formatCurrency()),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (account.productType == SavingsProductType.TERM) {
+                        Text(
+                            text = stringResource(id = R.string.savings_deposit_term_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    SparelyTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(id = R.string.savings_amount)) },
+                        singleLine = true,
+                        isError = tooMuch,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (tooMuch) {
+                        Text(
+                            text = stringResource(id = R.string.savings_deposit_not_enough),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (closed) {
+                        Text(
+                            text = stringResource(id = R.string.savings_deposit_closed, account.maturityDate?.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE) ?: "-"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SparelyTonalButton(onClick = { accountToDeposit = null }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(id = android.R.string.cancel))
+                        }
+                        SparelyButton(
+                            onClick = {
+                                if (amount != null && amount > 0) {
+                                    onDeposit(account.id, amount)
+                                    accountToDeposit = null
+                                }
+                            },
+                            enabled = amount != null && amount > 0 && !tooMuch && !closed,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(id = R.string.savings_deposit))
+                        }
+                    }
+                }
+            }
+        }
+
+        accountToWithdraw?.let { account ->
+            var amountText by remember { mutableStateOf("") }
+            val amount = amountText.toSafeDouble()
+            val quote = remember(account, amount) { amount?.let { account.quoteWithdrawal(it, today) } }
+            val accessible = account.accessibleBalance(today)
+            SparelyBottomSheet(isOpen = true, onDismiss = { accountToWithdraw = null }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.savings_withdraw_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.savings_withdraw_desc, account.name, accessible.formatCurrency()),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    SparelyTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(id = R.string.savings_amount)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    when (quote) {
+                        is WithdrawalQuote.Blocked -> Text(
+                            text = quote.reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        is WithdrawalQuote.Allowed -> {
+                            if (quote.isEarlyBreak) {
+                                Text(
+                                    text = stringResource(id = R.string.savings_early_penalty_warning, quote.penalty.formatCurrency()),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            Text(
+                                text = stringResource(id = R.string.savings_you_receive, quote.net.formatCurrency()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        null -> Unit
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SparelyTonalButton(onClick = { accountToWithdraw = null }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(id = android.R.string.cancel))
+                        }
+                        val allowed = quote as? WithdrawalQuote.Allowed
+                        SparelyButton(
+                            onClick = {
+                                if (amount != null && allowed != null) {
+                                    onWithdraw(account.id, amount, allowed.isEarlyBreak)
+                                    accountToWithdraw = null
+                                }
+                            },
+                            enabled = allowed != null,
+                            modifier = Modifier.weight(1f),
+                            containerColor = if (allowed?.isEarlyBreak == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            contentColor = if (allowed?.isEarlyBreak == true) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Text(
+                                stringResource(
+                                    id = if (allowed?.isEarlyBreak == true) R.string.savings_withdraw_pay_penalty else R.string.savings_withdraw
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Add Interest Dialog
         accountToAddInterest?.let { account ->
-            var interestAmountText by remember { mutableStateOf("") }
+            val estimatedInterest = remember(account) { account.estimatedAccruedInterest() }
+            var interestAmountText by remember {
+                mutableStateOf(if (estimatedInterest >= 0.01) estimatedInterest.toInputString() else "")
+            }
             SparelyBottomSheet(
                 isOpen = true,
                 onDismiss = { accountToAddInterest = null }
@@ -290,6 +461,13 @@ fun SavingsAccountsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (estimatedInterest >= 0.01) {
+                        Text(
+                            text = stringResource(id = R.string.savings_interest_estimate_hint, estimatedInterest.formatCurrency()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     SparelyTextField(
                         value = interestAmountText,
                         onValueChange = { interestAmountText = it.filterCurrencyInput() },
@@ -331,6 +509,7 @@ fun SavingsAccountsScreen(
 @Composable
 private fun OverallSavingsSummaryCard(
     totalBalance: Double,
+    accessibleBalance: Double,
     totalInterest: Double,
     avgApy: Double,
     accountCount: Int
@@ -384,6 +563,41 @@ private fun OverallSavingsSummaryCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            if (totalBalance - accessibleBalance > 0.005) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(id = R.string.savings_available_now),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = accessibleBalance.formatCurrency(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = stringResource(id = R.string.savings_locked_amount),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = (totalBalance - accessibleBalance).formatCurrency(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
 
@@ -478,7 +692,11 @@ fun EnhancedSavingsAccountCard(
     onArchiveClick: () -> Unit,
     onUpdateBalanceClick: () -> Unit,
     onAddInterestClick: () -> Unit,
-    onViewHistoryClick: () -> Unit
+    onViewHistoryClick: () -> Unit,
+    onDepositClick: () -> Unit = {},
+    onWithdrawClick: () -> Unit = {},
+    onRequestNoticeClick: () -> Unit = {},
+    onCancelNoticeClick: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
@@ -490,11 +708,7 @@ fun EnhancedSavingsAccountCard(
         }
     }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
-    val maturityDate = remember(account.termStartDate, account.termMonths) {
-        if (account.termStartDate != null && account.termMonths != null)
-            runCatching { account.termStartDate.plusMonths(account.termMonths.toLong()) }.getOrNull()
-        else null
-    }
+    val maturityDate = account.maturityDate
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
@@ -657,6 +871,79 @@ fun EnhancedSavingsAccountCard(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Lock status, interest outlook and what can be spent right now
+                val today = remember { java.time.LocalDate.now() }
+                val access = account.accessStatus(today)
+                val accessible = account.accessibleBalance(today)
+                val locked = account.lockedBalance(today)
+                if (account.currentBalance > 0.0) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (locked > 0.005) {
+                            val untilText = account.accessibleFrom(today)?.format(dateFormatter)
+                            val lockText = when (access) {
+                                SavingsAccess.LOCKED_TERM -> stringResource(id = R.string.savings_locked_until, untilText ?: "-")
+                                SavingsAccess.NOTICE_NOT_REQUESTED -> stringResource(id = R.string.savings_notice_needed, account.noticeDays ?: 0)
+                                SavingsAccess.NOTICE_PENDING -> stringResource(id = R.string.savings_notice_ready_on, untilText ?: "-")
+                                SavingsAccess.AVAILABLE -> stringResource(id = R.string.savings_keeps_minimum, (account.minRemainingBalance ?: 0.0).formatCurrency())
+                            }
+                            Text(
+                                text = lockText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.secondary
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                id = R.string.savings_available_to_withdraw,
+                                accessible.formatCurrency()
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        if (account.annualPercentageYield > 0.0) {
+                            Text(
+                                text = stringResource(
+                                    id = R.string.savings_monthly_interest_est,
+                                    account.projectedMonthlyInterest.formatCurrency(),
+                                    account.projectedAnnualInterest.formatCurrency()
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                        account.projectedMaturityValue(today)?.takeIf { access != SavingsAccess.AVAILABLE }?.let { value ->
+                            Text(
+                                text = stringResource(id = R.string.savings_projected_maturity, value.formatCurrency()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    SparelyButton(
+                        onClick = onDepositClick,
+                        modifier = Modifier.weight(1f),
+                        enabled = account.acceptsDeposits(today)
+                    ) { Text(stringResource(id = R.string.savings_deposit)) }
+                    if (access == SavingsAccess.NOTICE_NOT_REQUESTED) {
+                        SparelyTonalButton(onClick = onRequestNoticeClick, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(id = R.string.savings_notice_request))
+                        }
+                    } else {
+                        SparelyTonalButton(onClick = onWithdrawClick, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(id = R.string.savings_withdraw))
+                        }
+                    }
+                }
+                if (access == SavingsAccess.NOTICE_PENDING) {
+                    SparelyTextButton(onClick = onCancelNoticeClick) {
+                        Text(stringResource(id = R.string.savings_notice_cancel))
                     }
                 }
 

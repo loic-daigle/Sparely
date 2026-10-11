@@ -227,7 +227,8 @@ fun SavingsAccountEntity.toDomain(): SavingsAccount = SavingsAccount(
     anniversaryWindowDays = anniversaryWindowDays,
     minWithdrawalAmount = minWithdrawalAmount,
     minRemainingBalance = minRemainingBalance,
-    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays
+    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays,
+    noticeRequestedDate = noticeRequestedDate
 )
 
 fun SavingsAccount.toEntity(): SavingsAccountEntity = SavingsAccountEntity(
@@ -252,7 +253,8 @@ fun SavingsAccount.toEntity(): SavingsAccountEntity = SavingsAccountEntity(
     anniversaryWindowDays = anniversaryWindowDays,
     minWithdrawalAmount = minWithdrawalAmount,
     minRemainingBalance = minRemainingBalance,
-    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays
+    earlyWithdrawalPenaltyDays = earlyWithdrawalPenaltyDays,
+    noticeRequestedDate = noticeRequestedDate
 )
 
 fun SmartVaultEntity.toDomain(schedules: List<VaultSchedule> = emptyList()): SmartVault = SmartVault(
