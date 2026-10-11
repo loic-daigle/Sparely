@@ -711,6 +711,22 @@ private fun CashflowForecastCard(forecast: CashflowEngine.CashflowForecast) {
             ) {
                 CashflowChart(forecast.weeklyProjections, forecast.currentBalance)
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            val accuracy = forecast.accuracy
+            Text(
+                text = if (accuracy != null) {
+                    stringResource(
+                        R.string.insights_forecast_accuracy,
+                        (accuracy.typicalErrorShare * 100).roundToInt(),
+                        accuracy.samples,
+                        forecast.safetyBuffer.formatCurrency()
+                    )
+                } else {
+                    stringResource(R.string.insights_forecast_accuracy_learning)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -972,7 +988,7 @@ private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly, onClick:
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = stringResource(R.string.insights_unusual),
+                text = stringResource(R.string.insights_anomaly_times_usual, anomaly.timesTypical),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error
             )

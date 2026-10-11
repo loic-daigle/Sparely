@@ -4,13 +4,14 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.SuggestionConfidence
 import com.example.sparely.ui.utils.roundToTwoDecimals
-import com.example.sparely.ui.utils.formatPercent
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
-import kotlin.math.sqrt
+import kotlin.math.ceil
+import kotlin.math.exp
+import kotlin.math.ln
 
 /**
  * Engine for analyzing spending patterns with trend detection, anomaly identification,
@@ -39,9 +40,13 @@ object SpendingPatternEngine {
 
     data class SpendingAnomaly(
         val expense: Expense,
-        val zScore: Double, // How many standard deviations from mean
-        val reason: String
-    )
+        /** Robust z-score within the expense's category (median/MAD based, so outliers can't hide each other). */
+        val zScore: Double,
+        /** Median amount for this category; the UI phrases the anomaly as a multiple of it. */
+        val typicalAmount: Double
+    ) {
+        val timesTypical: Double get() = if (typicalAmount > 0) expense.amount / typicalAmount else 0.0
+    }
 
     data class CategoryVelocity(
         val category: ExpenseCategory,
@@ -60,11 +65,17 @@ object SpendingPatternEngine {
 
     // === Main Analysis Function ===
 
+    /**
+     * [expenses] should already have one-off outliers filtered out (it feeds averages and
+     * projections). [anomalySource] is the unfiltered list, since the outliers are exactly
+     * what anomaly detection is looking for.
+     */
     fun analyze(
         expenses: List<Expense>,
         mainAccountBalance: Double = 0.0,
         categoryBudgets: Map<ExpenseCategory, Double> = emptyMap(),
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        anomalySource: List<Expense> = expenses
     ): SpendingPatternResult {
         if (expenses.isEmpty()) {
             return SpendingPatternResult(
@@ -84,11 +95,11 @@ object SpendingPatternEngine {
         }
 
         val weeklyAvg = computeWeeklyAverage(expenses, today).roundToTwoDecimals()
-        val monthlyAvg = computeMonthlyAverage(expenses).roundToTwoDecimals()
+        val monthlyAvg = computeMonthlyAverage(expenses, today).roundToTwoDecimals()
         val (trend, trendPct) = computeTrend(expenses, today)
         val (topCategory, topCategoryChange) = findTopGrowingCategory(expenses, today)
         val highSpendDays = findHighSpendingDays(expenses)
-        val anomalies = detectAnomalies(expenses, today)
+        val anomalies = detectAnomalies(anomalySource.filter { !it.isIgnored }, today)
         val velocity = computeCategoryVelocity(expenses, categoryBudgets, today)
         val monthEndProjection = ProjectionMath.monthEndProjection(expenses, today)
         val predictedMonthEnd = monthEndProjection.expected.roundToTwoDecimals()
@@ -113,47 +124,50 @@ object SpendingPatternEngine {
 
     // === Helper Functions ===
 
-    private fun computeWeeklyAverage(expenses: List<Expense>, today: LocalDate): Double {
-        val cutoff = today.minusDays(28) // 4 weeks
-        val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
-        if (recentExpenses.isEmpty()) return 0.0
+    /**
+     * Last 28 days spread over 4 weeks, so quiet weeks count as low weeks instead of being skipped.
+     * A newer user's total is spread over the weeks they've actually tracked.
+     */
+    private fun computeWeeklyAverage(expenses: List<Expense>, today: LocalDate): Double =
+        ProjectionMath.recentDailyRate(expenses, today, windowDays = 28) * 7
 
-        val weeklyTotals = recentExpenses.groupBy { weekNumber(it.date) }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
-
-        return if (weeklyTotals.isNotEmpty()) weeklyTotals.values.average() else 0.0
-    }
-
-    private fun weekNumber(date: LocalDate): Int {
-        return date.dayOfYear / 7
-    }
-
-    private fun computeMonthlyAverage(expenses: List<Expense>): Double {
-        val grouped = expenses.groupBy { YearMonth.from(it.date) }
-        if (grouped.isEmpty()) return 0.0
-        val totals = grouped.values.map { monthExpenses -> monthExpenses.sumOf { it.amount } }
+    /** Average over completed months since tracking began, quiet months included; the current partial month is left out. */
+    private fun computeMonthlyAverage(expenses: List<Expense>, today: LocalDate): Double {
+        val currentMonth = YearMonth.from(today)
+        val firstMonth = expenses.minOfOrNull { YearMonth.from(it.date) } ?: return 0.0
+        if (firstMonth >= currentMonth) {
+            // Nothing completed yet: the month-to-date pace is the best there is.
+            return ProjectionMath.monthEndProjection(expenses, today).expected
+        }
+        val byMonth = expenses.groupBy { YearMonth.from(it.date) }
+        val totals = generateSequence(firstMonth) { it.plusMonths(1) }
+            .takeWhile { it < currentMonth }
+            .map { m -> byMonth[m].orEmpty().sumOf { it.amount } }
+            .toList()
         return totals.average()
     }
 
+    /**
+     * Day-to-day spending this month (projected to month-end) against the median of up to the last
+     * 3 completed months. Bills are left out: a quarterly bill landing this month isn't a trend.
+     * Early in the month with no history model to lean on, the projection is too noisy to call a trend.
+     */
     private fun computeTrend(expenses: List<Expense>, today: LocalDate): Pair<SpendingTrend, Double> {
+        val discretionary = expenses.filter { !it.countsAsRecurring }
         val currentMonth = YearMonth.from(today)
-        val lastMonth = currentMonth.minusMonths(1)
-        val twoMonthsAgo = currentMonth.minusMonths(2)
+        val firstMonth = discretionary.minOfOrNull { YearMonth.from(it.date) }
+            ?: return SpendingTrend.STABLE to 0.0
 
-        val currentMonthTotal = expenses.filter { YearMonth.from(it.date) == currentMonth }.sumOf { it.amount }
-        val lastMonthTotal = expenses.filter { YearMonth.from(it.date) == lastMonth }.sumOf { it.amount }
-        val twoMonthsAgoTotal = expenses.filter { YearMonth.from(it.date) == twoMonthsAgo }.sumOf { it.amount }
+        val previousTotals = (1L..3L)
+            .map { currentMonth.minusMonths(it) }
+            .filter { it >= firstMonth }
+            .map { m -> discretionary.filter { YearMonth.from(it.date) == m }.sumOf { it.amount } }
+        val comparison = median(previousTotals)
 
-        val projectedCurrentMonth = if (currentMonthTotal > 0) {
-            ProjectionMath.monthEndProjection(expenses, today).expected
-        } else {
-            currentMonthTotal
-        }
-
-        // Calculate month-over-month change
-        val comparison = if (lastMonthTotal > 0) lastMonthTotal else twoMonthsAgoTotal
-        val percentChange = if (comparison > 0) {
-            ((projectedCurrentMonth - comparison) / comparison) * 100
+        val projection = ProjectionMath.monthEndProjection(discretionary, today)
+        val trustworthy = projection.usedHistory || projection.confidence != SuggestionConfidence.LOW
+        val percentChange = if (comparison > 0 && trustworthy) {
+            ((projection.expected - comparison) / comparison) * 100
         } else {
             0.0
         }
@@ -234,53 +248,82 @@ object SpendingPatternEngine {
             .sortedByDescending { byDayOfWeek[it] }
     }
 
+    /**
+     * Flags recent expenses that are unusually high *for their own category*. Rent can't make every
+     * grocery run look normal, and one huge purchase can't inflate the spread enough to hide the next.
+     *
+     * Spending is skewed (many small purchases, a few big ones), so amounts are compared on a log
+     * scale using the median and median absolute deviation (MAD): "6x the usual" means the same
+     * thing at any price level. Three guards keep it quiet, because a false alarm is worse than a miss:
+     *  - the spread has a floor, so a category of near-identical purchases doesn't make small bumps look extreme;
+     *  - the amount must be at least [ANOMALY_MIN_MULTIPLE] times the category's usual amount;
+     *  - the amount must be large for this user overall: above their top purchases and a real share of
+     *    a month's everyday spending, so a normal meal out never shows up next to real surprises.
+     */
     private fun detectAnomalies(expenses: List<Expense>, today: LocalDate): List<SpendingAnomaly> {
-        if (expenses.size < 10) return emptyList() // Need sufficient data
-        
-        // Filter to last 60 days for anomaly *candidacy*
-        // However, we should calculate Mean/StdDev based on a longer history (e.g., 6 months) for accuracy
-        // BUT, the user wants to not be bothered by old stuff.
-        // Let's take expenses from last 60 days to report AS anomalies, 
-        // but perhaps calculate stats on everything?
-        // Actually, if we use everything for stats store, an old high expense increases the StDev, 
-        // making new regular expenses look NORMAL, which is good.
-        // But if that old expense WAS an anomaly, we shouldn't show it anymore.
-        
-        val anomalies = mutableListOf<SpendingAnomaly>()
-        val zScoreThreshold = 2.5 // 2.5 standard deviations
-        val cutoffDate = today.minusDays(60)
+        val reportCutoff = today.minusDays(ANOMALY_REPORT_DAYS)
+        val baselineCutoff = today.minusDays(ANOMALY_BASELINE_DAYS)
 
-        // Use ALL expenses for statistical baseline to have a robust mean/stdev
-        val amounts = expenses.map { it.amount }
-        val mean = amounts.average()
-        val stdDev = calculateStdDev(amounts, mean)
+        val baseline = expenses.filter { !it.date.isBefore(baselineCutoff) && !it.date.isAfter(today) && it.amount > 0 }
+        if (baseline.size < ANOMALY_MIN_SAMPLES) return emptyList()
+        // Bills are large but expected; counting them would push the bar above every real surprise.
+        val everyday = baseline.filter { !it.countsAsRecurring }.ifEmpty { return emptyList() }
+        val trackedMonths = (ChronoUnit.DAYS.between(everyday.minOf { it.date }, today) + 1) / 30.4
+        val monthlySpend = everyday.sumOf { it.amount } / trackedMonths.coerceAtLeast(1.0)
+        val materialAmount = maxOf(
+            percentile(everyday.map { it.amount }, ANOMALY_MATERIAL_PERCENTILE) * 1.5,
+            monthlySpend * ANOMALY_MATERIAL_MONTH_SHARE
+        )
 
-        if (stdDev == 0.0) return emptyList()
+        return baseline
+            .groupBy { it.category }
+            .values
+            .filter { it.size >= ANOMALY_MIN_SAMPLES }
+            .flatMap { categoryExpenses ->
+                val logs = categoryExpenses.map { ln(it.amount) }
+                val typicalLog = median(logs)
+                val typical = exp(typicalLog)
+                // 1.4826 * MAD estimates the std dev for normal data.
+                val spread = (1.4826 * median(logs.map { abs(it - typicalLog) })).coerceAtLeast(ANOMALY_MIN_LOG_SPREAD)
 
-        // Only scan recent expenses for *reporting* anomalies
-        val recentExpenses = expenses.filter { !it.date.isBefore(cutoffDate) }
-
-        for (expense in recentExpenses) {
-            val zScore = (expense.amount - mean) / stdDev
-            if (abs(zScore) > zScoreThreshold) {
-                val reason = if (zScore > 0) {
-                    "Unusually high spending (${zScore.formatPercent(1).removeSuffix("%")}σ above average)"
-                } else {
-                    "Unusually low spending (${abs(zScore).formatPercent(1).removeSuffix("%")}σ below average)"
-                }
-                anomalies.add(SpendingAnomaly(expense, zScore, reason))
+                categoryExpenses
+                    .filter { !it.date.isBefore(reportCutoff) }
+                    .mapNotNull { expense ->
+                        val z = (ln(expense.amount) - typicalLog) / spread
+                        val isAnomaly = z > ANOMALY_Z_THRESHOLD &&
+                            expense.amount >= typical * ANOMALY_MIN_MULTIPLE &&
+                            expense.amount >= materialAmount
+                        if (isAnomaly) SpendingAnomaly(expense, z, typical) else null
+                    }
             }
-        }
-
-        // Prioritize more recent anomalies slightly by date in sorting if needed, 
-        // but Z-score is usually best. Let's just return what we have.
-        return anomalies.sortedByDescending { abs(it.zScore) }.take(5)
+            .sortedByDescending { it.zScore }
+            .take(5)
     }
 
-    private fun calculateStdDev(values: List<Double>, mean: Double): Double {
-        if (values.size < 2) return 0.0
-        val variance = values.map { (it - mean) * (it - mean) }.average()
-        return sqrt(variance)
+    private const val ANOMALY_REPORT_DAYS = 60L
+    private const val ANOMALY_BASELINE_DAYS = 365L
+    private const val ANOMALY_MIN_SAMPLES = 8
+    /** Iglewicz-Hoaglin cut-off for robust z-scores. */
+    private const val ANOMALY_Z_THRESHOLD = 3.5
+    /** Log-scale spread floor: with it, a purchase must be roughly 5.7x the usual amount (e^(3.5 * 0.5)) to qualify. */
+    private const val ANOMALY_MIN_LOG_SPREAD = 0.5
+    private const val ANOMALY_MIN_MULTIPLE = 3.0
+    private const val ANOMALY_MATERIAL_PERCENTILE = 0.95
+    /** A single purchase must also be at least this share of a typical month of everyday spending. */
+    private const val ANOMALY_MATERIAL_MONTH_SHARE = 0.35
+
+    /** Nearest-rank percentile. */
+    private fun percentile(values: List<Double>, p: Double): Double {
+        val sorted = values.sorted()
+        val rank = ceil(p * sorted.size).toInt().coerceIn(1, sorted.size)
+        return sorted[rank - 1]
+    }
+
+    private fun median(values: List<Double>): Double {
+        if (values.isEmpty()) return 0.0
+        val sorted = values.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2 else sorted[mid]
     }
 
     private fun computeCategoryVelocity(
@@ -338,18 +381,7 @@ object SpendingPatternEngine {
         }
 
         // Not enough history yet: daily burn rate from last 30 days
-        val cutoff = today.minusDays(30)
-        val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
-
-        if (recentExpenses.isEmpty()) return Int.MAX_VALUE
-
-        val totalSpent = recentExpenses.sumOf { it.amount }
-        val daysOfData = ChronoUnit.DAYS.between(
-            recentExpenses.minOf { it.date },
-            today
-        ).toInt().coerceAtLeast(1)
-
-        val dailyBurn = totalSpent / daysOfData
+        val dailyBurn = ProjectionMath.recentDailyRate(expenses, today)
 
         return if (dailyBurn > 0) {
             (balance / dailyBurn).toInt()

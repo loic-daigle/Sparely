@@ -25,6 +25,9 @@
     <string name="insights_no_anomalies">Aucune dépense inhabituelle détectée cette période.</string>
     <string name="insights_velocity_title">Vélocité des dépenses</string>
     <string name="insights_forecast_title">Prévision de trésorerie à 30 jours</string>
+    <string name="insights_forecast_accuracy">Vérifié sur %2$d périodes de 30 jours passées : les prévisions de dépenses courantes étaient en général décalées de %1$d %%. « À dépenser » garde une marge de %3$s pour cela.</string>
+    <string name="insights_forecast_accuracy_learning">La vérification de la précision commence après environ deux mois de dépenses.</string>
+    <string name="insights_anomaly_times_usual">%1$.1f× l\'habitude</string>
     
     <!-- Idle Money Insight -->
     <string name="insights_idle_money_title">Argent qui dort</string>

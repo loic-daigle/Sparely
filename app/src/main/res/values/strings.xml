@@ -26,6 +26,9 @@
     <string name="insights_no_anomalies">No unusual spending detected recently.</string>
     <string name="insights_velocity_title">Category Velocity</string>
     <string name="insights_forecast_title">30-Day Cashflow Forecast</string>
+    <string name="insights_forecast_accuracy">Checked against %2$d past 30-day periods: everyday spending forecasts were typically off by %1$d%%. Safe to Spend keeps a %3$s cushion for that.</string>
+    <string name="insights_forecast_accuracy_learning">Accuracy check starts after about two months of expenses.</string>
+    <string name="insights_anomaly_times_usual">%1$.1f× usual</string>
     
     <!-- Idle Money Insight -->
     <string name="insights_idle_money_title">Money Sitting Idle</string>

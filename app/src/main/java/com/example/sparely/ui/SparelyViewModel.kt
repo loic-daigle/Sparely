@@ -460,7 +460,9 @@ class SparelyViewModel(
                     val spendingPatterns = SpendingPatternEngine.analyze(
                         expenses = predictionExpenses,
                         mainAccountBalance = feed.settings.mainAccountBalance,
-                        categoryBudgets = categoryBudgetMap
+                        categoryBudgets = categoryBudgetMap,
+                        // The prediction list has big one-offs removed; anomalies need to see them.
+                        anomalySource = domainExpenses
                     )
 
                     val totalVaultBalance = feed.vaults.sumOf { it.currentBalance }

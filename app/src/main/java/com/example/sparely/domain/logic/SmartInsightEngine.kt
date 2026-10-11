@@ -195,11 +195,12 @@ object SmartInsightEngine {
         expenses: List<Expense>,
         lookbackDays: Int = 180,
         // Statistics use the full lookback; this only limits which purchases are reported.
-        reportWithinDays: Int = lookbackDays
+        reportWithinDays: Int = lookbackDays,
+        today: LocalDate = LocalDate.now()
     ): List<UniqueExpenseInsight> {
         if (expenses.size < 10) return emptyList()
 
-        val cutoff = LocalDate.now().minusDays(lookbackDays.toLong())
+        val cutoff = today.minusDays(lookbackDays.toLong())
         val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
 
         // Calculate category-level statistics
@@ -246,7 +247,7 @@ object SmartInsightEngine {
             }
         }
 
-        val reportCutoff = LocalDate.now().minusDays(reportWithinDays.toLong())
+        val reportCutoff = today.minusDays(reportWithinDays.toLong())
         return uniqueExpenses
             .filter { !it.expense.date.isBefore(reportCutoff) }
             .distinctBy { it.expense.id }
@@ -264,14 +265,16 @@ object SmartInsightEngine {
      * Filters out ignored expenses and statistical anomalies (amount > 2.5 std devs above the
      * overall mean), leaving the set that's safe to feed into burn-rate / month-end / trend
      * predictions without a single large one-off expense skewing them.
+     * Bills (recurring or inferred as recurring) are never dropped: rent is large but expected,
+     * and dropping it would leave it out of every projection.
      */
     fun filterPredictionExpenses(expenses: List<Expense>): List<Expense> {
-        val amounts = expenses.map { it.amount }
+        val amounts = expenses.filter { !it.countsAsRecurring }.map { it.amount }
         val mean = if (amounts.isNotEmpty()) amounts.average() else 0.0
         val stdDev = if (amounts.size > 1) calculateStdDev(amounts, mean) else 0.0
 
         return expenses.filter { expense ->
-            val isAnomaly = stdDev > 0.0 && (expense.amount - mean) / stdDev > 2.5
+            val isAnomaly = !expense.countsAsRecurring && stdDev > 0.0 && (expense.amount - mean) / stdDev > 2.5
             !expense.isIgnored && !isAnomaly
         }
     }

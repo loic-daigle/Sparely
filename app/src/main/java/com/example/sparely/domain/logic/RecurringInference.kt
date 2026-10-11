@@ -1,7 +1,9 @@
 package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringExpense
+import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
@@ -34,6 +36,49 @@ object RecurringInference {
         result += matchKnownBills(candidates, recurring)
         result += detectPatterns(candidates)
         return result
+    }
+
+    /** A bill found only from the expense history, with the next date it is expected. */
+    data class InferredBill(
+        val description: String,
+        val amount: Double,
+        val category: ExpenseCategory,
+        val dueDate: LocalDate
+    )
+
+    /**
+     * Bills that repeat in the history but have no active recurring entry behind them, projected
+     * forward to their next date within [horizonDays]. Bills already covered by an active recurring
+     * entry are left out, since the forecast schedules those itself. A bill that is overdue by more
+     * than half its cadence is treated as stopped; one overdue by less is expected today.
+     */
+    fun upcomingInferredBills(
+        expenses: List<Expense>,
+        recurring: List<RecurringExpense>,
+        today: LocalDate,
+        horizonDays: Int = 30
+    ): List<InferredBill> {
+        val active = recurring.filter { it.isActive }
+        val candidates = expenses.filter { !it.isIgnored && !it.isRecurring && !it.date.isAfter(today) }
+        val coveredIds = matchKnownBills(candidates, active)
+        val activeNames = active.flatMap { listOf(normalize(it.description), normalize(it.merchantName)) }
+            .filter { it.isNotEmpty() }.toSet()
+
+        return patternClusters(candidates.filter { it.id !in coveredIds })
+            .filter { normalize(it.expenses.first().description) !in activeNames }
+            .mapNotNull { cluster ->
+                val latest = cluster.expenses.maxBy { it.date }
+                val interval = cluster.medianInterval.toLong()
+                val expected = latest.date.plusDays(interval)
+                val due = when {
+                    !expected.isBefore(today) -> expected
+                    ChronoUnit.DAYS.between(expected, today) <= interval / 2 -> today
+                    else -> return@mapNotNull null
+                }
+                if (ChronoUnit.DAYS.between(today, due) > horizonDays) return@mapNotNull null
+                InferredBill(latest.description, cluster.medianAmount, latest.category, due)
+            }
+            .sortedBy { it.dueDate }
     }
 
     private fun normalize(text: String?): String = text?.trim()?.lowercase().orEmpty()
@@ -72,40 +117,42 @@ object RecurringInference {
      * totals) don't qualify. Monthly-ish/quarterly/yearly cadences may vary more in amount, since
      * utility bills do.
      */
-    private fun detectPatterns(candidates: List<Expense>): Set<Long> {
-        val flagged = mutableSetOf<Long>()
+    private fun detectPatterns(candidates: List<Expense>): Set<Long> =
+        patternClusters(candidates).flatMap { cluster -> cluster.expenses.map { it.id } }.toSet()
+
+    private class PatternCluster(val expenses: List<Expense>, val medianInterval: Double, val medianAmount: Double)
+
+    private fun patternClusters(candidates: List<Expense>): List<PatternCluster> =
         candidates
             .filter { normalize(it.description).isNotEmpty() }
             .groupBy { normalize(it.description) }
             .values
             .filter { it.size >= MIN_OCCURRENCES }
-            .forEach { cluster ->
+            .mapNotNull { cluster ->
                 val sorted = cluster.sortedBy { it.date }
                 val intervals = sorted.zipWithNext { a, b -> ChronoUnit.DAYS.between(a.date, b.date).toInt() }
                     .filter { it > 0 }
-                if (intervals.size < MIN_OCCURRENCES - 1) return@forEach
+                if (intervals.size < MIN_OCCURRENCES - 1) return@mapNotNull null
 
                 val medianInterval = median(intervals.map { it.toDouble() })
-                if (medianInterval < MIN_CADENCE_DAYS) return@forEach
+                if (medianInterval < MIN_CADENCE_DAYS) return@mapNotNull null
                 // Bills fall due on a set day, so tolerate a few days of drift but not a wandering date
                 val slack = (medianInterval * 0.25).coerceIn(2.0, 5.0)
                 val regularShare = intervals.count { abs(it - medianInterval) <= slack }.toDouble() / intervals.size
-                if (regularShare < REGULAR_SHARE) return@forEach
+                if (regularShare < REGULAR_SHARE) return@mapNotNull null
 
                 val medianAmount = median(cluster.map { it.amount })
-                if (medianAmount <= 0) return@forEach
+                if (medianAmount <= 0) return@mapNotNull null
                 val isBillCadence = medianInterval in 26.0..35.0 ||
                     medianInterval in 85.0..95.0 ||
                     medianInterval in 355.0..375.0
                 val tolerance = if (isBillCadence) VARIABLE_BILL_AMOUNT_TOLERANCE else FIXED_AMOUNT_TOLERANCE
                 val similarShare = cluster.count { abs(it.amount - medianAmount) <= medianAmount * tolerance }
                     .toDouble() / cluster.size
-                if (similarShare < REGULAR_SHARE) return@forEach
+                if (similarShare < REGULAR_SHARE) return@mapNotNull null
 
-                cluster.forEach { flagged += it.id }
+                PatternCluster(sorted, medianInterval, medianAmount)
             }
-        return flagged
-    }
 
     private fun median(values: List<Double>): Double {
         val sorted = values.sorted()

@@ -4,6 +4,7 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.SuggestionConfidence
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -26,6 +27,32 @@ object ProjectionMath {
         val safeDayOfMonth = dayOfMonth.coerceAtLeast(1)
         val dailyRate = amountSoFar / safeDayOfMonth
         return dailyRate * daysInMonth
+    }
+
+    /** Fewest days a recent daily rate is spread over, so one purchase on day one isn't read as a daily habit. */
+    const val MIN_RATE_DAYS = 7
+
+    /**
+     * Average spend per day over the last [windowDays] (today included). When tracking started
+     * inside the window, the rate is spread over the days actually tracked, but never fewer than
+     * [MIN_RATE_DAYS]. [trackingStart] is the first day the user logged anything at all, which can
+     * be earlier than the first expense in [expenses] when that list is already filtered.
+     */
+    fun recentDailyRate(
+        expenses: List<Expense>,
+        today: LocalDate,
+        windowDays: Int = 30,
+        trackingStart: LocalDate? = expenses.minOfOrNull { it.date }
+    ): Double {
+        val windowStart = today.minusDays(windowDays - 1L)
+        val total = expenses
+            .filter { !it.date.isBefore(windowStart) && !it.date.isAfter(today) }
+            .sumOf { it.amount }
+        if (total <= 0.0) return 0.0
+        val start = maxOf(trackingStart ?: windowStart, windowStart)
+        val days = (ChronoUnit.DAYS.between(start, today) + 1).toInt()
+            .coerceIn(MIN_RATE_DAYS.coerceAtMost(windowDays), windowDays)
+        return total / days
     }
 
     /**

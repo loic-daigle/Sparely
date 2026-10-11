@@ -6,6 +6,7 @@ import com.example.sparely.domain.model.Necessity
 import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringFrequency
+import com.example.sparely.domain.model.defaultNecessity
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.max
@@ -30,7 +31,11 @@ object CashflowEngine {
         val essentialsCoveredDays: Int? = null, // Days until money can't cover essential bills; null = covered for the horizon
         val lowBalanceWarning: LowBalanceWarning?,
         val upcomingObligations: List<UpcomingObligation>,
-        val weeklyProjections: List<WeeklyProjection>
+        val weeklyProjections: List<WeeklyProjection>,
+        /** Cushion held back from safe-to-spend for spending that runs over the forecast. */
+        val safetyBuffer: Double = 0.0,
+        /** How the forecast did on past months; null until there is about two months of history. */
+        val accuracy: ForecastAccuracy.Result? = null
     )
 
     data class LowBalanceWarning(
@@ -78,7 +83,9 @@ object CashflowEngine {
 
     fun forecast(input: ForecastInput): CashflowForecast {
         val dailyBurn = calculateDailyBurnRate(input.recentExpenses, input.today)
-        val upcomingObligations = calculateUpcomingObligations(input.recurringExpenses, input.today)
+        val accuracy = ForecastAccuracy.measure(input.recentExpenses, input.today, ::calculateDailyBurnRate)
+        val upcomingObligations = calculateUpcomingObligations(input.recurringExpenses, input.today) +
+            inferredObligations(input.recentExpenses, input.recurringExpenses, input.today)
         val totalObligations30Days = upcomingObligations
             .filter { it.daysUntilDue <= 30 }
             .sumOf { it.amount }
@@ -90,10 +97,11 @@ object CashflowEngine {
         val reservedMoney = input.minMainAccountBalance + input.earmarkedMoney
 
         // Safe to spend = Total Liquid - Upcoming Obligations - Buffer - Reserved
-        // We use a buffer on the MAIN account specifically to avoid overdrafts there, 
-        // but for "Safe to Spend" global view, we consider HISA as backup.
-        // However, let's keep the buffer logic simpler: 10% of TOTAL liquid.
-        val buffer = (totalLiquidMoney * 0.10).coerceIn(50.0, 500.0) 
+        // The buffer is what past forecasts show the user actually needed: the overspend that 80%
+        // of past 30-day windows stayed within. Until there's enough history to measure that,
+        // fall back to 10% of total liquid money.
+        val buffer = accuracy?.overspendP80?.coerceAtLeast(MIN_BUFFER)
+            ?: (totalLiquidMoney * 0.10).coerceIn(MIN_BUFFER, 500.0)
         
         val safeToSpend = (totalLiquidMoney - totalObligations30Days - buffer - reservedMoney).coerceAtLeast(0.0)
 
@@ -170,9 +178,13 @@ object CashflowEngine {
             ),
             lowBalanceWarning = lowBalanceWarning,
             upcomingObligations = upcomingObligations,
-            weeklyProjections = weeklyProjections
+            weeklyProjections = weeklyProjections,
+            safetyBuffer = buffer,
+            accuracy = accuracy
         )
     }
+
+    private const val MIN_BUFFER = 50.0
 
     // === Helper Functions ===
 
@@ -180,32 +192,50 @@ object CashflowEngine {
      * Discretionary burn only: recurring-logged expenses are excluded because they're projected
      * separately as upcoming obligations (counting both would double count them). With 2+ completed
      * months of history we use the long-history baseline; otherwise the last 30 days.
+     * Only expenses on or before [today] count, so [ForecastAccuracy] can replay it at past dates.
      */
     private fun calculateDailyBurnRate(allExpenses: List<Expense>, today: LocalDate): Double {
-        val expenses = allExpenses.filter { !it.countsAsRecurring }
+        val known = allExpenses.filter { !it.date.isAfter(today) }
+        val expenses = known.filter { !it.countsAsRecurring }
         val baseline = ProjectionMath.historyBaseline(expenses, today)
-        if (baseline.hasEnoughHistory && ProjectionMath.historyBeatsLinear(allExpenses, today)) {
+        if (baseline.hasEnoughHistory && ProjectionMath.historyBeatsLinear(known, today)) {
             return baseline.discretionaryDailyRate
         }
 
-        val cutoff = today.minusDays(30)
+        val cutoff = today.minusDays(29)
         val recentExpenses = expenses.filter { !it.date.isBefore(cutoff) }
 
         if (recentExpenses.isEmpty()) return 0.0
 
         // Filter out one-time large expenses to get accurate burn rate
-        val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(recentExpenses)
-        val uniqueExpenseIds = uniqueExpenses.map { it.expense.id }.toSet()
-        val filteredExpenses = recentExpenses.filter { it.id !in uniqueExpenseIds }
+        val uniqueExpenseIds = SmartInsightEngine.detectUniqueExpenses(recentExpenses, today = today)
+            .map { it.expense.id }.toSet()
 
-        val totalSpent = filteredExpenses.sumOf { it.amount }
-        val daysOfData = ChronoUnit.DAYS.between(
-            filteredExpenses.minOfOrNull { it.date } ?: today,
-            today
-        ).toInt().coerceAtLeast(1)
-
-        return if (filteredExpenses.isNotEmpty()) totalSpent / daysOfData else 0.0
+        // Spread over the days since tracking began (bills and one-offs included in that date),
+        // not since the first remaining expense: one purchase logged today is not a daily rate.
+        return ProjectionMath.recentDailyRate(
+            expenses = recentExpenses.filter { it.id !in uniqueExpenseIds },
+            today = today,
+            trackingStart = known.filter { !it.isIgnored }.minOfOrNull { it.date }
+        )
     }
+
+    /** Bills found in the history with no active recurring entry behind them (e.g. rent logged by hand). */
+    private fun inferredObligations(
+        expenses: List<Expense>,
+        recurring: List<RecurringExpense>,
+        today: LocalDate
+    ): List<UpcomingObligation> =
+        RecurringInference.upcomingInferredBills(expenses, recurring, today).map { bill ->
+            UpcomingObligation(
+                description = bill.description,
+                amount = bill.amount,
+                dueDate = bill.dueDate,
+                daysUntilDue = ChronoUnit.DAYS.between(today, bill.dueDate).toInt(),
+                isRecurring = true,
+                necessity = bill.category.defaultNecessity()
+            )
+        }
 
     private fun calculateUpcomingObligations(
         recurring: List<RecurringExpense>,
