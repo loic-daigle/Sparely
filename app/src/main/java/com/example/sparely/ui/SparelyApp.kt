@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -191,7 +193,14 @@ fun SparelyApp(
         }
     }
 
-    if (!uiState.onboardingCompleted) {
+    if (uiState.isLoading) {
+        // Persisted state (including onboardingCompleted) hasn't loaded yet; avoid flashing onboarding.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        )
+    } else if (!uiState.onboardingCompleted) {
         OnboardingScreen(
             onComplete = { profile -> viewModel.completeOnboarding(profile) },
             onImportData = { uri ->
