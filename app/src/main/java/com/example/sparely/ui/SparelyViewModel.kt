@@ -450,6 +450,8 @@ class SparelyViewModel(
                         totalHisaBalance = totalHisaBalance,
                         minMainAccountBalance = feed.settings.minMainAccountBalance,
                         earmarkedMoney = wishlistReserved,
+                        creditCardBalance = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) },
+                        pendingTransfers = feed.frozenFundsTotal.coerceAtLeast(0.0),
                         recentExpenses = predictionExpenses,
                         recurringExpenses = feed.recurring,
                         expectedMonthlyIncome = feed.settings.monthlyIncome,
@@ -460,8 +462,6 @@ class SparelyViewModel(
                     val cashflowForecast = CashflowEngine.forecast(forecastInput)
 
                     // Compute spending pattern analysis for anomaly detection and trends
-                        creditCardBalance = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) },
-                        pendingTransfers = feed.frozenFundsTotal.coerceAtLeast(0.0),
                     val categoryBudgetMap = activeBudgets.associate { it.category to it.monthlyLimit }
                     val spendingPatterns = SpendingPatternEngine.analyze(
                         expenses = predictionExpenses,
