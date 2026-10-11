@@ -573,7 +573,12 @@ internal fun findingText(f: PurchaseAffordabilityEngine.Finding): String {
         FindingKind.SAVING_TAX_ADDED ->
             stringResource(R.string.purchase_check_f_tax_added, money(primary), money(secondary))
         FindingKind.SAVING_TAX_SKIPPED ->
-            stringResource(R.string.purchase_check_f_tax_skipped, money(primary), money(secondary))
+            // primary = the part that would be missed, secondary = the usual full amount
+            if (primary >= secondary - 0.5) {
+                stringResource(R.string.purchase_check_f_tax_none, money(secondary))
+            } else {
+                stringResource(R.string.purchase_check_f_tax_skipped, money(primary), money(secondary))
+            }
         FindingKind.SAVINGS_DEPOSITS_AT_RISK ->
             stringResource(R.string.purchase_check_f_deposits_risk, money(primary), money(secondary))
         FindingKind.CARDS_NOT_COVERED ->
