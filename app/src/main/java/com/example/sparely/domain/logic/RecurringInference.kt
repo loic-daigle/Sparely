@@ -69,7 +69,13 @@ object RecurringInference {
             .mapNotNull { cluster ->
                 val latest = cluster.expenses.maxBy { it.date }
                 val interval = cluster.medianInterval.toLong()
-                val expected = latest.date.plusDays(interval)
+                // Bills fall on a set day of the month, so step by calendar months rather than a day count
+                val expected = when (cluster.medianInterval) {
+                    in 26.0..35.0 -> latest.date.plusMonths(1)
+                    in 85.0..95.0 -> latest.date.plusMonths(3)
+                    in 355.0..375.0 -> latest.date.plusYears(1)
+                    else -> latest.date.plusDays(interval)
+                }
                 val due = when {
                     !expected.isBefore(today) -> expected
                     ChronoUnit.DAYS.between(expected, today) <= interval / 2 -> today
