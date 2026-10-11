@@ -21,6 +21,7 @@ import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.logic.SavingsCalculator
 import com.example.sparely.domain.logic.SavingTaxEngine
+import com.example.sparely.domain.logic.TitleSuggestionEngine
 import com.example.sparely.domain.logic.DynamicAllocationEngine
 import com.example.sparely.domain.logic.IncomeAutomationEngine
 import com.example.sparely.domain.logic.PayScheduleCalculator
@@ -648,6 +649,11 @@ class SparelyViewModel(
                     monthlyLimit = sanitizedLimit,
                     isActive = true
                 ) ?: CategoryBudget(
+                        knownTitles = TitleSuggestionEngine.buildIndex(
+                            expenses = domainExpenses,
+                            validStoreIds = feed.stores.mapTo(HashSet()) { it.id },
+                            validPaymentMethodIds = feed.paymentMethods.mapTo(HashSet()) { it.id }
+                        ),
                     category = input.category,
                     monthlyLimit = sanitizedLimit,
                     yearMonth = currentMonth,

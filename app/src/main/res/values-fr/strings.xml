@@ -1241,6 +1241,9 @@
     <string name="expense_entry_section_items">Reçu détaillé</string>
     <string name="expense_entry_section_items_help">Détaillez la dépense article par article</string>
     <string name="expense_entry_quick_templates">Modèles rapides</string>
+    <string name="expense_entry_title_autofilled">Rempli d’après votre dernier « %1$s »</string>
+    <string name="expense_entry_title_autofill_undo">Annuler</string>
+    <string name="expense_entry_title_suggestion_cd">Réutiliser %1$s, avec sa catégorie, son magasin et son mode de paiement</string>
     <string name="expense_entry_pick_date">Choisir une date</string>
     <string name="expense_entry_error_description">Ajoutez une courte description</string>
     <string name="expense_entry_fix_errors">Corrigez les champs en surbrillance pour enregistrer</string>

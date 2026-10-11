@@ -65,6 +65,8 @@ data class SparelyUiState(
     val seasonalInsights: List<SmartInsightEngine.SeasonalInsight> = emptyList(),
     val idleMoneyInsight: SmartInsightEngine.IdleMoneyInsight? = null,
     val uniqueExpenses: List<SmartInsightEngine.UniqueExpenseInsight> = emptyList(),
+    /** Titles from expense history, used to refill the entry form when one is typed again. */
+    val knownTitles: List<com.example.sparely.domain.logic.KnownTitle> = emptyList(),
     val pendingDetectedRecurring: DetectedRecurringTransaction? = null,
     
     // For repeat last expense feature

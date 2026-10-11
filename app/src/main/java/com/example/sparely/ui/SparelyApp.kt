@@ -1099,7 +1099,8 @@ private fun SparelyNavHost(
                     )
                 },
                 prefillExpense = uiState.prefillExpense,
-                prefillAssetAllocations = uiState.prefillAssetAllocations
+                prefillAssetAllocations = uiState.prefillAssetAllocations,
+                knownTitles = uiState.knownTitles
             )
         }
         composable(SparelyDestination.VaultTransfers.route) {

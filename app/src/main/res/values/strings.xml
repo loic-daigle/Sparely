@@ -1536,6 +1536,9 @@
     <string name="expense_entry_section_items">Itemized receipt</string>
     <string name="expense_entry_section_items_help">Break down the expense into individual items</string>
     <string name="expense_entry_quick_templates">Quick templates</string>
+    <string name="expense_entry_title_autofilled">Filled from your last “%1$s”</string>
+    <string name="expense_entry_title_autofill_undo">Undo</string>
+    <string name="expense_entry_title_suggestion_cd">Use %1$s again, with its category, store and payment method</string>
     <string name="expense_entry_pick_date">Pick date</string>
     <string name="expense_entry_error_description">Add a short description</string>
     <string name="expense_entry_fix_errors">Fix the highlighted fields to save</string>

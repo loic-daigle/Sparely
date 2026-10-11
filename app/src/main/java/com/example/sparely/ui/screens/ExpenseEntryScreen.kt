@@ -92,6 +92,10 @@ import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.components.CategorySelector
 import com.example.sparely.ui.components.ExpenseTypeSelector
 import com.example.sparely.ui.components.QuickTemplateSelector
+import com.example.sparely.ui.components.TitleAutofillHint
+import com.example.sparely.ui.components.TitleSuggestionRow
+import com.example.sparely.domain.logic.KnownTitle
+import com.example.sparely.domain.logic.TitleSuggestionEngine
 import com.example.sparely.ui.components.QuickTemplates
 import com.example.sparely.ui.components.FormSection
 import com.example.sparely.ui.components.SectionHeader
@@ -123,7 +127,8 @@ fun ExpenseEntryScreen(
     onLinkAssetToExpense: (assetId: Long, percentageAllocated: Double) -> Unit = { _, _ -> },
     onCreateAsset: (name: String, category: com.example.sparely.domain.model.AssetCategory, description: String?, price: Double) -> Unit = { _, _, _, _ -> },
     prefillExpense: com.example.sparely.domain.model.Expense? = null,
-    prefillAssetAllocations: Map<Long, Double> = emptyMap()
+    prefillAssetAllocations: Map<Long, Double> = emptyMap(),
+    knownTitles: List<KnownTitle> = emptyList()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -155,6 +160,15 @@ fun ExpenseEntryScreen(
     var selectedAssetAllocations by remember { mutableStateOf(prefillAssetAllocations) }
     var assetSelectorExpanded by remember { mutableStateOf(false) }
     var isIgnored by remember { mutableStateOf(prefillExpense?.isIgnored ?: false) }
+
+    // ========== Remembered titles ==========
+    // Fields the user set themselves are never overwritten by a remembered title
+    var categoryTouched by remember { mutableStateOf(false) }
+    var typeTouched by remember { mutableStateOf(false) }
+    var storeTouched by remember { mutableStateOf(false) }
+    var paymentTouched by remember { mutableStateOf(false) }
+    var autofilledFrom by remember { mutableStateOf<KnownTitle?>(null) }
+    var autofillUndo by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     // Asset links for an edited expense load asynchronously; adopt them when they arrive so saving
     // doesn't wipe existing links (unless the user already linked assets themselves)
@@ -200,6 +214,63 @@ fun ExpenseEntryScreen(
                 deductFromMainAccount = default.defaultDeductFromMainAccount
             }
         }
+    }
+
+    /** Refills untouched fields from [known]'s last use; the amount only when it's still empty. */
+    fun applyKnownTitle(known: KnownTitle) {
+        val previousCategory = category
+        val previousType = expenseType
+        val previousStore = selectedStore
+        val previousStoreQuery = searchQuery
+        val previousMethod = selectedPaymentMethod
+        val previousDeduct = deductFromMainAccount
+        val previousAmount = amountText
+
+        if (!categoryTouched) category = known.category
+        if (!typeTouched) expenseType = known.type
+        if (!storeTouched) {
+            known.storeId?.let { id -> stores.find { it.id == id } }?.let { store ->
+                selectedStore = store
+                searchQuery = store.name
+            }
+        }
+        if (!paymentTouched) {
+            known.paymentMethodId?.let { id -> paymentMethods.find { it.id == id } }?.let { method ->
+                selectedPaymentMethod = method
+                deductFromMainAccount = method.defaultDeductFromMainAccount
+            }
+        }
+        if (amountText.isBlank()) amountText = known.lastAmount.formatCurrency("")
+
+        autofilledFrom = known
+        autofillUndo = {
+            category = previousCategory
+            expenseType = previousType
+            selectedStore = previousStore
+            searchQuery = previousStoreQuery
+            selectedPaymentMethod = previousMethod
+            deductFromMainAccount = previousDeduct
+            amountText = previousAmount
+        }
+    }
+
+    // Typing a known title exactly refills the form once; changing the text away clears the hint
+    androidx.compose.runtime.LaunchedEffect(description) {
+        if (!isNewExpense) return@LaunchedEffect
+        val match = TitleSuggestionEngine.exactMatch(description, knownTitles)
+        val current = autofilledFrom
+        if (match == null) {
+            autofilledFrom = null
+            autofillUndo = null
+        } else if (current == null || TitleSuggestionEngine.normalize(current.title) != TitleSuggestionEngine.normalize(match.title)) {
+            applyKnownTitle(match)
+        }
+    }
+
+    val titleSuggestions = remember(description, knownTitles, isNewExpense) {
+        if (!isNewExpense) emptyList()
+        else TitleSuggestionEngine.suggest(description, knownTitles)
+            .filter { TitleSuggestionEngine.normalize(it.title) != TitleSuggestionEngine.normalize(description) }
     }
 
     // ========== Date Picker State ==========
@@ -313,11 +384,36 @@ fun ExpenseEntryScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                if (titleSuggestions.isNotEmpty()) {
+                    TitleSuggestionRow(
+                        suggestions = titleSuggestions,
+                        currencySymbol = currencySymbol,
+                        onSuggestionSelected = { known ->
+                            // Setting the description triggers the exact-match refill above
+                            description = known.title
+                            descriptionError = null
+                        }
+                    )
+                }
+
+                autofilledFrom?.let { known ->
+                    autofillUndo?.let { undo ->
+                        TitleAutofillHint(
+                            title = known.title,
+                            onUndo = {
+                                undo()
+                                autofillUndo = null
+                            }
+                        )
+                    }
+                }
+
                 // Quick templates fill category + description for common purchases (new expenses only)
                 if (isNewExpense) {
                     QuickTemplateSelector(
                         onTemplateSelected = { template ->
                             category = template.category
+                            categoryTouched = true
                             if (template.descriptionHint != null) {
                                 description = template.descriptionHint
                                 descriptionError = null
@@ -392,9 +488,9 @@ fun ExpenseEntryScreen(
                     }
                 }
 
-                CategorySelector(selected = category, onSelect = { category = it }, isRequired = false)
+                CategorySelector(selected = category, onSelect = { category = it; categoryTouched = true }, isRequired = false)
 
-                ExpenseTypeSelector(selected = expenseType, onSelect = { expenseType = it }, isRequired = false, modifier = Modifier.fillMaxWidth())
+                ExpenseTypeSelector(selected = expenseType, onSelect = { expenseType = it; typeTouched = true }, isRequired = false, modifier = Modifier.fillMaxWidth())
             }
 
             // ========== SECTION 2: PAYMENT ==========
@@ -408,6 +504,7 @@ fun ExpenseEntryScreen(
                     selectedMethod = selectedPaymentMethod,
                     onMethodSelected = { method ->
                         selectedPaymentMethod = method
+                        paymentTouched = true
                         method?.let {
                             deductFromMainAccount = it.defaultDeductFromMainAccount
                         }
@@ -419,12 +516,12 @@ fun ExpenseEntryScreen(
                 SearchableStoreSelector(
                     stores = stores,
                     selectedStore = selectedStore,
-                    onStoreSelected = { selectedStore = it },
+                    onStoreSelected = { selectedStore = it; storeTouched = true },
                     onCreateStore = onCreateStore,
                     onEditStore = onEditStore,
                     onDeleteStore = onDeleteStore,
                     searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
+                    onSearchQueryChange = { searchQuery = it; storeTouched = true },
                     brandfetchClientId = brandfetchClientId,
                     brandSearchResults = brandSearchResults,
                     onBrandSearch = onBrandSearch
