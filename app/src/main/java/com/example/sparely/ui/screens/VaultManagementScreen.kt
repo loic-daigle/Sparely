@@ -178,11 +178,14 @@ fun VaultManagementScreen(
                 val today = LocalDate.now()
                 val completedVaults = sortedVaults.filter { it.targetAmount > 0 && it.currentBalance >= it.targetAmount }
                 val openVaults = sortedVaults - completedVaults.toSet()
+                // Flow goals (recurring monthly need) copy their end date into targetDate, so they
+                // are excluded from the urgent group; a missing start date means "starts now".
                 val urgentVaults = openVaults.filter {
-                    it.targetDate?.let { date -> ChronoUnit.DAYS.between(today, date) <= 90 } == true
+                    it.monthlyNeed == null &&
+                        it.targetDate?.let { date -> ChronoUnit.DAYS.between(today, date) <= 90 } == true
                 }
                 val activeVaults = (openVaults - urgentVaults.toSet()).filter {
-                    it.monthlyNeed != null && it.startDate?.let { date -> date <= today } == true
+                    it.monthlyNeed != null && (it.startDate?.let { date -> date <= today } ?: true)
                 }
                 val plannedVaults = openVaults - urgentVaults.toSet() - activeVaults.toSet()
 
@@ -576,7 +579,9 @@ private fun EnhancedVaultCard(
     }
     
     // Calculate financial insights
-    val daysUntilTarget = vault.targetDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }
+    val isFlowGoal = vault.monthlyNeed != null
+    val daysUntilTarget = vault.targetDate?.takeUnless { isFlowGoal }
+        ?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }
     val isOverdue = daysUntilTarget != null && daysUntilTarget < 0
     val isUrgent = daysUntilTarget != null && daysUntilTarget in 0..90
     val remaining = (vault.targetAmount - vault.currentBalance).coerceAtLeast(0.0)
@@ -631,7 +636,7 @@ private fun EnhancedVaultCard(
         progressTarget >= 1.0f -> stringResource(R.string.vault_status_goal_reached)
         isOverdue -> stringResource(R.string.vault_status_overdue)
         isUrgent -> stringResource(R.string.vault_status_urgent, daysUntilTarget ?: 0)
-        vault.monthlyNeed != null && vault.startDate?.let { it <= LocalDate.now() } == true -> stringResource(R.string.vault_status_active_flow)
+        isFlowGoal && (vault.startDate?.let { it <= LocalDate.now() } ?: true) -> stringResource(R.string.vault_status_active_flow)
         else -> stringResource(R.string.vault_status_in_progress)
     }
     
