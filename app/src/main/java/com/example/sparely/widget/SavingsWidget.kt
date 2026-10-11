@@ -351,7 +351,7 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
     amount = recurringExpense.amount,
     dueDate = dueDate,
     daysUntil = daysUntilDue,
-    autoLog = recurringExpense.autoLog,
+    autoLog = recurringExpense.executeAutomatically,
     reminderDays = recurringExpense.reminderDaysBefore
 )
 @RequiresApi(Build.VERSION_CODES.S)

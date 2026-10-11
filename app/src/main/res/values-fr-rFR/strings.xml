@@ -120,7 +120,6 @@
     <string name="settings_income_tax_title">Revenu et taxes</string>
     <string name="settings_monthly_income_label">Revenu mensuel</string>
     <string name="settings_update_income">Mettre à jour le revenu</string>
-    <string name="settings_include_tax">Les montants incluent les taxes par défaut</string>
 
     <!-- Settings Screen - Main Account -->
     <string name="settings_main_account_title">Compte principal</string>

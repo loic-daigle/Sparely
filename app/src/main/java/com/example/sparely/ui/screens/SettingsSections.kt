@@ -42,8 +42,6 @@ fun SettingsMainAccountCard(
     mainAccountBalanceText: String,
     onMainAccountBalanceTextChange: (String) -> Unit,
     onUpdateBalance: () -> Unit,
-    includeTax: Boolean,
-    onIncludeTaxToggle: (Boolean) -> Unit,
     minMainAccountBalanceText: String,
     onMinMainAccountBalanceTextChange: (String) -> Unit,
     onUpdateMinBalance: () -> Unit,
@@ -180,17 +178,6 @@ fun SettingsMainAccountCard(
                         }
                     }
                 }
-            }
-
-
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_include_tax))
-                Switch(checked = includeTax, onCheckedChange = onIncludeTaxToggle)
             }
         }
     }

@@ -916,7 +916,6 @@ private fun SparelyNavHost(
                 onDisplayNameChange = settingsViewModel::updateDisplayName,
                 onBirthdayChange = settingsViewModel::updateBirthday,
                 onMonthlyIncomeChange = settingsViewModel::updateMonthlyIncome,
-                onIncludeTaxToggle = settingsViewModel::updateIncludeTax,
                 onVaultAllocationModeChange = settingsViewModel::updateVaultAllocationMode,
                 onSavingTaxRateChange = settingsViewModel::updateSavingTaxRate,
                 onDynamicSavingTaxToggle = settingsViewModel::updateDynamicSavingTaxEnabled,

@@ -84,7 +84,6 @@ import com.example.sparely.domain.model.StoreInput
 import com.example.sparely.domain.model.displayName
 import com.example.sparely.domain.model.predictNextAmount
 import com.example.sparely.ui.components.CategorySelector
-import com.example.sparely.ui.components.ExpenseTypeSelector
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.FrequencySelector
 import com.example.sparely.ui.components.FieldDescription
@@ -393,7 +392,7 @@ private fun RecurringOverviewCard(
         val lead = preview.expense.reminderDaysBefore
         preview.daysUntil >= 0 && preview.daysUntil <= lead
     }
-    val autoLogActive = activeExpenses.filter { it.autoLog }
+    val autoLogActive = activeExpenses.filter { it.executeAutomatically }
     val savedMonthly = activeExpenses.sumOf { expense ->
         val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
         amount * monthlyFactor(expense.frequency)
@@ -401,7 +400,7 @@ private fun RecurringOverviewCard(
     // Detected-but-unsaved patterns still cost money every month, so they count toward the total
     val detectedMonthly = detected.sumOf { detectedMonthlyAmount(it) }
     val monthlyTotal = savedMonthly + detectedMonthly
-    val autoLogUpcoming = upcomingPreviews.filter { it.expense.autoLog }
+    val autoLogUpcoming = upcomingPreviews.filter { it.expense.executeAutomatically }
 
     val highlights = when (selectedMode) {
         RecurringOverviewMode.OVERVIEW -> listOfNotNull(
@@ -978,9 +977,6 @@ private fun RecurringExpenseDialog(
                         }
                     }
 
-                    // Type (Product/Service)
-                    ExpenseTypeSelector(selected = expenseType, onSelect = { expenseType = it }, isRequired = false, modifier = Modifier.fillMaxWidth())
-
                     // Frequency (Required)
                     FrequencySelector(selected = frequency, onSelect = { frequency = it }, isRequired = true)
 
@@ -1165,16 +1161,6 @@ private fun RecurringExpenseDialog(
                         brandSearchResults = brandSearchResults,
                         onBrandSearch = onBrandSearch
                     )
-
-                    // Include Tax
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.recurring_includes_tax), style = MaterialTheme.typography.bodyMedium)
-                        Switch(checked = includesTax, onCheckedChange = { includesTax = it }, modifier = Modifier.scale(0.8f))
-                    }
 
                     // Deduct from Main Account Toggle
                     ExpressiveCard(
@@ -1405,19 +1391,6 @@ private fun RecurringExpenseDialog(
                         singleLine = false,
                         minLines = 2
                     )
-
-                    // Auto-log toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.recurring_auto_log_history), style = MaterialTheme.typography.bodyMedium)
-                            FieldDescription(stringResource(R.string.recurring_form_autolog_help))
-                        }
-                        Switch(checked = autoLog, onCheckedChange = { autoLog = it }, modifier = Modifier.scale(0.8f))
-                    }
 
                     // Auto-execute toggle
                     Row(

@@ -90,7 +90,6 @@ import com.example.sparely.domain.model.Asset
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.components.CategorySelector
-import com.example.sparely.ui.components.ExpenseTypeSelector
 import com.example.sparely.ui.components.QuickTemplateSelector
 import com.example.sparely.ui.components.TitleAutofillHint
 import com.example.sparely.ui.components.TitleSuggestionRow
@@ -139,8 +138,9 @@ fun ExpenseEntryScreen(
     var description by remember { mutableStateOf(prefillExpense?.description ?: "") }
     var amountText by remember { mutableStateOf(prefillExpense?.amount?.formatCurrency("") ?: "") }
     var category by remember { mutableStateOf(prefillExpense?.category ?: ExpenseCategory.OTHER) }
-    var expenseType by remember { mutableStateOf(prefillExpense?.type ?: ExpenseType.PRODUCT) }
-    var includeTax by remember { mutableStateOf(prefillExpense?.includesTax ?: settings.includeTaxByDefault) }
+    // Not asked in the form: nothing reads them, so an edited expense just keeps what it had
+    val expenseType = prefillExpense?.type ?: ExpenseType.PRODUCT
+    val includeTax = prefillExpense?.includesTax ?: false
     var deductFromMainAccount by remember { mutableStateOf(false) }
     var deductFromVaultId by remember { mutableStateOf(prefillExpense?.deductedFromVaultId) }
     // Editing keeps the original purchase date; new and repeated expenses default to today
@@ -164,7 +164,6 @@ fun ExpenseEntryScreen(
     // ========== Remembered titles ==========
     // Fields the user set themselves are never overwritten by a remembered title
     var categoryTouched by remember { mutableStateOf(false) }
-    var typeTouched by remember { mutableStateOf(false) }
     var storeTouched by remember { mutableStateOf(false) }
     var paymentTouched by remember { mutableStateOf(false) }
     var autofilledFrom by remember { mutableStateOf<KnownTitle?>(null) }
@@ -219,7 +218,6 @@ fun ExpenseEntryScreen(
     /** Refills untouched fields from [known]'s last use; the amount only when it's still empty. */
     fun applyKnownTitle(known: KnownTitle) {
         val previousCategory = category
-        val previousType = expenseType
         val previousStore = selectedStore
         val previousStoreQuery = searchQuery
         val previousMethod = selectedPaymentMethod
@@ -227,7 +225,6 @@ fun ExpenseEntryScreen(
         val previousAmount = amountText
 
         if (!categoryTouched) category = known.category
-        if (!typeTouched) expenseType = known.type
         if (!storeTouched) {
             known.storeId?.let { id -> stores.find { it.id == id } }?.let { store ->
                 selectedStore = store
@@ -245,7 +242,6 @@ fun ExpenseEntryScreen(
         autofilledFrom = known
         autofillUndo = {
             category = previousCategory
-            expenseType = previousType
             selectedStore = previousStore
             searchQuery = previousStoreQuery
             selectedPaymentMethod = previousMethod
@@ -489,8 +485,6 @@ fun ExpenseEntryScreen(
                 }
 
                 CategorySelector(selected = category, onSelect = { category = it; categoryTouched = true }, isRequired = false)
-
-                ExpenseTypeSelector(selected = expenseType, onSelect = { expenseType = it; typeTouched = true }, isRequired = false, modifier = Modifier.fillMaxWidth())
             }
 
             // ========== SECTION 2: PAYMENT ==========
@@ -540,13 +534,6 @@ fun ExpenseEntryScreen(
                     descriptionIsWarning = deductFromMainAccount && selectedPaymentMethod?.isCreditCard == true,
                     checked = deductFromMainAccount,
                     onCheckedChange = { deductFromMainAccount = it }
-                )
-
-                ToggleRow(
-                    title = stringResource(R.string.expense_entry_include_tax_label),
-                    description = null,
-                    checked = includeTax,
-                    onCheckedChange = { includeTax = it }
                 )
             }
 

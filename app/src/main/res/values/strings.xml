@@ -137,7 +137,6 @@
     <string name="settings_income_tax_title">Income &amp; tax</string>
     <string name="settings_monthly_income_label">Monthly income</string>
     <string name="settings_update_income">Update income</string>
-    <string name="settings_include_tax">Amounts include tax by default</string>
     
     <!-- Settings Screen - Main Account -->
     <string name="settings_main_account_title">Main Account</string>
@@ -1074,9 +1073,7 @@
     <string name="recurring_edit_title">Edit recurring payment</string>
     <string name="recurring_add_title">Add recurring payment</string>
     <string name="recurring_error_fields">Please fill out all required fields correctly.</string>
-    <string name="recurring_auto_log_history">Auto-log to history</string>
-    <string name="recurring_includes_tax">Includes tax</string>
-    <string name="recurring_execute_auto">Execute automatically when due</string>
+    <string name="recurring_execute_auto">Log it automatically when due</string>
     <string name="recurring_deduct_main">Deduct from main account</string>
     <string name="recurring_deduct_vault">Deduct from vault (optional)</string>
     <string name="recurring_no_vaults">No active vaults available</string>
@@ -1184,7 +1181,6 @@
     <string name="expense_entry_auto_allocation_desc">Let Sparely pick percentages</string>
     <string name="expense_entry_applied_suggestion">Applied suggestion</string>
     <string name="expense_entry_suggestion_detail">Emergency %1$s  •  Invest %2$s  •  Fun %3$s</string>
-    <string name="expense_entry_include_tax_label">Amount includes tax?</string>
     <string name="expense_entry_deduct_main_title">Deduct from main account</string>
     <string name="expense_entry_deduct_main_desc">Reduce your main account balance by this expense</string>
     <string name="expense_entry_deduct_vault_title">Deduct from vault (optional)</string>
@@ -1585,8 +1581,7 @@
     <string name="recurring_form_link_asset_title">Link asset to subscription</string>
     <string name="recurring_form_section_automation">Automation</string>
     <string name="recurring_form_section_automation_help">Optional automation and tracking settings</string>
-    <string name="recurring_form_autolog_help">Automatically log this expense when it\'s due</string>
-    <string name="recurring_form_execute_help">Execute this recurring expense automatically</string>
+    <string name="recurring_form_execute_help">When off, the amount is held aside until you mark the bill as paid.</string>
     <string name="recurring_detected_title">Detected, not added yet</string>
     <string name="recurring_detected_desc">Found in your spending history. They\'re counted in the monthly total; add them to get reminders.</string>
     <string name="recurring_detected_detail">~%1$s every %2$d days · last %3$s</string>

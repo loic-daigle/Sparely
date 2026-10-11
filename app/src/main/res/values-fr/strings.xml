@@ -120,7 +120,6 @@
     <string name="settings_income_tax_title">Revenu et taxes</string>
     <string name="settings_monthly_income_label">Revenu mensuel</string>
     <string name="settings_update_income">Mettre à jour le revenu</string>
-    <string name="settings_include_tax">Les montants incluent les taxes par défaut</string>
 
     <!-- Settings Screen - Main Account -->
     <string name="settings_main_account_title">Compte principal</string>
@@ -848,9 +847,7 @@
     <string name="recurring_edit_title">Modifier le paiement récurrent</string>
     <string name="recurring_add_title">Ajouter un paiement récurrent</string>
     <string name="recurring_error_fields">Veuillez remplir correctement tous les champs obligatoires.</string>
-    <string name="recurring_auto_log_history">Auto-enregistrer dans l\'historique</string>
-    <string name="recurring_includes_tax">Taxes incluses</string>
-    <string name="recurring_execute_auto">Exécuter automatiquement à l\'échéance</string>
+    <string name="recurring_execute_auto">Enregistrer automatiquement à l\'échéance</string>
     <string name="recurring_deduct_main">Déduire du compte principal</string>
     <string name="recurring_deduct_vault">Déduire d\'un coffre (optionnel)</string>
     <string name="recurring_no_vaults">Aucun coffre actif disponible</string>
@@ -958,7 +955,6 @@
     <string name="expense_entry_auto_allocation_desc">Laisser Sparely choisir les pourcentages</string>
     <string name="expense_entry_applied_suggestion">Suggestion appliquée</string>
     <string name="expense_entry_suggestion_detail">Urgence %1$s  •  Invest. %2$s  •  Plaisir %3$s</string>
-    <string name="expense_entry_include_tax_label">Le montant inclut les taxes ?</string>
     <string name="expense_entry_deduct_main_title">Déduire du compte principal</string>
     <string name="expense_entry_deduct_main_desc">Réduire le solde de votre compte principal de cette dépense</string>
     <string name="expense_entry_deduct_vault_title">Déduire d\'un coffre (optionnel)</string>
@@ -1290,8 +1286,7 @@
     <string name="recurring_form_link_asset_title">Lier un bien à l\'abonnement</string>
     <string name="recurring_form_section_automation">Automatisation</string>
     <string name="recurring_form_section_automation_help">Paramètres facultatifs d\'automatisation et de suivi</string>
-    <string name="recurring_form_autolog_help">Enregistrer automatiquement cette dépense à l\'échéance</string>
-    <string name="recurring_form_execute_help">Exécuter automatiquement cette dépense récurrente</string>
+    <string name="recurring_form_execute_help">Désactivé : le montant est mis de côté jusqu\'à ce que vous marquiez la facture comme payée.</string>
     <string name="recurring_detected_title">Détectés, pas encore ajoutés</string>
     <string name="recurring_detected_desc">Trouvés dans votre historique. Ils sont inclus dans le total mensuel ; ajoutez-les pour recevoir des rappels.</string>
     <string name="recurring_detected_detail">~%1$s tous les %2$d jours · dernier %3$s</string>

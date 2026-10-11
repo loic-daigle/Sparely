@@ -2,7 +2,6 @@ package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
-import com.example.sparely.domain.model.ExpenseType
 import java.text.Normalizer
 import java.time.LocalDate
 
@@ -13,7 +12,6 @@ import java.time.LocalDate
 data class KnownTitle(
     val title: String,
     val category: ExpenseCategory,
-    val type: ExpenseType,
     val storeId: Long?,
     val paymentMethodId: Long?,
     val lastAmount: Double,
@@ -57,7 +55,6 @@ object TitleSuggestionEngine {
                 KnownTitle(
                     title = latest.description.trim(),
                     category = latest.category,
-                    type = latest.type,
                     storeId = latest.storeId?.takeIf { it in validStoreIds },
                     paymentMethodId = latest.paymentMethodId?.takeIf { it in validPaymentMethodIds },
                     lastAmount = latest.amount,
