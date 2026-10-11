@@ -720,6 +720,81 @@ fun SettingsDataCard(
     onExportCsvClick: () -> Unit
 ) {
     var brandfetchKey by remember(brandfetchClientId) { mutableStateOf(brandfetchClientId ?: "") }
+    var showImportConfirmation by remember { mutableStateOf(false) }
+    // A shorter retention deletes older expenses as soon as it's picked, so it waits here for confirmation
+    var pendingRetention by remember { mutableStateOf<ExpenseHistoryRetention?>(null) }
+
+    if (showImportConfirmation) {
+        SparelyAlertDialog(
+            onDismissRequest = { showImportConfirmation = false },
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.settings_import_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_import_confirm_message)) },
+            confirmButton = {
+                SparelyButton(
+                    onClick = {
+                        showImportConfirmation = false
+                        onImportBackupClick()
+                    },
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ) {
+                    Text(stringResource(R.string.settings_import_choose_file))
+                }
+            },
+            dismissButton = {
+                Row {
+                    SparelyTextButton(onClick = {
+                        showImportConfirmation = false
+                        onExportBackupClick()
+                    }) {
+                        Text(stringResource(R.string.settings_export_first))
+                    }
+                    SparelyTextButton(onClick = { showImportConfirmation = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            }
+        )
+    }
+
+    pendingRetention?.let { retention ->
+        // Same cutoff SettingsViewModel.pruneHistory uses: anything dated before it is deleted
+        val cutoff = LocalDate.now().minusMonths((retention.months ?: 0).toLong())
+        val doomedCount = expenses.count { it.date.isBefore(cutoff) }
+        SparelyAlertDialog(
+            onDismissRequest = { pendingRetention = null },
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.settings_retention_confirm_title)) },
+            text = {
+                Text(
+                    pluralStringResource(
+                        R.plurals.settings_retention_confirm_message,
+                        doomedCount,
+                        doomedCount,
+                        cutoff.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
+                    )
+                )
+            },
+            confirmButton = {
+                SparelyButton(
+                    onClick = {
+                        onExpenseHistoryRetentionChange(retention)
+                        pendingRetention = null
+                    },
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ) {
+                    Text(stringResource(R.string.settings_retention_confirm_action))
+                }
+            },
+            dismissButton = {
+                SparelyTextButton(onClick = { pendingRetention = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
@@ -750,7 +825,7 @@ fun SettingsDataCard(
                     }
 
                     SparelyTonalButton(
-                        onClick = onImportBackupClick,
+                        onClick = { showImportConfirmation = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(painter = androidx.compose.ui.res.painterResource(id = MaterialSymbols.DOWNLOAD), contentDescription = null, modifier = Modifier.size(18.dp))
@@ -812,8 +887,14 @@ fun SettingsDataCard(
                              text = { Text(retention.label) },
                              isSelected = settings.expenseHistoryRetention == retention,
                              onClick = {
-                                 onExpenseHistoryRetentionChange(retention)
                                  retentionExpanded = false
+                                 val cutoff = retention.months?.let { LocalDate.now().minusMonths(it.toLong()) }
+                                 val deletesSomething = cutoff != null && expenses.any { it.date.isBefore(cutoff) }
+                                 if (deletesSomething) {
+                                     pendingRetention = retention
+                                 } else {
+                                     onExpenseHistoryRetentionChange(retention)
+                                 }
                              }
                          )
                     }
@@ -868,8 +949,11 @@ fun SettingsDataCard(
             if (showResetConfirmation) {
                 SparelyAlertDialog(
                     onDismissRequest = { showResetConfirmation = false },
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     title = { Text(stringResource(R.string.settings_reset_history_confirm_title)) },
-                    text = { Text(stringResource(R.string.settings_reset_history_confirm_message)) },
+                    text = {
+                        Text(pluralStringResource(R.plurals.settings_reset_history_confirm_message, expenses.size, expenses.size))
+                    },
                     confirmButton = {
                         SparelyButton(
                             onClick = {
@@ -883,8 +967,16 @@ fun SettingsDataCard(
                         }
                     },
                     dismissButton = {
-                        SparelyTextButton(onClick = { showResetConfirmation = false }) {
-                            Text(stringResource(R.string.action_cancel))
+                        Row {
+                            SparelyTextButton(onClick = {
+                                showResetConfirmation = false
+                                onExportBackupClick()
+                            }) {
+                                Text(stringResource(R.string.settings_export_first))
+                            }
+                            SparelyTextButton(onClick = { showResetConfirmation = false }) {
+                                Text(stringResource(R.string.action_cancel))
+                            }
                         }
                     }
                 )

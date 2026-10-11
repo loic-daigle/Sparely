@@ -52,6 +52,14 @@
         <item quantity="one">%1$d purchase · %2$s total</item>
         <item quantity="other">%1$d purchases · %2$s total</item>
     </plurals>
+    <plurals name="settings_retention_confirm_message">
+        <item quantity="one">1 expense from before %2$s will be permanently deleted now. If it was paid by credit card, that card\'s balance goes down by its amount.\n\nYour vaults and savings accounts aren\'t affected. This can\'t be undone.</item>
+        <item quantity="other">%1$d expenses from before %2$s will be permanently deleted now. Credit card balances go down by the amount of any that were paid by card.\n\nYour vaults and savings accounts aren\'t affected. This can\'t be undone.</item>
+    </plurals>
+    <plurals name="settings_reset_history_confirm_message">
+        <item quantity="one">Your 1 expense and your transfer history will be permanently deleted. If it was paid by credit card, that card\'s balance goes down by its amount.\n\nYour vaults, savings accounts and settings are kept. This can\'t be undone, so export a backup first if you might want them back.</item>
+        <item quantity="other">All %1$d expenses and your transfer history will be permanently deleted. Credit card balances go down by the amount of any expenses paid by card.\n\nYour vaults, savings accounts and settings are kept. This can\'t be undone, so export a backup first if you might want them back.</item>
+    </plurals>
     <plurals name="recurring_monthly_total_detected">
         <item quantity="one">Includes %1$s from %2$d detected payment not added yet</item>
         <item quantity="other">Includes %1$s from %2$d detected payments not added yet</item>

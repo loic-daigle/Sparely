@@ -287,8 +287,13 @@
     <!-- Settings Screen - Insights -->
     <string name="settings_insights_title">Insights</string>
     <string name="settings_reset_history">Reset expense history</string>
-    <string name="settings_reset_history_confirm_title">Reset History?</string>
-    <string name="settings_reset_history_confirm_message">This will delete all your expense history. This action cannot be undone.</string>
+    <string name="settings_reset_history_confirm_title">Delete all expenses?</string>
+    <string name="settings_import_confirm_title">Replace your data with this backup?</string>
+    <string name="settings_import_confirm_message">Importing replaces everything in Sparely (expenses, vaults, budgets, payment methods, stores, wishes and settings) with what\'s in the backup file. Anything you added after that backup was made will be lost, and this can\'t be undone.\n\nTo be safe, export a backup of your current data first.</string>
+    <string name="settings_import_choose_file">Choose backup file</string>
+    <string name="settings_export_first">Export first</string>
+    <string name="settings_retention_confirm_title">Delete older expenses?</string>
+    <string name="settings_retention_confirm_action">Delete them</string>
     <string name="action_delete">Delete</string>
     
     <!-- Settings Screen - Security -->

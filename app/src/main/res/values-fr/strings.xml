@@ -216,6 +216,13 @@
     <!-- Settings Screen - Insights -->
     <string name="settings_insights_title">Aperçus</string>
     <string name="settings_reset_history">Réinitialiser l\'historique des dépenses</string>
+    <string name="settings_reset_history_confirm_title">Supprimer toutes les dépenses ?</string>
+    <string name="settings_import_confirm_title">Remplacer vos données par cette sauvegarde ?</string>
+    <string name="settings_import_confirm_message">L\'importation remplace tout ce qui se trouve dans Sparely (dépenses, coffres, budgets, moyens de paiement, magasins, souhaits et paramètres) par le contenu du fichier. Tout ce que vous avez ajouté après cette sauvegarde sera perdu, et c\'est irréversible.\n\nPar précaution, exportez d\'abord une sauvegarde de vos données actuelles.</string>
+    <string name="settings_import_choose_file">Choisir le fichier</string>
+    <string name="settings_export_first">Exporter d\'abord</string>
+    <string name="settings_retention_confirm_title">Supprimer les anciennes dépenses ?</string>
+    <string name="settings_retention_confirm_action">Les supprimer</string>
 
     <!-- Settings Screen - Security -->
     <string name="settings_security_title">Sécurité</string>

@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <plurals name="settings_retention_confirm_message">
+        <item quantity="one">%1$d dépense antérieure au %2$s sera supprimée pour de bon. Si elle a été payée par carte de crédit, le solde de cette carte baissera de son montant.\n\nTes coffres et comptes d\'épargne ne sont pas touchés. Tu ne pourras pas revenir en arrière.</item>
+        <item quantity="other">%1$d dépenses antérieures au %2$s seront supprimées pour de bon. Le solde des cartes de crédit baissera du montant de celles payées par carte.\n\nTes coffres et comptes d\'épargne ne sont pas touchés. Tu ne pourras pas revenir en arrière.</item>
+    </plurals>
+    <plurals name="settings_reset_history_confirm_message">
+        <item quantity="one">%1$d dépense et ton historique de transferts seront supprimés pour de bon. Le solde des cartes de crédit baissera du montant des dépenses payées par carte.\n\nTes coffres, comptes d\'épargne et paramètres sont conservés. Tu ne pourras pas revenir en arrière : exporte d\'abord une sauvegarde si tu veux pouvoir les récupérer.</item>
+        <item quantity="other">Les %1$d dépenses et ton historique de transferts seront supprimés pour de bon. Le solde des cartes de crédit baissera du montant des dépenses payées par carte.\n\nTes coffres, comptes d\'épargne et paramètres sont conservés. Tu ne pourras pas revenir en arrière : exporte d\'abord une sauvegarde si tu veux pouvoir les récupérer.</item>
+    </plurals>
     <plurals name="dashboard_unusual_transactions_count">
         <item quantity="one">%1$d transaction inhabituelle</item>
         <item quantity="other">%1$d transactions inhabituelles</item>
