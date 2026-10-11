@@ -979,7 +979,8 @@ class SparelyViewModel(
         }
     }
 
-    fun addExpense(input: ExpenseInput, onComplete: () -> Unit = {}) {
+    /** [onComplete] receives the new expense's id once it's saved. */
+    fun addExpense(input: ExpenseInput, onComplete: (Long) -> Unit = {}) {
         if (!input.amount.isFinite() || input.amount <= 0.0) {
             _uiState.update { it.copy(errorMessage = "Please enter a valid amount") }
             return
@@ -1004,8 +1005,17 @@ class SparelyViewModel(
             loadMoreExpenses()
 
             withContext(Dispatchers.Main) {
-                onComplete()
+                onComplete(result.expenseId)
             }
+        }
+    }
+
+    /** Takes back an expense the user just added; unlike [deleteExpense] it offers no undo of its own. */
+    fun discardAddedExpense(id: Long) {
+        safeLaunch {
+            deleteExpenseUseCase(id)
+            _uiState.update { it.copy(pagedExpenses = emptyList(), canLoadMoreExpenses = true) }
+            loadMoreExpenses()
         }
     }
 

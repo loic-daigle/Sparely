@@ -88,6 +88,16 @@
     <!-- Common actions -->
     <string name="action_save">Enregistrer</string>
     <string name="action_cancel">Annuler</string>
+    <string name="save_changes">Enregistrer les modifications</string>
+    <string name="add_expense">Ajouter la dépense</string>
+    <string name="cancel">Annuler</string>
+    <string name="onboarding_financial_emergency_title">Fonds d\'urgence</string>
+    <string name="onboarding_financial_invest_title">Fonds d\'investissement</string>
+    <string name="onboarding_financial_fun_title">Fonds loisirs</string>
+    <string name="recurring_deduct_main_title">Déduire du solde de dépenses</string>
+    <string name="recurring_deduct_main_desc_debit">L\'argent quitte votre compte immédiatement.</string>
+    <string name="recurring_deduct_main_desc_credit_off">S\'ajoute au solde de votre carte de crédit. Vous le payez plus tard.</string>
+    <string name="recurring_deduct_main_desc_credit_on_warning">Attention : vous déduisez de l\'argent ET augmentez l\'utilisation de votre crédit.</string>
     <string name="action_done">Terminé</string>
     <string name="action_change">Modifier</string>
     <string name="action_clear">Effacer</string>
@@ -1239,6 +1249,19 @@
     <string name="expense_entry_section_details_help">Notes et numéro de commande facultatifs</string>
     <string name="expense_entry_section_items">Reçu détaillé</string>
     <string name="expense_entry_section_items_help">Détaillez la dépense article par article</string>
+    <string name="expense_items_add">Ajouter un article</string>
+    <string name="expense_items_name">Nom de l\'article</string>
+    <string name="expense_items_remove">Retirer l\'article</string>
+    <string name="expense_items_qty">Qté</string>
+    <string name="expense_items_price_each">Prix unitaire</string>
+    <string name="expense_items_price_total">Total de la ligne</string>
+    <string name="expense_items_mode_each">Prix unitaire</string>
+    <string name="expense_items_mode_total">Total de la ligne</string>
+    <string name="expense_items_breakdown">%1$d × %2$s = %3$s</string>
+    <string name="expense_items_total">Total des articles : %1$s</string>
+    <string name="expense_items_unitemized">%1$s du montant n\'est pas détaillé (taxes, pourboire, frais…)</string>
+    <string name="expense_items_over_amount">Les articles dépassent le montant de %1$s</string>
+    <string name="expense_items_use_total">Utiliser le total des articles comme montant</string>
     <string name="expense_entry_quick_templates">Modèles rapides</string>
     <string name="expense_entry_title_autofilled">Rempli d’après votre dernier « %1$s »</string>
     <string name="expense_entry_title_autofill_undo">Annuler</string>
@@ -1246,6 +1269,13 @@
     <string name="expense_entry_pick_date">Choisir une date</string>
     <string name="expense_entry_error_description">Ajoutez une courte description</string>
     <string name="expense_entry_fix_errors">Corrigez les champs en surbrillance pour enregistrer</string>
+    <string name="expense_entry_saved_message">Dépense ajoutée</string>
+    <string name="expense_entry_saved_undo">Annuler</string>
+    <string name="expense_entry_discard_title">Abandonner cette dépense ?</string>
+    <string name="expense_entry_discard_edit_title">Abandonner vos modifications ?</string>
+    <string name="expense_entry_discard_message">Ce que vous avez saisi ne sera pas enregistré.</string>
+    <string name="expense_entry_discard_confirm">Abandonner</string>
+    <string name="expense_entry_keep_editing">Continuer</string>
     <string name="expense_entry_link_assets_title">Lier à des biens</string>
     <string name="expense_entry_no_assets_linked">Aucun bien lié à cette dépense</string>
     <string name="expense_entry_remove_asset">Retirer le bien</string>

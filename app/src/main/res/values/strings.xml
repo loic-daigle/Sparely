@@ -1534,6 +1534,19 @@
     <string name="expense_entry_section_details_help">Optional notes and order information</string>
     <string name="expense_entry_section_items">Itemized receipt</string>
     <string name="expense_entry_section_items_help">Break down the expense into individual items</string>
+    <string name="expense_items_add">Add item</string>
+    <string name="expense_items_name">Item name</string>
+    <string name="expense_items_remove">Remove item</string>
+    <string name="expense_items_qty">Qty</string>
+    <string name="expense_items_price_each">Price each</string>
+    <string name="expense_items_price_total">Line total</string>
+    <string name="expense_items_mode_each">Price each</string>
+    <string name="expense_items_mode_total">Line total</string>
+    <string name="expense_items_breakdown">%1$d × %2$s = %3$s</string>
+    <string name="expense_items_total">Items total: %1$s</string>
+    <string name="expense_items_unitemized">%1$s of the amount isn\'t itemized (tax, tip, fees…)</string>
+    <string name="expense_items_over_amount">The items add up to %1$s more than the amount</string>
+    <string name="expense_items_use_total">Use items total as the amount</string>
     <string name="expense_entry_quick_templates">Quick templates</string>
     <string name="expense_entry_title_autofilled">Filled from your last “%1$s”</string>
     <string name="expense_entry_title_autofill_undo">Undo</string>
@@ -1541,6 +1554,13 @@
     <string name="expense_entry_pick_date">Pick date</string>
     <string name="expense_entry_error_description">Add a short description</string>
     <string name="expense_entry_fix_errors">Fix the highlighted fields to save</string>
+    <string name="expense_entry_saved_message">Expense added</string>
+    <string name="expense_entry_saved_undo">Undo</string>
+    <string name="expense_entry_discard_title">Discard this expense?</string>
+    <string name="expense_entry_discard_edit_title">Discard your changes?</string>
+    <string name="expense_entry_discard_message">What you entered won\'t be saved.</string>
+    <string name="expense_entry_discard_confirm">Discard</string>
+    <string name="expense_entry_keep_editing">Keep editing</string>
     <string name="expense_entry_link_assets_title">Link to assets</string>
     <string name="expense_entry_no_assets_linked">No assets linked to this expense</string>
     <string name="expense_entry_remove_asset">Remove asset</string>

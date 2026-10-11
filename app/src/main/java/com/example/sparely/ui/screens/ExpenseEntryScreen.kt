@@ -2,8 +2,15 @@
 
 package com.example.sparely.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -191,9 +198,16 @@ fun ExpenseEntryScreen(
     }
 
     // ========== Auto-sum logic for line items ==========
+    // The amount follows the items total until the user types an amount of their own: a receipt's
+    // total often includes tax, tip or fees that aren't itemized
+    var amountFollowsItems by remember {
+        val itemsTotal = expenseItems.sumOf { it.totalPrice }
+        val amount = amountText.toSafeDouble()
+        mutableStateOf(amount == null || (itemsTotal > 0 && kotlin.math.abs(amount - itemsTotal) < 0.005))
+    }
     androidx.compose.runtime.LaunchedEffect(expenseItems.toList()) {
         val itemsTotal = expenseItems.sumOf { it.totalPrice }
-        if (itemsTotal > 0) {
+        if (amountFollowsItems && itemsTotal > 0) {
             amountText = itemsTotal.formatCurrency("")
         }
     }
@@ -278,11 +292,42 @@ fun ExpenseEntryScreen(
     val amountRequiredError = stringResource(R.string.expense_entry_error_amount)
     val descriptionRequiredError = stringResource(R.string.expense_entry_error_description)
 
+    // ========== Keyboard flow ==========
+    // A new expense opens with the keypad up on the amount; Next goes to the title, Done saves
+    val amountFocus = remember { FocusRequester() }
+    val descriptionFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (isNewExpense) amountFocus.requestFocus()
+    }
+
+    // ========== Leaving with unsaved input ==========
+    // Snapshot of what the form opened with; leaving after changing any of it asks first
+    val initialSnapshot = remember {
+        // Line items overwrite the amount with their total on open, so start from that total
+        val initialAmount = expenseItems.sumOf { it.totalPrice }.takeIf { it > 0 && amountFollowsItems }?.formatCurrency("") ?: amountText
+        listOf(description, initialAmount, category, selectedDate, searchQuery, notes, orderNumber,
+            expenseItems.toList(), deductFromVaultId, isIgnored, manualMode)
+    }
+    val hasChanges = listOf(description, amountText, category, selectedDate, searchQuery, notes, orderNumber,
+        expenseItems.toList(), deductFromVaultId, isIgnored, manualMode) != initialSnapshot ||
+        paymentTouched || selectedAssetAllocations != prefillAssetAllocations
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    fun requestLeave() {
+        if (hasChanges) showDiscardDialog = true else onCancel()
+    }
+    // Covers the system back gesture and the top bar's back arrow
+    BackHandler(enabled = !isSaving) { requestLeave() }
+
     fun submit() {
         if (isSaving) return
         val amount = amountText.toSafeDouble()
         amountError = if (amount == null || amount <= 0.0) amountRequiredError else null
         descriptionError = if (description.isBlank()) descriptionRequiredError else null
+        // Put the cursor where the fix is needed
+        when {
+            amountError != null -> amountFocus.requestFocus()
+            descriptionError != null -> descriptionFocus.requestFocus()
+        }
         if (amountError != null || descriptionError != null || amount == null) return
 
         // Guard against double taps while the store is being created
@@ -321,7 +366,8 @@ fun ExpenseEntryScreen(
                     paymentMethodId = selectedPaymentMethod?.id,
                     notes = notes.takeIf { it.isNotBlank() },
                     orderNumber = orderNumber.takeIf { it.isNotBlank() },
-                    items = expenseItems.toList(),
+                    // Rows added but never filled in aren't part of the receipt
+                    items = expenseItems.filter { it.name.isNotBlank() || it.totalPrice > 0.0 },
                     assetAllocations = selectedAssetAllocations,
                     type = expenseType,
                     isIgnored = isIgnored
@@ -330,7 +376,31 @@ fun ExpenseEntryScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = {
+                Text(stringResource(if (isEditMode) R.string.expense_entry_discard_edit_title else R.string.expense_entry_discard_title))
+            },
+            text = { Text(stringResource(R.string.expense_entry_discard_message)) },
+            confirmButton = {
+                SparelyTextButton(onClick = {
+                    showDiscardDialog = false
+                    onCancel()
+                }) {
+                    Text(stringResource(R.string.expense_entry_discard_confirm))
+                }
+            },
+            dismissButton = {
+                SparelyTextButton(onClick = { showDiscardDialog = false }) {
+                    Text(stringResource(R.string.expense_entry_keep_editing))
+                }
+            }
+        )
+    }
+
+    // imePadding keeps the save bar sitting on top of the keyboard instead of under it
+    Column(modifier = Modifier.fillMaxSize().imePadding()) {
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -352,6 +422,8 @@ fun ExpenseEntryScreen(
                     onValueChange = {
                         amountText = it.filterCurrencyInput()
                         amountError = null
+                        // Typing an amount takes it over from the items; clearing it hands it back
+                        amountFollowsItems = amountText.isBlank()
                     },
                     label = { Text(stringResource(R.string.expense_entry_amount_label)) },
                     prefix = { Text(currencySymbol) },
@@ -359,9 +431,12 @@ fun ExpenseEntryScreen(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Next
                     ),
+                    keyboardActions = KeyboardActions(onNext = { descriptionFocus.requestFocus() }),
                     isError = amountErr != null,
                     supportingText = if (amountErr != null) { { Text(amountErr) } } else null,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(amountFocus)
                 )
 
                 SparelyTextField(
@@ -375,9 +450,13 @@ fun ExpenseEntryScreen(
                         capitalization = KeyboardCapitalization.Sentences,
                         imeAction = ImeAction.Done
                     ),
+                    // Amount + title is a complete expense, so Done saves it
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
                     isError = descriptionErr != null,
                     supportingText = if (descriptionErr != null) { { Text(descriptionErr) } } else null,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(descriptionFocus)
                 )
 
                 if (titleSuggestions.isNotEmpty()) {
@@ -410,7 +489,9 @@ fun ExpenseEntryScreen(
                         onTemplateSelected = { template ->
                             category = template.category
                             categoryTouched = true
-                            if (template.descriptionHint != null) {
+                            // Only replaces an empty title or another template's, never one the user typed
+                            val titleIsTemplate = QuickTemplates.ALL.any { it.descriptionHint == description }
+                            if (template.descriptionHint != null && (description.isBlank() || titleIsTemplate)) {
                                 description = template.descriptionHint
                                 descriptionError = null
                             }
@@ -826,8 +907,40 @@ fun ExpenseEntryScreen(
                     onItemsChanged = { newItems ->
                         expenseItems.clear()
                         expenseItems.addAll(newItems)
-                    }
+                    },
+                    currencySymbol = currencySymbol
                 )
+
+                // How the items compare to the amount being saved
+                val itemsTotal = expenseItems.sumOf { it.totalPrice }
+                val amountValue = amountText.toSafeDouble()
+                if (itemsTotal > 0.0) {
+                    val difference = (amountValue ?: 0.0) - itemsTotal
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(R.string.expense_items_total, itemsTotal.formatCurrency(currencySymbol)),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        if (amountValue != null && kotlin.math.abs(difference) >= 0.005) {
+                            Text(
+                                text = if (difference > 0) {
+                                    stringResource(R.string.expense_items_unitemized, difference.formatCurrency(currencySymbol))
+                                } else {
+                                    stringResource(R.string.expense_items_over_amount, (-difference).formatCurrency(currencySymbol))
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (difference > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                            )
+                            SparelyTextButton(onClick = {
+                                amountText = itemsTotal.formatCurrency("")
+                                amountError = null
+                                amountFollowsItems = true
+                            }) {
+                                Text(stringResource(R.string.expense_items_use_total))
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -841,6 +954,8 @@ fun ExpenseEntryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // The bar's colour runs under the system nav bar; with the keyboard up this is 0
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -855,7 +970,7 @@ fun ExpenseEntryScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    SparelyTonalButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    SparelyTonalButton(onClick = ::requestLeave, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.cancel))
                     }
                     SparelyButton(

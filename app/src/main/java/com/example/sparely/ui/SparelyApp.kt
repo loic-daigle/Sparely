@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -250,8 +255,15 @@ private fun SparelyScaffold(
     // Only show the quick actions FAB on the Dashboard screen. Other screens provide their
     // own FABs (Vaults, Recurring, etc.) and we don't want to collide with them.
     val showFab = currentDestination?.route == SparelyDestination.Dashboard.route
+    val isExpenseEntry = currentDestination?.route == SparelyDestination.ExpenseEntry.route
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        // Without a bottom bar, the expense form's action bar fills the nav-bar area itself
+        contentWindowInsets = if (isExpenseEntry) {
+            ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+        } else {
+            ScaffoldDefaults.contentWindowInsets
+        },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             if (currentDestination?.route != SparelyDestination.Dashboard.route && 
@@ -268,10 +280,13 @@ private fun SparelyScaffold(
             }
         },
         bottomBar = {
-            SparelyBottomBar(
-                currentDestination = currentDestination,
-                navController = navController
-            )
+            // The expense form is a focused task: no tabs to tap away from it mid-entry
+            if (currentDestination?.route != SparelyDestination.ExpenseEntry.route) {
+                SparelyBottomBar(
+                    currentDestination = currentDestination,
+                    navController = navController
+                )
+            }
         },
         floatingActionButton = {
             if (showFab) {
@@ -592,7 +607,9 @@ private fun SparelyTopBar(
         },
         navigationIcon = {
             if (!isTopLevel) {
-                IconButton(onClick = { navController.popBackStack() }) {
+                // Through the dispatcher so a screen's BackHandler (e.g. unsaved changes) sees it too
+                val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+                IconButton(onClick = { backDispatcher?.onBackPressed() ?: navController.popBackStack() }) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ARROW_BACK,
                         contentDescription = stringResource(R.string.action_back)
@@ -1045,6 +1062,8 @@ private fun SparelyNavHost(
                 }
             }
             
+            // Lets the form's keyboard padding know the Scaffold already padded for the system bars
+            Box(modifier = Modifier.consumeWindowInsets(innerPadding)) {
             ExpenseEntryScreen(
                 settings = uiState.settings,
                 recommendation = uiState.recommendation,
@@ -1075,8 +1094,20 @@ private fun SparelyNavHost(
                         }
                     } else {
                         // Creating new expense
-                        viewModel.addExpense(input) {
+                        viewModel.addExpense(input) { expenseId ->
                             vaultViewModel.refreshPendingContributions()
+                            // Confirms the save on the screen we return to, with a one-tap way back
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = context.getString(R.string.expense_entry_saved_message),
+                                    actionLabel = context.getString(R.string.expense_entry_saved_undo),
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.discardAddedExpense(expenseId)
+                                    vaultViewModel.refreshPendingContributions()
+                                }
+                            }
                         }
                     }
                     viewModel.clearPrefillExpense() // Clear prefill after saving
@@ -1110,6 +1141,7 @@ private fun SparelyNavHost(
                 prefillAssetAllocations = uiState.prefillAssetAllocations,
                 knownTitles = uiState.knownTitles
             )
+            }
         }
         composable(SparelyDestination.VaultTransfers.route) {
             VaultTransfersScreen(
