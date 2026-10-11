@@ -138,7 +138,9 @@ object PurchaseAffordabilityEngine {
         val overSafeToSpend = (price - before.safeToSpend).coerceAtLeast(0.0)
 
         val monthlyCost = before.essentialObligations30Days + before.dailyBurnRate * 30
-        val monthsOfBufferAfter = if (monthlyCost > 0) after.currentBalance / monthlyCost else null
+        // Card balances and pending transfers are not really the user's to spend, so they are no cushion.
+        val cushionAfter = (after.currentBalance - input.obligations).coerceAtLeast(0.0)
+        val monthsOfBufferAfter = if (monthlyCost > 0) cushionAfter / monthlyCost else null
         val shareOfIncome = input.expectedMonthlyIncome.takeIf { it > 0 }?.let { price / it }
 
         // Uneven income needs a thicker cushion before a big purchase is comfortable.
@@ -153,7 +155,8 @@ object PurchaseAffordabilityEngine {
             minBufferMonths
         )
 
-        val cardBalance = context.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance }.coerceAtLeast(0.0)
+        val cardBalance = input.creditCardBalance.takeIf { it > 0 }
+            ?: context.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance }.coerceAtLeast(0.0)
 
         val findings = mutableListOf<Finding>()
         var verdict = Verdict.GO_AHEAD
@@ -262,7 +265,7 @@ object PurchaseAffordabilityEngine {
         }
 
         // "Could buy it twice": a comfortable cushion beyond the purchase itself.
-        if (!shortfall && fromSavings <= 0 && liquidBefore >= 2 * price) {
+        if (!shortfall && fromSavings <= 0 && liquidBefore - input.committedMoney >= 2 * price) {
             add(Impact.OK, FindingKind.COULD_PAY_TWICE, 0.0)
         }
 
@@ -280,7 +283,7 @@ object PurchaseAffordabilityEngine {
 
         // Not a clear yes: turn it into a save-up plan from the monthly surplus.
         val monthlySurplus = before.projectedBalance30Days - before.currentBalance
-        val cushionGap = if (monthlyCost > 0) minBufferMonths * monthlyCost - after.currentBalance else 0.0
+        val cushionGap = if (monthlyCost > 0) minBufferMonths * monthlyCost - cushionAfter else 0.0
         val gap = max(max(price - before.safeToSpend, cushionGap), 0.0)
         if (verdict != Verdict.GO_AHEAD && gap > 0) {
             if (monthlySurplus >= 1.0) {

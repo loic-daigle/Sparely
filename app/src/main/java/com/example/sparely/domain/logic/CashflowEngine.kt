@@ -69,6 +69,10 @@ object CashflowEngine {
         val minMainAccountBalance: Double = 0.0,
         /** Money held back for wishlist items: still in the bank, but not available to spend. */
         val earmarkedMoney: Double = 0.0,
+        /** Owed on credit cards: it has not left the main account yet, but will when the bill is paid. */
+        val creditCardBalance: Double = 0.0,
+        /** Pending vault transfers and recurring payments, frozen on the main account until approved. */
+        val pendingTransfers: Double = 0.0,
         val recentExpenses: List<Expense>,
         val recurringExpenses: List<RecurringExpense>,
         val expectedMonthlyIncome: Double,
@@ -77,7 +81,13 @@ object CashflowEngine {
         val paySchedule: PayScheduleSettings? = null,
         val lowBalanceThreshold: Double = 100.0,
         val today: LocalDate = LocalDate.now()
-    )
+    ) {
+        /** Bills that will leave the account no matter what: cards and approved-but-pending transfers. */
+        val obligations: Double get() = creditCardBalance.coerceAtLeast(0.0) + pendingTransfers.coerceAtLeast(0.0)
+
+        /** Everything in the account that is already spoken for, besides the user's minimum balance. */
+        val committedMoney: Double get() = obligations + earmarkedMoney.coerceAtLeast(0.0)
+    }
 
     // === Main Forecast Function ===
 
@@ -94,7 +104,7 @@ object CashflowEngine {
         val totalLiquidMoney = input.currentBalance + input.totalHisaBalance
         
         // Reserved Money = Minimum Balance setting
-        val reservedMoney = input.minMainAccountBalance + input.earmarkedMoney
+        val reservedMoney = input.minMainAccountBalance + input.committedMoney
 
         // Safe to spend = Total Liquid - Upcoming Obligations - Buffer - Reserved
         // The buffer is what past forecasts show the user actually needed: the overspend that 80%

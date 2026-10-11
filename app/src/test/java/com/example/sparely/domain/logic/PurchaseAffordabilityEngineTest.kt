@@ -175,6 +175,47 @@ class PurchaseAffordabilityEngineTest {
     }
 
     @Test
+    fun `credit card balances and pending transfers are not safe to spend`() {
+        val free = PurchaseAffordabilityEngine.evaluate(input(main = 10_000.0), price = 100.0)
+        val committed = PurchaseAffordabilityEngine.evaluate(
+            input(main = 10_000.0).copy(creditCardBalance = 1_500.0, pendingTransfers = 500.0),
+            price = 100.0
+        )
+
+        assertEquals(free.before.safeToSpend - 2_000.0, committed.before.safeToSpend, 0.001)
+    }
+
+    @Test
+    fun `a purchase that only fits by spending the card bill is not a go ahead`() {
+        // 5,000 in the account but 4,000 of it is owed on a card: a 2,000 purchase leaves too little.
+        val result = PurchaseAffordabilityEngine.evaluate(
+            input(main = 5_000.0).copy(creditCardBalance = 4_000.0),
+            price = 2_000.0
+        )
+
+        assertTrue(result.verdict != Verdict.GO_AHEAD)
+    }
+
+    @Test
+    fun `card balances are no cushion when judging what is left`() {
+        val plain = PurchaseAffordabilityEngine.evaluate(input(main = 6_000.0, income = 0.0, recurring = listOf(rent())), 500.0)
+        val owing = PurchaseAffordabilityEngine.evaluate(
+            input(main = 6_000.0, income = 0.0, recurring = listOf(rent())).copy(creditCardBalance = 3_000.0),
+            500.0
+        )
+
+        assertTrue(owing.monthsOfBufferAfter!! < plain.monthsOfBufferAfter!!)
+    }
+
+    @Test
+    fun `reserves for other wishes count against a new purchase`() {
+        val without = PurchaseAffordabilityEngine.evaluate(input(main = 10_000.0), price = 9_000.0)
+        val withWishes = PurchaseAffordabilityEngine.evaluate(input(main = 10_000.0).copy(earmarkedMoney = 2_000.0), price = 9_000.0)
+
+        assertTrue(withWishes.overSafeToSpend > without.overSafeToSpend)
+    }
+
+    @Test
     fun `monthly surplus is reported`() {
         val result = PurchaseAffordabilityEngine.evaluate(input(main = 10_000.0, income = 3_000.0), price = 100.0)
 

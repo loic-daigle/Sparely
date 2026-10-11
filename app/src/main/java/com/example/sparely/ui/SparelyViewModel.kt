@@ -229,6 +229,7 @@ class SparelyViewModel(
         val savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
         val assets: List<Asset> = emptyList(),
         val wishlists: List<com.example.sparely.domain.model.Wishlist> = emptyList(),
+        val frozenFundsTotal: Double = 0.0,
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
         val challenges: List<SavingsChallenge> = emptyList(),
@@ -290,6 +291,9 @@ class SparelyViewModel(
                 }
                 .combine(savingsRepository.observeActiveWishlists()) { feed: AggregatedFeeds, wishlists: List<com.example.sparely.domain.model.Wishlist> ->
                     feed.copy(wishlists = wishlists)
+                }
+                .combine(savingsRepository.observeFrozenFunds()) { feed: AggregatedFeeds, frozen: List<com.example.sparely.data.local.FrozenFundEntity> ->
+                    feed.copy(frozenFundsTotal = frozen.sumOf { it.amount })
                 }
                 .combine(savingsRepository.observeRecurringExpenses()) { feed: AggregatedFeeds, recurring: List<RecurringExpense> ->
                     feed.copy(recurring = recurring)
@@ -456,6 +460,8 @@ class SparelyViewModel(
                     val cashflowForecast = CashflowEngine.forecast(forecastInput)
 
                     // Compute spending pattern analysis for anomaly detection and trends
+                        creditCardBalance = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) },
+                        pendingTransfers = feed.frozenFundsTotal.coerceAtLeast(0.0),
                     val categoryBudgetMap = activeBudgets.associate { it.category to it.monthlyLimit }
                     val spendingPatterns = SpendingPatternEngine.analyze(
                         expenses = predictionExpenses,
