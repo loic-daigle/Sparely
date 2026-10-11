@@ -1484,4 +1484,17 @@
     <string name="purchase_check_card_subtitle_decisions">%1$d en attente de votre décision</string>
     <string name="purchase_check_card_title">Un gros achat en vue ?</string>
     <string name="purchase_check_card_subtitle">Vérifiez si vous pouvez vous le permettre</string>
+    <string name="wishlist_detail_title">Détails du souhait</string>
+    <string name="wishlist_detail_set_aside">Mis de côté</string>
+    <string name="wishlist_detail_still_to_find">Reste à trouver</string>
+    <string name="wishlist_detail_held_explain">Les %1$s déjà mis de côté sont déjà retirés de ce que vous pouvez dépenser ; l’acheter n’en demande donc que %2$s de plus.</string>
+    <string name="wishlist_detail_effect">Effet sur votre argent</string>
+    <string name="wishlist_detail_effect_note">Comparé à ce que vous pourriez dépenser aujourd’hui, en comptant ce que vous avez mis de côté pour cet achat.</string>
+    <string name="commit_title">Déjà engagé</string>
+    <string name="commit_cards">Soldes des cartes de crédit</string>
+    <string name="commit_pending">Transferts et paiements en attente</string>
+    <string name="commit_wishes_other">Mis de côté pour d’autres souhaits</string>
+    <string name="commit_wishes_all">Mis de côté pour votre liste de souhaits</string>
+    <string name="commit_total">Retiré de ce que vous pouvez dépenser</string>
+    <string name="commit_note">Cet argent est toujours dans votre compte, mais il est dû ou promis ailleurs ; il n’est donc pas compté comme disponible.</string>
 </resources>

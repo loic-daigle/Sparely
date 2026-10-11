@@ -93,6 +93,7 @@ import com.example.sparely.ui.screens.DashboardScreen
 import com.example.sparely.ui.screens.ExpenseEntryScreen
 import com.example.sparely.ui.screens.FinancialHealthScreen
 import com.example.sparely.ui.screens.PurchaseCheckScreen
+import com.example.sparely.ui.screens.WishDetailScreen
 import com.example.sparely.ui.screens.WishlistScreen
 import com.example.sparely.ui.screens.HistoryScreen
 import com.example.sparely.ui.screens.MainAccountScreen
@@ -893,6 +894,20 @@ private fun SparelyNavHost(
                 onSaveToWishlist = viewModel::addWishlistItem
             )
         }
+        composable(SparelyDestination.WishDetail.route) { backStackEntry ->
+            val wishId = backStackEntry.arguments?.getString("wishId")?.toLongOrNull() ?: 0L
+            WishDetailScreen(
+                uiState = uiState,
+                wishId = wishId,
+                onNavigateBack = { navController.popBackStack() },
+                onAddSavings = viewModel::addSavingsToWishlist,
+                onSetTargetDate = viewModel::setWishlistTargetDate,
+                onStillWant = viewModel::confirmWishlistStillWanted,
+                onNotAnymore = viewModel::archiveWishlistItem,
+                onBought = viewModel::archiveWishlistItem,
+                onDelete = viewModel::deleteWishlistItem
+            )
+        }
         composable(SparelyDestination.Wishlist.route) {
             WishlistScreen(
                 uiState = uiState,
@@ -901,6 +916,7 @@ private fun SparelyNavHost(
                 onBought = viewModel::archiveWishlistItem,
                 onStillWant = viewModel::confirmWishlistStillWanted,
                 onNotAnymore = viewModel::archiveWishlistItem,
+                onOpenWish = { id -> navController.navigate(SparelyDestination.WishDetail.createRoute(id)) },
                 onSetTargetDate = viewModel::setWishlistTargetDate,
                 onDelete = viewModel::deleteWishlistItem
             )
@@ -1271,6 +1287,7 @@ private enum class SparelyDestination(
     VaultTransfers("vaultTransfers", null, MaterialSymbols.SWAP_HORIZ, R.string.vault_transfers_title),
     VaultHistory("vaultHistory/{vaultId}", null, MaterialSymbols.HISTORY, R.string.vault_history_screen_title),
 
+    WishDetail("wishlist/{wishId}", null, MaterialSymbols.SHOPPING_BAG, R.string.wishlist_detail_title),
     MainAccount("mainAccount", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.dashboard_main_account_title),
     Insights("insights", null, MaterialSymbols.LIGHTBULB, R.string.insights_title),
     ManageSavingsAccounts("manage_savings", null, MaterialSymbols.SAVINGS, R.string.savings_accounts_title),

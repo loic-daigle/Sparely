@@ -1769,4 +1769,17 @@
     <string name="purchase_check_card_subtitle_decisions">%1$d waiting for your decision</string>
     <string name="purchase_check_card_title">Thinking of a big purchase?</string>
     <string name="purchase_check_card_subtitle">Check if you can afford it</string>
+    <string name="wishlist_detail_title">Wish details</string>
+    <string name="wishlist_detail_set_aside">Set aside</string>
+    <string name="wishlist_detail_still_to_find">Still to find</string>
+    <string name="wishlist_detail_held_explain">The %1$s you\'ve set aside is already off what you can spend, so buying it only takes %2$s more.</string>
+    <string name="wishlist_detail_effect">Effect on your money</string>
+    <string name="wishlist_detail_effect_note">Compared with what you could spend today, counting what you\'ve set aside for this.</string>
+    <string name="commit_title">Already spoken for</string>
+    <string name="commit_cards">Credit card balances</string>
+    <string name="commit_pending">Pending transfers and payments</string>
+    <string name="commit_wishes_other">Held back for other wishes</string>
+    <string name="commit_wishes_all">Held back for your wishlist</string>
+    <string name="commit_total">Taken off what you can spend</string>
+    <string name="commit_note">This money is still in your account, but it\'s owed or promised elsewhere, so it isn\'t counted as available.</string>
 </resources>

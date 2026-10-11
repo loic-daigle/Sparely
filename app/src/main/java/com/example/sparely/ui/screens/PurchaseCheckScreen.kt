@@ -143,6 +143,12 @@ fun PurchaseCheckScreen(
             item(key = "impact_title") { SectionTitle(stringResource(R.string.purchase_check_section_impact)) }
             item(key = "comparison") { ComparisonCard(result) }
 
+            if (input != null && input.committedMoney >= 0.5) {
+                item(key = "commitments") {
+                    CommitmentsCard(input = input, ownReserve = 0.0, wishesLabelRes = R.string.commit_wishes_all)
+                }
+            }
+
             item(key = "why_title") { SectionTitle(stringResource(R.string.purchase_check_why)) }
             item(key = "findings") { FindingsCard(result.findings) }
 
@@ -195,7 +201,7 @@ internal fun SparelyUiState.toPurchaseContext() = PurchaseAffordabilityEngine.Co
 // ── Building blocks ─────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -313,8 +319,54 @@ private fun InputCard(
     }
 }
 
+/**
+ * Money that is still in the account but already spoken for, which is why it is not counted as
+ * available. [ownReserve] is the part of the wishlist reserve that belongs to the item being looked at.
+ */
 @Composable
-private fun HintCard(waitingForData: Boolean) {
+internal fun CommitmentsCard(
+    input: com.example.sparely.domain.logic.CashflowEngine.ForecastInput,
+    ownReserve: Double,
+    wishesLabelRes: Int
+) {
+    val spacing = MaterialTheme.spacing
+    val otherWishes = (input.earmarkedMoney - ownReserve).coerceAtLeast(0.0)
+    val rows = listOf(
+        R.string.commit_cards to input.creditCardBalance.coerceAtLeast(0.0),
+        R.string.commit_pending to input.pendingTransfers.coerceAtLeast(0.0),
+        wishesLabelRes to otherWishes
+    ).filter { it.second >= 0.5 }
+    val total = rows.sumOf { it.second }
+
+    ExpressiveCard {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(
+                text = stringResource(R.string.commit_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            rows.forEach { (label, amount) ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+                    Text(amount.formatCurrency(decimals = 0), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(stringResource(R.string.commit_total), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(total.formatCurrency(decimals = 0), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.ExtraBold)
+            }
+            Text(
+                text = stringResource(R.string.commit_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+internal fun HintCard(waitingForData: Boolean) {
     val spacing = MaterialTheme.spacing
     ExpressiveCard(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(
@@ -359,7 +411,7 @@ internal fun verdictColor(verdict: Verdict): Color = when (verdict) {
 }
 
 @Composable
-private fun VerdictCard(result: PurchaseAffordabilityEngine.Result) {
+internal fun VerdictCard(result: PurchaseAffordabilityEngine.Result) {
     val color = verdictColor(result.verdict)
     val style = when (result.verdict) {
         Verdict.GO_AHEAD -> VerdictStyle(color, R.string.purchase_check_verdict_go, R.string.purchase_check_verdict_go_desc, MaterialSymbols.CHECK_CIRCLE)
@@ -391,7 +443,7 @@ private fun VerdictCard(result: PurchaseAffordabilityEngine.Result) {
 }
 
 @Composable
-private fun ComparisonCard(result: PurchaseAffordabilityEngine.Result) {
+internal fun ComparisonCard(result: PurchaseAffordabilityEngine.Result) {
     ExpressiveCard {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -460,7 +512,7 @@ private fun ComparisonRow(label: String, before: Double, after: Double) {
 
 /** All reasons in one card, most serious first, so the worst news is never buried. */
 @Composable
-private fun FindingsCard(findings: List<PurchaseAffordabilityEngine.Finding>) {
+internal fun FindingsCard(findings: List<PurchaseAffordabilityEngine.Finding>) {
     val ordered = remember(findings) { findings.sortedByDescending { it.impact.ordinal } }
     ExpressiveCard(contentPadding = MaterialTheme.spacing.md) {
         Column {

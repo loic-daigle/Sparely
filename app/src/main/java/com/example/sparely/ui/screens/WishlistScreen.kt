@@ -64,7 +64,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /** A saved wish together with how it stands against the user's finances today. */
-private data class WishStatus(
+internal data class WishStatus(
     val wish: Wishlist,
     /** Money held back for it so far: the scheduled build-up or what was added by hand. */
     val reserved: Double,
@@ -73,6 +73,41 @@ private data class WishStatus(
 ) {
     val progress: Float
         get() = if (wish.targetAmount > 0) (reserved / wish.targetAmount).toFloat().coerceIn(0f, 1f) else 0f
+}
+
+/**
+ * Checks one wish against the user's finances. Money already held back for the wish itself must not
+ * count against buying it, so only the reserves for the *other* wishes stay taken off.
+ */
+internal fun buildWishStatus(
+    wish: Wishlist,
+    input: com.example.sparely.domain.logic.CashflowEngine.ForecastInput?,
+    context: PurchaseAffordabilityEngine.Context
+): WishStatus {
+    val reserved = WishPlan.reserved(wish)
+    val result = input?.let {
+        val others = (it.earmarkedMoney - reserved).coerceAtLeast(0.0)
+        PurchaseAffordabilityEngine.evaluate(it.copy(earmarkedMoney = others), wish.targetAmount, context)
+    }
+    return WishStatus(wish, reserved, result, result?.let { r -> WishReadiness.assess(wish, r.verdict, reserved = reserved) })
+}
+
+/** Whole days left in the reflection time, rounded up; 0 when it is over or there is none. */
+internal fun cooldownDaysLeft(wish: Wishlist): Int {
+    val now = LocalDateTime.now()
+    return wish.cooldownExpiresAt
+        ?.takeIf { it.isAfter(now) }
+        ?.let { ((Duration.between(now, it).toHours() + 23) / 24).toInt() }
+        ?: 0
+}
+
+@Composable
+internal fun readinessLabel(readiness: WishReadiness?, cooldownDays: Int): String? = when (readiness) {
+    WishReadiness.READY -> stringResource(R.string.wishlist_ready)
+    WishReadiness.COOLING_DOWN -> stringResource(R.string.wishlist_cooling, cooldownDays.coerceAtLeast(1))
+    WishReadiness.SAVING_UP -> stringResource(R.string.wishlist_saving_up)
+    WishReadiness.NOT_AFFORDABLE -> stringResource(R.string.wishlist_not_affordable)
+    null -> null
 }
 
 /**
@@ -90,7 +125,8 @@ fun WishlistScreen(
     onDelete: (wishlistId: Long) -> Unit,
     onSetTargetDate: (wishlistId: Long, date: LocalDate?) -> Unit,
     onStillWant: (wishlistId: Long) -> Unit,
-    onNotAnymore: (wishlistId: Long) -> Unit
+    onNotAnymore: (wishlistId: Long) -> Unit,
+    onOpenWish: (wishlistId: Long) -> Unit
 ) {
     val spacing = MaterialTheme.spacing
     val input = uiState.forecastInput
@@ -99,15 +135,7 @@ fun WishlistScreen(
     // Closest to buying first, so the most actionable wishes lead the list.
     val statuses = remember(uiState.wishlists, input, context) {
         uiState.wishlists
-            .map { wish ->
-                val reserved = WishPlan.reserved(wish)
-                // The money held back for this wish must not count against buying it.
-                val result = input?.let {
-                    val others = (it.earmarkedMoney - reserved).coerceAtLeast(0.0)
-                    PurchaseAffordabilityEngine.evaluate(it.copy(earmarkedMoney = others), wish.targetAmount, context)
-                }
-                WishStatus(wish, reserved, result, result?.let { r -> WishReadiness.assess(wish, r.verdict, reserved = reserved) })
-            }
+            .map { wish -> buildWishStatus(wish, input, context) }
             .sortedWith(compareBy<WishStatus> { it.readiness?.ordinal ?: Int.MAX_VALUE }.thenByDescending { it.wish.priority })
     }
 
@@ -132,6 +160,7 @@ fun WishlistScreen(
                 WishCard(
                     status = status,
                     onAddSavings = { savingsDialogFor = status.wish },
+                    onOpen = { onOpenWish(status.wish.id) },
                     onChangeDate = { dateDialogFor = status.wish },
                     onStillWant = { onStillWant(status.wish.id) },
                     onNotAnymore = { onNotAnymore(status.wish.id) },
@@ -175,46 +204,55 @@ fun WishlistScreen(
     }
 
     confirmBought?.let { wish ->
-        SparelyAlertDialog(
-            onDismissRequest = { confirmBought = null },
-            title = { Text(stringResource(R.string.wishlist_bought_title, wish.description)) },
-            text = { Text(stringResource(R.string.wishlist_bought_desc)) },
-            confirmButton = {
-                SparelyTextButton(onClick = {
-                    onBought(wish.id)
-                    confirmBought = null
-                }) { Text(stringResource(R.string.wishlist_bought)) }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { confirmBought = null }) { Text(stringResource(R.string.purchase_check_save_cancel)) }
-            }
-        )
+        ConfirmBoughtDialog(wish, onDismiss = { confirmBought = null }, onConfirm = {
+            onBought(wish.id)
+            confirmBought = null
+        })
     }
 
     confirmDelete?.let { wish ->
-        SparelyAlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(stringResource(R.string.wishlist_delete_title, wish.description)) },
-            confirmButton = {
-                SparelyTextButton(
-                    onClick = {
-                        onDelete(wish.id)
-                        confirmDelete = null
-                    },
-                    contentColor = MaterialTheme.colorScheme.critical
-                ) { Text(stringResource(R.string.wishlist_delete)) }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.purchase_check_save_cancel)) }
-            }
-        )
+        ConfirmDeleteDialog(wish, onDismiss = { confirmDelete = null }, onConfirm = {
+            onDelete(wish.id)
+            confirmDelete = null
+        })
     }
+}
+
+@Composable
+internal fun ConfirmBoughtDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    SparelyAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.wishlist_bought_title, wish.description)) },
+        text = { Text(stringResource(R.string.wishlist_bought_desc)) },
+        confirmButton = {
+            SparelyTextButton(onClick = onConfirm) { Text(stringResource(R.string.wishlist_bought)) }
+        },
+        dismissButton = {
+            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+        }
+    )
+}
+
+@Composable
+internal fun ConfirmDeleteDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    SparelyAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.wishlist_delete_title, wish.description)) },
+        confirmButton = {
+            SparelyTextButton(onClick = onConfirm, contentColor = MaterialTheme.colorScheme.critical) {
+                Text(stringResource(R.string.wishlist_delete))
+            }
+        },
+        dismissButton = {
+            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+        }
+    )
 }
 
 // ── Pieces ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun readinessColor(readiness: WishReadiness?): Color = when (readiness) {
+internal fun readinessColor(readiness: WishReadiness?): Color = when (readiness) {
     WishReadiness.READY -> MaterialTheme.colorScheme.success
     WishReadiness.COOLING_DOWN -> MaterialTheme.colorScheme.warning
     WishReadiness.SAVING_UP, null -> MaterialTheme.colorScheme.primary
@@ -346,6 +384,7 @@ private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
 @Composable
 private fun WishCard(
     status: WishStatus,
+    onOpen: () -> Unit,
     onAddSavings: () -> Unit,
     onChangeDate: () -> Unit,
     onStillWant: () -> Unit,
@@ -358,19 +397,8 @@ private fun WishCard(
     val readiness = status.readiness
     val color = readinessColor(readiness)
 
-    val now = LocalDateTime.now()
-    val cooldownDays = wish.cooldownExpiresAt
-        ?.takeIf { it.isAfter(now) }
-        ?.let { ((Duration.between(now, it).toHours() + 23) / 24).toInt() } // round up to whole days
-        ?: 0
-
-    val statusLabel = when (readiness) {
-        WishReadiness.READY -> stringResource(R.string.wishlist_ready)
-        WishReadiness.COOLING_DOWN -> stringResource(R.string.wishlist_cooling, cooldownDays.coerceAtLeast(1))
-        WishReadiness.SAVING_UP -> stringResource(R.string.wishlist_saving_up)
-        WishReadiness.NOT_AFFORDABLE -> stringResource(R.string.wishlist_not_affordable)
-        null -> null
-    }
+    val cooldownDays = cooldownDaysLeft(wish)
+    val statusLabel = readinessLabel(readiness, cooldownDays)
 
     // The most useful reason for where it stands today: the save-up plan, or the first problem.
     val headline = status.result?.findings?.let { findings ->
@@ -382,7 +410,7 @@ private fun WishCard(
     val showHeadline = headline != null && readiness != WishReadiness.READY &&
         !(wish.targetDate != null && headline.kind == FindingKind.SAVE_UP_PLAN)
 
-    ExpressiveCard {
+    ExpressiveCard(onClick = onOpen) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -491,7 +519,7 @@ private fun WishCard(
  * is deliberate: someone watching for a sale can decide the day it happens.
  */
 @Composable
-private fun DecisionBlock(daysLeft: Int, onStillWant: () -> Unit, onNotAnymore: () -> Unit) {
+internal fun DecisionBlock(daysLeft: Int, onStillWant: () -> Unit, onNotAnymore: () -> Unit) {
     val spacing = MaterialTheme.spacing
     Surface(
         shape = MaterialTheme.shapes.small,
@@ -529,7 +557,7 @@ private fun DecisionBlock(daysLeft: Int, onStillWant: () -> Unit, onNotAnymore: 
 }
 
 @Composable
-private fun InsightRow(icon: Int, tint: Color, text: String) {
+internal fun InsightRow(icon: Int, tint: Color, text: String) {
     Row(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)
@@ -547,7 +575,7 @@ private fun InsightRow(icon: Int, tint: Color, text: String) {
 
 /** The "hold money back until this date" plan, or a prompt to set one. */
 @Composable
-private fun PlanRow(status: WishStatus, onChangeDate: () -> Unit) {
+internal fun PlanRow(status: WishStatus, onChangeDate: () -> Unit) {
     val wish = status.wish
     val target = wish.targetDate
     val monthly = WishPlan.monthlyAmount(wish)
@@ -587,7 +615,7 @@ private fun PlanRow(status: WishStatus, onChangeDate: () -> Unit) {
 }
 
 @Composable
-private fun ChangeDateDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: (LocalDate?) -> Unit) {
+internal fun ChangeDateDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: (LocalDate?) -> Unit) {
     var date by remember { mutableStateOf(wish.targetDate) }
     SparelyAlertDialog(
         onDismissRequest = onDismiss,
@@ -614,7 +642,7 @@ private fun ChangeDateDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: (
 }
 
 @Composable
-private fun AddSavingsDialog(remaining: Double, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
+internal fun AddSavingsDialog(remaining: Double, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
     var text by remember { mutableStateOf("") }
     val amount = text.toSafeDouble()?.takeIf { it > 0 }
     SparelyAlertDialog(
