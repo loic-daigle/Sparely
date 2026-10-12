@@ -39,6 +39,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.Slider
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,7 +65,7 @@ fun SettingsMainAccountCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -205,7 +209,7 @@ fun SettingsSmartSavingsCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -317,7 +321,7 @@ fun SettingsSmartTransferCard(
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -370,7 +374,7 @@ fun SettingsAutoBackupCard(
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -482,7 +486,7 @@ fun SettingsBudgetCard(
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -540,7 +544,7 @@ fun SettingsSecurityCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -798,7 +802,7 @@ fun SettingsDataCard(
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1010,39 +1014,64 @@ enum class SettingsSection(val titleRes: Int, val descRes: Int, val icon: Int, v
     Data(R.string.settings_group_data_backup, R.string.settings_hub_data_desc, MaterialSymbols.HISTORY, R.string.settings_hub_app)
 }
 
-/** The settings landing page: sections grouped into cards, each row a title, one-line description and chevron. */
+/** Shape the next settings card should take; [SettingsSegmentedColumn] sets it per position. */
+val LocalSettingsCardShape = staticCompositionLocalOf<Shape> { ExpressiveShapes.large }
+
+/**
+ * Shape for item [index] of [count] in a segmented group: large corners at the group's ends,
+ * small ones where items meet, so the stack reads as one rounded block split by thin gaps.
+ */
+fun settingsSegmentShape(index: Int, count: Int): Shape {
+    val outer = 28.dp
+    val inner = 6.dp
+    val top = if (index == 0) outer else inner
+    val bottom = if (index == count - 1) outer else inner
+    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
+}
+
+class SettingsSegmentScope {
+    internal val segments = mutableListOf<@Composable () -> Unit>()
+
+    fun segment(content: @Composable () -> Unit) {
+        segments += content
+    }
+}
+
+/** Stacks settings cards as one segmented group, each card taking its place's shape. */
+@Composable
+fun SettingsSegmentedColumn(build: SettingsSegmentScope.() -> Unit) {
+    val segments = SettingsSegmentScope().apply(build).segments
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        segments.forEachIndexed { index, segment ->
+            CompositionLocalProvider(LocalSettingsCardShape provides settingsSegmentShape(index, segments.size)) {
+                segment()
+            }
+        }
+    }
+}
+
+/** The settings landing page: sections grouped under a heading, each row its own segment of the group. */
 @Composable
 fun SettingsHub(onOpen: (SettingsSection) -> Unit) {
     val groups = SettingsSection.entries.groupBy { it.groupRes }
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         for ((groupRes, sections) in groups) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = stringResource(groupRes),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
-                        .padding(start = 4.dp)
+                        .padding(start = 16.dp, bottom = 6.dp)
                         .semantics { heading() }
                 )
-                ExpressiveCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = ExpressiveShapes.large,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentPadding = 0.dp
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        sections.forEachIndexed { index, section ->
-                            if (index > 0) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 64.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant
-                                )
-                            }
-                            SettingsHubRow(section = section, onClick = { onOpen(section) })
-                        }
-                    }
+                sections.forEachIndexed { index, section ->
+                    SettingsHubRow(
+                        section = section,
+                        shape = settingsSegmentShape(index, sections.size),
+                        onClick = { onOpen(section) }
+                    )
                 }
             }
         }
@@ -1050,34 +1079,51 @@ fun SettingsHub(onOpen: (SettingsSection) -> Unit) {
 }
 
 @Composable
-private fun SettingsHubRow(section: SettingsSection, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+private fun SettingsHubRow(section: SettingsSection, shape: Shape, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        MaterialSymbolIcon(
-            icon = section.icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(section.titleRes), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text(
-                text = stringResource(section.descRes),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(
+                    icon = section.icon,
+                    contentDescription = null,
+                    size = 22.dp,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(section.titleRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = stringResource(section.descRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ARROW_FORWARD,
+                contentDescription = null,
+                size = 18.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        MaterialSymbolIcon(
-            icon = MaterialSymbols.ARROW_FORWARD,
-            contentDescription = null,
-            size = 18.dp,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

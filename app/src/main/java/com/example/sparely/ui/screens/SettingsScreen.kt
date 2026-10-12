@@ -264,35 +264,72 @@ fun SettingsScreen(
                     null -> SettingsHub(onOpen = { openSection = it })
 
                     SettingsSection.Profile -> {
-                        ProfileCard(
-                            displayName = displayName,
-                            onDisplayNameChange = {
-                                displayName = it
-                                onDisplayNameChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
-                            },
-                            hasDebts = hasDebts,
-                            onHasDebtsChange = {
-                                hasDebts = it
-                                onHasDebtsChange(it)
-                            },
-                            emergencyFundText = emergencyFundText,
-                            onEmergencyFundChange = { valueText ->
-                                emergencyFundText = valueText
-                                valueText.toSafeDouble()?.let(onEmergencyFundChange)
-                            },
-                            primaryGoal = primaryGoal,
-                            onPrimaryGoalChange = {
-                                primaryGoal = it
-                                onPrimaryGoalChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
-                            },
-                            birthday = settings.birthday,
-                            effectiveAge = age,
-                            onEditBirthday = { showBirthdayPicker = true },
-                            onClearBirthday = {
-                                onBirthdayChange(null)
-                                showBirthdayPicker = false
+                        SettingsSegmentedColumn {
+                            segment {
+                                ProfileCard(
+                                    displayName = displayName,
+                                    onDisplayNameChange = {
+                                        displayName = it
+                                        onDisplayNameChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
+                                    },
+                                    hasDebts = hasDebts,
+                                    onHasDebtsChange = {
+                                        hasDebts = it
+                                        onHasDebtsChange(it)
+                                    },
+                                    emergencyFundText = emergencyFundText,
+                                    onEmergencyFundChange = { valueText ->
+                                        emergencyFundText = valueText
+                                        valueText.toSafeDouble()?.let(onEmergencyFundChange)
+                                    },
+                                    primaryGoal = primaryGoal,
+                                    onPrimaryGoalChange = {
+                                        primaryGoal = it
+                                        onPrimaryGoalChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
+                                    },
+                                    birthday = settings.birthday,
+                                    effectiveAge = age,
+                                    onEditBirthday = { showBirthdayPicker = true },
+                                    onClearBirthday = {
+                                        onBirthdayChange(null)
+                                        showBirthdayPicker = false
+                                    }
+                                )
                             }
-                        )
+
+                            segment {
+                                EducationEmploymentCard(
+                                    selectedEducation = selectedEducation,
+                                    onEducationSelected = {
+                                        selectedEducation = it
+                                        onEducationStatusChange(it)
+                                    },
+                                    educationExpanded = educationExpanded,
+                                    onEducationExpandedChange = { educationExpanded = it },
+                                    selectedEmployment = selectedEmployment,
+                                    onEmploymentSelected = {
+                                        selectedEmployment = it
+                                        onEmploymentStatusChange(it)
+                                    },
+                                    employmentExpanded = employmentExpanded,
+                                    onEmploymentExpandedChange = { employmentExpanded = it }
+                                )
+                            }
+
+                            segment {
+                                RiskLevelCard(current = settings.riskLevel, onRiskChange = onRiskChange)
+                            }
+
+                            // A birthday already gives the age, so the slider would do nothing
+                            if (settings.birthday == null) {
+                                segment {
+                                    LifeStageCard(age = age, onAgeChange = { updated ->
+                                        age = updated
+                                        onAgeChange(updated)
+                                    })
+                                }
+                            }
+                        }
 
                         if (showBirthdayPicker) {
                             val initialMillis = settings.birthday.toSafeDatePickerMillis()
@@ -323,33 +360,6 @@ fun SettingsScreen(
                                 DatePicker(state = datePickerState)
                             }
                         }
-
-                        EducationEmploymentCard(
-                            selectedEducation = selectedEducation,
-                            onEducationSelected = {
-                                selectedEducation = it
-                                onEducationStatusChange(it)
-                            },
-                            educationExpanded = educationExpanded,
-                            onEducationExpandedChange = { educationExpanded = it },
-                            selectedEmployment = selectedEmployment,
-                            onEmploymentSelected = {
-                                selectedEmployment = it
-                                onEmploymentStatusChange(it)
-                            },
-                            employmentExpanded = employmentExpanded,
-                            onEmploymentExpandedChange = { employmentExpanded = it }
-                        )
-
-                        RiskLevelCard(current = settings.riskLevel, onRiskChange = onRiskChange)
-
-                        // A birthday already gives the age, so the slider would do nothing
-                        if (settings.birthday == null) {
-                            LifeStageCard(age = age, onAgeChange = { updated ->
-                                age = updated
-                                onAgeChange(updated)
-                            })
-                        }
                     }
 
                     SettingsSection.Region -> {
@@ -375,66 +385,79 @@ fun SettingsScreen(
                     }
 
                     SettingsSection.Income -> {
-                        IncomeSettingsCard(
-                            schedule = settings.paySchedule,
-                            activeSaveRate = activeSaveRate,
-                            automationNotes = automationNotes,
-                            onScheduleSave = onPayScheduleChange,
-                        )
+                        SettingsSegmentedColumn {
+                            segment {
+                                IncomeSettingsCard(
+                                    schedule = settings.paySchedule,
+                                    activeSaveRate = activeSaveRate,
+                                    automationNotes = automationNotes,
+                                    onScheduleSave = onPayScheduleChange,
+                                )
+                            }
 
-                        SettingsMainAccountCard(
-                            monthlyIncomeText = monthlyIncomeText,
-                            onMonthlyIncomeTextChange = { monthlyIncomeText = it },
-                            onUpdateIncome = { monthlyIncomeText.toSafeDouble()?.let(onMonthlyIncomeChange) },
-                            mainAccountBalanceText = mainAccountBalanceText,
-                            onMainAccountBalanceTextChange = { mainAccountBalanceText = it },
-                            onUpdateBalance = { mainAccountBalanceText.toSafeDouble()?.let(onMainAccountBalanceChange) },
-                            minMainAccountBalanceText = minMainAccountBalanceText,
-                            onMinMainAccountBalanceTextChange = { minMainAccountBalanceText = it },
-                            onUpdateMinBalance = { minMainAccountBalanceText.toSafeDouble()?.let(onMinMainAccountBalanceChange) },
-                            smartVaults = smartVaults,
-                            savingsAccounts = savingsAccounts,
-                            mainOverflowAccountId = settings.mainOverflowAccountId,
-                            onMainOverflowAccountIdChange = onMainOverflowAccountIdChange,
-                            onManageSavingsAccounts = onManageSavingsAccounts
-                        )
+                            segment {
+                                SettingsMainAccountCard(
+                                    monthlyIncomeText = monthlyIncomeText,
+                                    onMonthlyIncomeTextChange = { monthlyIncomeText = it },
+                                    onUpdateIncome = { monthlyIncomeText.toSafeDouble()?.let(onMonthlyIncomeChange) },
+                                    mainAccountBalanceText = mainAccountBalanceText,
+                                    onMainAccountBalanceTextChange = { mainAccountBalanceText = it },
+                                    onUpdateBalance = { mainAccountBalanceText.toSafeDouble()?.let(onMainAccountBalanceChange) },
+                                    minMainAccountBalanceText = minMainAccountBalanceText,
+                                    onMinMainAccountBalanceTextChange = { minMainAccountBalanceText = it },
+                                    onUpdateMinBalance = { minMainAccountBalanceText.toSafeDouble()?.let(onMinMainAccountBalanceChange) },
+                                    smartVaults = smartVaults,
+                                    savingsAccounts = savingsAccounts,
+                                    mainOverflowAccountId = settings.mainOverflowAccountId,
+                                    onMainOverflowAccountIdChange = onMainOverflowAccountIdChange,
+                                    onManageSavingsAccounts = onManageSavingsAccounts
+                                )
+                            }
+                        }
                     }
 
                     SettingsSection.Automation -> {
-                        SettingsSmartSavingsCard(
-                            settings = settings,
-                            selectedAllocationMode = selectedAllocationMode,
-                            onAllocationModeChange = {
-                                selectedAllocationMode = it
-                                onVaultAllocationModeChange(it)
-                            },
-                            savingTaxRatePercent = savingTaxRatePercent,
-                            onSavingTaxRatePercentChange = { savingTaxRatePercent = it },
-                            onSavingTaxRateCommit = onSavingTaxRateChange,
-                            activeSavingTaxRate = activeSavingTaxRate,
-                            onDynamicSavingTaxToggle = onDynamicSavingTaxToggle
-                        )
+                        SettingsSegmentedColumn {
+                            segment {
+                                SettingsSmartSavingsCard(
+                                    settings = settings,
+                                    selectedAllocationMode = selectedAllocationMode,
+                                    onAllocationModeChange = {
+                                        selectedAllocationMode = it
+                                        onVaultAllocationModeChange(it)
+                                    },
+                                    savingTaxRatePercent = savingTaxRatePercent,
+                                    onSavingTaxRatePercentChange = { savingTaxRatePercent = it },
+                                    onSavingTaxRateCommit = onSavingTaxRateChange,
+                                    activeSavingTaxRate = activeSavingTaxRate,
+                                    onDynamicSavingTaxToggle = onDynamicSavingTaxToggle
+                                )
+                            }
 
-                        AutoDepositsCard(
-                            enabled = autoDepositsEnabled,
-                            checkHour = autoDepositCheckHour,
-                            onEnabledChange = onAutoDepositsEnabledChange,
-                            onCheckHourChange = onAutoDepositCheckHourChange,
-                            onManualTrigger = onManualAutoDepositTrigger
-                        )
+                            segment {
+                                AutoDepositsCard(
+                                    enabled = autoDepositsEnabled,
+                                    checkHour = autoDepositCheckHour,
+                                    onEnabledChange = onAutoDepositsEnabledChange,
+                                    onCheckHourChange = onAutoDepositCheckHourChange,
+                                    onManualTrigger = onManualAutoDepositTrigger
+                                )
+                            }
 
-                        SettingsBudgetCard(
-                            autoModeEnabled = autoModeEnabled,
-                            onAutoToggle = onAutoToggle,
-                            recommendation = recommendation,
-                            emergency = emergency,
-                            invest = invest,
-                            funPercent = funPercent,
-                            onEmergencyChange = { emergency = it },
-                            onInvestChange = { invest = it },
-                            onFunChange = { funPercent = it }
-                        )
-
+                            segment {
+                                SettingsBudgetCard(
+                                    autoModeEnabled = autoModeEnabled,
+                                    onAutoToggle = onAutoToggle,
+                                    recommendation = recommendation,
+                                    emergency = emergency,
+                                    invest = invest,
+                                    funPercent = funPercent,
+                                    onEmergencyChange = { emergency = it },
+                                    onInvestChange = { invest = it },
+                                    onFunChange = { funPercent = it }
+                                )
+                            }
+                        }
                         LaunchedEffect(emergency, invest, funPercent, autoModeEnabled) {
                             val current = settings.defaultPercentages
                             val changed = emergency.toDouble() != current.emergency ||
@@ -464,34 +487,41 @@ fun SettingsScreen(
                     }
 
                     SettingsSection.Notifications -> {
-                        ReminderCard(
-                            remindersEnabled = remindersEnabled,
-                            reminderHour = reminderHour,
-                            reminderFrequency = reminderFrequency,
-                            onReminderChange = { enabled, hour, days ->
-                                remindersEnabled = enabled
-                                reminderHour = hour
-                                reminderFrequency = days
-                                onReminderChange(enabled, hour, days)
+                        SettingsSegmentedColumn {
+                            segment {
+                                ReminderCard(
+                                    remindersEnabled = remindersEnabled,
+                                    reminderHour = reminderHour,
+                                    reminderFrequency = reminderFrequency,
+                                    onReminderChange = { enabled, hour, days ->
+                                        remindersEnabled = enabled
+                                        reminderHour = hour
+                                        reminderFrequency = days
+                                        onReminderChange(enabled, hour, days)
+                                    }
+                                )
                             }
-                        )
 
-                        CreditCardReminderCard(
-                            enabled = settings.creditCardReminderEnabled,
-                            daysBefore = settings.creditCardReminderDaysBefore,
-                            hour = settings.creditCardReminderHour,
-                            utilizationAlertEnabled = settings.creditCardUtilizationAlertEnabled,
-                            utilizationThreshold = settings.creditCardUtilizationThreshold,
-                            onReminderChange = onCreditCardReminderChange,
-                            onUtilizationChange = onCreditCardUtilizationChange
-                        )
+                            segment {
+                                CreditCardReminderCard(
+                                    enabled = settings.creditCardReminderEnabled,
+                                    daysBefore = settings.creditCardReminderDaysBefore,
+                                    hour = settings.creditCardReminderHour,
+                                    utilizationAlertEnabled = settings.creditCardUtilizationAlertEnabled,
+                                    utilizationThreshold = settings.creditCardUtilizationThreshold,
+                                    onReminderChange = onCreditCardReminderChange,
+                                    onUtilizationChange = onCreditCardUtilizationChange
+                                )
+                            }
 
-                        SettingsSmartTransferCard(
-                            minimumAmount = settings.smartTransferMinimumAmount,
-                            onMinimumAmountChange = onSmartTransferMinimumChange,
-                            currencySymbol = settings.regionalSettings.getCurrencySymbol()
-                        )
-
+                            segment {
+                                SettingsSmartTransferCard(
+                                    minimumAmount = settings.smartTransferMinimumAmount,
+                                    onMinimumAmountChange = onSmartTransferMinimumChange,
+                                    currencySymbol = settings.regionalSettings.getCurrencySymbol()
+                                )
+                            }
+                        }
                         if (alerts.isNotEmpty()) {
                             ExpressiveCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -507,33 +537,39 @@ fun SettingsScreen(
                     }
 
                     SettingsSection.Data -> {
-                        SettingsDataCard(
-                            settings = settings,
-                            expenses = expenses,
-                            onResetHistory = onResetHistory,
-                            onExpenseHistoryRetentionChange = onExpenseHistoryRetentionChange,
-                            brandfetchClientId = brandfetchClientId,
-                            onBrandfetchClientIdChange = onBrandfetchClientIdChange,
-                            onExportBackupClick = {
-                                val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
-                                exportLauncher.launch("SparelyBackup_$timestamp.json")
-                            },
-                            onImportBackupClick = {
-                                importLauncher.launch(arrayOf("application/json"))
-                            },
-                            onExportCsvClick = {
-                                val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
-                                csvExportLauncher.launch("SparelyExpenses_$timestamp.csv")
+                        SettingsSegmentedColumn {
+                            segment {
+                                SettingsDataCard(
+                                    settings = settings,
+                                    expenses = expenses,
+                                    onResetHistory = onResetHistory,
+                                    onExpenseHistoryRetentionChange = onExpenseHistoryRetentionChange,
+                                    brandfetchClientId = brandfetchClientId,
+                                    onBrandfetchClientIdChange = onBrandfetchClientIdChange,
+                                    onExportBackupClick = {
+                                        val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
+                                        exportLauncher.launch("SparelyBackup_$timestamp.json")
+                                    },
+                                    onImportBackupClick = {
+                                        importLauncher.launch(arrayOf("application/json"))
+                                    },
+                                    onExportCsvClick = {
+                                        val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
+                                        csvExportLauncher.launch("SparelyExpenses_$timestamp.csv")
+                                    }
+                                )
                             }
-                        )
-                        
-                        SettingsAutoBackupCard(
-                            autoBackupEnabled = settings.autoBackupEnabled,
-                            autoBackupFrequencyDays = settings.autoBackupFrequencyDays,
-                            lastAutoBackupTimestamp = settings.lastAutoBackupTimestamp,
-                            onAutoBackupEnabledChange = onAutoBackupSettingsChange,
-                            onBackupNowClick = onBackupNowClick
-                        )
+
+                            segment {
+                                SettingsAutoBackupCard(
+                                    autoBackupEnabled = settings.autoBackupEnabled,
+                                    autoBackupFrequencyDays = settings.autoBackupFrequencyDays,
+                                    lastAutoBackupTimestamp = settings.lastAutoBackupTimestamp,
+                                    onAutoBackupEnabledChange = onAutoBackupSettingsChange,
+                                    onBackupNowClick = onBackupNowClick
+                                )
+                            }
+                        }
                     }
                 }
                 
@@ -561,7 +597,7 @@ private fun ProfileCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
@@ -644,7 +680,7 @@ private fun EducationEmploymentCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
@@ -729,7 +765,7 @@ private fun LifeStageCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -766,7 +802,7 @@ private fun RiskLevelCard(
 ) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -811,7 +847,7 @@ private fun ReminderCard(
     var frequency by remember(reminderFrequency) { mutableStateOf(reminderFrequency) }
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -881,7 +917,7 @@ private fun CreditCardReminderCard(
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1011,7 +1047,7 @@ private fun AutoDepositsCard(
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
@@ -1193,7 +1229,7 @@ private fun IncomeSettingsCard(
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
             Column(
@@ -1568,7 +1604,7 @@ private fun RegionalSettingsCard(
     
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
@@ -1879,7 +1915,7 @@ private fun PaymentMethodsSettingsCard(
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
+        shape = LocalSettingsCardShape.current,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
