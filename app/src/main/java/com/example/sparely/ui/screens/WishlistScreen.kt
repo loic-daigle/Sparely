@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.background
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.IconButton
@@ -148,17 +153,21 @@ fun WishlistScreen(
         EmptyWishlist(onQuickCheck)
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
             // Content padding (not Modifier.padding) so cards don't clip while scrolling; the bottom
             // gap keeps the last card clear of the floating action button.
-            contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm)
+            contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = 96.dp)
         ) {
             item(key = "summary") { SummaryCard(statuses, heldBack = uiState.wishlistReserved) }
 
-            items(statuses, key = { it.wish.id }) { status ->
+            // Wishes as one segmented block: rounded ends, thin gaps
+            itemsIndexed(statuses, key = { _, status -> status.wish.id }) { index, status ->
                 WishCard(
                     status = status,
+                    shape = segmentedShape(index, statuses.size, outer = 28.dp),
+                    modifier = Modifier.segmentSpacing(index),
                     onAddSavings = { savingsDialogFor = status.wish },
                     onOpen = { onOpenWish(status.wish.id) },
                     onChangeDate = { dateDialogFor = status.wish },
@@ -172,7 +181,9 @@ fun WishlistScreen(
             item(key = "quick_check") {
                 SparelyOutlinedButton(
                     onClick = onQuickCheck,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.md),
                     icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
                 ) {
                     Text(stringResource(R.string.wishlist_quick_check))
@@ -261,51 +272,23 @@ internal fun readinessColor(readiness: WishReadiness?): Color = when (readiness)
 
 @Composable
 private fun EmptyWishlist(onQuickCheck: () -> Unit) {
-    val spacing = MaterialTheme.spacing
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(spacing.xl),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(96.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.FAVORITE,
-                        contentDescription = null,
-                        size = 48.dp,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+        ExpressiveEmptyState(
+            icon = MaterialSymbols.FAVORITE,
+            title = stringResource(R.string.wishlist_empty_title),
+            description = stringResource(R.string.wishlist_empty),
+            action = {
+                SparelyButton(
+                    onClick = onQuickCheck,
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
+                ) {
+                    Text(stringResource(R.string.wishlist_start_check))
                 }
             }
-            Text(
-                text = stringResource(R.string.wishlist_empty_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = stringResource(R.string.wishlist_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            SparelyButton(
-                onClick = onQuickCheck,
-                modifier = Modifier.padding(top = spacing.xs),
-                icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
-            ) {
-                Text(stringResource(R.string.wishlist_start_check))
-            }
-        }
+        )
     }
 }
 
@@ -319,7 +302,14 @@ private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
     val total = statuses.sumOf { it.wish.targetAmount }
     val saved = statuses.sumOf { it.reserved }
 
-    ExpressiveCard(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) {
+    val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
+    ExpressiveCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = spacing.md),
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = onContainer
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -330,18 +320,18 @@ private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
                     Text(
                         text = stringResource(R.string.wishlist_total_label),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = onContainer.copy(alpha = 0.8f)
                     )
                     Text(
                         text = total.formatCurrency(decimals = 0),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 Text(
                     text = stringResource(R.string.wishlist_saved_short, saved.formatCurrency(decimals = 0)),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = onContainer.copy(alpha = 0.8f)
                 )
             }
             val parts = buildList {
@@ -366,13 +356,13 @@ private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
                         icon = MaterialSymbols.SECURITY,
                         contentDescription = null,
                         size = 18.dp,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = onContainer,
                         modifier = Modifier.padding(top = 1.dp)
                     )
                     Text(
                         text = stringResource(R.string.wishlist_held_back, heldBack.formatCurrency(decimals = 0)),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = onContainer.copy(alpha = 0.8f),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -390,7 +380,9 @@ private fun WishCard(
     onStillWant: () -> Unit,
     onNotAnymore: () -> Unit,
     onBought: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
     val spacing = MaterialTheme.spacing
     val wish = status.wish
@@ -410,19 +402,24 @@ private fun WishCard(
     val showHeadline = headline != null && readiness != WishReadiness.READY &&
         !(wish.targetDate != null && headline.kind == FindingKind.SAVE_UP_PLAN)
 
-    ExpressiveCard(onClick = onOpen) {
+    ExpressiveCard(
+        onClick = onOpen,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm)
             ) {
-                IconBadge(icon = MaterialSymbols.SHOPPING_BAG, color = color, size = 48.dp)
+                IconBadge(icon = MaterialSymbols.SHOPPING_BAG, color = color, size = 44.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = wish.description,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -438,7 +435,7 @@ private fun WishCard(
                 Text(
                     text = wish.targetAmount.formatCurrency(decimals = 0),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -446,7 +443,7 @@ private fun WishCard(
                 LinearProgressIndicator(
                     progress = { status.progress },
                     color = color,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    trackColor = color.copy(alpha = 0.18f),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)

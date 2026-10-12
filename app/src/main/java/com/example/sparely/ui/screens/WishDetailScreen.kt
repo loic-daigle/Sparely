@@ -1,5 +1,6 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -80,7 +81,9 @@ fun WishDetailScreen(
     var showDelete by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(spacing.sm)
     ) {
@@ -112,7 +115,7 @@ fun WishDetailScreen(
                     Text(
                         text = wish.targetAmount.formatCurrency(decimals = 0),
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -247,7 +250,7 @@ private fun SetAsideCard(
                     Text(
                         text = status.reserved.formatCurrency(decimals = 0),
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = color
                     )
                 }
