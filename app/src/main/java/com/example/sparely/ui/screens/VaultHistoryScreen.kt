@@ -2,7 +2,14 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,38 +58,26 @@ fun VaultHistoryScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.HISTORY,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.vault_history_empty_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.vault_history_empty_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                ExpressiveEmptyState(
+                    icon = MaterialSymbols.HISTORY,
+                    title = stringResource(R.string.vault_history_empty_title),
+                    description = stringResource(R.string.vault_history_empty_desc)
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(16.dp)
             ) {
-                items(historyItems) { item ->
-                    HistoryItemCard(item)
+                // One segmented block: rounded ends, thin gaps between entries
+                itemsIndexed(historyItems) { index, item ->
+                    HistoryItemCard(
+                        item = item,
+                        shape = segmentedShape(index, historyItems.size),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             }
         }
@@ -90,19 +85,23 @@ fun VaultHistoryScreen(
 }
 
 @Composable
-private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryItem) {
+private fun HistoryItemCard(
+    item: com.example.sparely.domain.model.VaultHistoryItem,
+    shape: Shape,
+    modifier: Modifier = Modifier
+) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
     
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.small,
-        contentPadding = 16.dp
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             val (icon, color) = when (item) {
                 is com.example.sparely.domain.model.HistoryContribution -> MaterialSymbols.ADD to MaterialTheme.colorScheme.primary
@@ -116,13 +115,15 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
                 }
             }
 
-            MaterialSymbolIcon(
-                icon = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp),
-                size = 24.dp
-            )
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(icon = icon, contentDescription = null, tint = color, size = 22.dp)
+            }
             
             Column(
                 modifier = Modifier.weight(1f),
@@ -147,8 +148,8 @@ private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryI
                 
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
                 
                 if (item.description?.isNotBlank() == true) {

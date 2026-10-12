@@ -8,7 +8,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.ExpressiveListHeader
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.example.sparely.ui.theme.MaterialSymbols
@@ -65,9 +70,10 @@ fun VaultTransfersScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
     ) {
         if (pendingContributions.isEmpty()) {
             item(key = "empty") {
@@ -83,15 +89,16 @@ fun VaultTransfersScreen(
             }
 
             item(key = "header_pending") {
-                Text(
-                    text = stringResource(R.string.vault_transfers_pending_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                ExpressiveListHeader(
+                    title = stringResource(R.string.vault_transfers_pending_title),
+                    icon = MaterialSymbols.SWAP_HORIZ,
+                    trailing = groups.size.toString()
                 )
             }
 
-            items(groups.entries.toList(), key = { "${it.key.vaultId}_${it.key.savingsAccountId}" }) { (destination, contributionsForGroup) ->
+            // Destinations as one segmented block: rounded ends, thin gaps
+            val groupEntries = groups.entries.toList()
+            itemsIndexed(groupEntries, key = { _, entry -> "${entry.key.vaultId}_${entry.key.savingsAccountId}" }) { index, (destination, contributionsForGroup) ->
                 val vault = vaults.find { it.id == destination.vaultId }
                 val displayName = destinationName(destination, vaults, savingsAccounts)
                 AggregatedPendingContributionCard(
@@ -102,7 +109,9 @@ fun VaultTransfersScreen(
                     onApproveAll = { ids -> onApproveGroup(ids) },
                     onApproveIndividual = onApproveContribution,
                     onCancelIndividual = onCancelContribution,
-                    onUpdateAmount = onUpdateContributionAmount
+                    onUpdateAmount = onUpdateContributionAmount,
+                    shape = segmentedShape(index, groupEntries.size, outer = 28.dp),
+                    modifier = Modifier.segmentSpacing(index)
                 )
             }
         }
@@ -128,48 +137,11 @@ private fun destinationName(
 
 @Composable
 private fun EmptyStateCard() {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = ExpressiveShapes.large
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Surface(
-                shape = ExpressiveShapes.medium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                modifier = Modifier.size(80.dp)
-            ) {
-                 Box(contentAlignment = Alignment.Center) {
-                     MaterialSymbolIcon(
-                         icon = MaterialSymbols.CHECK_CIRCLE,
-                         contentDescription = null,
-                         tint = MaterialTheme.colorScheme.primary,
-                         size = 40.dp
-                     )
-                 }
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(R.string.vault_transfers_empty_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.vault_transfers_empty_desc),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
-        }
-    }
+    ExpressiveEmptyState(
+        icon = MaterialSymbols.CHECK_CIRCLE,
+        title = stringResource(R.string.vault_transfers_empty_title),
+        description = stringResource(R.string.vault_transfers_empty_desc)
+    )
 }
 
 @Composable
@@ -184,7 +156,9 @@ private fun SummaryCard(
         .entries.sortedByDescending { it.value }
     
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
         containerColor = MaterialTheme.colorScheme.primary, // Hero style
         contentColor = MaterialTheme.colorScheme.onPrimary,
         shape = ExpressiveShapes.large
@@ -255,7 +229,9 @@ private fun AggregatedPendingContributionCard(
     onApproveAll: (List<Long>) -> Unit,
     onApproveIndividual: (Long) -> Unit,
     onCancelIndividual: (Long) -> Unit = {},
-    onUpdateAmount: (Long, Double) -> Unit = { _, _ -> }
+    onUpdateAmount: (Long, Double) -> Unit = { _, _ -> },
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showConfirmAll by remember { mutableStateOf(false) }
@@ -282,9 +258,9 @@ private fun AggregatedPendingContributionCard(
     val sources = contributions.groupBy { it.source }
 
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = ExpressiveShapes.medium
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -302,15 +278,15 @@ private fun AggregatedPendingContributionCard(
                      // Vault Icon / Placeholder
                      Surface(
                          shape = ExpressiveShapes.small,
-                         color = MaterialTheme.colorScheme.surface, 
-                         modifier = Modifier.size(56.dp)
+                         color = MaterialTheme.colorScheme.primaryContainer,
+                         modifier = Modifier.size(44.dp)
                      ) {
                          Box(contentAlignment = Alignment.Center) {
                              MaterialSymbolIcon(
                                  icon = if (isHisaTransfer) MaterialSymbols.ACCOUNT_BALANCE else MaterialSymbols.SAVINGS,
                                  contentDescription = null,
-                                 tint = MaterialTheme.colorScheme.primary,
-                                 size = 28.dp
+                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                 size = 22.dp
                              )
                          }
                      }
@@ -318,22 +294,22 @@ private fun AggregatedPendingContributionCard(
                         Text(
                             text = displayName,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = stringResource(R.string.vault_transfers_pending_count, contributions.size),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                  }
                 Text(
                     text = totalAmount.formatCurrency(),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -350,13 +326,13 @@ private fun AggregatedPendingContributionCard(
                         VaultContributionSource.INTEREST -> stringResource(R.string.vault_transfers_source_interest)
                     }
                     Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = ExpressiveShapes.extraSmall
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        shape = CircleShape
                     ) {
                         Text(
                             text = "$sourceLabel: ${sourceTotal.formatCurrency()}",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -382,8 +358,14 @@ private fun AggregatedPendingContributionCard(
             }
 
             if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(ExpressiveShapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     val sortedContributions = contributions.sortedByDescending { it.date }
                     for (contribution in sortedContributions) {
                         Row(
@@ -502,8 +484,10 @@ private fun AggregatedPendingContributionCard(
 @Composable
 private fun InstructionsCard() {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = ExpressiveShapes.large
     ) {
         Column(
@@ -573,7 +557,9 @@ private fun InstructionStep(number: String, text: String) {
 @Composable
 private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         shape = ExpressiveShapes.large,
         // Whole card is the tap target (was an inner row inset by padding)
