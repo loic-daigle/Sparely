@@ -4,6 +4,14 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.background
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.ExpressiveListHeader
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -43,24 +51,37 @@ fun ChallengesScreen(
     val runningChallenges = uiState.activeChallenges.filter { it.isActive && !it.isCompleted }
     val completedChallenges = uiState.activeChallenges.filter { it.isCompleted }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    // The FAB shows its label at the top of the list and shrinks to an icon once scrolling starts
+    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             // Content padding (not Modifier.padding) avoids clipping; bottom room for the FAB
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
         ) {
             // Running challenges first: they're what people come here to check
             if (runningChallenges.isNotEmpty()) {
                 item(key = "header_active") {
-                    Text(
-                        text = stringResource(R.string.challenges_active_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                    ExpressiveListHeader(
+                        title = stringResource(R.string.challenges_active_title),
+                        icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
+                        trailing = runningChallenges.size.toString(),
+                        modifier = Modifier.padding(top = 0.dp)
                     )
                 }
-                items(runningChallenges, key = { "active_${it.id}" }) { challenge ->
-                    ChallengeCard(challenge)
+                itemsIndexed(runningChallenges, key = { _, challenge -> "active_${challenge.id}" }) { index, challenge ->
+                    ChallengeCard(
+                        challenge = challenge,
+                        shape = segmentedShape(index, runningChallenges.size, outer = 28.dp),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             } else {
                 // Nothing running (none yet, or all finished): invite starting one
@@ -80,28 +101,38 @@ fun ChallengesScreen(
 
             if (completedChallenges.isNotEmpty()) {
                 item(key = "header_completed") {
-                    Text(
-                        text = stringResource(R.string.challenges_completed_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                    ExpressiveListHeader(
+                        title = stringResource(R.string.challenges_completed_title),
+                        icon = MaterialSymbols.CHECK_CIRCLE,
+                        trailing = completedChallenges.size.toString(),
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                items(completedChallenges, key = { "completed_${it.id}" }) { challenge ->
-                    CompletedChallengeCard(challenge)
+                itemsIndexed(completedChallenges, key = { _, challenge -> "completed_${challenge.id}" }) { index, challenge ->
+                    CompletedChallengeCard(
+                        challenge = challenge,
+                        shape = segmentedShape(index, completedChallenges.size),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             }
         }
 
         ExtendedFloatingActionButton(
             onClick = { showChallengeDialog = true },
-            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null) },
+            expanded = fabExpanded,
+            icon = {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ADD,
+                    contentDescription = if (fabExpanded) null else stringResource(R.string.challenges_new_title)
+                )
+            },
             text = { Text(stringResource(R.string.challenges_new_title)) },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
+                .padding(20.dp)
         )
     }
 
@@ -117,46 +148,55 @@ fun ChallengesScreen(
 }
 
 @Composable
-fun ChallengeCard(challenge: SavingsChallenge) {
+fun ChallengeCard(
+    challenge: SavingsChallenge,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
+) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
         contentPadding = 20.dp
     ) {
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(ExpressiveShapes.small)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = when (challenge.type) {
+                            ChallengeType.FIFTY_TWO_WEEK -> MaterialSymbols.CALENDAR_MONTH
+                            ChallengeType.NO_SPEND_DAYS -> MaterialSymbols.BLOCK
+                            ChallengeType.DAILY_SAVINGS -> MaterialSymbols.TODAY
+                            else -> MaterialSymbols.TROPHY
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        size = 22.dp
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = challenge.title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = challenge.description,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                MaterialSymbolIcon(
-                    icon = when (challenge.type) {
-                        ChallengeType.FIFTY_TWO_WEEK -> MaterialSymbols.CALENDAR_MONTH
-                        ChallengeType.NO_SPEND_DAYS -> MaterialSymbols.BLOCK
-                        ChallengeType.DAILY_SAVINGS -> MaterialSymbols.TODAY
-                        else -> MaterialSymbols.TROPHY
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                    size = 40.dp
-                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -227,8 +267,8 @@ fun ChallengeCard(challenge: SavingsChallenge) {
             challenge.nextMilestone?.let { milestone ->
                 Spacer(modifier = Modifier.height(12.dp))
                 ExpressiveCard(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    shape = RoundedCornerShape(12.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = ExpressiveShapes.medium,
                     contentPadding = 12.dp
                 ) {
                     Row(
@@ -284,9 +324,9 @@ fun ChallengeCard(challenge: SavingsChallenge) {
 @Composable
 private fun ChallengeOverviewCard() {
     ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         contentPadding = 20.dp
     ) {
         Column {
@@ -311,11 +351,15 @@ private fun ChallengeOverviewCard() {
 }
 
 @Composable
-fun CompletedChallengeCard(challenge: SavingsChallenge) {
+fun CompletedChallengeCard(
+    challenge: SavingsChallenge,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
+) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
         contentPadding = 16.dp
     ) {
         Row(
@@ -328,19 +372,26 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.CHECK_CIRCLE,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.success,
-                    modifier = Modifier.size(32.dp),
-                    size = 32.dp
-                )
-                Spacer(modifier = Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.success.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.CHECK_CIRCLE,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.success,
+                        size = 22.dp
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
                         text = challenge.title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = stringResource(R.string.challenges_completed_on, challenge.completedDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: ""),
@@ -362,9 +413,12 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
 @Composable
 fun AchievementsSection(achievements: List<Achievement>) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = ExpressiveShapes.large,
         contentPadding = 16.dp
     ) {
         Column {
@@ -404,7 +458,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
                         Text(
                             text = achievement.description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -418,43 +472,19 @@ fun AchievementsSection(achievements: List<Achievement>) {
 
 @Composable
 fun EmptyChallengesState(onStartChallenge: () -> Unit) {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        contentPadding = 32.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.TROPHY,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.challenges_no_active_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.challenges_no_active_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            SparelyButton(onClick = onStartChallenge) {
-                MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+    ExpressiveEmptyState(
+        icon = MaterialSymbols.TROPHY,
+        title = stringResource(R.string.challenges_no_active_title),
+        description = stringResource(R.string.challenges_no_active_desc),
+        action = {
+            SparelyButton(
+                onClick = onStartChallenge,
+                icon = { MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null, size = 20.dp) }
+            ) {
                 SingleLineText(stringResource(R.string.challenges_start_button))
             }
         }
-    }
+    )
 }
 
 @Composable

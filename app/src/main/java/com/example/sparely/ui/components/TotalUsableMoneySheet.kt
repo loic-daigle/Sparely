@@ -39,8 +39,9 @@ fun TotalUsableMoneyBottomSheet(
     val totalLiquid = mainBalance + totalHisa
     val usable = netUsable
 
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
+    SparelyBottomSheet(
+        isOpen = true,
+        onDismiss = onDismissRequest,
         sheetState = sheetState
     ) {
         Column(
@@ -50,13 +51,10 @@ fun TotalUsableMoneyBottomSheet(
                 .padding(bottom = spacing.xl), // Add padding for bottom nav/safe area
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
-            Text(
-                text = "Total Usable Money",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            SparelySheetHeader(
+                title = "Total Usable Money",
+                icon = com.example.sparely.ui.theme.MaterialSymbols.ACCOUNT_BALANCE_WALLET
             )
-
-            HorizontalDivider()
 
             // Main Account
             BalanceRow(

@@ -67,11 +67,9 @@ fun AssetSelectionDialog(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Title
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+            SparelySheetHeader(
+                title = title,
+                icon = MaterialSymbols.SHOPPING_BAG
             )
 
             // Search field

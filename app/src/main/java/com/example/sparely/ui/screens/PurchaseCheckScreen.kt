@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,8 @@ import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.Impact
 import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.Verdict
 import com.example.sparely.domain.logic.WishPlan
 import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SegmentGap
+import com.example.sparely.ui.components.segmentedShape
 import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyChip
@@ -108,7 +111,9 @@ fun PurchaseCheckScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         // Content padding (not Modifier.padding) so cards don't clip while scrolling; the bottom
         // gap keeps the last card clear of the floating action button.
         contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = 96.dp),
@@ -205,9 +210,9 @@ internal fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         modifier = Modifier
-            .padding(start = MaterialTheme.spacing.xxs, top = MaterialTheme.spacing.xs)
+            .padding(start = MaterialTheme.spacing.xxs, top = MaterialTheme.spacing.sm)
             .semantics { heading() }
     )
 }
@@ -310,7 +315,7 @@ private fun InputCard(
                     Text(
                         text = realCost.formatCurrency(),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -354,7 +359,7 @@ internal fun CommitmentsCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(stringResource(R.string.commit_total), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                Text(total.formatCurrency(decimals = 0), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.ExtraBold)
+                Text(total.formatCurrency(decimals = 0), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             }
             Text(
                 text = stringResource(R.string.commit_note),
@@ -429,7 +434,7 @@ internal fun VerdictCard(result: PurchaseAffordabilityEngine.Result) {
                 Text(
                     text = stringResource(style.titleRes),
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     color = color
                 )
                 Text(
@@ -514,16 +519,17 @@ private fun ComparisonRow(label: String, before: Double, after: Double) {
 @Composable
 internal fun FindingsCard(findings: List<PurchaseAffordabilityEngine.Finding>) {
     val ordered = remember(findings) { findings.sortedByDescending { it.impact.ordinal } }
-    ExpressiveCard(contentPadding = MaterialTheme.spacing.md) {
-        Column {
-            ordered.forEachIndexed { index, finding ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = MaterialTheme.spacing.xs),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                    )
+    // One segmented block: rounded ends, thin gaps between reasons
+    Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+        ordered.forEachIndexed { index, finding ->
+            Surface(
+                shape = segmentedShape(index, ordered.size),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    FindingRow(finding)
                 }
-                FindingRow(finding)
             }
         }
     }

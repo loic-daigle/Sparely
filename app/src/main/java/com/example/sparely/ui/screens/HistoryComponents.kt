@@ -57,25 +57,34 @@ fun HistoryDateHeader(
     date: java.time.LocalDate,
     dailyTotal: Double
 ) {
+    val today = java.time.LocalDate.now()
+    val label = when (date) {
+        today -> stringResource(R.string.history_today)
+        today.minusDays(1) -> stringResource(R.string.history_yesterday)
+        // The year only appears once it's not the current one
+        else -> date.format(
+            DateTimeFormatter.ofPattern(if (date.year == today.year) "EEEE, MMM d" else "EEE, MMM d, yyyy")
+        )
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 8.dp),
+            // Matches the list background so the sticky header blends in while pinned
+            .background(MaterialTheme.colorScheme.background)
+            .padding(start = 4.dp, end = 4.dp, top = 16.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = date.format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")),
+            text = label,
             style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold
         )
         Text(
             text = dailyTotal.formatCurrency(),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

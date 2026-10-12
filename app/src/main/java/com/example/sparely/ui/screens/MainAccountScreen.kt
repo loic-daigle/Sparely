@@ -4,7 +4,21 @@ import androidx.compose.foundation.layout.*
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.filterCurrencyInput
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetAmountField
+import com.example.sparely.ui.components.SheetSectionLabel
+import com.example.sparely.ui.components.SparelyChip
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.ExpressiveListHeader
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -81,20 +95,21 @@ fun MainAccountScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
             // Content padding (not Modifier.padding) so cards don't clip while scrolling
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
         ) {
             // Balance Card
             item(key = "balance") {
                 ExpressiveCard(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
                     shape = MaterialTheme.shapes.large,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentPadding = 24.dp
@@ -141,7 +156,8 @@ fun MainAccountScreen(
             item(key = "actions") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     SparelyButton(
                         onClick = { showDepositDialog = true },
@@ -158,22 +174,36 @@ fun MainAccountScreen(
                     ) {
                         Text(stringResource(R.string.vault_withdraw))
                     }
+
+                    // Correcting the balance is rarer, so it gets a round icon button beside the two actions
+                    FilledTonalIconButton(
+                        onClick = { showAdjustDialog = true },
+                        modifier = Modifier.size(50.dp)
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.EDIT,
+                            contentDescription = stringResource(R.string.main_account_adjust_balance),
+                            size = 20.dp
+                        )
+                    }
                 }
             }
 
-            item(key = "adjust") {
-                SparelyTextButton(
-                    onClick = { showAdjustDialog = true },
-                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, null, modifier = Modifier.size(18.dp)) }
-                ) {
-                    Text(stringResource(R.string.main_account_adjust_balance))
-                }
+            // Transaction History Header
+            item(key = "header_history") {
+                ExpressiveListHeader(
+                    title = stringResource(R.string.main_account_transaction_history),
+                    icon = MaterialSymbols.RECEIPT,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
             // Filter Row
             item(key = "filters") {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val filters = listOf(
@@ -181,7 +211,7 @@ fun MainAccountScreen(
                         MainAccountFilter.INCOME to stringResource(R.string.filter_income),
                         MainAccountFilter.EXPENSE to stringResource(R.string.filter_expenses)
                     )
-                    
+
                     filters.forEach { (filter, label) ->
                         FilterChip(
                             selected = selectedFilter == filter,
@@ -195,64 +225,31 @@ fun MainAccountScreen(
                 }
             }
 
-            // Transaction History Header
-            item(key = "header_history") {
-                Text(
-                    text = stringResource(R.string.main_account_transaction_history),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-
-
-
             if (filteredTransactions.isEmpty()) {
                 item(key = "empty") {
-                    ExpressiveCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = MaterialTheme.shapes.large,
-                        contentPadding = 32.dp
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                                      Surface(
-                                          shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
-                                modifier = Modifier.size(80.dp)
-                            ) {
-                                 Box(contentAlignment = Alignment.Center) {
-                                     MaterialSymbolIcon(
-                                         icon = MaterialSymbols.RECEIPT,
-                                         contentDescription = null,
-                                         tint = MaterialTheme.colorScheme.secondary,
-                                         size = 40.dp
-                                     )
-                                 }
-                            }
-                            Text(
-                                text = if (transactions.isEmpty()) stringResource(R.string.main_account_no_transactions)
-                                       else stringResource(R.string.main_account_no_filter_match),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                            if (transactions.isNotEmpty()) {
+                    ExpressiveEmptyState(
+                        icon = MaterialSymbols.RECEIPT,
+                        title = if (transactions.isEmpty()) stringResource(R.string.main_account_no_transactions)
+                                else stringResource(R.string.main_account_no_filter_match),
+                        description = null,
+                        action = if (transactions.isNotEmpty()) {
+                            {
                                 SparelyTonalButton(onClick = { selectedFilter = MainAccountFilter.ALL }) {
                                     Text(stringResource(R.string.main_account_show_all))
                                 }
                             }
-                        }
-                    }
+                        } else null
+                    )
                 }
             } else {
-                items(filteredTransactions, key = { it.id }) { transaction ->
-                    TransactionItem(transaction, onClick = { onTransactionNavigate(transaction) })
+                // One segmented block: rounded ends, thin gaps between transactions
+                itemsIndexed(filteredTransactions, key = { _, transaction -> transaction.id }) { index, transaction ->
+                    TransactionItem(
+                        transaction = transaction,
+                        onClick = { onTransactionNavigate(transaction) },
+                        shape = segmentedShape(index, filteredTransactions.size),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             }
 
@@ -302,12 +299,17 @@ fun MainAccountScreen(
 }
 
 @Composable
-private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> Unit) {
+private fun TransactionItem(
+    transaction: MainAccountTransaction,
+    onClick: () -> Unit,
+    shape: androidx.compose.ui.graphics.Shape,
+    modifier: Modifier = Modifier
+) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
         contentPadding = 16.dp
     ) {
         Row(
@@ -331,8 +333,8 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
             }
             
             Surface(
-                shape = MaterialTheme.shapes.small,
-                color = color.copy(alpha = 0.15f), // Slightly more opaque
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = color.copy(alpha = 0.14f),
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -352,7 +354,8 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
             ) {
                 Text(
                     text = transaction.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -405,7 +408,7 @@ private fun TransactionItem(transaction: MainAccountTransaction, onClick: () -> 
                         "$sign${kotlin.math.abs(transaction.amount).formatCurrency()}"
                     },
                     style = MaterialTheme.typography.titleMedium, // Larger amount
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     color = amountColor
                 )
                 Text(
@@ -434,6 +437,13 @@ private fun TransactionDialog(
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<com.example.sparely.domain.model.IncomeCategory?>(com.example.sparely.domain.model.IncomeCategory.SALARY) }
+    val amountValue = amount.toSafeDouble()
+    val overBalance = availableBalance != null && amountValue != null && amountValue > availableBalance
+    val confirm = {
+        if (amountValue != null && amountValue > 0) {
+            onConfirm(amountValue, description.ifEmpty { title }, selectedCategory)
+        }
+    }
 
     SparelyBottomSheet(
         isOpen = true,
@@ -443,49 +453,55 @@ private fun TransactionDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MaterialSymbolIcon(icon = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            SparelySheetHeader(
+                title = title,
+                subtitle = availableBalance?.let { stringResource(R.string.vault_current, it.formatCurrency()) },
+                icon = icon,
+                iconTint = if (isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
 
-            SparelyTextField(
+            SheetAmountField(
                 value = amount,
                 onValueChange = { amount = it.filterCurrencyInput() },
-                label = { Text(stringResource(R.string.vault_amount_label)) },
-                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = stringResource(R.string.vault_amount_label),
+                isError = overBalance,
+                supportingText = if (overBalance && availableBalance != null) {
+                    stringResource(R.string.main_account_withdraw_over_balance, availableBalance.formatCurrency())
+                } else null,
+                imeAction = ImeAction.Next,
+                onImeAction = {}
             )
-            
+
             if (isIncome) {
-                SparelyExpressiveDropdown(
-                    modifier = Modifier.fillMaxWidth(),
-                    selectedOption = selectedCategory,
-                    label = stringResource(R.string.main_account_income_category),
-                    options = com.example.sparely.domain.model.IncomeCategory.entries.toList(),
-                    onOptionSelected = { selectedCategory = it },
-                    optionLabel = { it.localizedName() },
-                    optionIcon = { category ->
-                        when (category) {
-                            com.example.sparely.domain.model.IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
-                            com.example.sparely.domain.model.IncomeCategory.FREELANCE -> MaterialSymbols.WORK
-                            com.example.sparely.domain.model.IncomeCategory.GIFT -> MaterialSymbols.CELEBRATION
-                            com.example.sparely.domain.model.IncomeCategory.INVESTMENT -> MaterialSymbols.TRENDING_UP
-                            com.example.sparely.domain.model.IncomeCategory.OTHER -> MaterialSymbols.LIST
+                // Every source visible at once: one tap instead of opening a menu
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SheetSectionLabel(stringResource(R.string.main_account_income_category))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(com.example.sparely.domain.model.IncomeCategory.entries.toList()) { category ->
+                            SparelyChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category.localizedName()) },
+                                leadingIcon = {
+                                    MaterialSymbolIcon(
+                                        icon = when (category) {
+                                            com.example.sparely.domain.model.IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
+                                            com.example.sparely.domain.model.IncomeCategory.FREELANCE -> MaterialSymbols.WORK
+                                            com.example.sparely.domain.model.IncomeCategory.GIFT -> MaterialSymbols.CELEBRATION
+                                            com.example.sparely.domain.model.IncomeCategory.INVESTMENT -> MaterialSymbols.TRENDING_UP
+                                            com.example.sparely.domain.model.IncomeCategory.OTHER -> MaterialSymbols.LIST
+                                        },
+                                        contentDescription = null,
+                                        size = 18.dp
+                                    )
+                                }
+                            )
                         }
                     }
-                )
+                }
             }
 
             SparelyTextField(
@@ -493,42 +509,22 @@ private fun TransactionDialog(
                 onValueChange = { description = it },
                 label = { Text(descriptionLabel) },
                 placeholder = { Text(stringResource(R.string.main_account_optional_note)) },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { confirm() }),
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 2
             )
 
-            val amountValue = amount.toSafeDouble()
-            if (availableBalance != null && amountValue != null && amountValue > availableBalance) {
-                Text(
-                    text = stringResource(R.string.main_account_withdraw_over_balance, availableBalance.formatCurrency()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            // Cancel left, confirm right: same order as every other sheet in the app
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTonalButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-                SparelyButton(
-                    onClick = {
-                        if (amountValue != null && amountValue > 0) {
-                            onConfirm(amountValue, description.ifEmpty { title }, selectedCategory)
-                        }
-                    },
-                    enabled = amountValue != null && amountValue > 0,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(positiveLabel)
-                }
-            }
+            SheetActions(
+                confirmLabel = positiveLabel,
+                onConfirm = confirm,
+                confirmEnabled = amountValue != null && amountValue > 0,
+                dismissLabel = stringResource(R.string.common_cancel),
+                onDismiss = onDismiss
+            )
         }
     }
 }
@@ -543,6 +539,13 @@ private fun AdjustBalanceDialog(
     var newBalance by remember { mutableStateOf(currentBalance.formatCurrency("", 2)) }
     var reason by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val balanceValue = newBalance.toSafeDouble()
+    val canAdjust = balanceValue != null && balanceValue >= 0 && balanceValue != currentBalance
+    val confirm = {
+        if (canAdjust && balanceValue != null) {
+            onConfirm(balanceValue, reason.ifEmpty { context.getString(R.string.main_account_adjustment_default_reason) })
+        }
+    }
 
     SparelyBottomSheet(
         isOpen = true,
@@ -552,83 +555,52 @@ private fun AdjustBalanceDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = stringResource(R.string.main_account_adjust_balance),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Text(
-                text = stringResource(R.string.vault_current, currentBalance.formatCurrency()),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            SparelySheetHeader(
+                title = stringResource(R.string.main_account_adjust_balance),
+                subtitle = stringResource(R.string.vault_current, currentBalance.formatCurrency()),
+                icon = MaterialSymbols.EDIT
             )
-            
-            SparelyTextField(
+
+            // Show the effect before committing: an adjustment rewrites the balance
+            val delta = balanceValue?.minus(currentBalance)
+            SheetAmountField(
                 value = newBalance,
                 onValueChange = { newBalance = it.filterCurrencyInput() },
-                label = { Text(stringResource(R.string.main_account_new_balance)) },
-                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = stringResource(R.string.main_account_new_balance),
+                supportingText = delta?.takeIf { kotlin.math.abs(it) >= 0.005 }?.let {
+                    stringResource(
+                        R.string.main_account_adjust_delta,
+                        (if (it > 0) "+" else "-") + kotlin.math.abs(it).formatCurrency()
+                    )
+                },
+                imeAction = ImeAction.Next,
+                onImeAction = {}
             )
-            
+
             SparelyTextField(
                 value = reason,
                 onValueChange = { reason = it },
                 label = { Text(stringResource(R.string.vault_reason_label)) },
                 placeholder = { Text(stringResource(R.string.main_account_adjust_reason_hint)) },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { confirm() }),
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 2
             )
 
-            // Show the effect before committing: an adjustment rewrites the balance
-            val balanceValue = newBalance.toSafeDouble()
-            if (balanceValue != null && balanceValue != currentBalance) {
-                val delta = balanceValue - currentBalance
-                Text(
-                    text = stringResource(
-                        R.string.main_account_adjust_delta,
-                        (if (delta > 0) "+" else "-") + kotlin.math.abs(delta).formatCurrency()
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = if (delta > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTonalButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-                SparelyButton(
-                    onClick = {
-                        if (balanceValue != null && balanceValue >= 0) {
-                            onConfirm(balanceValue, reason.ifEmpty { context.getString(R.string.main_account_adjustment_default_reason) })
-                        }
-                    },
-                    enabled = balanceValue != null && balanceValue >= 0 && balanceValue != currentBalance,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.main_account_adjust_button))
-                }
-            }
+            SheetActions(
+                confirmLabel = stringResource(R.string.main_account_adjust_button),
+                onConfirm = confirm,
+                confirmEnabled = canAdjust,
+                dismissLabel = stringResource(R.string.common_cancel),
+                onDismiss = onDismiss
+            )
         }
     }
 }

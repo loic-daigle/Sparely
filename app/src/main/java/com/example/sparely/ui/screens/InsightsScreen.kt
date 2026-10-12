@@ -6,6 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import com.example.sparely.ui.components.ExpressiveListHeader
+import com.example.sparely.ui.components.SegmentGap
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -143,30 +148,33 @@ fun InsightsScreen(
 
             // 3. Spending anomalies
             item(key = "header_anomalies") {
-                InsightsSectionTitle(stringResource(R.string.insights_anomalies_title))
+                ExpressiveListHeader(
+                    title = stringResource(R.string.insights_anomalies_title),
+                    icon = MaterialSymbols.WARNING,
+                    trailing = anomalies.size.takeIf { it > 0 }?.toString(),
+                    modifier = Modifier.padding(top = 0.dp)
+                )
             }
             if (anomalies.isEmpty()) {
                 item(key = "no_anomalies") {
                     Text(
                         text = stringResource(R.string.insights_no_anomalies),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
             } else {
                 item(key = "anomalies") {
-                    ExpressiveCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(20.dp),
-                        contentPadding = 8.dp
-                    ) {
-                        Column {
-                            anomalies.forEachIndexed { index, anomaly ->
+                    // One segmented block: rounded ends, thin gaps between rows
+                    Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+                        anomalies.forEachIndexed { index, anomaly ->
+                            Surface(
+                                shape = segmentedShape(index, anomalies.size),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 AnomalyItem(anomaly, onClick = { onAnomalyClick(anomaly.expense) })
-                                if (index < anomalies.lastIndex) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                }
                             }
                         }
                     }
@@ -176,21 +184,20 @@ fun InsightsScreen(
             // 4. Category velocity (only when there is data to show)
             if (topVelocity.isNotEmpty()) {
                 item(key = "header_velocity") {
-                    InsightsSectionTitle(stringResource(R.string.insights_velocity_title))
+                    ExpressiveListHeader(
+                        title = stringResource(R.string.insights_velocity_title),
+                        icon = MaterialSymbols.TRENDING_UP
+                    )
                 }
                 item(key = "velocity") {
-                    ExpressiveCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(20.dp),
-                        contentPadding = 8.dp
-                    ) {
-                        Column {
-                            topVelocity.forEachIndexed { index, velocity ->
+                    Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+                        topVelocity.forEachIndexed { index, velocity ->
+                            Surface(
+                                shape = segmentedShape(index, topVelocity.size),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 CategoryVelocityItem(velocity)
-                                if (index < topVelocity.lastIndex) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                }
                             }
                         }
                     }
@@ -377,7 +384,7 @@ private fun IdleMoneyCard(
 private fun RecurringPatternsCard(patterns: List<SmartInsightEngine.RecurringPatternInsight>) {
     ExpressiveCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -475,7 +482,7 @@ private fun RecurringPatternItem(pattern: SmartInsightEngine.RecurringPatternIns
 private fun SeasonalInsightsCard(insights: List<SmartInsightEngine.SeasonalInsight>) {
     ExpressiveCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -576,7 +583,7 @@ private fun SeasonalInsightItem(insight: SmartInsightEngine.SeasonalInsight) {
 private fun UniqueExpensesCard(expenses: List<SmartInsightEngine.UniqueExpenseInsight>) {
     ExpressiveCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -692,7 +699,7 @@ private fun UniqueExpenseItem(uniqueExpense: SmartInsightEngine.UniqueExpenseIns
 private fun CashflowForecastCard(forecast: CashflowEngine.CashflowForecast) {
     ExpressiveCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 16.dp
     ) {
@@ -927,7 +934,7 @@ private fun MetricCard(
     ExpressiveCard(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ExpressiveShapes.large,
         contentPadding = 16.dp
     ) {
         Column {
@@ -955,18 +962,25 @@ private fun AnomalyItem(anomaly: SpendingPatternEngine.SpendingAnomaly, onClick:
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        MaterialSymbolIcon(
-            icon = MaterialSymbols.WARNING,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.WARNING,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                size = 20.dp
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = anomaly.expense.description,
@@ -1001,7 +1015,7 @@ private fun CategoryVelocityItem(velocityData: SpendingPatternEngine.CategoryVel
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {

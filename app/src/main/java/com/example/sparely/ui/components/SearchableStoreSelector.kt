@@ -35,6 +35,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.sparely.domain.model.Store
 import com.example.sparely.domain.model.StoreInput
 import com.example.sparely.ui.components.SparelyBottomSheet
@@ -471,10 +475,9 @@ private fun AddStoreDialog(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Add New Store",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            SparelySheetHeader(
+                title = "Add New Store",
+                icon = MaterialSymbols.STORE
             )
 
             SparelyTextField(
@@ -487,6 +490,10 @@ private fun AddStoreDialog(
                     }
                 },
                 label = { Text("Store Name") },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -498,42 +505,27 @@ private fun AddStoreDialog(
                 },
                 label = { Text("Website URL (optional)") },
                 placeholder = { Text("e.g., amazon.com") },
+                supportingText = { Text("Adding a website URL will display the store's logo automatically.") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text(
-                text = "Adding a website URL will display the store's logo automatically.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancel")
-                }
-                SparelyButton(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            onConfirm(
-                                StoreInput(
-                                    name = name.trim(),
-                                    websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
-                                )
+            SheetActions(
+                confirmLabel = "Add",
+                onConfirm = {
+                    if (name.isNotBlank()) {
+                        onConfirm(
+                            StoreInput(
+                                name = name.trim(),
+                                websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
                             )
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = name.isNotBlank()
-                ) {
-                    Text("Add")
-                }
-            }
+                        )
+                    }
+                },
+                confirmEnabled = name.isNotBlank(),
+                dismissLabel = "Cancel",
+                onDismiss = onDismiss
+            )
         }
     }
 }
@@ -562,16 +554,19 @@ private fun EditStoreDialog(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Edit Store",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            SparelySheetHeader(
+                title = "Edit Store",
+                icon = MaterialSymbols.EDIT
             )
 
             SparelyTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Store Name") },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -580,42 +575,27 @@ private fun EditStoreDialog(
                 onValueChange = { websiteUrl = it },
                 label = { Text("Website URL (optional)") },
                 placeholder = { Text("e.g., amazon.com") },
+                supportingText = { Text("The website URL is used to fetch the store's logo.") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text(
-                text = "The website URL is used to fetch the store's logo.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancel")
-                }
-                SparelyButton(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            onConfirm(
-                                store.copy(
-                                    name = name.trim(),
-                                    websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
-                                )
+            SheetActions(
+                confirmLabel = "Save",
+                onConfirm = {
+                    if (name.isNotBlank()) {
+                        onConfirm(
+                            store.copy(
+                                name = name.trim(),
+                                websiteUrl = websiteUrl.trim().takeIf { it.isNotBlank() }
                             )
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = name.isNotBlank()
-                ) {
-                    Text("Save")
-                }
-            }
+                        )
+                    }
+                },
+                confirmEnabled = name.isNotBlank(),
+                dismissLabel = "Cancel",
+                onDismiss = onDismiss
+            )
         }
     }
 }

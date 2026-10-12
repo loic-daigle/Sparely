@@ -8,6 +8,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.ExpressiveListHeader
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -52,29 +59,11 @@ fun FinancialHealthScreen(
                 .padding(32.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.HEALTH_AND_SAFETY,
-                    contentDescription = null,
-                    size = 56.dp,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = stringResource(R.string.health_empty_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = stringResource(R.string.health_empty_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
+            ExpressiveEmptyState(
+                icon = MaterialSymbols.HEALTH_AND_SAFETY,
+                title = stringResource(R.string.health_empty_title),
+                description = stringResource(R.string.health_empty_desc)
+            )
         }
         return
     }
@@ -88,10 +77,11 @@ fun FinancialHealthScreen(
     val potentialGain = tips.sumOf { it.potentialScoreGain }.coerceAtMost(100 - healthScore.overallScore)
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         // Content padding (not Modifier.padding) so cards don't clip while scrolling
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
     ) {
         item(key = "score") {
             HealthScoreCard(healthScore, potentialGain = potentialGain)
@@ -100,15 +90,27 @@ fun FinancialHealthScreen(
         // Actionable tips come before the breakdown and strengths
         if (tips.isNotEmpty()) {
             item(key = "header_improve") {
-                HealthSectionTitle(stringResource(R.string.health_improve))
+                ExpressiveListHeader(
+                    title = stringResource(R.string.health_improve),
+                    icon = MaterialSymbols.LIGHTBULB,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
-            items(tips, key = { "tip_${it.title}" }) { tip ->
-                ImprovementTipCard(tip)
+            itemsIndexed(tips, key = { _, tip -> "tip_${tip.title}" }) { index, tip ->
+                ImprovementTipCard(
+                    tip = tip,
+                    shape = segmentedShape(index, tips.size),
+                    modifier = Modifier.segmentSpacing(index)
+                )
             }
         }
 
         item(key = "header_breakdown") {
-            HealthSectionTitle(stringResource(R.string.health_score_breakdown))
+            ExpressiveListHeader(
+                title = stringResource(R.string.health_score_breakdown),
+                icon = MaterialSymbols.PIE_CHART,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
         item(key = "breakdown") {
             ScoreBreakdownCard(healthScore)
@@ -116,10 +118,18 @@ fun FinancialHealthScreen(
 
         if (healthScore.topStrengths.isNotEmpty()) {
             item(key = "header_strengths") {
-                HealthSectionTitle(stringResource(R.string.health_strengths))
+                ExpressiveListHeader(
+                    title = stringResource(R.string.health_strengths),
+                    icon = MaterialSymbols.CHECK_CIRCLE,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
-            items(healthScore.topStrengths, key = { "strength_$it" }) { strength ->
-                StrengthCard(strength)
+            itemsIndexed(healthScore.topStrengths, key = { _, strength -> "strength_$strength" }) { index, strength ->
+                StrengthCard(
+                    strength = strength,
+                    shape = segmentedShape(index, healthScore.topStrengths.size),
+                    modifier = Modifier.segmentSpacing(index)
+                )
             }
         }
     }
@@ -157,8 +167,8 @@ fun HealthScoreCard(healthScore: FinancialHealthScore, potentialGain: Int = 0) {
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(32.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = ExpressiveShapes.large,
         contentPadding = 24.dp
     ) {
         Column(
@@ -186,7 +196,7 @@ fun HealthScoreCard(healthScore: FinancialHealthScore, potentialGain: Int = 0) {
             Text(
                 text = healthScore.healthLevel.displayName(),
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Bold,
                 color = startColor
             )
             if (potentialGain > 0) {
@@ -316,7 +326,7 @@ fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
     ExpressiveCard(
         modifier = modifier.heightIn(min = 104.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = ExpressiveShapes.medium,
         contentPadding = 16.dp
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -337,7 +347,7 @@ fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .clip(CircleShape),
                 color = color,
                 trackColor = color.copy(alpha = 0.18f),
                 strokeCap = StrokeCap.Round
@@ -387,11 +397,15 @@ fun ScoreBreakdownRow(category: String, score: Int) {
 }
 
 @Composable
-fun StrengthCard(strength: String) {
+fun StrengthCard(
+    strength: String,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.medium,
+    modifier: Modifier = Modifier
+) {
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         contentPadding = 16.dp
     ) {
         Row(
@@ -399,13 +413,21 @@ fun StrengthCard(strength: String) {
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.CHECK_CIRCLE,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.success,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.success.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.CHECK_CIRCLE,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.success,
+                    size = 20.dp
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
             Text(
                 text = strength,
                 style = MaterialTheme.typography.bodyLarge,
@@ -416,16 +438,20 @@ fun StrengthCard(strength: String) {
 }
 
 @Composable
-fun ImprovementTipCard(tip: ImprovementTip) {
+fun ImprovementTipCard(
+    tip: ImprovementTip,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.medium,
+    modifier: Modifier = Modifier
+) {
     val accent = when (tip.priority) {
         Priority.HIGH -> MaterialTheme.colorScheme.critical
         Priority.MEDIUM -> MaterialTheme.colorScheme.warning
         Priority.LOW -> MaterialTheme.colorScheme.primary
     }
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         contentPadding = 16.dp
     ) {
         Row(
@@ -452,7 +478,7 @@ fun ImprovementTipCard(tip: ImprovementTip) {
                     Text(
                         text = tip.title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
                     )
                     // Static badge: it's information, not a button

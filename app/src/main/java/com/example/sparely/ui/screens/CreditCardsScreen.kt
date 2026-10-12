@@ -24,7 +24,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetAmountField
+import com.example.sparely.ui.components.SheetToggleRow
+import com.example.sparely.ui.components.SparelyChip
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -63,7 +78,6 @@ import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTextField
 import com.example.sparely.ui.components.SparelyTonalButton
-import com.example.sparely.ui.theme.ExpressiveShapes
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.critical
@@ -91,7 +105,7 @@ fun CreditCardsScreen(
     var payingCard by remember { mutableStateOf<PaymentMethod?>(null) }
     
     // Using global SparelyTopBar for navigation - no local topBar needed
-    Scaffold { innerPadding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         if (creditCards.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -99,37 +113,21 @@ fun CreditCardsScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.CREDIT_CARD,
-                        contentDescription = null,
-                        size = 64.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                    Text(
-                        stringResource(R.string.credit_cards_no_cards),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        stringResource(R.string.credit_cards_add_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    onAddCard?.let {
-                        SparelyButton(
-                            onClick = it,
-                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
-                        ) {
-                            Text(stringResource(R.string.credit_cards_add_card_action))
+                ExpressiveEmptyState(
+                    icon = MaterialSymbols.CREDIT_CARD,
+                    title = stringResource(R.string.credit_cards_no_cards),
+                    description = stringResource(R.string.credit_cards_add_hint),
+                    action = onAddCard?.let {
+                        {
+                            SparelyButton(
+                                onClick = it,
+                                icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
+                            ) {
+                                Text(stringResource(R.string.credit_cards_add_card_action))
+                            }
                         }
                     }
-                }
+                )
             }
         } else {
             val totalDebt = creditCards.sumOf { it.currentBalance }
@@ -141,8 +139,7 @@ fun CreditCardsScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
                 // Content padding (not Modifier.padding) so cards don't clip at the edges
-                contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = spacing.xl),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm)
+                contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = spacing.xl)
             ) {
                 // Summary Header
                 item(key = "summary") {
@@ -150,14 +147,17 @@ fun CreditCardsScreen(
                         totalDebt = totalDebt,
                         totalLimit = totalLimit,
                         overallUtilization = overallUtilization,
-                        cardCount = creditCards.size
+                        cardCount = creditCards.size,
+                        modifier = Modifier.padding(bottom = spacing.md)
                     )
                 }
-                
-                // Individual Cards
-                items(creditCards, key = { it.id }) { card ->
+
+                // Individual cards as one segmented block: rounded ends, thin gaps
+                itemsIndexed(creditCards, key = { _, card -> card.id }) { index, card ->
                     CreditCardDetailItem(
                         card = card,
+                        shape = segmentedShape(index, creditCards.size, outer = 28.dp),
+                        modifier = Modifier.segmentSpacing(index),
                         isExpanded = expandedCardId == card.id,
                         recentPayments = recentPayments[card.id] ?: emptyList(),
                         onClick = { 
@@ -189,7 +189,8 @@ private fun CreditCardsSummaryHeader(
     totalDebt: Double,
     totalLimit: Double,
     overallUtilization: Double,
-    cardCount: Int
+    cardCount: Int,
+    modifier: Modifier = Modifier
 ) {
     val spacing = MaterialTheme.spacing
     val utilizationColor = when {
@@ -199,9 +200,9 @@ private fun CreditCardsSummaryHeader(
     }
     
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(24.dp)
+        shape = ExpressiveShapes.large
     ) {
         Column(
             modifier = Modifier.padding(spacing.lg),
@@ -221,7 +222,7 @@ private fun CreditCardsSummaryHeader(
                     Text(
                         totalDebt.formatCurrency(),
                         style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -264,9 +265,10 @@ private fun CreditCardsSummaryHeader(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(10.dp)
-                            .clip(RoundedCornerShape(5.dp)),
+                            .clip(CircleShape),
                         color = utilizationColor,
-                        trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                        trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
+                        strokeCap = StrokeCap.Round
                     )
                 }
                 
@@ -304,7 +306,9 @@ private fun CreditCardDetailItem(
     isExpanded: Boolean,
     recentPayments: List<CreditCardPayment>,
     onClick: () -> Unit,
-    onPayBill: () -> Unit
+    onPayBill: () -> Unit,
+    shape: Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
     val spacing = MaterialTheme.spacing
     val isCreditBalance = card.currentBalance < -0.005
@@ -315,8 +319,9 @@ private fun CreditCardDetailItem(
     }
 
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick,
+        shape = shape,
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Column(
@@ -336,8 +341,8 @@ private fun CreditCardDetailItem(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(utilizationColor.copy(alpha = 0.15f)),
+                            .clip(ExpressiveShapes.small)
+                            .background(utilizationColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
                         MaterialSymbolIcon(
@@ -351,7 +356,7 @@ private fun CreditCardDetailItem(
                         Text(
                             card.name,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -369,7 +374,7 @@ private fun CreditCardDetailItem(
                     Text(
                         card.currentBalance.formatCurrency(),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = when {
                             isCreditBalance -> MaterialTheme.colorScheme.success
                             card.currentBalance > 0 -> utilizationColor
@@ -401,10 +406,11 @@ private fun CreditCardDetailItem(
                         progress = { card.utilizationPercent.toFloat().coerceIn(0f, 1f) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
+                            .height(8.dp)
+                            .clip(CircleShape),
                         color = utilizationColor,
-                        trackColor = utilizationColor.copy(alpha = 0.18f)
+                        trackColor = utilizationColor.copy(alpha = 0.18f),
+                        strokeCap = StrokeCap.Round
                     )
                 }
             }
@@ -418,11 +424,13 @@ private fun CreditCardDetailItem(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(spacing.md)
                 ) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = spacing.sm))
-                    
                     // Quick Stats
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(ExpressiveShapes.medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .padding(vertical = spacing.sm),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         // Available credit only makes sense when a limit is set
@@ -445,7 +453,6 @@ private fun CreditCardDetailItem(
                     
                     // Recent Payments
                     if (recentPayments.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = spacing.xs))
                         Text(
                             stringResource(R.string.credit_cards_recent_payments_label),
                             style = MaterialTheme.typography.labelMedium,
@@ -574,7 +581,13 @@ private fun PayBillBottomSheet(
     val paymentAmount = amountText.toSafeDouble() ?: 0.0
     val hasInsufficientFunds = deductFromMainAccount && paymentAmount > mainAccountBalance
     val currencySymbol = stringResource(R.string.currency_symbol)
-    
+    val pay = {
+        val amount = amountText.toSafeDouble()
+        if (amount != null && amount > 0 && !hasInsufficientFunds) {
+            onPay(amount, note.takeIf { it.isNotBlank() }, deductFromMainAccount)
+        }
+    }
+
     SparelyBottomSheet(
         isOpen = true,
         onDismiss = onDismiss
@@ -582,7 +595,8 @@ private fun PayBillBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column(
@@ -592,154 +606,68 @@ private fun PayBillBottomSheet(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.credit_cards_pay_dialog_title, card.name),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                SparelySheetHeader(
+                    title = stringResource(R.string.credit_cards_pay_dialog_title, card.name),
+                    subtitle = stringResource(R.string.credit_cards_current_balance_label, currentBalance.formatCurrency()),
+                    icon = MaterialSymbols.CREDIT_CARD
                 )
 
-                ExpressiveCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = ExpressiveShapes.medium
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            stringResource(R.string.credit_cards_current_balance_label, currentBalance.formatCurrency()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            SparelyTonalButton(
-                                onClick = { amountText = currentBalance.formatCurrency("", 2) },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(stringResource(R.string.credit_cards_preset_full), style = MaterialTheme.typography.labelSmall)
-                            }
-                            SparelyTonalButton(
-                                onClick = { amountText = minOf(25.0, currentBalance).formatCurrency("", 2) },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(stringResource(R.string.credit_cards_preset_min), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-                
-                SparelyTextField(
+                // Prefilled with the full balance, so the keypad doesn't open by itself
+                SheetAmountField(
                     value = amountText,
                     onValueChange = { amountText = it.filterCurrencyInput() },
-                    label = { Text(stringResource(R.string.credit_cards_payment_amount_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    leadingIcon = { Text(currencySymbol) },
-                    modifier = Modifier.fillMaxWidth()
+                    label = stringResource(R.string.credit_cards_payment_amount_label),
+                    currencySymbol = currencySymbol,
+                    autoFocus = false,
+                    onImeAction = pay
                 )
-                
+
+                // One-tap amounts
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyChip(
+                        selected = amountText == currentBalance.formatCurrency("", 2),
+                        onClick = { amountText = currentBalance.formatCurrency("", 2) },
+                        label = { Text(stringResource(R.string.credit_cards_preset_full)) }
+                    )
+                    SparelyChip(
+                        selected = amountText == minOf(25.0, currentBalance).formatCurrency("", 2),
+                        onClick = { amountText = minOf(25.0, currentBalance).formatCurrency("", 2) },
+                        label = { Text(stringResource(R.string.credit_cards_preset_min)) }
+                    )
+                }
+
+                SheetToggleRow(
+                    title = stringResource(R.string.credit_cards_deduct_main_label),
+                    description = if (hasInsufficientFunds) {
+                        stringResource(R.string.credit_cards_insufficient_funds_error)
+                    } else {
+                        stringResource(R.string.credit_cards_main_available_label, mainAccountBalance.formatCurrency())
+                    },
+                    checked = deductFromMainAccount,
+                    onCheckedChange = { deductFromMainAccount = it }
+                )
+
                 SparelyTextField(
                     value = note,
                     onValueChange = { note = it },
                     label = { Text(stringResource(R.string.credit_cards_note_label)) },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { pay() }),
+                    isError = false,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                
-                // Deduct from Main Account toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
-                                contentDescription = null,
-                                size = 20.dp,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                stringResource(R.string.credit_cards_deduct_main_label),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        Text(
-                            stringResource(R.string.credit_cards_main_available_label, mainAccountBalance.formatCurrency()),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (hasInsufficientFunds) MaterialTheme.colorScheme.error 
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = deductFromMainAccount,
-                        onCheckedChange = { deductFromMainAccount = it }
-                    )
-                }
-                
-                if (hasInsufficientFunds) {
-                    ExpressiveCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-                        shape = ExpressiveShapes.small
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.WARNING,
-                                contentDescription = null,
-                                size = 18.dp,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                stringResource(R.string.credit_cards_insufficient_funds_error),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.credit_cards_cancel_action))
-                }
-                SparelyButton(
-                    onClick = {
-                        val amount = amountText.toSafeDouble()
-                        if (amount != null && amount > 0 && !hasInsufficientFunds) {
-                            onPay(amount, note.takeIf { it.isNotBlank() }, deductFromMainAccount)
-                        }
-                    },
-                    enabled = paymentAmount > 0 && !hasInsufficientFunds,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.credit_cards_pay_action_confirm))
-                }
-            }
+            SheetActions(
+                confirmLabel = stringResource(R.string.credit_cards_pay_action_confirm),
+                onConfirm = pay,
+                confirmEnabled = paymentAmount > 0 && !hasInsufficientFunds,
+                dismissLabel = stringResource(R.string.credit_cards_cancel_action),
+                onDismiss = onDismiss
+            )
         }
     }
 }
-

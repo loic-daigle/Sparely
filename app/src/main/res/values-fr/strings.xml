@@ -1181,6 +1181,7 @@
 
     <!-- Savings accounts / HISA -->
     <string name="savings_accounts_title">Comptes d\'épargne</string>
+    <string name="savings_section_withdrawal_rules">Limites de retrait</string>
     <string name="dashboard_vaults_action">Coffres</string>
     <string name="dashboard_saving_rate">Épargne %1$s</string>
     <string name="dashboard_tab_savings">Comptes</string>
@@ -1220,6 +1221,7 @@
     <string name="dashboard_greeting_evening">Bonsoir</string>
     <string name="dashboard_needs_attention">À surveiller</string>
     <string name="dashboard_this_month">Ce mois-ci</string>
+    <string name="dashboard_accounts_title">Comptes et objectifs</string>
     <string name="dashboard_savings_progress">Progression de l\'épargne</string>
     <string name="dashboard_runway_healthy">Aucun manque prévu</string>
     <string name="dashboard_forecast_title">Prévision de trésorerie sur 4 semaines</string>
@@ -1238,6 +1240,12 @@
     <string name="dashboard_assets_description">Suivez vos biens physiques et financiers et leur valeur</string>
     <string name="history_filters_count">Filtres · %1$d</string>
     <string name="history_show_more">Afficher plus</string>
+    <string name="history_top_stores">Magasins principaux</string>
+    <plurals name="history_store_purchases">
+        <item quantity="one">%d achat</item>
+        <item quantity="many">%d achats</item>
+        <item quantity="other">%d achats</item>
+    </plurals>
     <string name="history_total_spent_period">Dépensé · %1$s</string>
     <string name="history_empty_filtered_title">Aucune dépense correspondante</string>
     <string name="history_empty_filtered_desc">Essayez une autre période ou catégorie, ou effacez vos filtres.</string>
@@ -1297,6 +1305,18 @@
     <string name="expense_entry_discard_message">Ce que vous avez saisi ne sera pas enregistré.</string>
     <string name="expense_entry_discard_confirm">Abandonner</string>
     <string name="expense_entry_keep_editing">Continuer</string>
+    <string name="expense_entry_description_placeholder">C\'était pour quoi ?</string>
+    <string name="expense_entry_save_with_amount">%1$s · %2$s</string>
+    <plurals name="expense_entry_assets_linked">
+        <item quantity="one">%d bien lié</item>
+        <item quantity="many">%d biens liés</item>
+        <item quantity="other">%d biens liés</item>
+    </plurals>
+    <plurals name="expense_entry_items_count">
+        <item quantity="one">%1$d article · %2$s</item>
+        <item quantity="many">%1$d articles · %2$s</item>
+        <item quantity="other">%1$d articles · %2$s</item>
+    </plurals>
     <string name="expense_entry_link_assets_title">Lier à des biens</string>
     <string name="expense_entry_no_assets_linked">Aucun bien lié à cette dépense</string>
     <string name="expense_entry_remove_asset">Retirer le bien</string>
@@ -1325,6 +1345,9 @@
     <string name="recurring_monthly_total_detail">≈ %1$s par an · %2$d actifs</string>
     <string name="recurring_action_pause">Mettre en pause</string>
     <string name="recurring_action_resume">Reprendre</string>
+    <string name="recurring_action_undo_paid">Annuler le paiement</string>
+    <string name="recurring_marked_paid_message">Marqué comme payé</string>
+    <string name="recurring_undo_paid_action">Annuler</string>
     <string name="credit_cards_add_card_action">Ajouter une carte</string>
     <string name="recurring_form_no_end_date">Sans date de fin : se répète jusqu\'à ce que vous le mettiez en pause ou le supprimiez</string>
     <string name="recurring_form_add_end_date">Ajouter une date de fin</string>
@@ -1345,9 +1368,6 @@
     <string name="recurring_detected_desc">Trouvés dans votre historique. Ils sont inclus dans le total mensuel ; ajoutez-les pour recevoir des rappels.</string>
     <string name="recurring_detected_detail">~%1$s tous les %2$d jours · dernier %3$s</string>
     <string name="recurring_detected_per_month">%1$s/mois</string>
-    <string name="recurring_action_undo_paid">Annuler le paiement</string>
-    <string name="recurring_marked_paid_message">Marqué comme payé</string>
-    <string name="recurring_undo_paid_action">Annuler</string>
     <string name="recurring_detected_add">Ajouter</string>
     <string name="settings_change">Modifier</string>
     <string name="settings_tax_override_desc">Remplacez le taux d\'imposition par défaut pour %1$s. Par défaut : %2$d %%</string>

@@ -2,6 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -29,6 +30,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +65,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -196,7 +200,7 @@ fun DashboardScreen(
     // Removed local TopAppBar - using global SparelyTopBar instead
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             if (showFloatingFab && !isQuickActionsVisible) {
@@ -284,7 +288,7 @@ fun DashboardScreen(
             }
 
             // ── Accounts & goals ────────────────────────────────────────
-            item(key = "accounts") {
+            dashboardSection(key = "accounts", titleRes = R.string.dashboard_accounts_title) {
                 UnifiedAccountsDashboardSection(
                     savingsAccounts = savingsAccounts,
                     onManageSavingsAccounts = onManageSavingsAccounts,
@@ -295,7 +299,7 @@ fun DashboardScreen(
                 )
             }
 
-            // ── This month ──────────────────────────────────────────────
+            // ── This month: scores, then what's coming up, then card debt ──
             dashboardSection(key = "this_month", titleRes = R.string.dashboard_this_month) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -317,14 +321,6 @@ fun DashboardScreen(
                 }
             }
 
-            item(key = "purchase_check") {
-                PurchaseCheckCard(
-                    wishlistCount = uiState.wishlists.size,
-                    decisionCount = uiState.wishlists.count { it.needsDecision() },
-                    onClick = onNavigateToPurchaseCheck
-                )
-            }
-
             item(key = "upcoming_bills") {
                 UpcomingRecurringCard(
                     items = uiState.upcomingRecurring,
@@ -340,6 +336,14 @@ fun DashboardScreen(
                         onClick = onNavigateToCreditCards
                     )
                 }
+            }
+
+            item(key = "purchase_check") {
+                PurchaseCheckCard(
+                    wishlistCount = uiState.wishlists.size,
+                    decisionCount = uiState.wishlists.count { it.needsDecision() },
+                    onClick = onNavigateToPurchaseCheck
+                )
             }
 
             // ── Savings progress ────────────────────────────────────────
@@ -426,8 +430,8 @@ private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> U
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() }
         )
         if (onAction != null) {
@@ -607,8 +611,9 @@ private fun DashboardHeroCard(
                 }
                 SingleLineText(
                     text = totalBalance.formatCurrency(),
-                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                    // onPrimaryContainer keeps full contrast on the tinted card in every theme
+                    color = onContainer,
                     modifier = Modifier.fillMaxWidth(),
                     minFontSize = 24f
                 )
@@ -797,7 +802,7 @@ private fun QuickActionsRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)
+        horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         QuickAction(
             icon = MaterialSymbols.ADD,
@@ -837,28 +842,44 @@ private fun QuickAction(
     emphasized: Boolean = false,
     enabled: Boolean = true
 ) {
-    val containerColor = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
-    val contentColor = if (emphasized) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.heightIn(min = 72.dp),
-        shape = ExpressiveShapes.medium,
-        color = if (enabled) containerColor else MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = if (enabled) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    val colors = MaterialTheme.colorScheme
+    val containerColor = when {
+        !enabled -> colors.surfaceContainerHigh
+        emphasized -> colors.primary
+        else -> colors.secondaryContainer
+    }
+    val contentColor = when {
+        !enabled -> colors.onSurface.copy(alpha = 0.38f)
+        emphasized -> colors.onPrimary
+        else -> colors.onSecondaryContainer
+    }
+    // Round icon button with its label underneath; the whole column is the touch target
+    Column(
+        modifier = modifier
+            .clip(ExpressiveShapes.medium)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(if (emphasized) ExpressiveShapes.large else CircleShape)
+                .background(containerColor),
+            contentAlignment = Alignment.Center
         ) {
-            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 22.dp)
-            SingleLineText(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center
-            )
+            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 24.dp, tint = contentColor)
         }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Medium,
+            color = if (enabled) colors.onSurface else colors.onSurface.copy(alpha = 0.38f),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1008,50 +1029,51 @@ private fun UnifiedAccountsDashboardSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.weight(1f),
-                containerColor = Color.Transparent,
-                divider = {},
-                indicator = { tabPositions ->
-                    if (selectedTab < tabPositions.size) {
-                        Box(
-                            modifier = Modifier
-                                .tabIndicatorOffset(tabPositions[selectedTab])
-                                .height(3.dp)
-                                .padding(horizontal = 12.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                                )
-                        )
-                    }
-                }
+            // Pill switcher: the selected segment fills, the others sit on a shared track
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(4.dp)
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 tabs.forEachIndexed { index, titleResId ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = stringResource(titleResId),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (index == 1 && pendingVaultCount > 0) {
-                                    Spacer(Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(MaterialTheme.colorScheme.critical, CircleShape)
-                                    )
-                                }
-                            }
-                        }
+                    val selected = selectedTab == index
+                    val segmentColor by animateColorAsState(
+                        if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        label = "segment"
                     )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(CircleShape)
+                            .background(segmentColor)
+                            .selectable(selected = selected, role = Role.Tab, onClick = { selectedTab = index })
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(titleResId),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        // Vault transfers waiting on the user
+                        if (index == 1 && pendingVaultCount > 0) {
+                            Spacer(Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(MaterialTheme.colorScheme.critical, CircleShape)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1505,38 +1527,32 @@ private fun BillRow(upcoming: UpcomingRecurringExpense, formatter: DateTimeForma
 
 @Composable
 private fun PurchaseCheckCard(wishlistCount: Int, decisionCount: Int, onClick: () -> Unit) {
-    ExpressiveCard(onClick = onClick, modifier = Modifier.fillMaxWidth(), contentPadding = 16.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            IconBadge(icon = MaterialSymbols.SHOPPING_BAG, color = MaterialTheme.colorScheme.primary, size = 48.dp)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.purchase_check_card_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = if (decisionCount > 0) {
-                        stringResource(R.string.purchase_check_card_subtitle_decisions, decisionCount)
-                    } else if (wishlistCount > 0) {
-                        stringResource(R.string.purchase_check_card_subtitle_wishlist, wishlistCount)
-                    } else {
-                        stringResource(R.string.purchase_check_card_subtitle)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    ExpressiveCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    ) {
+        CardHeader(
+            icon = MaterialSymbols.SHOPPING_BAG,
+            title = stringResource(R.string.purchase_check_card_title),
+            subtitle = if (decisionCount > 0) {
+                stringResource(R.string.purchase_check_card_subtitle_decisions, decisionCount)
+            } else if (wishlistCount > 0) {
+                stringResource(R.string.purchase_check_card_subtitle_wishlist, wishlistCount)
+            } else {
+                stringResource(R.string.purchase_check_card_subtitle)
+            },
+            iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+            trailing = {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ARROW_FORWARD,
+                    contentDescription = null,
+                    size = 20.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.ARROW_FORWARD,
-                contentDescription = null,
-                size = 20.dp,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        )
     }
 }
 
@@ -1554,7 +1570,7 @@ private fun QuickHealthScoreCard(healthScore: FinancialHealthScore, onClick: () 
         onClick = onClick,
         containerColor = healthColor.copy(alpha = 0.08f),
         contentPadding = 0.dp,
-        modifier = Modifier.fillMaxWidth().height(180.dp)
+        modifier = Modifier.fillMaxWidth().height(156.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize(),
@@ -1621,13 +1637,7 @@ private fun QuickHealthScoreCard(healthScore: FinancialHealthScore, onClick: () 
                     color = healthColor
                 )
             }
-            
-            Text(
-                text = stringResource(R.string.dashboard_tap_for_analysis),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+
         }
     }
 }
@@ -1645,7 +1655,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
         onClick = onClick,
         containerColor = statusColor.copy(alpha = 0.08f),
         contentPadding = 0.dp,
-        modifier = Modifier.fillMaxWidth().height(180.dp)
+        modifier = Modifier.fillMaxWidth().height(156.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize(),
@@ -1717,13 +1727,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
                     strokeCap = StrokeCap.Round,
                 )
             }
-            
-            Text(
-                text = stringResource(R.string.dashboard_tap_for_details),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+
         }
     }
 }
@@ -1733,7 +1737,7 @@ private fun BudgetEmptyCard(onClick: () -> Unit) {
     ExpressiveCard(
         onClick = onClick,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().height(180.dp)
+        modifier = Modifier.fillMaxWidth().height(156.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize(),
@@ -1875,63 +1879,34 @@ private fun CreditCardSummaryCard(
         Column(
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(ExpressiveShapes.extraSmall)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.CREDIT_CARD,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Column {
+            // Same header as the other cards; the balance sits on the right instead of in a
+            // display-size line that would compete with the hero
+            CardHeader(
+                icon = MaterialSymbols.CREDIT_CARD,
+                title = stringResource(R.string.dashboard_credit_cards_title),
+                subtitle = pluralStringResource(
+                    R.plurals.dashboard_credit_cards_count,
+                    creditCards.size,
+                    creditCards.size
+                ),
+                iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
+                trailing = {
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = stringResource(R.string.dashboard_credit_cards_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.dashboard_credit_cards_count,
-                                creditCards.size,
-                                creditCards.size
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
+                            text = stringResource(R.string.dashboard_total_balance),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatCurrency(totalBalance),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
-            }
-
-            // Main Balance
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource(R.string.dashboard_total_balance),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatCurrency(totalBalance),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            )
 
             // Utilization Bar
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

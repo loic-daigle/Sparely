@@ -1,117 +1,149 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 
 package com.example.sparely.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import com.example.sparely.ui.components.SparelyTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.example.sparely.domain.model.ExpenseCategory
-import com.example.sparely.domain.model.ExpenseInput
-import com.example.sparely.domain.model.SmartVault
-import com.example.sparely.domain.model.ExpenseType
-import com.example.sparely.domain.model.RecommendationResult
-import com.example.sparely.domain.model.SparelySettings
-import com.example.sparely.domain.model.SavingsPercentages
-import com.example.sparely.ui.components.*
-import com.example.sparely.ui.components.SparelyBottomSheet
-import com.example.sparely.ui.components.SparelyTonalButton
-import com.example.sparely.ui.utils.formatCurrency
-import com.example.sparely.ui.utils.formatPercent
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import com.example.sparely.domain.model.Store
-import com.example.sparely.ui.components.SearchableStoreSelector
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.rememberDatePickerState
-import com.example.sparely.domain.model.StoreInput
-import com.example.sparely.ui.utils.toSafeDatePickerMillis
-import com.example.sparely.ui.utils.filterCurrencyInput
-import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.toSafeDoubleOrZero
-import java.time.Instant
-import java.time.ZoneOffset
-import com.example.sparely.ui.components.SparelyTextButton
-import kotlinx.coroutines.launch
-import com.example.sparely.domain.model.PaymentMethod
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import com.example.sparely.domain.model.displayName
-import com.sparely.app.R
-import com.example.sparely.ui.components.PaymentMethodSelector
-import androidx.compose.ui.draw.scale
-import com.example.sparely.domain.model.Asset
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import com.example.sparely.ui.components.CategorySelector
-import com.example.sparely.ui.components.QuickTemplateSelector
-import com.example.sparely.ui.components.TitleAutofillHint
-import com.example.sparely.ui.components.TitleSuggestionRow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.logic.KnownTitle
 import com.example.sparely.domain.logic.TitleSuggestionEngine
-import com.example.sparely.ui.components.QuickTemplates
-import com.example.sparely.ui.components.FormSection
-import com.example.sparely.ui.components.SectionHeader
-import com.example.sparely.ui.components.FieldDescription
-import com.example.sparely.ui.components.RequiredFieldLabel
-import com.example.sparely.ui.components.ExpenseTemplate
-import com.example.sparely.ui.components.ExpressiveCard
-import com.example.sparely.ui.theme.ExpressiveShapes
-import com.example.sparely.ui.components.SparelyChip
+import com.example.sparely.domain.model.Asset
+import com.example.sparely.domain.model.ExpenseCategory
+import com.example.sparely.domain.model.ExpenseInput
+import com.example.sparely.domain.model.ExpenseType
+import com.example.sparely.domain.model.PaymentMethod
+import com.example.sparely.domain.model.RecommendationResult
+import com.example.sparely.domain.model.SavingsPercentages
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.SparelySettings
+import com.example.sparely.domain.model.Store
+import com.example.sparely.domain.model.StoreInput
+import com.example.sparely.domain.model.displayName
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetSectionLabel
 import com.example.sparely.ui.components.AssetSelectionDialog
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.PaymentMethodSelector
+import com.example.sparely.ui.components.SearchableStoreSelector
+import com.example.sparely.ui.components.SparelyBottomSheet
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyChip
+import com.example.sparely.ui.components.SparelyExpressiveDropdown
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SparelyTextField
+import com.example.sparely.ui.components.SparelyTonalButton
+import com.example.sparely.ui.components.TitleAutofillHint
+import com.example.sparely.ui.components.TitleSuggestionRow
+import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.categoryColor
+import com.example.sparely.ui.theme.getCategoryIcon
+import com.example.sparely.ui.theme.onCategoryColor
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.formatCurrency
+import com.example.sparely.ui.utils.formatPercent
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.toSafeDoubleOrZero
+import com.sparely.app.R
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 fun ExpenseEntryScreen(
@@ -136,7 +168,6 @@ fun ExpenseEntryScreen(
     prefillAssetAllocations: Map<Long, Double> = emptyMap(),
     knownTitles: List<KnownTitle> = emptyList()
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isEditMode = prefillExpense?.id?.let { it > 0L } == true
     val isNewExpense = !isEditMode
@@ -399,6 +430,27 @@ fun ExpenseEntryScreen(
         )
     }
 
+    // Optional sections stay collapsed but say what's in them, so nothing set there goes unnoticed
+    val itemsTotal = expenseItems.sumOf { it.totalPrice }
+    val filledItemCount = expenseItems.count { it.name.isNotBlank() || it.totalPrice > 0.0 }
+    val allocationSummary = listOfNotNull(
+        stringResource(if (manualMode) R.string.expense_entry_manual_allocation_title else R.string.expense_entry_auto_allocation_title),
+        vaults.find { it.id == deductFromVaultId }?.name,
+        selectedAssetAllocations.size.takeIf { it > 0 }?.let {
+            pluralStringResource(R.plurals.expense_entry_assets_linked, it, it)
+        }
+    ).joinToString(" · ")
+    val detailsSummary = listOfNotNull(
+        notes.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() },
+        orderNumber.takeIf { it.isNotBlank() }?.let { "#$it" },
+        if (isIgnored) stringResource(R.string.expense_entry_exclude_predictions_title) else null
+    ).joinToString(" · ").ifEmpty { stringResource(R.string.expense_entry_section_details_help) }
+    val itemsSummary = if (filledItemCount == 0) {
+        stringResource(R.string.expense_entry_section_items_help)
+    } else {
+        pluralStringResource(R.plurals.expense_entry_items_count, filledItemCount, filledItemCount, itemsTotal.formatCurrency(currencySymbol))
+    }
+
     // imePadding keeps the save bar sitting on top of the keyboard instead of under it
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
         Column(
@@ -406,174 +458,99 @@ fun ExpenseEntryScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ========== SECTION 1: THE BASICS ==========
-            FormSection(
-                title = stringResource(R.string.expense_entry_section_basics),
-                isCollapsible = false,
-                defaultExpanded = true
-            ) { _ ->
-                val amountErr = amountError
-                val descriptionErr = descriptionError
-                // Amount first: it's the one thing every entry needs
-                SparelyTextField(
-                    value = amountText,
-                    onValueChange = {
-                        amountText = it.filterCurrencyInput()
-                        amountError = null
-                        // Typing an amount takes it over from the items; clearing it hands it back
-                        amountFollowsItems = amountText.isBlank()
-                    },
-                    label = { Text(stringResource(R.string.expense_entry_amount_label)) },
-                    prefix = { Text(currencySymbol) },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(onNext = { descriptionFocus.requestFocus() }),
-                    isError = amountErr != null,
-                    supportingText = if (amountErr != null) { { Text(amountErr) } } else null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(amountFocus)
-                )
-
-                SparelyTextField(
-                    value = description,
-                    onValueChange = {
-                        description = it
-                        descriptionError = null
-                    },
-                    label = { Text(stringResource(R.string.expense_entry_description_label)) },
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Done
-                    ),
-                    // Amount + title is a complete expense, so Done saves it
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                    isError = descriptionErr != null,
-                    supportingText = if (descriptionErr != null) { { Text(descriptionErr) } } else null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(descriptionFocus)
-                )
-
-                if (titleSuggestions.isNotEmpty()) {
-                    TitleSuggestionRow(
-                        suggestions = titleSuggestions,
-                        currencySymbol = currencySymbol,
-                        onSuggestionSelected = { known ->
-                            // Setting the description triggers the exact-match refill above
-                            description = known.title
-                            descriptionError = null
-                        }
-                    )
-                }
-
-                autofilledFrom?.let { known ->
-                    autofillUndo?.let { undo ->
-                        TitleAutofillHint(
-                            title = known.title,
-                            onUndo = {
-                                undo()
-                                autofillUndo = null
-                            }
-                        )
-                    }
-                }
-
-                // Quick templates fill category + description for common purchases (new expenses only)
-                if (isNewExpense) {
-                    QuickTemplateSelector(
-                        onTemplateSelected = { template ->
-                            category = template.category
-                            categoryTouched = true
-                            // Only replaces an empty title or another template's, never one the user typed
-                            val titleIsTemplate = QuickTemplates.ALL.any { it.descriptionHint == description }
-                            if (template.descriptionHint != null && (description.isBlank() || titleIsTemplate)) {
-                                description = template.descriptionHint
-                                descriptionError = null
-                            }
-                        }
-                    )
-                }
-
+            // ========== HERO: AMOUNT, TITLE, DATE ==========
+            AmountHeroCard(
+                category = category,
+                currencySymbol = currencySymbol,
+                amountText = amountText,
+                onAmountChange = {
+                    amountText = it.filterCurrencyInput()
+                    amountError = null
+                    // Typing an amount takes it over from the items; clearing it hands it back
+                    amountFollowsItems = amountText.isBlank()
+                },
+                amountError = amountError,
+                amountFocus = amountFocus,
+                onAmountNext = { descriptionFocus.requestFocus() },
+                description = description,
+                onDescriptionChange = {
+                    description = it
+                    descriptionError = null
+                },
+                descriptionError = descriptionError,
+                descriptionFocus = descriptionFocus,
+                // Amount + title is a complete expense, so Done saves it
+                onDescriptionDone = ::submit
+            ) {
                 // Date: one-tap Today / Yesterday, or pick any date
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(R.string.expense_entry_date_label),
-                        style = MaterialTheme.typography.titleSmall
+                val today = LocalDate.now()
+                val yesterday = today.minusDays(1)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    SparelyChip(
+                        selected = selectedDate == today,
+                        onClick = { selectedDate = today },
+                        label = { Text(stringResource(R.string.history_today)) }
                     )
-                    val today = LocalDate.now()
-                    val yesterday = today.minusDays(1)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SparelyChip(
-                            selected = selectedDate == today,
-                            onClick = { selectedDate = today },
-                            label = { Text(stringResource(R.string.history_today)) }
-                        )
-                        SparelyChip(
-                            selected = selectedDate == yesterday,
-                            onClick = { selectedDate = yesterday },
-                            label = { Text(stringResource(R.string.history_yesterday)) }
-                        )
-                        val isOtherDate = selectedDate != today && selectedDate != yesterday
-                        SparelyChip(
-                            selected = isOtherDate,
-                            onClick = { showDatePicker = true },
-                            label = {
-                                Text(
-                                    if (isOtherDate) selectedDate.format(dateFormatter)
-                                    else stringResource(R.string.expense_entry_pick_date)
-                                )
-                            },
-                            leadingIcon = {
-                                MaterialSymbolIcon(
-                                    icon = MaterialSymbols.CALENDAR_MONTH,
-                                    contentDescription = null,
-                                    size = 16.dp
-                                )
-                            }
-                        )
-                    }
-
-                    if (showDatePicker) {
-                        val datePickerState = rememberDatePickerState(
-                            initialSelectedDateMillis = selectedDate.toSafeDatePickerMillis()
-                        )
-                        DatePickerDialog(
-                            onDismissRequest = { showDatePicker = false },
-                            confirmButton = {
-                                SparelyTextButton(onClick = {
-                                    datePickerState.selectedDateMillis?.let { millis ->
-                                        selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                                    }
-                                    showDatePicker = false
-                                }) {
-                                    Text(stringResource(R.string.ok))
-                                }
-                            },
-                            dismissButton = {
-                                SparelyTextButton(onClick = { showDatePicker = false }) {
-                                    Text(stringResource(R.string.cancel))
-                                }
-                            }
-                        ) {
-                            DatePicker(state = datePickerState)
+                    SparelyChip(
+                        selected = selectedDate == yesterday,
+                        onClick = { selectedDate = yesterday },
+                        label = { Text(stringResource(R.string.history_yesterday)) }
+                    )
+                    val isOtherDate = selectedDate != today && selectedDate != yesterday
+                    SparelyChip(
+                        selected = isOtherDate,
+                        onClick = { showDatePicker = true },
+                        label = {
+                            Text(
+                                if (isOtherDate) selectedDate.format(dateFormatter)
+                                else stringResource(R.string.expense_entry_pick_date)
+                            )
+                        },
+                        leadingIcon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.CALENDAR_MONTH,
+                                contentDescription = null,
+                                size = 16.dp
+                            )
                         }
-                    }
+                    )
                 }
-
-                CategorySelector(selected = category, onSelect = { category = it; categoryTouched = true }, isRequired = false)
             }
 
-            // ========== SECTION 2: PAYMENT ==========
-            FormSection(
-                title = stringResource(R.string.expense_entry_section_payment),
-                isCollapsible = false,
-                defaultExpanded = true
-            ) { _ ->
+            if (titleSuggestions.isNotEmpty()) {
+                TitleSuggestionRow(
+                    suggestions = titleSuggestions,
+                    currencySymbol = currencySymbol,
+                    onSuggestionSelected = { known ->
+                        // Setting the description triggers the exact-match refill above
+                        description = known.title
+                        descriptionError = null
+                    }
+                )
+            }
+
+            autofilledFrom?.let { known ->
+                autofillUndo?.let { undo ->
+                    TitleAutofillHint(
+                        title = known.title,
+                        onUndo = {
+                            undo()
+                            autofillUndo = null
+                        }
+                    )
+                }
+            }
+
+            // ========== CATEGORY ==========
+            CategoryPicker(selected = category, onSelect = { category = it; categoryTouched = true })
+
+            // ========== PAYMENT ==========
+            SectionCard {
                 PaymentMethodSelector(
                     paymentMethods = paymentMethods,
                     selectedMethod = selectedPaymentMethod,
@@ -618,13 +595,13 @@ fun ExpenseEntryScreen(
                 )
             }
 
-            // ========== SECTION 3: ALLOCATIONS (COLLAPSIBLE, advanced) ==========
-            FormSection(
+            // ========== ALLOCATIONS (advanced) ==========
+            ExpandableSectionCard(
+                icon = MaterialSymbols.PIE_CHART,
                 title = stringResource(R.string.expense_entry_section_allocations),
-                isCollapsible = true,
-                defaultExpanded = manualMode || deductFromVaultId != null || selectedAssetAllocations.isNotEmpty(),
-                helpText = stringResource(R.string.expense_entry_section_allocations_help)
-            ) { _ ->
+                summary = allocationSummary,
+                initiallyExpanded = manualMode || deductFromVaultId != null || selectedAssetAllocations.isNotEmpty()
+            ) {
                 ToggleRow(
                     title = stringResource(R.string.expense_entry_auto_allocation_title),
                     description = stringResource(R.string.expense_entry_auto_allocation_desc),
@@ -643,8 +620,8 @@ fun ExpenseEntryScreen(
                             Column {
                                 Text(
                                     text = stringResource(R.string.expense_entry_applied_suggestion),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
@@ -727,75 +704,21 @@ fun ExpenseEntryScreen(
                             )
                         } else {
                             selectedAssetAllocations.forEach { (assetId, percentage) ->
-                                val asset = assets.find { it.id == assetId }
-                                asset?.let { selectedAsset ->
-                                    ExpressiveCard(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        contentPadding = 12.dp
-                                    ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        selectedAsset.name,
-                                                        style = MaterialTheme.typography.titleSmall,
-                                                        fontWeight = FontWeight.SemiBold
-                                                    )
-                                                    Text(
-                                                        selectedAsset.category.displayName(),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.outline
-                                                    )
-                                                }
-                                                androidx.compose.material3.IconButton(
-                                                    onClick = {
-                                                        selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                                            remove(assetId)
-                                                        }
-                                                    }
-                                                ) {
-                                                    MaterialSymbolIcon(
-                                                        icon = MaterialSymbols.CLOSE,
-                                                        contentDescription = stringResource(R.string.expense_entry_remove_asset),
-                                                        tint = MaterialTheme.colorScheme.error
-                                                    )
-                                                }
+                                assets.find { it.id == assetId }?.let { selectedAsset ->
+                                    LinkedAssetRow(
+                                        asset = selectedAsset,
+                                        percentage = percentage,
+                                        onPercentageChange = { newValue ->
+                                            selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                                                put(assetId, newValue.coerceIn(0.01, 1.0))
                                             }
-
-                                            // Allocation percentage slider
-                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        stringResource(R.string.expense_entry_asset_allocation),
-                                                        style = MaterialTheme.typography.labelSmall
-                                                    )
-                                                    Text(
-                                                        percentage.formatPercent(0),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.SemiBold
-                                                    )
-                                                }
-                                                Slider(
-                                                    value = percentage.toFloat(),
-                                                    onValueChange = { newValue ->
-                                                        selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                                            put(assetId, newValue.toDouble().coerceIn(0.01, 1.0))
-                                                        }
-                                                    },
-                                                    valueRange = 0.01f..1.0f,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                )
+                                        },
+                                        onRemove = {
+                                            selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                                                remove(assetId)
                                             }
                                         }
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -828,45 +751,15 @@ fun ExpenseEntryScreen(
                         }
                     }
                 }
-
-                if (assetSelectorExpanded) {
-                    AssetSelectionDialog(
-                        isOpen = assetSelectorExpanded,
-                        selectedAssetIds = selectedAssetAllocations.keys,
-                        assets = assets,
-                        onAssetSelected = { asset ->
-                            selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
-                                put(asset.id, 1.0)
-                            }
-                        },
-                        onDismiss = { assetSelectorExpanded = false },
-                        title = stringResource(R.string.expense_entry_link_asset_dialog_title)
-                    )
-                }
-
-                if (showCreateAssetDialog) {
-                    AssetCreationDialog(
-                        isOpen = showCreateAssetDialog,
-                        initialName = assetCreationName,
-                        initialCategory = assetCreationCategory,
-                        initialDescription = assetCreationDescription,
-                        assetPrice = amountText.toSafeDoubleOrZero(),
-                        onConfirm = { name, category, description ->
-                            onCreateAsset(name, category, description, amountText.toSafeDoubleOrZero())
-                            showCreateAssetDialog = false
-                        },
-                        onDismiss = { showCreateAssetDialog = false }
-                    )
-                }
             }
 
-            // ========== SECTION 4: DETAILS (COLLAPSIBLE) ==========
-            FormSection(
+            // ========== DETAILS ==========
+            ExpandableSectionCard(
+                icon = MaterialSymbols.EDIT,
                 title = stringResource(R.string.expense_entry_section_details),
-                isCollapsible = true,
-                defaultExpanded = notes.isNotBlank() || orderNumber.isNotBlank() || isIgnored,
-                helpText = stringResource(R.string.expense_entry_section_details_help)
-            ) { _ ->
+                summary = detailsSummary,
+                initiallyExpanded = notes.isNotBlank() || orderNumber.isNotBlank() || isIgnored
+            ) {
                 SparelyTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -895,13 +788,13 @@ fun ExpenseEntryScreen(
                 )
             }
 
-            // ========== SECTION 5: LINE ITEMS (COLLAPSIBLE) ==========
-            FormSection(
+            // ========== LINE ITEMS ==========
+            ExpandableSectionCard(
+                icon = MaterialSymbols.RECEIPT,
                 title = stringResource(R.string.expense_entry_section_items),
-                isCollapsible = true,
-                defaultExpanded = expenseItems.isNotEmpty(),
-                helpText = stringResource(R.string.expense_entry_section_items_help)
-            ) { _ ->
+                summary = itemsSummary,
+                initiallyExpanded = expenseItems.isNotEmpty()
+            ) {
                 com.example.sparely.ui.components.ExpenseItemsList(
                     items = expenseItems,
                     onItemsChanged = { newItems ->
@@ -912,7 +805,6 @@ fun ExpenseEntryScreen(
                 )
 
                 // How the items compare to the amount being saved
-                val itemsTotal = expenseItems.sumOf { it.totalPrice }
                 val amountValue = amountText.toSafeDouble()
                 if (itemsTotal > 0.0) {
                     val difference = (amountValue ?: 0.0) - itemsTotal
@@ -945,7 +837,8 @@ fun ExpenseEntryScreen(
         }
 
         // ========== STICKY ACTION BAR ==========
-        // Always reachable, so saving never requires scrolling past the optional sections
+        // Always reachable, so saving never requires scrolling past the optional sections.
+        // Leaving goes through the top bar's back arrow, which asks before dropping changes
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surfaceContainer,
@@ -966,22 +859,452 @@ fun ExpenseEntryScreen(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                val actionLabel = stringResource(if (isEditMode) R.string.save_changes else R.string.add_expense)
+                val amountValue = amountText.toSafeDouble()?.takeIf { it > 0.0 }
+                SparelyButton(
+                    onClick = ::submit,
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 20.dp) }
                 ) {
-                    SparelyTonalButton(onClick = ::requestLeave, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                    SparelyButton(
-                        onClick = ::submit,
-                        enabled = !isSaving,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(if (isEditMode) R.string.save_changes else R.string.add_expense))
-                    }
+                    Text(
+                        text = if (amountValue != null) {
+                            stringResource(R.string.expense_entry_save_with_amount, actionLabel, amountValue.formatCurrency(currencySymbol))
+                        } else {
+                            actionLabel
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.toSafeDatePickerMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                SparelyTextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
+            dismissButton = {
+                SparelyTextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (assetSelectorExpanded) {
+        AssetSelectionDialog(
+            isOpen = assetSelectorExpanded,
+            selectedAssetIds = selectedAssetAllocations.keys,
+            assets = assets,
+            onAssetSelected = { asset ->
+                selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
+                    put(asset.id, 1.0)
+                }
+            },
+            onDismiss = { assetSelectorExpanded = false },
+            title = stringResource(R.string.expense_entry_link_asset_dialog_title)
+        )
+    }
+
+    if (showCreateAssetDialog) {
+        AssetCreationDialog(
+            isOpen = showCreateAssetDialog,
+            initialName = assetCreationName,
+            initialCategory = assetCreationCategory,
+            initialDescription = assetCreationDescription,
+            assetPrice = amountText.toSafeDoubleOrZero(),
+            onConfirm = { name, category, description ->
+                onCreateAsset(name, category, description, amountText.toSafeDoubleOrZero())
+                showCreateAssetDialog = false
+            },
+            onDismiss = { showCreateAssetDialog = false }
+        )
+    }
+}
+
+/**
+ * The top of the form: the amount in large type, the title under it and [footer] (the date) last,
+ * on a card tinted by the chosen category.
+ */
+@Composable
+private fun AmountHeroCard(
+    category: ExpenseCategory,
+    currencySymbol: String,
+    amountText: String,
+    onAmountChange: (String) -> Unit,
+    amountError: String?,
+    amountFocus: FocusRequester,
+    onAmountNext: () -> Unit,
+    description: String,
+    onDescriptionChange: (String) -> Unit,
+    descriptionError: String?,
+    descriptionFocus: FocusRequester,
+    onDescriptionDone: () -> Unit,
+    footer: @Composable () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val categoryColor by animateColorAsState(colors.categoryColor(category), label = "heroCategoryColor")
+    val amountLabel = stringResource(R.string.expense_entry_amount_label)
+    val descriptionLabel = stringResource(R.string.expense_entry_description_label)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        color = categoryColor.copy(alpha = 0.10f).compositeOver(colors.surfaceContainerLow)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(categoryColor.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(icon = getCategoryIcon(category), contentDescription = null, tint = categoryColor)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Long amounts step down a size so they don't push off the card
+            val amountStyle = (if (amountText.length > 8) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium)
+                .copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            // Sized to the digits plus room for the cursor so the symbol stays beside them; an
+            // intrinsic width leaves the text a hair wider than the field, which then scrolls sideways
+            val textMeasurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            val amountWidth = with(density) {
+                textMeasurer.measure(amountText.ifEmpty { "0" }, amountStyle, maxLines = 1).size.width.toDp() + 8.dp
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = currencySymbol,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 4.dp)
+                )
+                BasicTextField(
+                    value = amountText,
+                    onValueChange = onAmountChange,
+                    singleLine = true,
+                    textStyle = amountStyle.copy(color = if (amountError != null) colors.error else colors.onSurface),
+                    cursorBrush = SolidColor(colors.primary),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { onAmountNext() }),
+                    modifier = Modifier
+                        .width(amountWidth)
+                        .widthIn(min = 40.dp)
+                        .focusRequester(amountFocus)
+                        .semantics { contentDescription = amountLabel },
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.Center) {
+                            if (amountText.isEmpty()) {
+                                Text("0", style = amountStyle, color = colors.onSurfaceVariant.copy(alpha = 0.4f))
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+            }
+            if (amountError != null) {
+                Text(amountError, style = MaterialTheme.typography.labelMedium, color = colors.error)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            BasicTextField(
+                value = description,
+                onValueChange = onDescriptionChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.titleMedium.copy(color = colors.onSurface, textAlign = TextAlign.Center),
+                cursorBrush = SolidColor(colors.primary),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { onDescriptionDone() }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(descriptionFocus)
+                    .semantics { contentDescription = descriptionLabel },
+                decorationBox = { innerTextField ->
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(CircleShape)
+                            .background(colors.surface)
+                            .then(
+                                if (descriptionError != null) Modifier.border(1.dp, colors.error, CircleShape) else Modifier
+                            )
+                            .padding(horizontal = 20.dp, vertical = 14.dp)
+                    ) {
+                        if (description.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.expense_entry_description_placeholder),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = colors.onSurfaceVariant
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (descriptionError != null) {
+                Text(
+                    descriptionError,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.error,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            footer()
+        }
+    }
+}
+
+/** Scrollable row of icon tiles, one per category; the chosen one fills with its colour. */
+@Composable
+private fun CategoryPicker(
+    selected: ExpenseCategory,
+    onSelect: (ExpenseCategory) -> Unit
+) {
+    val categories = ExpenseCategory.entries
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (categories.indexOf(selected) - 1).coerceAtLeast(0)
+    )
+    // A category filled in from a remembered title may be off-screen; bring it into view
+    LaunchedEffect(selected) {
+        val index = categories.indexOf(selected)
+        val layout = listState.layoutInfo
+        val fullyVisible = layout.visibleItemsInfo.any {
+            it.index == index && it.offset >= 0 && it.offset + it.size <= layout.viewportEndOffset
+        }
+        if (!fullyVisible) listState.animateScrollToItem((index - 1).coerceAtLeast(0))
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.expense_entry_category_title),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(categories) { item ->
+                CategoryTile(category = item, selected = item == selected, onClick = { onSelect(item) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryTile(
+    category: ExpenseCategory,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val categoryColor = colors.categoryColor(category)
+    val container by animateColorAsState(if (selected) categoryColor else colors.surfaceContainerHigh, label = "tileContainer")
+    val iconTint by animateColorAsState(if (selected) colors.onCategoryColor(category) else categoryColor, label = "tileIcon")
+    // Selected tiles morph from a circle to a rounded square
+    val corner by animateDpAsState(if (selected) 18.dp else 28.dp, label = "tileCorner")
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .width(76.dp)
+            .clip(ExpressiveShapes.small)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(corner))
+                .background(container),
+            contentAlignment = Alignment.Center
+        ) {
+            MaterialSymbolIcon(icon = getCategoryIcon(category), contentDescription = null, tint = iconTint, size = 26.dp)
+        }
+        Text(
+            text = category.displayName(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) colors.onSurface else colors.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** Plain card grouping related fields. */
+@Composable
+private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+}
+
+/** Card for an optional section: collapsed, its header shows a one-line [summary] of what's set inside. */
+@Composable
+private fun ExpandableSectionCard(
+    @DrawableRes icon: Int,
+    title: String,
+    summary: String,
+    initiallyExpanded: Boolean,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
+    val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .semantics {
+                        if (expanded) collapse { expanded = false; true } else expand { expanded = true; true }
+                    }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = 20.dp
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ARROW_DROP_DOWN,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(chevronRotation)
+                )
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+/** A linked asset with its share of this expense and a way to unlink it. */
+@Composable
+private fun LinkedAssetRow(
+    asset: Asset,
+    percentage: Double,
+    onPercentageChange: (Double) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(asset.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "${asset.category.displayName()} · ${stringResource(R.string.expense_entry_asset_allocation)} ${percentage.formatPercent(0)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onRemove) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.CLOSE,
+                        contentDescription = stringResource(R.string.expense_entry_remove_asset),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Slider(
+                value = percentage.toFloat(),
+                onValueChange = { onPercentageChange(it.toDouble()) },
+                valueRange = 0.01f..1.0f,
+                modifier = Modifier.fillMaxWidth().padding(end = 12.dp)
+            )
         }
     }
 }
@@ -1041,7 +1364,6 @@ private fun AssetCreationDialog(
     var name by remember { mutableStateOf(initialName) }
     var category by remember { mutableStateOf(initialCategory) }
     var description by remember { mutableStateOf(initialDescription) }
-    var categoryExpanded by remember { mutableStateOf(false) }
 
     SparelyBottomSheet(
         isOpen = isOpen,
@@ -1051,109 +1373,65 @@ private fun AssetCreationDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Title
-            Text(
-                "Create New Asset",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            // The price comes from this expense, so it's context rather than a field
+            SparelySheetHeader(
+                title = "Create New Asset",
+                subtitle = "Asset price from this expense: ${assetPrice.formatCurrency()}",
+                icon = MaterialSymbols.SHOPPING_BAG
             )
 
-            // Name field
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Asset Name", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                SparelyTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("e.g., MacBook Pro") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            SparelyTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Asset Name") },
+                placeholder = { Text("e.g., MacBook Pro") },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            // Category dropdown
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Category", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = it },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    SparelyTextField(
-                        value = category.displayName(),
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) }
+            SheetSectionLabel("Category")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                com.example.sparely.domain.model.AssetCategory.entries.forEach { cat ->
+                    SparelyChip(
+                        selected = cat == category,
+                        onClick = { category = cat },
+                        label = { Text(cat.displayName()) }
                     )
-                    ExposedDropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        com.example.sparely.domain.model.AssetCategory.values().forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat.displayName()) },
-                                onClick = {
-                                    category = cat
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
+                }
+            }
+
+            SparelyTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description (Optional)") },
+                placeholder = { Text("Notes about this asset") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                minLines = 2
+            )
+
+            SheetActions(
+                confirmLabel = "Create Asset",
+                onConfirm = {
+                    if (name.isNotBlank()) {
+                        onConfirm(name, category, description.takeIf { it.isNotBlank() } ?: "")
                     }
-                }
-            }
-
-            // Description field
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Description (Optional)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                SparelyTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Notes about this asset") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = false,
-                    minLines = 2
-                )
-            }
-
-            // Asset price display
-            ExpressiveCard(
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("Asset Price (from expense)", style = MaterialTheme.typography.labelSmall)
-                    Text(assetPrice.formatCurrency(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancel")
-                }
-                SparelyButton(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            onConfirm(name, category, description.takeIf { it.isNotBlank() } ?: "")
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = name.isNotBlank()
-                ) {
-                    Text("Create Asset")
-                }
-            }
+                },
+                confirmEnabled = name.isNotBlank(),
+                dismissLabel = "Cancel",
+                onDismiss = onDismiss
+            )
         }
     }
 }

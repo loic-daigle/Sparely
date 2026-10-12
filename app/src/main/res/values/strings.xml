@@ -249,6 +249,7 @@
     <string name="savings_institution_optional">Institution (Optional)</string>
     <string name="savings_notes_optional">Notes (Optional)</string>
     <string name="savings_product_type">Product Type</string>
+    <string name="savings_section_withdrawal_rules">Withdrawal limits</string>
     <string name="savings_product_flexible">Flexible (on-demand)</string>
     <string name="savings_product_term">Term / Locked</string>
     <string name="savings_product_notice">Notice account</string>
@@ -1500,6 +1501,7 @@
     <string name="dashboard_greeting_evening">Good evening</string>
     <string name="dashboard_needs_attention">Needs attention</string>
     <string name="dashboard_this_month">This month</string>
+    <string name="dashboard_accounts_title">Accounts &amp; goals</string>
     <string name="dashboard_savings_progress">Savings progress</string>
     <string name="dashboard_runway_healthy">No shortfall ahead</string>
     <string name="dashboard_forecast_title">4-week cashflow forecast</string>
@@ -1518,6 +1520,11 @@
     <string name="dashboard_assets_description">Track physical and financial assets and their valuations</string>
     <string name="history_filters_count">Filters · %1$d</string>
     <string name="history_show_more">Show more</string>
+    <string name="history_top_stores">Top stores</string>
+    <plurals name="history_store_purchases">
+        <item quantity="one">%d purchase</item>
+        <item quantity="other">%d purchases</item>
+    </plurals>
     <string name="history_total_spent_period">Spent · %1$s</string>
     <string name="history_empty_filtered_title">No matching expenses</string>
     <string name="history_empty_filtered_desc">Try another period or category, or clear your filters.</string>
@@ -1577,6 +1584,16 @@
     <string name="expense_entry_discard_message">What you entered won\'t be saved.</string>
     <string name="expense_entry_discard_confirm">Discard</string>
     <string name="expense_entry_keep_editing">Keep editing</string>
+    <string name="expense_entry_description_placeholder">What was it for?</string>
+    <string name="expense_entry_save_with_amount">%1$s · %2$s</string>
+    <plurals name="expense_entry_assets_linked">
+        <item quantity="one">%d asset linked</item>
+        <item quantity="other">%d assets linked</item>
+    </plurals>
+    <plurals name="expense_entry_items_count">
+        <item quantity="one">%1$d item · %2$s</item>
+        <item quantity="other">%1$d items · %2$s</item>
+    </plurals>
     <string name="expense_entry_link_assets_title">Link to assets</string>
     <string name="expense_entry_no_assets_linked">No assets linked to this expense</string>
     <string name="expense_entry_remove_asset">Remove asset</string>
@@ -1605,6 +1622,9 @@
     <string name="recurring_monthly_total_detail">≈ %1$s per year · %2$d active</string>
     <string name="recurring_action_pause">Pause</string>
     <string name="recurring_action_resume">Resume</string>
+    <string name="recurring_action_undo_paid">Undo payment</string>
+    <string name="recurring_marked_paid_message">Marked as paid</string>
+    <string name="recurring_undo_paid_action">Undo</string>
     <string name="credit_cards_add_card_action">Add a card</string>
     <string name="recurring_form_no_end_date">No end date: repeats until you pause or delete it</string>
     <string name="recurring_form_add_end_date">Add end date</string>
@@ -1622,9 +1642,6 @@
     <string name="recurring_form_section_automation_help">Optional automation and tracking settings</string>
     <string name="recurring_form_execute_help">When off, the amount is held aside until you mark the bill as paid.</string>
     <string name="recurring_detected_title">Detected, not added yet</string>
-    <string name="recurring_action_undo_paid">Undo payment</string>
-    <string name="recurring_marked_paid_message">Marked as paid</string>
-    <string name="recurring_undo_paid_action">Undo</string>
     <string name="recurring_detected_desc">Found in your spending history. They\'re counted in the monthly total; add them to get reminders.</string>
     <string name="recurring_detected_detail">~%1$s every %2$d days · last %3$s</string>
     <string name="recurring_detected_per_month">%1$s/mo</string>

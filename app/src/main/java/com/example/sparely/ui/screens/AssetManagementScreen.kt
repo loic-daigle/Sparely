@@ -6,6 +6,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.example.sparely.domain.model.displayName
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetSectionLabel
+import com.example.sparely.ui.components.SparelyChip
+import com.example.sparely.ui.components.SparelyTextButton
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -84,27 +100,28 @@ fun AssetManagementScreen(
         assetProjections = projections
     }
 
+    val listState = rememberLazyListState()
+    // The FAB shows its label at the top of the list and shrinks to an icon once scrolling starts
+    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                expanded = fabExpanded,
+                icon = {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
-                        contentDescription = "Add Asset",
+                        contentDescription = if (fabExpanded) null else "Add Asset",
                         size = 24.dp
                     )
-                    Text("Add Asset", style = MaterialTheme.typography.labelLarge)
-                }
-            }
+                },
+                text = { Text("Add Asset") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         }
     ) { paddingValues ->
         if (assets.isEmpty()) {
@@ -114,63 +131,60 @@ fun AssetManagementScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.SHOPPING_BAG,
-                        contentDescription = null,
-                        size = 64.dp,
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "No assets yet",
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+                ExpressiveEmptyState(
+                    icon = MaterialSymbols.SHOPPING_BAG,
+                    title = "No assets yet",
+                    description = "Track what a car, home or hobby really costs by linking expenses to it.",
+                    action = {
+                        SparelyButton(
+                            onClick = { showAddDialog = true },
+                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
+                        ) {
+                            Text("Add Asset")
+                        }
+                    }
+                )
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                // Extra bottom padding so the last card can scroll clear of the FAB
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
             ) {
                 // Summary card
                 item {
                     ExpressiveCard(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 "Total Spending",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                             Text(
                                 currencyFormatter.format(totalSpending),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
                                 "${assets.size} assets",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                         }
                     }
                 }
 
-                // Asset list
-                items(assets) { asset ->
+                // Assets as one segmented block: rounded ends, thin gaps
+                itemsIndexed(assets) { index, asset ->
                     AssetCard(
                         asset = asset,
                         currencyFormatter = currencyFormatter,
@@ -180,7 +194,9 @@ fun AssetManagementScreen(
                             isLoadingDetails = true
                         },
                         onEdit = { assetToEdit = it },
-                        onDelete = { assetToDelete = it }
+                        onDelete = { assetToDelete = it },
+                        shape = segmentedShape(index, assets.size, outer = 28.dp),
+                        modifier = Modifier.segmentSpacing(index)
                     )
                 }
             }
@@ -264,58 +280,70 @@ private fun AssetCard(
     projection: com.example.sparely.domain.model.AssetCostProjection? = null,
     onViewDetails: (Asset) -> Unit,
     onEdit: (Asset) -> Unit,
-    onDelete: (Asset) -> Unit
+    onDelete: (Asset) -> Unit,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
+    val colors = MaterialTheme.colorScheme
     ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onViewDetails(asset) }
+        modifier = modifier.fillMaxWidth(),
+        onClick = { onViewDetails(asset) },
+        shape = shape,
+        containerColor = colors.surfaceContainer,
+        contentPadding = 0.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(ExpressiveShapes.small)
+                        .background(colors.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.SHOPPING_BAG,
+                        contentDescription = null,
+                        size = 22.dp,
+                        tint = colors.onPrimaryContainer
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         asset.name,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
-                        asset.category.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
+                        asset.category.displayName(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { onEdit(asset) },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.EDIT,
-                            contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(
-                        onClick = { onDelete(asset) },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.DELETE,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
+                IconButton(onClick = { onEdit(asset) }) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.EDIT,
+                        contentDescription = "Edit",
+                        size = 20.dp,
+                        tint = colors.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { onDelete(asset) }) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.DELETE,
+                        contentDescription = "Delete",
+                        size = 20.dp,
+                        tint = colors.onSurfaceVariant
+                    )
                 }
             }
 
@@ -323,122 +351,113 @@ private fun AssetCard(
                 Text(
                     asset.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp)
                 )
             }
 
             // Creator expense indicator
             if (asset.creatorExpenseId != null) {
-                ExpressiveCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                Surface(
+                    shape = CircleShape,
+                    color = colors.primaryContainer.copy(alpha = 0.6f)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         MaterialSymbolIcon(
                             icon = MaterialSymbols.CHECK_CIRCLE,
                             contentDescription = null,
-                            size = 18.dp,
-                            tint = MaterialTheme.colorScheme.primary
+                            size = 16.dp,
+                            tint = colors.onPrimaryContainer
                         )
                         Text(
                             "Created from expense #${asset.creatorExpenseId}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.onPrimaryContainer
                         )
                     }
                 }
             }
 
-            Divider()
-
+            // Spending, cost and projections as small tiles
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column {
-                    Text(
-                        "Total Spending",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Text(
-                        currencyFormatter.format(asset.totalSpending),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                AssetStat(
+                    label = "Total Spending",
+                    value = currencyFormatter.format(asset.totalSpending),
+                    modifier = Modifier.weight(1f)
+                )
                 if (asset.assetPrice > 0) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "Asset Cost",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            currencyFormatter.format(asset.assetPrice),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (asset.totalSpending > asset.assetPrice)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    AssetStat(
+                        label = "Asset Cost",
+                        value = currencyFormatter.format(asset.assetPrice),
+                        valueColor = if (asset.totalSpending > asset.assetPrice) colors.error else colors.primary,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
-            // Show projection summary if available
             if (projection != null) {
-                Divider()
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "6-Month Projection",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            currencyFormatter.format(projection.totalProjected6Months),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "12-Month Projection",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            currencyFormatter.format(projection.totalProjected12Months),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = when {
-                                projection.costVsAssetPrice?.isOverBudget == true ->
-                                    MaterialTheme.colorScheme.error
-                                else ->
-                                    MaterialTheme.colorScheme.primary
-                            }
-                        )
-                    }
+                    AssetStat(
+                        label = "6-Month Projection",
+                        value = currencyFormatter.format(projection.totalProjected6Months),
+                        valueColor = colors.secondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AssetStat(
+                        label = "12-Month Projection",
+                        value = currencyFormatter.format(projection.totalProjected12Months),
+                        valueColor = if (projection.costVsAssetPrice?.isOverBudget == true) colors.error else colors.primary,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Label over value in a soft tile, for the numbers on an asset card. */
+@Composable
+private fun AssetStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+) {
+    Column(
+        modifier = modifier
+            .clip(ExpressiveShapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = valueColor
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun AssetBottomSheet(
     isOpen: Boolean,
@@ -470,59 +489,40 @@ private fun AssetBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = if (asset == null) "New Asset" else "Edit Asset",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
+            SparelySheetHeader(
+                title = if (asset == null) "New Asset" else "Edit Asset",
+                icon = MaterialSymbols.SHOPPING_BAG
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SparelyTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Asset Name") },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Next
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Category dropdown
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = it }
+                // Category: every option visible, with readable names
+                SheetSectionLabel("Category")
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = selectedCategory.name,
-                        onValueChange = {},
-                        label = { Text("Category") },
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            focusedBorderColor = MaterialTheme.colorScheme.primary
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        AssetCategory.entries.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name) },
-                                onClick = {
-                                    selectedCategory = category
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
+                    AssetCategory.entries.forEach { category ->
+                        SparelyChip(
+                            selected = category == selectedCategory,
+                            onClick = { selectedCategory = category },
+                            label = { Text(category.displayName()) }
+                        )
                     }
                 }
 
@@ -531,8 +531,8 @@ private fun AssetBottomSheet(
                     onValueChange = { assetPriceText = it.filterCurrencyInput() },
                     label = { Text("Asset Cost (Optional)") },
                     modifier = Modifier.fillMaxWidth(),
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    prefix = { Text(stringResource(R.string.currency_prefix)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                 )
 
                 // Show projection preview if asset price is set and projection is available
@@ -540,10 +540,11 @@ private fun AssetBottomSheet(
                     val costVsPrice = projection.costVsAssetPrice
                     ExpressiveCard(
                         modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = ExpressiveShapes.medium,
+                        contentPadding = 16.dp
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
@@ -597,7 +598,9 @@ private fun AssetBottomSheet(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description (Optional)") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 3
                 )
@@ -605,21 +608,16 @@ private fun AssetBottomSheet(
 
             // Creator Expense Section
             if (asset != null) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Text(
-                    "Creator Expense",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                SheetSectionLabel("Creator Expense")
 
                 if (asset.creatorExpenseId != null) {
                     ExpressiveCard(
                         modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = ExpressiveShapes.medium,
+                        contentPadding = 16.dp
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
@@ -638,71 +636,48 @@ private fun AssetBottomSheet(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
-                                SparelyTonalButton(
+                                SparelyTextButton(
                                     onClick = { onUnlinkCreatorExpense() },
-                                    modifier = Modifier.height(36.dp)
+                                    contentColor = MaterialTheme.colorScheme.error
                                 ) {
-                                    Text("Unlink", style = MaterialTheme.typography.labelSmall)
+                                    Text("Unlink")
                                 }
                             }
                         }
                     }
                 } else {
-                    OutlinedButton(
+                    SparelyTonalButton(
                         onClick = { showCreatorExpenseDialog = true },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.SYNC, contentDescription = null, size = 20.dp) }
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.SYNC, 
-                                contentDescription = null, 
-                                size = 20.dp
-                            )
-                            Text("Link Creator Expense")
-                        }
+                        Text("Link Creator Expense")
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyTonalButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancel")
-                }
-                SparelyButton(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            val newAsset = Asset(
-                                id = asset?.id ?: 0L,
-                                name = name,
-                                description = description.ifBlank { null },
-                                category = selectedCategory,
-                                assetPrice = assetPriceText.toSafeDouble() ?: 0.0,
-                                createdAt = asset?.createdAt ?: LocalDateTime.now(),
-                                archived = asset?.archived ?: false,
-                                totalSpending = asset?.totalSpending ?: 0.0,
-                                creatorExpenseId = asset?.creatorExpenseId
-                            )
-                            onSave(newAsset)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = name.isNotBlank()
-                ) {
-                    Text("Save Asset")
-                }
-            }
+            SheetActions(
+                confirmLabel = "Save Asset",
+                onConfirm = {
+                    if (name.isNotBlank()) {
+                        val newAsset = Asset(
+                            id = asset?.id ?: 0L,
+                            name = name,
+                            description = description.ifBlank { null },
+                            category = selectedCategory,
+                            assetPrice = assetPriceText.toSafeDouble() ?: 0.0,
+                            createdAt = asset?.createdAt ?: LocalDateTime.now(),
+                            archived = asset?.archived ?: false,
+                            totalSpending = asset?.totalSpending ?: 0.0,
+                            creatorExpenseId = asset?.creatorExpenseId
+                        )
+                        onSave(newAsset)
+                    }
+                },
+                confirmEnabled = name.isNotBlank(),
+                dismissLabel = "Cancel",
+                onDismiss = onDismiss
+            )
         }
     }
 
@@ -758,11 +733,9 @@ private fun AssetDetailsBottomSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "${asset.name} Details",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
+            SparelySheetHeader(
+                title = "${asset.name} Details",
+                icon = MaterialSymbols.INFO
             )
 
             if (projection != null) {
@@ -906,11 +879,9 @@ private fun CreatorExpenseBottomSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "Link Creator Expense",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
+            SparelySheetHeader(
+                title = "Link Creator Expense",
+                icon = MaterialSymbols.RECEIPT
             )
 
             Text(
