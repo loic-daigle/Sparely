@@ -2,7 +2,13 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.graphics.Shape
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.SegmentedListItem
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -61,39 +67,27 @@ fun SavingsHistoryScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.HISTORY,
-                        contentDescription = null,
-                        size = 64.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "No Transaction History",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Deposits, withdrawals, and interest will appear here",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                ExpressiveEmptyState(
+                    icon = MaterialSymbols.HISTORY,
+                    title = "No Transaction History",
+                    description = "Deposits, withdrawals, and interest will appear here"
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
             ) {
-                items(transactions) { transaction ->
-                    SavingsTransactionCard(transaction = transaction, dateFormatter = dateFormatter)
+                // One segmented block: rounded ends, thin gaps between transactions
+                itemsIndexed(transactions) { index, transaction ->
+                    SavingsTransactionCard(
+                        transaction = transaction,
+                        dateFormatter = dateFormatter,
+                        shape = segmentedShape(index, transactions.size),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             }
         }
@@ -103,116 +97,72 @@ fun SavingsHistoryScreen(
 @Composable
 fun SavingsTransactionCard(
     transaction: SavingsAccountTransaction,
-    dateFormatter: DateTimeFormatter
+    dateFormatter: DateTimeFormatter,
+    shape: Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.small,
-        contentPadding = 16.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Icon based on type
-            val iconTintPair: Pair<Int, androidx.compose.ui.graphics.Color> = when (transaction.type) {
-                SavingsAccountTransactionDisplayType.DEPOSIT -> 
-                    MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.primary
-                SavingsAccountTransactionDisplayType.WITHDRAWAL -> 
-                    MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.error
-                SavingsAccountTransactionDisplayType.INTEREST -> 
-                    MaterialSymbols.TRENDING_UP to MaterialTheme.colorScheme.tertiary
-                SavingsAccountTransactionDisplayType.TRANSFER_IN -> 
-                    MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.primary
-                SavingsAccountTransactionDisplayType.TRANSFER_OUT -> 
-                    MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.error
-            }
-            val (icon, tint) = iconTintPair
+    val (icon, tint) = when (transaction.type) {
+        SavingsAccountTransactionDisplayType.DEPOSIT ->
+            MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.primary
+        SavingsAccountTransactionDisplayType.WITHDRAWAL ->
+            MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.error
+        SavingsAccountTransactionDisplayType.INTEREST ->
+            MaterialSymbols.TRENDING_UP to MaterialTheme.colorScheme.tertiary
+        SavingsAccountTransactionDisplayType.TRANSFER_IN ->
+            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.primary
+        SavingsAccountTransactionDisplayType.TRANSFER_OUT ->
+            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.error
+    }
+    val isPositive = transaction.type == SavingsAccountTransactionDisplayType.DEPOSIT ||
+        transaction.type == SavingsAccountTransactionDisplayType.INTEREST ||
+        transaction.type == SavingsAccountTransactionDisplayType.TRANSFER_IN
 
-            MaterialSymbolIcon(
-                icon = icon,
-                contentDescription = null,
-                tint = tint,
-                size = 24.dp
-            )
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = transaction.description,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = transaction.timestamp.format(dateFormatter),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                // Show balance transition
-                if (transaction.balanceAfter > 0) {
-                    val previousBalance = when (transaction.type) {
-                        SavingsAccountTransactionDisplayType.DEPOSIT,
-                        SavingsAccountTransactionDisplayType.INTEREST,
-                        SavingsAccountTransactionDisplayType.TRANSFER_IN -> 
-                            transaction.balanceAfter - transaction.amount
-                        SavingsAccountTransactionDisplayType.WITHDRAWAL,
-                        SavingsAccountTransactionDisplayType.TRANSFER_OUT -> 
-                            transaction.balanceAfter + transaction.amount
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Balance:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = previousBalance.formatCurrency(),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.ARROW_FORWARD,
-                            contentDescription = null,
-                            size = 12.dp,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = transaction.balanceAfter.formatCurrency(),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            // Amount
-            Column(horizontalAlignment = Alignment.End) {
-                val isPositive = transaction.type == SavingsAccountTransactionDisplayType.DEPOSIT ||
-                                 transaction.type == SavingsAccountTransactionDisplayType.INTEREST ||
-                                 transaction.type == SavingsAccountTransactionDisplayType.TRANSFER_IN
-                
-                val amountText = if (isPositive) {
-                    "+${transaction.amount.formatCurrency()}"
+    SegmentedListItem(
+        title = transaction.description,
+        subtitle = transaction.timestamp.format(dateFormatter),
+        icon = icon,
+        iconTint = tint,
+        shape = shape,
+        modifier = modifier,
+        below = if (transaction.balanceAfter > 0) {
+            {
+                // Balance before -> after, indented under the text
+                val previousBalance = if (isPositive) {
+                    transaction.balanceAfter - transaction.amount
                 } else {
-                    "-${transaction.amount.formatCurrency()}"
+                    transaction.balanceAfter + transaction.amount
                 }
-                
-                Text(
-                    text = amountText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
+                Row(
+                    modifier = Modifier.padding(start = 58.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = previousBalance.formatCurrency(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ARROW_FORWARD,
+                        contentDescription = null,
+                        size = 12.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = transaction.balanceAfter.formatCurrency(),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-        }
+        } else null
+    ) {
+        Text(
+            text = (if (isPositive) "+" else "-") + transaction.amount.formatCurrency(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (isPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
     }
 }

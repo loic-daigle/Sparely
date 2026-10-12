@@ -8,7 +8,22 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetAmountField
+import com.example.sparely.ui.components.SheetChoiceRow
+import com.example.sparely.ui.components.SheetSectionLabel
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.clip
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.segmentSpacing
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -86,35 +101,37 @@ fun SavingsAccountsScreen(
         if (savingsAccounts.isNotEmpty()) savingsAccounts.map { it.annualPercentageYield }.average() else 0.0
     }
 
+    val listState = rememberLazyListState()
+    // The FAB shows its label at the top of the list and shrinks to an icon once scrolling starts
+    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                expanded = fabExpanded,
+                icon = {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
-                        contentDescription = stringResource(id = R.string.savings_add_account),
+                        contentDescription = if (fabExpanded) null else stringResource(id = R.string.savings_add_account),
                         size = 24.dp
                     )
-                    Text(stringResource(id = R.string.savings_add_account), style = MaterialTheme.typography.labelLarge)
-                }
-            }
+                },
+                text = { Text(stringResource(id = R.string.savings_add_account)) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Extra bottom padding so the last card can scroll clear of the FAB
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
         ) {
             // Overall Summary Card
             if (savingsAccounts.isNotEmpty()) {
@@ -134,9 +151,12 @@ fun SavingsAccountsScreen(
                     EmptySavingsCard(onAddAccount = { showAddDialog = true })
                 }
             } else {
-                items(savingsAccounts, key = { it.id }) { account ->
+                // One segmented block: rounded ends, thin gaps between accounts
+                itemsIndexed(savingsAccounts, key = { _, account -> account.id }) { index, account ->
                     EnhancedSavingsAccountCard(
                         account = account,
+                        shape = segmentedShape(index, savingsAccounts.size, outer = 28.dp),
+                        modifier = Modifier.segmentSpacing(index),
                         onEditClick = { accountToEdit = account },
                         onArchiveClick = { accountToArchive = account },
                         onUpdateBalanceClick = { accountToUpdateBalance = account },
@@ -182,46 +202,38 @@ fun SavingsAccountsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.savings_archive_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    SparelySheetHeader(
+                        title = stringResource(id = R.string.savings_archive_title),
+                        subtitle = stringResource(id = R.string.savings_archive_confirm, account.name),
+                        icon = MaterialSymbols.DELETE,
+                        iconTint = MaterialTheme.colorScheme.error
                     )
-                    Text(
-                        text = stringResource(id = R.string.savings_archive_confirm, account.name),
-                        style = MaterialTheme.typography.bodyLarge
+                    SheetActions(
+                        confirmLabel = stringResource(id = R.string.savings_archive_action),
+                        onConfirm = {
+                            onArchiveAccount(account.id)
+                            accountToArchive = null
+                        },
+                        destructive = true,
+                        dismissLabel = stringResource(id = android.R.string.cancel),
+                        onDismiss = { accountToArchive = null }
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SparelyTonalButton(
-                            onClick = { accountToArchive = null },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = android.R.string.cancel))
-                        }
-                        SparelyButton(
-                            onClick = {
-                                onArchiveAccount(account.id)
-                                accountToArchive = null
-                            },
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ) {
-                            Text(stringResource(id = R.string.savings_archive_action))
-                        }
-                    }
                 }
             }
         }
 
         accountToUpdateBalance?.let { account ->
             var newBalanceText by remember { mutableStateOf(account.currentBalance.toInputString()) }
+            val newBalance = newBalanceText.toSafeDouble()
+            val save = {
+                if (newBalance != null) {
+                    onCorrectBalance(account.id, newBalance)
+                    accountToUpdateBalance = null
+                }
+            }
             SparelyBottomSheet(
                 isOpen = true,
                 onDismiss = { accountToUpdateBalance = null }
@@ -230,48 +242,27 @@ fun SavingsAccountsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.savings_update_balance_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    SparelySheetHeader(
+                        title = stringResource(id = R.string.savings_update_balance_title),
+                        subtitle = stringResource(id = R.string.savings_update_balance_desc, account.name),
+                        icon = MaterialSymbols.EDIT
                     )
-                    Text(
-                        text = stringResource(id = R.string.savings_update_balance_desc, account.name),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    SparelyTextField(
+                    SheetAmountField(
                         value = newBalanceText,
                         onValueChange = { newBalanceText = it.filterCurrencyInput() },
-                        label = { Text(stringResource(id = R.string.savings_current_balance)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        label = stringResource(id = R.string.savings_current_balance),
+                        onImeAction = save
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SparelyTonalButton(
-                            onClick = { accountToUpdateBalance = null },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = android.R.string.cancel))
-                        }
-                        SparelyButton(
-                            onClick = {
-                                val newBalance = newBalanceText.toSafeDouble()
-                                if (newBalance != null) {
-                                    onCorrectBalance(account.id, newBalance)
-                                    accountToUpdateBalance = null
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = R.string.savings_update_balance_action))
-                        }
-                    }
+                    SheetActions(
+                        confirmLabel = stringResource(id = R.string.savings_update_balance_action),
+                        onConfirm = save,
+                        confirmEnabled = newBalance != null,
+                        dismissLabel = stringResource(id = android.R.string.cancel),
+                        onDismiss = { accountToUpdateBalance = null }
+                    )
                 }
             }
         }
@@ -281,69 +272,46 @@ fun SavingsAccountsScreen(
             val amount = amountText.toSafeDouble()
             val tooMuch = amount != null && amount > mainAccountBalance + 0.005
             val closed = !account.acceptsDeposits(today)
+            val canDeposit = amount != null && amount > 0 && !tooMuch && !closed
+            val deposit = {
+                if (canDeposit && amount != null) {
+                    onDeposit(account.id, amount)
+                    accountToDeposit = null
+                }
+            }
             SparelyBottomSheet(isOpen = true, onDismiss = { accountToDeposit = null }) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.savings_deposit_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    SparelySheetHeader(
+                        title = stringResource(id = R.string.savings_deposit_title),
+                        subtitle = stringResource(id = R.string.savings_deposit_desc, account.name, mainAccountBalance.formatCurrency()),
+                        icon = MaterialSymbols.ARROW_DOWNWARD
                     )
-                    Text(
-                        text = stringResource(id = R.string.savings_deposit_desc, account.name, mainAccountBalance.formatCurrency()),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    if (account.productType == SavingsProductType.TERM) {
-                        Text(
-                            text = stringResource(id = R.string.savings_deposit_term_warning),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    SparelyTextField(
+                    SheetAmountField(
                         value = amountText,
                         onValueChange = { amountText = it.filterCurrencyInput() },
-                        label = { Text(stringResource(id = R.string.savings_amount)) },
-                        singleLine = true,
-                        isError = tooMuch,
-                        modifier = Modifier.fillMaxWidth()
+                        label = stringResource(id = R.string.savings_amount),
+                        isError = tooMuch || closed,
+                        supportingText = when {
+                            closed -> stringResource(id = R.string.savings_deposit_closed, account.maturityDate?.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE) ?: "-")
+                            tooMuch -> stringResource(id = R.string.savings_deposit_not_enough)
+                            account.productType == SavingsProductType.TERM -> stringResource(id = R.string.savings_deposit_term_warning)
+                            else -> null
+                        },
+                        onImeAction = deposit
                     )
-                    if (tooMuch) {
-                        Text(
-                            text = stringResource(id = R.string.savings_deposit_not_enough),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    if (closed) {
-                        Text(
-                            text = stringResource(id = R.string.savings_deposit_closed, account.maturityDate?.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE) ?: "-"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SparelyTonalButton(onClick = { accountToDeposit = null }, modifier = Modifier.weight(1f)) {
-                            Text(stringResource(id = android.R.string.cancel))
-                        }
-                        SparelyButton(
-                            onClick = {
-                                if (amount != null && amount > 0) {
-                                    onDeposit(account.id, amount)
-                                    accountToDeposit = null
-                                }
-                            },
-                            enabled = amount != null && amount > 0 && !tooMuch && !closed,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = R.string.savings_deposit))
-                        }
-                    }
+                    SheetActions(
+                        confirmLabel = stringResource(id = R.string.savings_deposit),
+                        onConfirm = deposit,
+                        confirmEnabled = canDeposit,
+                        dismissLabel = stringResource(id = android.R.string.cancel),
+                        onDismiss = { accountToDeposit = null }
+                    )
                 }
             }
         }
@@ -353,76 +321,74 @@ fun SavingsAccountsScreen(
             val amount = amountText.toSafeDouble()
             val quote = remember(account, amount) { amount?.let { account.quoteWithdrawal(it, today) } }
             val accessible = account.accessibleBalance(today)
+            val allowed = quote as? WithdrawalQuote.Allowed
+            val withdraw = {
+                if (amount != null && allowed != null) {
+                    onWithdraw(account.id, amount, allowed.isEarlyBreak)
+                    accountToWithdraw = null
+                }
+            }
             SparelyBottomSheet(isOpen = true, onDismiss = { accountToWithdraw = null }) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.savings_withdraw_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    SparelySheetHeader(
+                        title = stringResource(id = R.string.savings_withdraw_title),
+                        subtitle = stringResource(id = R.string.savings_withdraw_desc, account.name, accessible.formatCurrency()),
+                        icon = MaterialSymbols.ARROW_UPWARD
                     )
-                    Text(
-                        text = stringResource(id = R.string.savings_withdraw_desc, account.name, accessible.formatCurrency()),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    SparelyTextField(
+                    SheetAmountField(
                         value = amountText,
                         onValueChange = { amountText = it.filterCurrencyInput() },
-                        label = { Text(stringResource(id = R.string.savings_amount)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        label = stringResource(id = R.string.savings_amount),
+                        isError = quote is WithdrawalQuote.Blocked,
+                        supportingText = when (quote) {
+                            is WithdrawalQuote.Blocked -> quote.reason
+                            is WithdrawalQuote.Allowed -> stringResource(id = R.string.savings_you_receive, quote.net.formatCurrency())
+                            null -> null
+                        },
+                        onImeAction = withdraw
                     )
-                    when (quote) {
-                        is WithdrawalQuote.Blocked -> Text(
-                            text = quote.reason,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        is WithdrawalQuote.Allowed -> {
-                            if (quote.isEarlyBreak) {
+                    // Breaking a term early costs money, so the penalty gets its own warning panel
+                    if (allowed?.isEarlyBreak == true) {
+                        Surface(
+                            shape = ExpressiveShapes.medium,
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.WARNING,
+                                    contentDescription = null,
+                                    size = 20.dp,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
                                 Text(
-                                    text = stringResource(id = R.string.savings_early_penalty_warning, quote.penalty.formatCurrency()),
+                                    text = stringResource(id = R.string.savings_early_penalty_warning, allowed.penalty.formatCurrency()),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
-                            Text(
-                                text = stringResource(id = R.string.savings_you_receive, quote.net.formatCurrency()),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        null -> Unit
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SparelyTonalButton(onClick = { accountToWithdraw = null }, modifier = Modifier.weight(1f)) {
-                            Text(stringResource(id = android.R.string.cancel))
-                        }
-                        val allowed = quote as? WithdrawalQuote.Allowed
-                        SparelyButton(
-                            onClick = {
-                                if (amount != null && allowed != null) {
-                                    onWithdraw(account.id, amount, allowed.isEarlyBreak)
-                                    accountToWithdraw = null
-                                }
-                            },
-                            enabled = allowed != null,
-                            modifier = Modifier.weight(1f),
-                            containerColor = if (allowed?.isEarlyBreak == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            contentColor = if (allowed?.isEarlyBreak == true) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Text(
-                                stringResource(
-                                    id = if (allowed?.isEarlyBreak == true) R.string.savings_withdraw_pay_penalty else R.string.savings_withdraw
-                                )
-                            )
                         }
                     }
+                    SheetActions(
+                        confirmLabel = stringResource(
+                            id = if (allowed?.isEarlyBreak == true) R.string.savings_withdraw_pay_penalty else R.string.savings_withdraw
+                        ),
+                        onConfirm = withdraw,
+                        confirmEnabled = allowed != null,
+                        destructive = allowed?.isEarlyBreak == true,
+                        dismissLabel = stringResource(id = android.R.string.cancel),
+                        onDismiss = { accountToWithdraw = null }
+                    )
                 }
             }
         }
@@ -433,6 +399,13 @@ fun SavingsAccountsScreen(
             var interestAmountText by remember {
                 mutableStateOf(if (estimatedInterest >= 0.01) estimatedInterest.toInputString() else "")
             }
+            val interestAmount = interestAmountText.toSafeDouble()
+            val addInterest = {
+                if (interestAmount != null && interestAmount > 0) {
+                    onAddInterest(account.id, interestAmount)
+                    accountToAddInterest = null
+                }
+            }
             SparelyBottomSheet(
                 isOpen = true,
                 onDismiss = { accountToAddInterest = null }
@@ -441,65 +414,33 @@ fun SavingsAccountsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.savings_add_interest_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    SparelySheetHeader(
+                        title = stringResource(id = R.string.savings_add_interest_title),
+                        subtitle = stringResource(id = R.string.savings_add_interest_desc, account.name),
+                        icon = MaterialSymbols.TRENDING_UP,
+                        iconTint = MaterialTheme.colorScheme.tertiary
                     )
-                    Text(
-                        text = stringResource(id = R.string.savings_add_interest_desc, account.name),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = stringResource(
-                            id = R.string.savings_interest_total,
-                            account.totalInterestEarned.formatCurrency()
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (estimatedInterest >= 0.01) {
-                        Text(
-                            text = stringResource(id = R.string.savings_interest_estimate_hint, estimatedInterest.formatCurrency()),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    SparelyTextField(
+                    SheetAmountField(
                         value = interestAmountText,
                         onValueChange = { interestAmountText = it.filterCurrencyInput() },
-                        label = { Text(stringResource(id = R.string.savings_interest_amount)) },
-                        singleLine = true,
-                        prefix = { Text("$") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = stringResource(id = R.string.savings_interest_amount),
+                        // The estimate is pre-filled; say where it came from and what's been earned so far
+                        supportingText = listOfNotNull(
+                            if (estimatedInterest >= 0.01) stringResource(id = R.string.savings_interest_estimate_hint, estimatedInterest.formatCurrency()) else null,
+                            stringResource(id = R.string.savings_interest_total, account.totalInterestEarned.formatCurrency())
+                        ).joinToString("\n"),
+                        onImeAction = addInterest
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SparelyTonalButton(
-                            onClick = { accountToAddInterest = null },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = android.R.string.cancel))
-                        }
-                        SparelyButton(
-                            onClick = {
-                                val interestAmount = interestAmountText.toSafeDouble()
-                                if (interestAmount != null && interestAmount > 0) {
-                                    onAddInterest(account.id, interestAmount)
-                                    accountToAddInterest = null
-                                }
-                            },
-                            enabled = interestAmountText.toSafeDouble()?.let { it > 0 } == true,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(id = R.string.savings_add_interest_action))
-                        }
-                    }
+                    SheetActions(
+                        confirmLabel = stringResource(id = R.string.savings_add_interest_action),
+                        onConfirm = addInterest,
+                        confirmEnabled = interestAmount?.let { it > 0 } == true,
+                        dismissLabel = stringResource(id = android.R.string.cancel),
+                        onDismiss = { accountToAddInterest = null }
+                    )
                 }
             }
         }
@@ -514,10 +455,13 @@ private fun OverallSavingsSummaryCard(
     avgApy: Double,
     accountCount: Int
 ) {
+    val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        shape = ExpressiveShapes.large,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentPadding = 20.dp
     ) {
         Column(
@@ -534,11 +478,11 @@ private fun OverallSavingsSummaryCard(
                     Text(
                         text = stringResource(id = R.string.savings_total_hisa_balance),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = onContainer.copy(alpha = 0.8f)
                     )
                     Text(
                         text = totalBalance.formatCurrency(),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -548,7 +492,7 @@ private fun OverallSavingsSummaryCard(
                             accountCount
                         ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = onContainer.copy(alpha = 0.8f)
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
@@ -561,13 +505,13 @@ private fun OverallSavingsSummaryCard(
                     Text(
                         text = stringResource(id = R.string.savings_avg_apy),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = onContainer.copy(alpha = 0.8f)
                     )
                 }
             }
 
             if (totalBalance - accessibleBalance > 0.005) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                HorizontalDivider(color = onContainer.copy(alpha = 0.12f))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -577,7 +521,7 @@ private fun OverallSavingsSummaryCard(
                         Text(
                             text = stringResource(id = R.string.savings_available_now),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = onContainer.copy(alpha = 0.8f)
                         )
                         Text(
                             text = accessibleBalance.formatCurrency(),
@@ -589,7 +533,7 @@ private fun OverallSavingsSummaryCard(
                         Text(
                             text = stringResource(id = R.string.savings_locked_amount),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = onContainer.copy(alpha = 0.8f)
                         )
                         Text(
                             text = (totalBalance - accessibleBalance).formatCurrency(),
@@ -602,7 +546,7 @@ private fun OverallSavingsSummaryCard(
             }
 
             if (totalInterest > 0) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                HorizontalDivider(color = onContainer.copy(alpha = 0.12f))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -621,7 +565,7 @@ private fun OverallSavingsSummaryCard(
                         Text(
                             text = stringResource(id = R.string.savings_total_interest_earned),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = onContainer.copy(alpha = 0.8f)
                         )
                     }
                     Text(
@@ -638,38 +582,13 @@ private fun OverallSavingsSummaryCard(
 
 @Composable
 private fun EmptySavingsCard(onAddAccount: () -> Unit) {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        contentPadding = 32.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.SAVINGS,
-                contentDescription = null,
-                size = 64.dp,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            )
-            Text(
-                text = stringResource(id = R.string.savings_no_accounts_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(id = R.string.savings_no_accounts_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+    ExpressiveEmptyState(
+        icon = MaterialSymbols.SAVINGS,
+        title = stringResource(id = R.string.savings_no_accounts_title),
+        description = stringResource(id = R.string.savings_no_accounts_desc),
+        action = {
             SparelyButton(
                 onClick = onAddAccount,
-                modifier = Modifier.fillMaxWidth(0.6f),
                 icon = {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
@@ -681,7 +600,7 @@ private fun EmptySavingsCard(onAddAccount: () -> Unit) {
                 Text(stringResource(id = R.string.savings_add_account))
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -696,7 +615,9 @@ fun EnhancedSavingsAccountCard(
     onDepositClick: () -> Unit = {},
     onWithdrawClick: () -> Unit = {},
     onRequestNoticeClick: () -> Unit = {},
-    onCancelNoticeClick: () -> Unit = {}
+    onCancelNoticeClick: () -> Unit = {},
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
@@ -711,24 +632,12 @@ fun EnhancedSavingsAccountCard(
     val maturityDate = account.maturityDate
 
     ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        containerColor = colorScheme.surfaceContainerHigh,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        containerColor = colorScheme.surfaceContainer,
         contentPadding = 0.dp
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                colorScheme.primary.copy(alpha = 0.05f),
-                                colorScheme.surface.copy(alpha = 0.5f)
-                            )
-                        )
-                    )
-            )
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -745,9 +654,9 @@ fun EnhancedSavingsAccountCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            shape = CircleShape,
-                            color = colorScheme.primary.copy(alpha = 0.1f),
-                            modifier = Modifier.size(48.dp)
+                            shape = ExpressiveShapes.small,
+                            color = colorScheme.primary.copy(alpha = 0.14f),
+                            modifier = Modifier.size(44.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 MaterialSymbolIcon(
@@ -761,8 +670,8 @@ fun EnhancedSavingsAccountCard(
                         Column {
                             Text(
                                 text = account.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
                             )
                             account.institution?.let {
                                 Text(
@@ -774,14 +683,14 @@ fun EnhancedSavingsAccountCard(
                         }
                     }
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = colorScheme.tertiary.copy(alpha = 0.15f)
+                        shape = CircleShape,
+                        color = colorScheme.tertiaryContainer
                     ) {
                         Text(
                             text = "${account.annualPercentageYield}% APY",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = colorScheme.tertiary,
+                            color = colorScheme.onTertiaryContainer,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         )
                     }
@@ -801,8 +710,8 @@ fun EnhancedSavingsAccountCard(
                         )
                         Text(
                             text = account.currentBalance.formatCurrency(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                     if (account.totalInterestEarned > 0) {
@@ -947,8 +856,6 @@ fun EnhancedSavingsAccountCard(
                     }
                 }
 
-                HorizontalDivider(color = colorScheme.onSurface.copy(alpha = 0.1f))
-
                 // Badges
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -965,7 +872,7 @@ fun EnhancedSavingsAccountCard(
                         SavingsProductType.NOTICE -> stringResource(id = R.string.savings_badge_notice, account.noticeDays ?: 30)
                         SavingsProductType.FLEXIBLE -> stringResource(id = R.string.savings_badge_flexible)
                     }
-                    Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.primary.copy(alpha = 0.08f)) {
+                    Surface(shape = CircleShape, color = colorScheme.primary.copy(alpha = 0.1f)) {
                         Text(
                             text = badgeText,
                             style = MaterialTheme.typography.labelMedium,
@@ -974,7 +881,7 @@ fun EnhancedSavingsAccountCard(
                         )
                     }
                     account.minWithdrawalAmount?.let { min ->
-                        Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.secondary.copy(alpha = 0.08f)) {
+                        Surface(shape = CircleShape, color = colorScheme.secondary.copy(alpha = 0.1f)) {
                             Text(
                                 text = stringResource(id = R.string.savings_min_withdraw_label, min.formatCurrency()),
                                 style = MaterialTheme.typography.labelMedium,
@@ -984,7 +891,7 @@ fun EnhancedSavingsAccountCard(
                         }
                     }
                     account.minRemainingBalance?.let { min ->
-                        Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.tertiary.copy(alpha = 0.08f)) {
+                        Surface(shape = CircleShape, color = colorScheme.tertiary.copy(alpha = 0.1f)) {
                             Text(
                                 text = stringResource(id = R.string.savings_keep_label, min.formatCurrency()),
                                 style = MaterialTheme.typography.labelMedium,
@@ -1073,6 +980,10 @@ fun SavingsAccountDialog(
 
     var productMenuExpanded by remember { mutableStateOf(false) }
 
+    var showStartPicker by remember { mutableStateOf(false) }
+    val digitsKeyboard = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+    val moneyKeyboard = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
+
     SparelyBottomSheet(
         isOpen = true,
         onDismiss = onDismiss
@@ -1081,135 +992,122 @@ fun SavingsAccountDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = if (isEdit) stringResource(id = R.string.savings_edit_account) else stringResource(id = R.string.savings_add_savings_account),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                SparelySheetHeader(
+                    title = if (isEdit) stringResource(id = R.string.savings_edit_account) else stringResource(id = R.string.savings_add_savings_account),
+                    icon = MaterialSymbols.SAVINGS
                 )
+
+                // ── The account ──
                 SparelyTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(id = R.string.savings_account_name)) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth()
                 )
-                SparelyTextField(
-                    value = apyText,
-                    onValueChange = { apyText = it.filterCurrencyInput() },
-                    label = { Text(stringResource(id = R.string.savings_apy_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SparelyTextField(
-                    value = bank,
-                    onValueChange = { bank = it },
-                    label = { Text(stringResource(id = R.string.savings_institution_optional)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SparelyTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(stringResource(id = R.string.savings_notes_optional)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Box {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SparelyTextField(
-                        value = when (productType) {
+                        value = apyText,
+                        onValueChange = { apyText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(id = R.string.savings_apy_label)) },
+                        suffix = { Text("%") },
+                        singleLine = true,
+                        keyboardOptions = moneyKeyboard,
+                        modifier = Modifier.weight(0.8f)
+                    )
+                    SparelyTextField(
+                        value = bank,
+                        onValueChange = { bank = it },
+                        label = { Text(stringResource(id = R.string.savings_institution_optional)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1.2f)
+                    )
+                }
+
+                // ── How the money can move ──
+                SheetSectionLabel(stringResource(id = R.string.savings_product_type))
+                SheetChoiceRow(
+                    options = SavingsProductType.entries.toList(),
+                    selected = productType,
+                    onSelect = { productType = it },
+                    label = { type ->
+                        when (type) {
                             SavingsProductType.FLEXIBLE -> stringResource(id = R.string.savings_product_flexible)
                             SavingsProductType.TERM -> stringResource(id = R.string.savings_product_term)
                             SavingsProductType.NOTICE -> stringResource(id = R.string.savings_product_notice)
-                        },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(id = R.string.savings_product_type)) },
-                        trailingIcon = {
-                            IconButton(onClick = { productMenuExpanded = !productMenuExpanded }) {
-                                MaterialSymbolIcon(
-                                    icon = if (productMenuExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                                    contentDescription = null,
-                                    size = 20.dp
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { productMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = productMenuExpanded,
-                        onDismissRequest = { productMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.savings_product_flexible)) },
-                            onClick = {
-                                productType = SavingsProductType.FLEXIBLE
-                                productMenuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.savings_product_term)) },
-                            onClick = {
-                                productType = SavingsProductType.TERM
-                                productMenuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.savings_product_notice)) },
-                            onClick = {
-                                productType = SavingsProductType.NOTICE
-                                productMenuExpanded = false
-                            }
-                        )
+                        }
                     }
-                }
+                )
 
                 when (productType) {
                     SavingsProductType.TERM -> {
-                        SparelyTextField(
-                            value = termMonthsText,
-                            onValueChange = { termMonthsText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text(stringResource(id = R.string.savings_term_length_months)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        SparelyTextField(
-                            value = termStartText,
-                            onValueChange = { termStartText = it },
-                            label = { Text(stringResource(id = R.string.savings_start_date)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        SparelyTextField(
-                            value = graceDaysText,
-                            onValueChange = { graceDaysText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text(stringResource(id = R.string.savings_grace_window_days)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        SparelyTextField(
-                            value = anniversaryDaysText,
-                            onValueChange = { anniversaryDaysText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text(stringResource(id = R.string.savings_anniversary_window_days)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SparelyTextField(
+                                value = termMonthsText,
+                                onValueChange = { termMonthsText = it.filter { ch -> ch.isDigit() } },
+                                label = { Text(stringResource(id = R.string.savings_term_length_months)) },
+                                singleLine = true,
+                                keyboardOptions = digitsKeyboard,
+                                modifier = Modifier.weight(1f)
+                            )
+                            // Picked from a calendar rather than typed as yyyy-mm-dd
+                            Box(modifier = Modifier.weight(1f)) {
+                                SparelyTextField(
+                                    value = termStartText,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(stringResource(id = R.string.savings_start_date)) },
+                                    trailingIcon = {
+                                        MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null, size = 20.dp)
+                                    },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                // Covers the read-only field so a tap anywhere opens the picker
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable { showStartPicker = true }
+                                )
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SparelyTextField(
+                                value = graceDaysText,
+                                onValueChange = { graceDaysText = it.filter { ch -> ch.isDigit() } },
+                                label = { Text(stringResource(id = R.string.savings_grace_window_days)) },
+                                singleLine = true,
+                                keyboardOptions = digitsKeyboard,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SparelyTextField(
+                                value = anniversaryDaysText,
+                                onValueChange = { anniversaryDaysText = it.filter { ch -> ch.isDigit() } },
+                                label = { Text(stringResource(id = R.string.savings_anniversary_window_days)) },
+                                singleLine = true,
+                                keyboardOptions = digitsKeyboard,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                         SparelyTextField(
                             value = penaltyDaysText,
                             onValueChange = { penaltyDaysText = it.filter { ch -> ch.isDigit() } },
                             label = { Text(stringResource(id = R.string.savings_penalty_days)) },
                             singleLine = true,
+                            keyboardOptions = digitsKeyboard,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1220,6 +1118,7 @@ fun SavingsAccountDialog(
                             onValueChange = { noticeDaysText = it.filter { ch -> ch.isDigit() } },
                             label = { Text(stringResource(id = R.string.savings_notice_days)) },
                             singleLine = true,
+                            keyboardOptions = digitsKeyboard,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1227,72 +1126,104 @@ fun SavingsAccountDialog(
                     SavingsProductType.FLEXIBLE -> Unit
                 }
 
-                SparelyTextField(
-                    value = minWithdrawalText,
-                    onValueChange = { minWithdrawalText = it.filterCurrencyInput() },
-                    label = { Text(stringResource(id = R.string.savings_min_withdraw_amount)) },
-                    singleLine = true,
-                    prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // ── Withdrawal limits ──
+                SheetSectionLabel(stringResource(id = R.string.savings_section_withdrawal_rules))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SparelyTextField(
+                        value = minWithdrawalText,
+                        onValueChange = { minWithdrawalText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(id = R.string.savings_min_withdraw_amount)) },
+                        singleLine = true,
+                        prefix = { Text(stringResource(id = R.string.currency_prefix)) },
+                        keyboardOptions = moneyKeyboard,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SparelyTextField(
+                        value = minRemainingText,
+                        onValueChange = { minRemainingText = it.filterCurrencyInput() },
+                        label = { Text(stringResource(id = R.string.savings_min_remaining_balance)) },
+                        singleLine = true,
+                        prefix = { Text(stringResource(id = R.string.currency_prefix)) },
+                        keyboardOptions = moneyKeyboard,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
                 SparelyTextField(
-                    value = minRemainingText,
-                    onValueChange = { minRemainingText = it.filterCurrencyInput() },
-                    label = { Text(stringResource(id = R.string.savings_min_remaining_balance)) },
-                    singleLine = true,
-                    prefix = { Text("$") },
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text(stringResource(id = R.string.savings_notes_optional)) },
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 4,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SparelyButton(
-                    onClick = {
-                        val sanitizedName = name.trim()
-                        val apy = apyText.toSafeDouble() ?: 0.0
-                        val termMonths = termMonthsText.toIntOrNull()?.takeIf { it > 0 }
-                        val termStart = runCatching { java.time.LocalDate.parse(termStartText.takeIf { it.isNotBlank() } ?: java.time.LocalDate.now().toString()) }.getOrNull()
-                        val noticeDays = noticeDaysText.toIntOrNull()?.takeIf { it > 0 }
-                        val graceDays = graceDaysText.toIntOrNull()?.takeIf { it > 0 }
-                        val anniversaryDays = anniversaryDaysText.toIntOrNull()?.takeIf { it > 0 }
-                        val minWithdrawal = minWithdrawalText.toSafeDouble()?.takeIf { it > 0 }
-                        val minRemaining = minRemainingText.toSafeDouble()?.takeIf { it > 0 }
-                        val penaltyDays = penaltyDaysText.toIntOrNull()?.takeIf { it > 0 }
+            SheetActions(
+                confirmLabel = if (isEdit) stringResource(id = R.string.save_changes) else stringResource(id = R.string.savings_create_account),
+                onConfirm = {
+                    val sanitizedName = name.trim()
+                    val apy = apyText.toSafeDouble() ?: 0.0
+                    val termMonths = termMonthsText.toIntOrNull()?.takeIf { it > 0 }
+                    val termStart = runCatching { java.time.LocalDate.parse(termStartText.takeIf { it.isNotBlank() } ?: java.time.LocalDate.now().toString()) }.getOrNull()
+                    val noticeDays = noticeDaysText.toIntOrNull()?.takeIf { it > 0 }
+                    val graceDays = graceDaysText.toIntOrNull()?.takeIf { it > 0 }
+                    val anniversaryDays = anniversaryDaysText.toIntOrNull()?.takeIf { it > 0 }
+                    val minWithdrawal = minWithdrawalText.toSafeDouble()?.takeIf { it > 0 }
+                    val minRemaining = minRemainingText.toSafeDouble()?.takeIf { it > 0 }
+                    val penaltyDays = penaltyDaysText.toIntOrNull()?.takeIf { it > 0 }
 
-                        val updated = (initialAccount ?: SavingsAccount(name = sanitizedName, annualPercentageYield = apy)).copy(
-                            name = sanitizedName,
-                            annualPercentageYield = apy,
-                            institution = bank.ifBlank { null },
-                            accountNotes = notes.ifBlank { null },
-                            productType = productType,
-                            termMonths = if (productType == SavingsProductType.TERM) termMonths else null,
-                            termStartDate = if (productType == SavingsProductType.TERM) termStart else null,
-                            noticeDays = if (productType == SavingsProductType.NOTICE) noticeDays else null,
-                            gracePeriodDays = if (productType == SavingsProductType.TERM) graceDays else null,
-                            anniversaryWindowDays = if (productType == SavingsProductType.TERM) anniversaryDays else null,
-                            minWithdrawalAmount = minWithdrawal,
-                            minRemainingBalance = minRemaining,
-                            earlyWithdrawalPenaltyDays = if (productType == SavingsProductType.TERM) penaltyDays else null
-                        )
+                    val updated = (initialAccount ?: SavingsAccount(name = sanitizedName, annualPercentageYield = apy)).copy(
+                        name = sanitizedName,
+                        annualPercentageYield = apy,
+                        institution = bank.ifBlank { null },
+                        accountNotes = notes.ifBlank { null },
+                        productType = productType,
+                        termMonths = if (productType == SavingsProductType.TERM) termMonths else null,
+                        termStartDate = if (productType == SavingsProductType.TERM) termStart else null,
+                        noticeDays = if (productType == SavingsProductType.NOTICE) noticeDays else null,
+                        gracePeriodDays = if (productType == SavingsProductType.TERM) graceDays else null,
+                        anniversaryWindowDays = if (productType == SavingsProductType.TERM) anniversaryDays else null,
+                        minWithdrawalAmount = minWithdrawal,
+                        minRemainingBalance = minRemaining,
+                        earlyWithdrawalPenaltyDays = if (productType == SavingsProductType.TERM) penaltyDays else null
+                    )
 
-                        onConfirm(updated)
-                    },
-                    enabled = name.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (isEdit) stringResource(id = R.string.save_changes) else stringResource(id = R.string.savings_create_account))
+                    onConfirm(updated)
+                },
+                confirmEnabled = name.isNotBlank(),
+                dismissLabel = stringResource(id = android.R.string.cancel),
+                onDismiss = onDismiss
+            )
+        }
+    }
+
+    if (showStartPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = runCatching { java.time.LocalDate.parse(termStartText) }.getOrNull()
+                ?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                SparelyTextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        termStartText = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+                    }
+                    showStartPicker = false
+                }) {
+                    Text(stringResource(id = android.R.string.ok))
                 }
-                SparelyTonalButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+            },
+            dismissButton = {
+                SparelyTextButton(onClick = { showStartPicker = false }) {
                     Text(stringResource(id = android.R.string.cancel))
                 }
             }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
