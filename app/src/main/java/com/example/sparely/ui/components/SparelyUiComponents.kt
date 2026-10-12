@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,18 +55,24 @@ fun SparelyTextField(
     isError: Boolean = false,
     supportingText: @Composable (() -> Unit)? = null,
     prefix: @Composable (() -> Unit)? = null,
+    suffix: @Composable (() -> Unit)? = null,
     readOnly: Boolean = false,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
-    colors: TextFieldColors = TextFieldDefaults.colors(
-        focusedIndicatorColor = Color.Transparent,
-        unfocusedIndicatorColor = Color.Transparent,
-        disabledIndicatorColor = Color.Transparent,
-        errorIndicatorColor = Color.Transparent,
-        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    )
+    colors: TextFieldColors = sparelyTextFieldColors()
 ) {
+    // Filled field with no underline; focus (or an error) draws a ring around the whole shape instead
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val ringColor by animateColorAsState(
+        targetValue = when {
+            isError -> MaterialTheme.colorScheme.error
+            isFocused && !readOnly -> MaterialTheme.colorScheme.primary
+            else -> Color.Transparent
+        },
+        label = "fieldRing"
+    )
+    val shape = RoundedCornerShape(16.dp)
     TextField(
         value = value,
         onValueChange = onValueChange,
@@ -70,9 +80,13 @@ fun SparelyTextField(
         placeholder = placeholder,
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp), // M3 Expressive text field shape
+        modifier = modifier
+            .fillMaxWidth()
+            .border(2.dp, ringColor, shape),
+        shape = shape,
         colors = colors,
+        interactionSource = interactionSource,
+        suffix = suffix,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         singleLine = singleLine,
@@ -85,6 +99,19 @@ fun SparelyTextField(
         enabled = enabled
     )
 }
+
+/** Field colours shared by text fields and dropdown anchors: tonal fill, no underline. */
+@Composable
+fun sparelyTextFieldColors(): TextFieldColors = TextFieldDefaults.colors(
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+    errorIndicatorColor = Color.Transparent,
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+    errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+)
 
 @Composable
 fun SparelyChip(
@@ -347,18 +374,11 @@ fun ExposedDropdownMenuBoxScope.SparelyDropdownAnchor(
         onValueChange = onValueChange,
         readOnly = readOnly,
         enabled = enabled,
-        label = { Text(label) },
+        label = label.takeIf { it.isNotBlank() }?.let { text -> { Text(text) } },
         leadingIcon = leadingIcon,
         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
         isError = isError,
-        colors = ExposedDropdownMenuDefaults.textFieldColors(
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
+        colors = sparelyTextFieldColors(),
         modifier = modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
     )
 }
@@ -385,14 +405,6 @@ fun <T> SparelyExpressiveDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
-        if (label != null) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { if (enabled) expanded = it }

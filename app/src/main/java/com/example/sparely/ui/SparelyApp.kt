@@ -85,6 +85,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.sparely.domain.model.VaultArchivePrompt
+import com.example.sparely.ui.components.SparelySheetHeader
 import com.example.sparely.ui.components.SparelyBottomSheet
 import com.example.sparely.ui.screens.AssetManagementScreen
 import com.example.sparely.ui.screens.BudgetScreen
@@ -400,79 +401,66 @@ private fun SparelyScaffold(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            SparelySheetHeader(
+                                title = stringResource(R.string.record_income_title),
+                                subtitle = stringResource(R.string.record_income_subtitle),
+                                icon = MaterialSymbols.ATTACH_MONEY
+                            )
+
+                            com.example.sparely.ui.components.SheetAmountField(
+                                value = manualAmountText.value,
+                                onValueChange = { v -> manualAmountText.value = v.filterCurrencyInput() },
+                                label = stringResource(R.string.vault_amount_label),
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                                onImeAction = {}
+                            )
+
+                            com.example.sparely.ui.components.SheetSectionLabel(stringResource(R.string.income_category_label))
+                            androidx.compose.foundation.lazy.LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null)
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.record_income_title),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.record_income_subtitle),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                items(IncomeCategory.entries.size) { index ->
+                                    val category = IncomeCategory.entries[index]
+                                    com.example.sparely.ui.components.SparelyChip(
+                                        selected = selectedCategory.value == category,
+                                        onClick = { selectedCategory.value = category },
+                                        label = { Text(category.localizedName()) },
+                                        leadingIcon = {
+                                            MaterialSymbolIcon(
+                                                icon = when (category) {
+                                                    IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
+                                                    IncomeCategory.FREELANCE -> MaterialSymbols.WORK
+                                                    IncomeCategory.GIFT -> MaterialSymbols.CELEBRATION
+                                                    IncomeCategory.INVESTMENT -> MaterialSymbols.TRENDING_UP
+                                                    IncomeCategory.OTHER -> MaterialSymbols.LIST
+                                                },
+                                                contentDescription = null,
+                                                size = 18.dp
+                                            )
+                                        }
                                     )
                                 }
                             }
-
-                            com.example.sparely.ui.components.SparelyTextField(
-                                value = manualAmountText.value,
-                                onValueChange = { v -> manualAmountText.value = v.filterCurrencyInput() },
-                                label = { Text(stringResource(R.string.vault_amount_label)) },
-                                prefix = { Text(stringResource(R.string.currency_prefix)) },
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-
-                            SparelyExpressiveDropdown(
-                                modifier = Modifier.fillMaxWidth(),
-                                selectedOption = selectedCategory.value,
-                                label = stringResource(R.string.income_category_label),
-                                options = IncomeCategory.entries.toList(),
-                                onOptionSelected = { it ->
-                                     selectedCategory.value = it
-                                },
-                                optionLabel = { it.localizedName() },
-                                optionIcon = { category ->
-                                    when (category) {
-                                        IncomeCategory.SALARY -> MaterialSymbols.PAYMENTS
-                                        IncomeCategory.FREELANCE -> MaterialSymbols.WORK
-                                        IncomeCategory.GIFT -> MaterialSymbols.CELEBRATION
-                                        IncomeCategory.INVESTMENT -> MaterialSymbols.TRENDING_UP
-                                        IncomeCategory.OTHER -> MaterialSymbols.LIST
-                                    }
-                                }
-                            )
 
                             com.example.sparely.ui.components.SparelyTextField(
                                 value = descriptionText.value,
                                 onValueChange = { descriptionText.value = it },
                                 label = { Text(stringResource(R.string.income_description_label)) },
                                 placeholder = { Text(stringResource(R.string.main_account_optional_note)) },
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences
+                                ),
                                 modifier = Modifier.fillMaxWidth(),
                                 maxLines = 2
                             )
 
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "${stringResource(R.string.income_date_label)}: ${manualDate.value.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                com.example.sparely.ui.components.SparelyTextButton(onClick = { showDatePicker.value = true }) {
-                                    Text(stringResource(R.string.income_pick_date))
-                                }
-                            }
+                            com.example.sparely.ui.components.SheetDateField(
+                                label = stringResource(R.string.income_date_label),
+                                value = manualDate.value.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+                                onClick = { showDatePicker.value = true }
+                            )
 
-                            IncomeToggleRow(
+                            com.example.sparely.ui.components.SheetToggleRow(
                                 title = stringResource(R.string.income_distribute_vaults),
                                 description = stringResource(R.string.income_distribute_vaults_desc),
                                 checked = manualDistribute.value,
@@ -481,7 +469,7 @@ private fun SparelyScaffold(
 
                             // Pending transfers only apply to the vault split, so hide the option when it's off.
                             if (manualDistribute.value) {
-                                IncomeToggleRow(
+                                com.example.sparely.ui.components.SheetToggleRow(
                                     title = stringResource(R.string.income_pending_transfers),
                                     description = stringResource(R.string.income_pending_transfers_desc),
                                     checked = manualPending.value,
@@ -489,40 +477,29 @@ private fun SparelyScaffold(
                                 )
                             }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                com.example.sparely.ui.components.SparelyTextButton(
-                                    onClick = { showIncomeDialog.value = false },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(stringResource(R.string.common_cancel))
-                                }
-                                com.example.sparely.ui.components.SparelyButton(
-                                    onClick = {
-                                        val amt = manualAmountText.value.toSafeDouble()
-                                        if (amt != null && amt > 0.0) {
-                                            val desc = descriptionText.value.ifEmpty { defaultIncomeDescription }
-                                            viewModel.recordPaycheck(
-                                                amt,
-                                                manualDate.value,
-                                                manualDistribute.value,
-                                                manualPending.value,
-                                                incomeCategory = selectedCategory.value,
-                                                description = desc
-                                            )
-                                            manualAmountText.value = ""
-                                            descriptionText.value = ""
-                                            showIncomeDialog.value = false
-                                        }
-                                    },
-                                    enabled = manualAmountText.value.toSafeDouble()?.let { it > 0.0 } == true,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(stringResource(R.string.record_income_title))
-                                }
-                            }
+                            com.example.sparely.ui.components.SheetActions(
+                                confirmLabel = stringResource(R.string.record_income_title),
+                                onConfirm = {
+                                    val amt = manualAmountText.value.toSafeDouble()
+                                    if (amt != null && amt > 0.0) {
+                                        val desc = descriptionText.value.ifEmpty { defaultIncomeDescription }
+                                        viewModel.recordPaycheck(
+                                            amt,
+                                            manualDate.value,
+                                            manualDistribute.value,
+                                            manualPending.value,
+                                            incomeCategory = selectedCategory.value,
+                                            description = desc
+                                        )
+                                        manualAmountText.value = ""
+                                        descriptionText.value = ""
+                                        showIncomeDialog.value = false
+                                    }
+                                },
+                                confirmEnabled = manualAmountText.value.toSafeDouble()?.let { it > 0.0 } == true,
+                                dismissLabel = stringResource(R.string.common_cancel),
+                                onDismiss = { showIncomeDialog.value = false }
+                            )
                         }
                     }
 
@@ -838,22 +815,6 @@ private fun SparelyNavHost(
                     navController.navigate(SparelyDestination.VaultHistory.createRoute(vaultId))
                 },
                 onBalanceOverride = { vaultId, newBalance, reason ->
-            val recurringPaymentUndos by viewModel.recurringPaymentUndos.collectAsStateWithLifecycle()
-            val undoRecurringPayment: (Long) -> Unit = { id ->
-                viewModel.undoRecurringPayment(id) { vaultViewModel.refreshPendingContributions() }
-            }
-            // A one-tap way back from a payment marked by mistake
-            val offerRecurringPaymentUndo: (Long) -> Unit = { id ->
-                vaultViewModel.refreshPendingContributions()
-                scope.launch {
-                    val result = snackbarHostState.showSnackbar(
-                        message = context.getString(R.string.recurring_marked_paid_message),
-                        actionLabel = context.getString(R.string.recurring_undo_paid_action),
-                        duration = SnackbarDuration.Long
-                    )
-                    if (result == SnackbarResult.ActionPerformed) undoRecurringPayment(id)
-                }
-            }
                     vaultViewModel.overrideVaultBalance(vaultId, newBalance, reason)
                 }
             )
@@ -877,6 +838,22 @@ private fun SparelyNavHost(
         }
         composable(SparelyDestination.Recurring.route) {
             val brandSearchResults by viewModel.brandSearchResults.collectAsStateWithLifecycle()
+            val recurringPaymentUndos by viewModel.recurringPaymentUndos.collectAsStateWithLifecycle()
+            val undoRecurringPayment: (Long) -> Unit = { id ->
+                viewModel.undoRecurringPayment(id) { vaultViewModel.refreshPendingContributions() }
+            }
+            // A one-tap way back from a payment marked by mistake
+            val offerRecurringPaymentUndo: (Long) -> Unit = { id ->
+                vaultViewModel.refreshPendingContributions()
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.recurring_marked_paid_message),
+                        actionLabel = context.getString(R.string.recurring_undo_paid_action),
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) undoRecurringPayment(id)
+                }
+            }
             RecurringExpensesScreen(
                 recurringExpenses = uiState.recurringExpenses,
                 recurringPaidRecords = uiState.recurringPaidRecords,
