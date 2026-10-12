@@ -838,6 +838,22 @@ private fun SparelyNavHost(
                     navController.navigate(SparelyDestination.VaultHistory.createRoute(vaultId))
                 },
                 onBalanceOverride = { vaultId, newBalance, reason ->
+            val recurringPaymentUndos by viewModel.recurringPaymentUndos.collectAsStateWithLifecycle()
+            val undoRecurringPayment: (Long) -> Unit = { id ->
+                viewModel.undoRecurringPayment(id) { vaultViewModel.refreshPendingContributions() }
+            }
+            // A one-tap way back from a payment marked by mistake
+            val offerRecurringPaymentUndo: (Long) -> Unit = { id ->
+                vaultViewModel.refreshPendingContributions()
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.recurring_marked_paid_message),
+                        actionLabel = context.getString(R.string.recurring_undo_paid_action),
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) undoRecurringPayment(id)
+                }
+            }
                     vaultViewModel.overrideVaultBalance(vaultId, newBalance, reason)
                 }
             )
@@ -876,8 +892,12 @@ private fun SparelyNavHost(
                 onClearPendingDetectedRecurring = viewModel::clearPendingDetectedRecurring,
                 onUpdateRecurring = viewModel::updateRecurringExpense,
                 onDeleteRecurring = viewModel::deleteRecurringExpense,
-                onMarkProcessed = viewModel::markRecurringProcessed,
-                onPayEarly = viewModel::payRecurringExpenseEarly,
+                onMarkProcessed = { id -> viewModel.markRecurringProcessed(id) { offerRecurringPaymentUndo(id) } },
+                onPayEarly = { id, dueDate, amountPaid, paidDate, notes ->
+                    viewModel.payRecurringExpenseEarly(id, dueDate, amountPaid, paidDate, notes) { offerRecurringPaymentUndo(id) }
+                },
+                recurringPaymentUndos = recurringPaymentUndos,
+                onUndoPayment = undoRecurringPayment,
                 onCreateStore = { input ->
                     val storeId = viewModel.addStore(input).await()
                     viewModel.getStoreById(storeId)

@@ -1345,6 +1345,9 @@
     <string name="recurring_detected_desc">Trouvés dans votre historique. Ils sont inclus dans le total mensuel ; ajoutez-les pour recevoir des rappels.</string>
     <string name="recurring_detected_detail">~%1$s tous les %2$d jours · dernier %3$s</string>
     <string name="recurring_detected_per_month">%1$s/mois</string>
+    <string name="recurring_action_undo_paid">Annuler le paiement</string>
+    <string name="recurring_marked_paid_message">Marqué comme payé</string>
+    <string name="recurring_undo_paid_action">Annuler</string>
     <string name="recurring_detected_add">Ajouter</string>
     <string name="settings_change">Modifier</string>
     <string name="settings_tax_override_desc">Remplacez le taux d\'imposition par défaut pour %1$s. Par défaut : %2$d %%</string>

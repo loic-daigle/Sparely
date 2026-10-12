@@ -10,6 +10,7 @@ import com.example.sparely.data.local.SavingsTransferEntity
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.local.toEntity
 import com.example.sparely.data.repository.BackupRepository
+import com.example.sparely.data.repository.RecurringPaymentUndo
 import com.example.sparely.data.repository.SavingsRepository
 import com.example.sparely.domain.logic.AlertsGenerator
 import com.example.sparely.domain.logic.AnalyticsEngine
@@ -746,35 +747,26 @@ class SparelyViewModel(
             updateRecurringExpense(current.copy(isActive = active))
         }
 
-        fun markRecurringProcessed(id: Long) {
-            viewModelScope.launch(dispatcher + errorHandler) {
-                // Paying the bill turns the frozen amount into a real expense: release the freeze.
-                savingsRepository.removeFrozenForPending("RECURRING_PAYMENT", id)
-                // Find the expense to mark
-                val recurring = _uiState.value.recurringExpenses.find { it.id == id }
-                if (recurring != null) {
-                    // Create an actual expense entry
-                    val input = ExpenseInput(
-                        description = recurring.description,
-                        amount = recurring.amount,
-                        category = recurring.category,
-                        date = LocalDate.now(), // Processed today
-                        includesTax = recurring.includesTax,
-                        manualPercentages = recurring.manualPercentages,
-                        deductFromMainAccount = recurring.deductFromMainAccount,
-                        deductFromVaultId = recurring.deductedFromVaultId,
-                        storeId = recurring.storeId,
-                        paymentMethodId = recurring.paymentMethodId,
-                        isRecurring = true,
-                        type = recurring.type,
-                        items = recurring.items,
-                        assetAllocations = recurring.assetAllocations
-                    )
-                    addExpense(input)
-                }
-
-                savingsRepository.updateRecurringExpenseProcessed(id, LocalDate.now())
-            }
+        fun markRecurringProcessed(id: Long, onDone: () -> Unit = {}) {
+            val recurring = _uiState.value.recurringExpenses.find { it.id == id } ?: return
+            val today = LocalDate.now()
+            val input = ExpenseInput(
+                description = recurring.description,
+                amount = recurring.amount,
+                category = recurring.category,
+                date = today, // Processed today
+                includesTax = recurring.includesTax,
+                manualPercentages = recurring.manualPercentages,
+                deductFromMainAccount = recurring.deductFromMainAccount,
+                deductFromVaultId = recurring.deductedFromVaultId,
+                storeId = recurring.storeId,
+                paymentMethodId = recurring.paymentMethodId,
+                isRecurring = true,
+                type = recurring.type,
+                items = recurring.items,
+                assetAllocations = recurring.assetAllocations
+            )
+            recordRecurringPayment(id, today, input, paidRecord = null, onDone = onDone)
         }
 
         /**
@@ -786,60 +778,76 @@ class SparelyViewModel(
             dueDate: java.time.LocalDate,
             amountPaid: Double = 0.0,
             paidDate: java.time.LocalDate = java.time.LocalDate.now(),
-            notes: String? = null
+            notes: String? = null,
+            onDone: () -> Unit = {}
         ) {
-            viewModelScope.launch(dispatcher + errorHandler) {
-                try {
-                    val recurring = _uiState.value.recurringExpenses.find { it.id == recurringExpenseId }
-                    if (recurring != null) {
-                        val finalAmount = if (amountPaid > 0) amountPaid else recurring.amount
+            val recurring = _uiState.value.recurringExpenses.find { it.id == recurringExpenseId } ?: return
+            val finalAmount = if (amountPaid > 0) amountPaid else recurring.amount
+            val input = ExpenseInput(
+                description = recurring.description,
+                amount = finalAmount,
+                category = recurring.category,
+                date = paidDate,
+                includesTax = recurring.includesTax,
+                manualPercentages = recurring.manualPercentages,
+                deductFromMainAccount = recurring.deductFromMainAccount,
+                deductFromVaultId = recurring.deductedFromVaultId,
+                storeId = recurring.storeId,
+                paymentMethodId = recurring.paymentMethodId,
+                isRecurring = true,
+                notes = notes?.let { "Early payment (due $dueDate): $it" },
+                type = recurring.type,
+                items = recurring.items,
+                assetAllocations = recurring.assetAllocations
+            )
+            val paidRecord = com.example.sparely.data.local.RecurringExpensePaidEntity(
+                recurringExpenseId = recurringExpenseId,
+                dueDate = dueDate,
+                amountPaid = finalAmount,
+                paidDate = paidDate,
+                notes = notes
+            )
+            // Processed on the due date so the schedule moves to the occurrence after it.
+            recordRecurringPayment(recurringExpenseId, dueDate, input, paidRecord, onDone)
+        }
 
-                        // 1. Create an actual expense entry for this early payment using addExpense
-                        val input = ExpenseInput(
-                            description = recurring.description,
-                            amount = finalAmount,
-                            category = recurring.category,
-                            date = paidDate,
-                            includesTax = recurring.includesTax,
-                            manualPercentages = recurring.manualPercentages,
-                            deductFromMainAccount = recurring.deductFromMainAccount,
-                            deductFromVaultId = recurring.deductedFromVaultId,
-                            storeId = recurring.storeId,
-                            paymentMethodId = recurring.paymentMethodId,
-                            isRecurring = true,
-                            notes = notes?.let { "Early payment (due $dueDate): $it" },
-                            type = recurring.type,
-                            items = recurring.items,
-                            assetAllocations = recurring.assetAllocations
-                        )
+        private val _recurringPaymentUndos = MutableStateFlow<Map<Long, RecurringPaymentUndo>>(emptyMap())
+        /** The last payment marked for each recurring expense in this session, keyed by its id, for undo. */
+        val recurringPaymentUndos: StateFlow<Map<Long, RecurringPaymentUndo>> = _recurringPaymentUndos.asStateFlow()
 
-                        // Use the existing addExpense flow which handles all calculations
-                        addExpense(input) {
-                            // After expense is created, record the early payment
-                            viewModelScope.launch(dispatcher + errorHandler) {
-                                try {
-                                    savingsRepository.recordRecurringExpensePaidEarly(
-                                        recurringExpenseId = recurringExpenseId,
-                                        dueDate = dueDate,
-                                        amountPaid = finalAmount,
-                                        paidDate = paidDate,
-                                        notes = notes
-                                    )
-                                    savingsRepository.removeFrozenForPending("RECURRING_PAYMENT", recurringExpenseId)
-                                    // Also mark as processed to advance the schedule
-                                    savingsRepository.updateRecurringExpenseProcessed(
-                                        recurringExpenseId,
-                                        dueDate
-                                    )
-                                } catch (e: Exception) {
-                                    // Log error but don't crash
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Log error but don't crash
+        private fun recordRecurringPayment(
+            recurringExpenseId: Long,
+            processedDate: LocalDate,
+            input: ExpenseInput,
+            paidRecord: com.example.sparely.data.local.RecurringExpensePaidEntity?,
+            onDone: () -> Unit
+        ) {
+            val markPaid: (Long?) -> Unit = { expenseId ->
+                safeLaunch {
+                    val undo = savingsRepository.markRecurringPaid(recurringExpenseId, processedDate, expenseId, paidRecord)
+                        ?: return@safeLaunch
+                    _recurringPaymentUndos.update { it + (recurringExpenseId to undo) }
+                    withContext(Dispatchers.Main) { onDone() }
                 }
+            }
+            // A bill with no amount yet has no expense to log; it is still paid for this period.
+            if (input.amount.isFinite() && input.amount > 0.0) addExpense(input) { markPaid(it) } else markPaid(null)
+        }
+
+        /**
+         * Takes back a payment marked by mistake: deletes the expense it logged (reversing its
+         * balance impacts) and puts the bill back on the occurrence it was due, so an automatic
+         * payment still runs on schedule.
+         */
+        fun undoRecurringPayment(recurringExpenseId: Long, onDone: () -> Unit = {}) {
+            val undo = _recurringPaymentUndos.value[recurringExpenseId] ?: return
+            _recurringPaymentUndos.update { it - recurringExpenseId }
+            safeLaunch {
+                undo.expenseId?.let { deleteExpenseUseCase(it) }
+                savingsRepository.undoRecurringPayment(undo)
+                _uiState.update { it.copy(pagedExpenses = emptyList(), canLoadMoreExpenses = true) }
+                loadMoreExpenses()
+                withContext(Dispatchers.Main) { onDone() }
             }
         }
 

@@ -1622,6 +1622,9 @@
     <string name="recurring_form_section_automation_help">Optional automation and tracking settings</string>
     <string name="recurring_form_execute_help">When off, the amount is held aside until you mark the bill as paid.</string>
     <string name="recurring_detected_title">Detected, not added yet</string>
+    <string name="recurring_action_undo_paid">Undo payment</string>
+    <string name="recurring_marked_paid_message">Marked as paid</string>
+    <string name="recurring_undo_paid_action">Undo</string>
     <string name="recurring_detected_desc">Found in your spending history. They\'re counted in the monthly total; add them to get reminders.</string>
     <string name="recurring_detected_detail">~%1$s every %2$d days · last %3$s</string>
     <string name="recurring_detected_per_month">%1$s/mo</string>

@@ -991,6 +991,53 @@ class SavingsRepository(
         recurringExpenseDao.upsert(updated)
     }
 
+    /**
+     * Records a recurring payment the user paid themselves: releases the amount frozen for it,
+     * stores [paidRecord] (linked to [expenseId]) when given, and advances the schedule.
+     * Returns what is needed to take it back with [undoRecurringPayment].
+     */
+    suspend fun markRecurringPaid(
+        recurringExpenseId: Long,
+        processedDate: LocalDate,
+        expenseId: Long?,
+        paidRecord: com.example.sparely.data.local.RecurringExpensePaidEntity? = null
+    ): RecurringPaymentUndo? = database.withTransaction {
+        val before = recurringExpenseDao.getById(recurringExpenseId) ?: return@withTransaction null
+        val frozen = frozenFundDao.findForPending("RECURRING_PAYMENT", recurringExpenseId)
+        val paidRecordId = paidRecord?.let { recurringExpensePaidDao.insertPaid(it.copy(expenseId = expenseId)) }
+        frozenFundDao.deleteForPending("RECURRING_PAYMENT", recurringExpenseId)
+        updateRecurringExpenseProcessed(recurringExpenseId, processedDate)
+        RecurringPaymentUndo(
+            recurringExpenseId = recurringExpenseId,
+            previousNextRunAt = before.nextRunAt,
+            previousLastProcessedDate = before.lastProcessedDate,
+            scheduledNextRunAt = recurringExpenseDao.getById(recurringExpenseId)?.nextRunAt,
+            releasedFrozenFunds = frozen,
+            expenseId = expenseId,
+            paidRecordId = paidRecordId
+        )
+    }
+
+    /**
+     * Takes back [markRecurringPaid] (the expense itself is deleted by the caller). The schedule
+     * goes back to the occurrence that was marked, so the worker still runs it as planned, and the
+     * frozen amount comes back. If the schedule has moved since, it is left alone so nothing is
+     * charged twice.
+     */
+    suspend fun undoRecurringPayment(undo: RecurringPaymentUndo) = database.withTransaction {
+        undo.paidRecordId?.let { recurringExpensePaidDao.deletePaidById(it) }
+        val current = recurringExpenseDao.getById(undo.recurringExpenseId) ?: return@withTransaction
+        if (current.nextRunAt != undo.scheduledNextRunAt) return@withTransaction
+        // update, not upsert: REPLACE would delete the row and cascade away its paid records.
+        recurringExpenseDao.update(
+            current.copy(
+                nextRunAt = undo.previousNextRunAt,
+                lastProcessedDate = undo.previousLastProcessedDate
+            )
+        )
+        if (current.isActive) undo.releasedFrozenFunds.forEach { frozenFundDao.insert(it) }
+    }
+
     private fun computeNextRunForRecurring(expense: RecurringExpense, lastRun: LocalDate): java.time.LocalDateTime {
         val time = expense.nextRunAt?.toLocalTime() ?: java.time.LocalTime.of(9, 0)
         // The occurrence just handled is the scheduled one (nextRunAt), even when it was paid

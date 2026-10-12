@@ -72,6 +72,7 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.Necessity
 import com.example.sparely.domain.model.defaultNecessity
 import com.example.sparely.domain.model.ExpenseItem
+import com.example.sparely.data.repository.RecurringPaymentUndo
 import com.example.sparely.domain.model.ExpenseType
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.PaymentMethod
@@ -155,6 +156,9 @@ fun RecurringExpensesScreen(
     onDeleteStore: (Store) -> Unit = {},
     brandfetchClientId: String? = null,
     paymentMethods: List<PaymentMethod> = emptyList(),
+    // Payments marked in this session that can still be taken back, keyed by recurring expense id
+    recurringPaymentUndos: Map<Long, RecurringPaymentUndo> = emptyMap(),
+    onUndoPayment: (Long) -> Unit = {},
     onManagePaymentMethods: () -> Unit = {},
     brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
     onBrandSearch: (String) -> Unit = {}
@@ -241,6 +245,10 @@ fun RecurringExpensesScreen(
             text = { Text(stringResource(R.string.recurring_add_button)) },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    // Only while the schedule is still where the payment left it
+                    onUndoPayment = recurringPaymentUndos[expense.id]
+                        ?.takeIf { it.scheduledNextRunAt == expense.nextRunAt }
+                        ?.let { { onUndoPayment(expense.id) } },
         )
     }
 
@@ -548,6 +556,7 @@ private fun RecurringExpenseRow(
     onToggleActive: (Boolean) -> Unit,
     onMarkProcessed: () -> Unit,
     onPayEarly: () -> Unit,
+    onUndoPayment: (() -> Unit)? = null,
     isAlreadyPaid: Boolean = false
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
@@ -744,6 +753,16 @@ private fun RecurringExpenseRow(
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        if (onUndoPayment != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.recurring_action_undo_paid)) },
+                                onClick = {
+                                    showMenu = false
+                                    onUndoPayment()
+                                },
+                                leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.UNDO, contentDescription = null, size = 20.dp) }
+                            )
+                        }
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SparelyTonalButton(
