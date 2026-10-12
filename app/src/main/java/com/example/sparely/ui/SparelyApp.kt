@@ -647,12 +647,16 @@ private fun SparelyBottomBar(
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    navController.navigate(destination.createRoute()) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                    // Always land on the tab's root page, never on a subpage restored from an earlier visit.
+                    val returnedToRoot = navController.popBackStack(destination.route, inclusive = false)
+                    if (!returnedToRoot) {
+                        navController.navigate(destination.createRoute()) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = false
+                            }
+                            launchSingleTop = true
+                            restoreState = false
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 icon = {
