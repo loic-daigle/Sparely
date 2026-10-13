@@ -357,4 +357,54 @@ class LocalAiManagerTest {
             runBlocking { ai.askStream(facts, "Why?").toList() }
         )
     }
+
+    @Test
+    fun liveSummaryIsSharedSoRebuiltCardsDontRestartIt() {
+        val model = StreamingModel(listOf("Dining is over budget."))
+        val ai = LocalAiManager(model, CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        val first = ai.liveSummary(facts, task = "Sum up.")
+        // A card scrolled away and back asks again with the same numbers.
+        val again = ai.liveSummary(facts, task = "Sum up.")
+        assertTrue(first === again)
+        assertEquals(LocalAiResult.Success("Dining is over budget."), again.result.value)
+        assertFalse(again.isRunning)
+        assertEquals(1, model.streams)
+    }
+
+    @Test
+    fun failedLiveSummaryOnlyRunsAgainWhenAsked() {
+        var fail = true
+        val model = object : LocalTextModel by FakeModel() {
+            var streams = 0
+            override fun generateStream(prompt: String, options: GenerationOptions): Flow<String> {
+                streams++
+                return if (fail) flow { throw IllegalStateException("AICore error 200") } else flowOf("Done.")
+            }
+        }
+        val ai = LocalAiManager(model, CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        val failed = ai.liveSummary(facts, task = "Sum up.")
+        assertEquals(LocalAiResult.Failed("AICore error 200"), failed.result.value)
+        fail = false
+        // Coming back to the card shows the failure; it doesn't retry by itself.
+        assertTrue(failed === ai.liveSummary(facts, task = "Sum up."))
+        assertEquals(1, model.streams)
+        // "Try again" does.
+        val retried = ai.liveSummary(facts, task = "Sum up.", restart = true)
+        assertEquals(LocalAiResult.Success("Done."), retried.result.value)
+        assertEquals(2, model.streams)
+    }
+
+    @Test
+    fun askLiveKeepsTheQuestionAndAnswerForItsCard() {
+        val ai = LocalAiManager(StreamingModel(listOf("Yes.")), CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        assertEquals(null, ai.currentAnswer("insights"))
+        ai.askLive("insights", facts, "Am I overspending?")
+        val current = ai.currentAnswer("insights")
+        assertEquals("Am I overspending?", current?.question)
+        assertEquals(LocalAiResult.Success("Yes."), current?.result?.value)
+        assertEquals(null, ai.currentAnswer("health"))
+    }
 }

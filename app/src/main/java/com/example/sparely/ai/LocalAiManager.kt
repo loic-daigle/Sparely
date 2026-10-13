@@ -29,6 +29,20 @@ sealed interface LocalAiState {
     data class Error(val message: String?) : LocalAiState
 }
 
+/**
+ * A request running in the manager's own scope, so it keeps going when the card showing it is
+ * scrolled away or rebuilt. [result] is null until the first piece arrives.
+ */
+class LiveAiRequest internal constructor(
+    /** The question asked, for answers to questions. */
+    val question: String?,
+    val result: StateFlow<LocalAiResult?>
+) {
+    /** Still waiting for the model or still writing. */
+    val isRunning: Boolean
+        get() = result.value.let { it == null || it is LocalAiResult.Partial }
+}
+
 sealed interface LocalAiResult {
     data class Success(val text: String) : LocalAiResult
 
@@ -219,6 +233,65 @@ class LocalAiManager(
     /** Forgets every saved answer, e.g. when the user turns on-device AI off. */
     fun clearAnswers() = answers.clear()
 
+    private val liveSummaries = object : LinkedHashMap<String, LiveAiRequest>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, LiveAiRequest>?) = size > MAX_LIVE_SUMMARIES
+    }
+    private val liveAnswers = HashMap<String, LiveAiRequest>()
+
+    /**
+     * The summary of [facts], started now unless the same one is already running or done. Cards
+     * call this on every composition and get the same request back, so scrolling never restarts
+     * or cancels it. A failed request stays failed until [restart] is true: nothing retries on
+     * its own.
+     */
+    fun liveSummary(
+        facts: List<Fact>,
+        language: PromptLanguage = PromptLanguage.ENGLISH,
+        task: String = AiTask.SUMMARY.text(language),
+        restart: Boolean = false
+    ): LiveAiRequest = synchronized(liveSummaries) {
+        val key = "$language|$task|$facts"
+        val existing = liveSummaries[key]
+        if (existing != null && (!restart || existing.isRunning || existing.result.value is LocalAiResult.Success)) {
+            return existing
+        }
+        launchLive(null) { summarizeStream(facts, language, task) }.also { liveSummaries[key] = it }
+    }
+
+    /**
+     * Asks [question] for the card identified by [slot] (e.g. "insights"), replacing what that
+     * card asked before. The answer keeps being written if the card is scrolled away.
+     */
+    fun askLive(
+        slot: String,
+        facts: List<Fact>,
+        question: String,
+        language: PromptLanguage = PromptLanguage.ENGLISH
+    ): LiveAiRequest = synchronized(liveAnswers) {
+        launchLive(question) { askStream(facts, question, language) }.also { liveAnswers[slot] = it }
+    }
+
+    /** The last question asked from [slot] and its answer, if any. */
+    fun currentAnswer(slot: String): LiveAiRequest? = synchronized(liveAnswers) { liveAnswers[slot] }
+
+    private fun launchLive(question: String?, start: () -> Flow<LocalAiResult>): LiveAiRequest {
+        val result = MutableStateFlow<LocalAiResult?>(null)
+        scope.launch {
+            try {
+                start().collect { result.value = it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                result.value = LocalAiResult.Failed(e.message)
+            }
+            // A stream that ended without a final result shouldn't look like it's still writing.
+            if (result.value == null || result.value is LocalAiResult.Partial) {
+                result.value = LocalAiResult.Failed(null)
+            }
+        }
+        return LiveAiRequest(question, result.asStateFlow())
+    }
+
     private suspend fun run(key: String, maxAnswerChars: Int, request: suspend () -> String?): LocalAiResult {
         answers.get(key)?.let { return LocalAiResult.Success(it) }
         return inference.withLock {
@@ -257,6 +330,8 @@ class LocalAiManager(
 
         /** 2-3 sentences need far fewer than the 256-token maximum, and each token costs time on the CPU. */
         private val REPLY_OPTIONS = GenerationOptions(maxOutputTokens = 160)
+
+        private const val MAX_LIVE_SUMMARIES = 16
 
         /** The most useful of two engine states: a usable engine beats one that's still on its way. */
         internal fun combine(a: LocalAiState, b: LocalAiState): LocalAiState {

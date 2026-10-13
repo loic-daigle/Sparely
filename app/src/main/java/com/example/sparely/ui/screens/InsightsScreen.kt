@@ -99,7 +99,7 @@ fun InsightsScreen(
                 )
             }
             item(key = "ai_ask") {
-                com.example.sparely.ui.components.OnDeviceAiAskCard(facts = aiFacts)
+                com.example.sparely.ui.components.OnDeviceAiAskCard(slot = "insights", facts = aiFacts)
             }
 
             // 1. Headline numbers first: what's safe to spend and how long money lasts.

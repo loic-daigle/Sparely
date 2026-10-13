@@ -93,6 +93,7 @@ fun FinancialHealthScreen(
                     task = com.example.sparely.ai.AiTask.HEALTH.text(aiLanguage)
                 )
                 com.example.sparely.ui.components.OnDeviceAiAskCard(
+                    slot = "health",
                     facts = aiFacts,
                     placeholder = stringResource(R.string.ai_health_ask_placeholder)
                 )
