@@ -44,6 +44,7 @@ class GeminiNanoTextModel : LocalTextModel {
             current.close()
             client = null
             variant = null
+            plainRequestsOnly = false
         }
 
         var failure: Exception? = null
@@ -113,13 +114,37 @@ class GeminiNanoTextModel : LocalTextModel {
         requireClient().warmup()
     }
 
+    /** Set once a plain request worked where a tuned one failed, so later requests skip the options. */
+    @Volatile
+    private var plainRequestsOnly = false
+
     override suspend fun generate(prompt: String, options: GenerationOptions): String? {
-        val request = generateContentRequest(TextPart(prompt)) {
-            temperature = options.temperature
-            topK = options.topK
-            maxOutputTokens = options.maxOutputTokens.coerceIn(1, MAX_OUTPUT_TOKENS)
+        val client = requireClient()
+        if (!plainRequestsOnly) {
+            try {
+                val request = generateContentRequest(TextPart(prompt)) {
+                    temperature = options.temperature
+                    topK = options.topK
+                    maxOutputTokens = options.maxOutputTokens.coerceIn(1, MAX_OUTPUT_TOKENS)
+                }
+                return client.generateContent(request).candidates.firstOrNull()?.text
+            } catch (e: GenAiException) {
+                // Some preview models (like Gemini Nano 4 Fast on the CPU) fail requests that set
+                // sampling options. Retry the way AICore's own test screen does: just the prompt.
+                Log.w(TAG, "generateContent with options failed on ${variant?.name}: ${describe(e)}", e)
+            }
         }
-        return requireClient().generateContent(request).candidates.firstOrNull()?.text
+        val text = try {
+            client.generateContent(prompt).candidates.firstOrNull()?.text
+        } catch (e: GenAiException) {
+            Log.w(TAG, "generateContent failed on ${variant?.name}: ${describe(e)}", e)
+            throw IllegalStateException(describe(e), e)
+        }
+        if (!plainRequestsOnly) {
+            Log.i(TAG, "Plain requests work on ${variant?.name}; skipping sampling options from now on")
+            plainRequestsOnly = true
+        }
+        return text
     }
 
     override fun close() {
