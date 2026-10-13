@@ -84,6 +84,40 @@ object FinanceFacts {
         result.findings.mapNotNullTo(this) { finding(it, money) }
     }
 
+    /**
+     * One wishlist item: what it is, how far along saving for it is and, when the check could run,
+     * what buying it would do.
+     */
+    fun wish(
+        name: String,
+        price: Double,
+        setAside: Double,
+        targetDate: java.time.LocalDate?,
+        reallyNeeded: Boolean,
+        cooldownDaysLeft: Int,
+        result: PurchaseAffordabilityEngine.Result?,
+        money: (Double) -> String
+    ): List<Fact> = buildList {
+        add(Fact("Wishlist item", name))
+        add(Fact("Set aside for it so far", "${money(setAside)} of ${money(price)}"))
+        targetDate?.let { add(Fact("Planned purchase date", it.toString())) }
+        add(Fact("The user says it is", if (reallyNeeded) "a real need" else "a want, not a need"))
+        if (cooldownDaysLeft > 0) add(Fact("Days left to sleep on it", cooldownDaysLeft.toString()))
+        // The check repeats the price, which is already above.
+        result?.let { r -> addAll(purchase(r, money).drop(1)) }
+    }
+
+    /** The financial health score, its parts, and what would raise it. */
+    fun health(score: com.example.sparely.domain.model.FinancialHealthScore): List<Fact> = buildList {
+        add(Fact("Financial health score", "${score.overallScore} out of 100 (${score.healthLevel.label})"))
+        score.scoreBreakdown.forEach { (part, value) -> add(Fact("$part score", "$value out of 100")) }
+        score.topStrengths.take(3).forEach { add(Fact("Strength", it)) }
+        score.improvementAreas
+            .sortedWith(compareBy<com.example.sparely.domain.model.ImprovementTip> { it.priority.ordinal }.thenByDescending { it.potentialScoreGain })
+            .take(3)
+            .forEach { add(Fact("Way to improve", "${it.title}: ${it.actionable} (up to +${it.potentialScoreGain} points)")) }
+    }
+
     private fun finding(f: PurchaseAffordabilityEngine.Finding, money: (Double) -> String): Fact? {
         val text = when (f.kind) {
             FindingKind.SHORT_OF_FUNDS -> "Short by ${money(f.primary)} to pay for it"

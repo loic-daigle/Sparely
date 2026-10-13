@@ -134,6 +134,8 @@ Where it appears:
 - **Insights:** a summary of your month with one tip, and "Ask about your finances"
 - **Budgets:** a summary of how your budgets are doing
 - **Can I afford it?:** an explanation of the verdict, and questions about the purchase ("What if I wait a month?")
+- **Wishlist item details:** whether now is a good time to buy it, and questions ("How long until I can afford it?")
+- **Financial health:** the score explained, and questions ("How do I raise my score fastest?")
 
 Sparely calculates every number; the model only puts them into words and never changes the verdict. The cards stay hidden until you turn the feature on.
 
