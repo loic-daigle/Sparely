@@ -13,6 +13,8 @@ import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -145,6 +147,30 @@ class GeminiNanoTextModel : LocalTextModel {
             plainRequestsOnly = true
         }
         return text
+    }
+
+    override fun generateStream(prompt: String, options: GenerationOptions): Flow<String> {
+        val client = requireClient()
+        val chunks = if (plainRequestsOnly) {
+            client.generateContentStream(prompt)
+        } else {
+            client.generateContentStream(
+                generateContentRequest(TextPart(prompt)) {
+                    temperature = options.temperature
+                    topK = options.topK
+                    maxOutputTokens = options.maxOutputTokens.coerceIn(1, MAX_OUTPUT_TOKENS)
+                }
+            )
+        }
+        return chunks
+            .map { chunk -> chunk.candidates.firstOrNull()?.text.orEmpty() }
+            .catch { e ->
+                if (e is GenAiException) {
+                    Log.w(TAG, "generateContentStream failed on ${variant?.name}: ${describe(e)}", e)
+                    throw IllegalStateException(describe(e), e)
+                }
+                throw e
+            }
     }
 
     override fun close() {

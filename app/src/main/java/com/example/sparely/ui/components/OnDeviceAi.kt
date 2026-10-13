@@ -81,7 +81,7 @@ fun OnDeviceAiSummaryCard(
     fun generate() {
         running = true
         scope.launch {
-            result = manager.summarize(facts, replyLanguage = language, task = task)
+            manager.summarizeStream(facts, replyLanguage = language, task = task).collect { result = it }
             running = false
         }
     }
@@ -94,17 +94,18 @@ fun OnDeviceAiSummaryCard(
     AiCard(title = title, modifier = modifier) {
         when (val r = result) {
             is LocalAiResult.Success -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
+            is LocalAiResult.Partial -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
             null -> Unit
             else -> AiError(r)
         }
-        if (running) {
+        if (running && result !is LocalAiResult.Partial) {
             Text(
                 stringResource(R.string.ai_writing),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        } else if (result != null && result !is LocalAiResult.Success) {
+        } else if (!running && result != null && result !is LocalAiResult.Success) {
             SparelyTextButton(onClick = ::generate) { Text(stringResource(R.string.ai_try_again)) }
         }
     }
@@ -136,7 +137,7 @@ fun OnDeviceAiAskCard(
         running = true
         result = null
         scope.launch {
-            result = manager.ask(facts, q, replyLanguage = language)
+            manager.askStream(facts, q, replyLanguage = language).collect { result = it }
             running = false
         }
     }
@@ -162,9 +163,10 @@ fun OnDeviceAiAskCard(
         asked?.let {
             Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        if (running && result !is LocalAiResult.Partial) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         when (val r = result) {
             is LocalAiResult.Success -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
+            is LocalAiResult.Partial -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
             null -> Unit
             else -> AiError(r)
         }

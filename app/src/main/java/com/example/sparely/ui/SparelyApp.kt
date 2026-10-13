@@ -64,6 +64,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -539,7 +540,12 @@ private fun SparelyScaffold(
         }
         // AI cards only appear once the model is known to be ready, so check as soon as it's on.
         LaunchedEffect(aiEnabled) {
-            if (aiEnabled) app.container.localAiManager.refresh()
+            if (!aiEnabled) return@LaunchedEffect
+            val manager = app.container.localAiManager
+            manager.refresh()
+            // Load the model into memory before a card needs it: on the CPU that alone takes seconds.
+            manager.state.first { it == com.example.sparely.ai.LocalAiState.Ready }
+            manager.warmup()
         }
         androidx.compose.runtime.CompositionLocalProvider(com.example.sparely.ui.components.LocalOnDeviceAi provides onDeviceAi) {
             SparelyNavHost(
