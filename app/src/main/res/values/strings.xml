@@ -1560,9 +1560,11 @@
     <string name="settings_on_device_ai_status_needs_download">Supported. The AI model needs a one-time download through Google Play services. Wi-Fi is recommended.</string>
     <string name="settings_on_device_ai_status_downloading">Downloading the AI model… %1$s so far</string>
     <string name="settings_on_device_ai_status_ready">Supported and ready to use.</string>
-    <string name="settings_on_device_ai_status_error">Couldn\'t check or download the AI model. Check your connection and try again.</string>
+    <string name="settings_on_device_ai_status_ready_summaries_only">Ready for summaries, written in English for now. Asking questions needs a phone with the full Gemini Nano, like a Pixel 9 or 10.</string>
+    <string name="settings_on_device_ai_status_error">Couldn\'t check or download the AI model. Try again in a moment, or update Android AICore from the Play Store.</string>
     <string name="settings_on_device_ai_download">Download AI model</string>
     <string name="settings_on_device_ai_retry">Try again</string>
+    <string name="settings_on_device_ai_error_details">Details: %1$s</string>
     <string name="settings_on_device_ai_privacy">Everything runs on this phone. Your financial data is never sent online.</string>
     <string name="expense_entry_section_basics">Basics</string>
     <string name="expense_entry_section_payment">Payment</string>

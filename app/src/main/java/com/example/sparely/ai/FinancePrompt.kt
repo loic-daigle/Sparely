@@ -43,6 +43,16 @@ object FinancePrompt {
         }
     }.trimEnd()
 
+    /**
+     * [facts] as plain sentences, for the summarizer, which takes text to condense rather than
+     * instructions. "Dining this month: $412 of $300 budget. Savings rate: 18%."
+     */
+    fun factsAsText(facts: List<Fact>): String =
+        facts.joinToString(" ") { fact ->
+            val sentence = "${oneLine(fact.label)}: ${oneLine(fact.value)}"
+            if (sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?')) sentence else "$sentence."
+        }
+
     // Keeps user-written text (expense titles, the question) from breaking the prompt's layout.
     private fun oneLine(text: String): String = text.replace(Regex("\\s+"), " ").trim()
 }

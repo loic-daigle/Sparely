@@ -1281,9 +1281,11 @@
     <string name="settings_on_device_ai_status_needs_download">Compatible. Le modèle d\'IA doit être téléchargé une fois par les services Google Play. Le Wi-Fi est recommandé.</string>
     <string name="settings_on_device_ai_status_downloading">Téléchargement du modèle d\'IA… %1$s jusqu\'à présent</string>
     <string name="settings_on_device_ai_status_ready">Compatible et prêt à utiliser.</string>
-    <string name="settings_on_device_ai_status_error">Impossible de vérifier ou de télécharger le modèle d\'IA. Vérifiez votre connexion et réessayez.</string>
+    <string name="settings_on_device_ai_status_ready_summaries_only">Prêt pour les résumés, rédigés en anglais pour l\'instant. Poser des questions nécessite un téléphone avec Gemini Nano complet, comme un Pixel 9 ou 10.</string>
+    <string name="settings_on_device_ai_status_error">Impossible de vérifier ou de télécharger le modèle d\'IA. Réessayez dans un moment, ou mettez à jour Android AICore depuis le Play Store.</string>
     <string name="settings_on_device_ai_download">Télécharger le modèle d\'IA</string>
     <string name="settings_on_device_ai_retry">Réessayer</string>
+    <string name="settings_on_device_ai_error_details">Détails : %1$s</string>
     <string name="settings_on_device_ai_privacy">Tout fonctionne sur ce téléphone. Vos données financières ne sont jamais envoyées en ligne.</string>
     <string name="expense_entry_section_basics">L\'essentiel</string>
     <string name="expense_entry_section_payment">Paiement</string>

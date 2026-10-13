@@ -1,5 +1,6 @@
 package com.example.sparely.ai
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -25,5 +26,13 @@ class FinancePromptTest {
         val prompt = FinancePrompt.build(task = "Summarize.", facts = emptyList())
         assertTrue(prompt.contains("Facts:\n(none)"))
         assertFalse(prompt.contains("User question"))
+    }
+
+    @Test
+    fun factsAsTextMakesSentences() {
+        val text = FinancePrompt.factsAsText(
+            listOf(Fact("Dining this month", "$412 of $300 budget"), Fact("Note", "Spending is down."))
+        )
+        assertEquals("Dining this month: $412 of $300 budget. Note: Spending is down.", text)
     }
 }

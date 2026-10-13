@@ -1,7 +1,9 @@
 package com.example.sparely.ai
 
 import com.google.mlkit.genai.common.DownloadStatus
+import android.util.Log
 import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.common.GenAiException
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
@@ -16,11 +18,22 @@ class GeminiNanoTextModel : LocalTextModel {
 
     private val client by lazy { Generation.getClient() }
 
-    override suspend fun availability(): ModelAvailability = when (client.checkStatus()) {
-        FeatureStatus.AVAILABLE -> ModelAvailability.AVAILABLE
-        FeatureStatus.DOWNLOADABLE -> ModelAvailability.DOWNLOADABLE
-        FeatureStatus.DOWNLOADING -> ModelAvailability.DOWNLOADING
-        else -> ModelAvailability.UNAVAILABLE
+    override suspend fun availability(): ModelAvailability {
+        val status = try {
+            client.checkStatus()
+        } catch (e: GenAiException) {
+            Log.w(TAG, "checkStatus failed: ${describe(e)}", e)
+            // Phones with Gemini Nano but without this API (like the Pixel 9a, whose smaller model only
+            // serves some ML Kit features) throw here instead of returning UNAVAILABLE.
+            if (isNotAvailable(e)) return ModelAvailability.UNAVAILABLE
+            throw IllegalStateException(describe(e), e)
+        }
+        return when (status) {
+            FeatureStatus.AVAILABLE -> ModelAvailability.AVAILABLE
+            FeatureStatus.DOWNLOADABLE -> ModelAvailability.DOWNLOADABLE
+            FeatureStatus.DOWNLOADING -> ModelAvailability.DOWNLOADING
+            else -> ModelAvailability.UNAVAILABLE
+        }
     }
 
     override fun download(): Flow<ModelDownloadEvent> = client.download().mapNotNull { status ->
@@ -28,7 +41,10 @@ class GeminiNanoTextModel : LocalTextModel {
             is DownloadStatus.DownloadStarted -> ModelDownloadEvent.Started
             is DownloadStatus.DownloadProgress -> ModelDownloadEvent.Progress(status.totalBytesDownloaded)
             is DownloadStatus.DownloadCompleted -> ModelDownloadEvent.Completed
-            is DownloadStatus.DownloadFailed -> ModelDownloadEvent.Failed(status.e)
+            is DownloadStatus.DownloadFailed -> {
+                Log.w(TAG, "download failed: ${describe(status.e)}", status.e)
+                ModelDownloadEvent.Failed(IllegalStateException(describe(status.e), status.e))
+            }
             else -> null
         }
     }
@@ -48,5 +64,9 @@ class GeminiNanoTextModel : LocalTextModel {
 
     override fun close() {
         client.close()
+    }
+
+    private companion object {
+        const val TAG = "GeminiNano"
     }
 }

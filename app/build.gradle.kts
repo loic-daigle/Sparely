@@ -143,6 +143,9 @@ dependencies {
     implementation(libs.androidx.appfunctions)
     // On-device Gemini Nano through AICore. Prompts never leave the phone.
     implementation(libs.mlkit.genai.prompt)
+    // Summaries on phones whose smaller Gemini Nano lacks the Prompt API, like the Pixel 9a
+    implementation(libs.mlkit.genai.summarization)
+    implementation(libs.kotlinx.coroutines.guava)
     ksp(libs.androidx.appfunctions.compiler)
 
     testImplementation(libs.junit)

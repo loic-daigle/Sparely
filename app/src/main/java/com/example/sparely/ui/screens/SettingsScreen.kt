@@ -165,6 +165,7 @@ fun SettingsScreen(
     onAiAssistantAccessEnabledChange: (Boolean) -> Unit = {},
     onAiAssistantWriteEnabledChange: (Boolean) -> Unit = {},
     localAiState: com.example.sparely.ai.LocalAiState = com.example.sparely.ai.LocalAiState.Checking,
+    localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
@@ -393,6 +394,7 @@ fun SettingsScreen(
                             enabled = settings.onDeviceAiEnabled,
                             onEnabledChange = onOnDeviceAiEnabledChange,
                             state = localAiState,
+                            canAnswerQuestions = localAiCanAnswerQuestions,
                             onRefresh = onRefreshLocalAi,
                             onDownload = onDownloadLocalAi
                         )

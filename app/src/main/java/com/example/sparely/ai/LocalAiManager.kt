@@ -34,88 +34,58 @@ sealed interface LocalAiResult {
 }
 
 /**
- * Detects whether the phone supports the on-device model, handles its download and runs prompts
- * one at a time. Nothing here touches the network itself: the model download is done by Google
- * Play services, and prompts never leave the phone.
+ * Detects what the phone's on-device AI can do, handles model downloads and runs requests one at
+ * a time. Nothing here touches the network itself: models are downloaded by Google Play services,
+ * and prompts never leave the phone.
+ *
+ * Two engines are tried. [promptModel] takes any prompt, so it handles both summaries and
+ * questions. Phones without it may still have [summarizer], which can only summarize, in English.
  */
 class LocalAiManager(
-    private val model: LocalTextModel,
-    private val scope: CoroutineScope
+    private val promptModel: LocalTextModel,
+    private val scope: CoroutineScope,
+    private val summarizer: LocalSummarizer? = null
 ) {
     private val _state = MutableStateFlow<LocalAiState>(LocalAiState.Checking)
+
+    /** The best of both engines. Ready means summaries work; see [canAnswerQuestions] for questions. */
     val state: StateFlow<LocalAiState> = _state.asStateFlow()
 
+    private val prompt = ModelSlot(promptModel, scope, ::updateState)
+    private val summary = summarizer?.let { ModelSlot(it, scope, ::updateState) }
+
+    /** State of the engine that answers questions, which needs the full Prompt API. */
+    val promptState: StateFlow<LocalAiState> = prompt.state
+
+    val canAnswerQuestions: Boolean get() = prompt.state.value == LocalAiState.Ready
+
     private val inference = Mutex()
-    private var checkJob: Job? = null
-    private var downloadJob: Job? = null
 
     /**
-     * Checks again whether the model is usable. Call it when an AI screen opens: a phone that was
+     * Checks again what the phone supports. Call it when an AI screen opens: a phone that was
      * unsupported can become supported once it fetches a newer configuration.
      */
     fun refresh() {
-        if (downloadJob?.isActive == true || checkJob?.isActive == true) return
-        checkJob = scope.launch {
-            // A ready model stays usable while it's checked again.
-            if (_state.value != LocalAiState.Ready) _state.value = LocalAiState.Checking
-            val availability = try {
-                model.availability()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.value = LocalAiState.Error(e.message)
-                return@launch
-            }
-            when (availability) {
-                ModelAvailability.AVAILABLE -> _state.value = LocalAiState.Ready
-                ModelAvailability.DOWNLOADABLE -> _state.value = LocalAiState.NeedsDownload
-                ModelAvailability.UNAVAILABLE -> _state.value = LocalAiState.Unsupported
-                // Started earlier, possibly by another app. Follow it to know when it's done.
-                ModelAvailability.DOWNLOADING -> launchDownload()
-            }
-        }
+        prompt.refresh()
+        summary?.refresh()
     }
 
-    /** Starts the model download. Only acts in [LocalAiState.NeedsDownload]; after an error, call [refresh]. */
+    /**
+     * Downloads the most capable engine waiting for it, and only that one: the summarizer isn't
+     * needed when the prompt model can be downloaded instead.
+     */
     fun startDownload() {
-        if (_state.value != LocalAiState.NeedsDownload || downloadJob?.isActive == true) return
-        launchDownload()
-    }
-
-    private fun launchDownload() {
-        _state.value = LocalAiState.Downloading(0)
-        downloadJob = scope.launch {
-            try {
-                model.download().collect { event ->
-                    when (event) {
-                        ModelDownloadEvent.Started -> Unit
-                        is ModelDownloadEvent.Progress ->
-                            _state.value = LocalAiState.Downloading(event.bytesDownloaded)
-                        ModelDownloadEvent.Completed -> _state.value = LocalAiState.Ready
-                        is ModelDownloadEvent.Failed ->
-                            _state.value = LocalAiState.Error(event.cause?.message)
-                    }
-                }
-                // The flow can end without a final event. Ask the model what happened.
-                if (_state.value is LocalAiState.Downloading) {
-                    _state.value = when (model.availability()) {
-                        ModelAvailability.AVAILABLE -> LocalAiState.Ready
-                        else -> LocalAiState.Error(null)
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.value = LocalAiState.Error(e.message)
-            }
+        when {
+            prompt.state.value == LocalAiState.NeedsDownload -> prompt.startDownload()
+            prompt.state.value != LocalAiState.Ready -> summary?.startDownload()
         }
     }
 
-    /** Loads the model ahead of the first prompt. Safe to skip; failures are ignored. */
+    /** Loads the prompt model ahead of the first request. Safe to skip; failures are ignored. */
     suspend fun warmup() {
-        if (_state.value != LocalAiState.Ready) return
+        if (!canAnswerQuestions) return
         try {
-            model.warmup()
+            promptModel.warmup()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -123,19 +93,46 @@ class LocalAiManager(
     }
 
     /**
-     * Runs [prompt] and returns a cleaned-up answer. Prompts are queued so only one runs at a time.
-     * Must be called while the app is in the foreground: AICore rejects background inference.
+     * Runs [prompt] on the full model and returns a cleaned-up answer. Requests are queued so only
+     * one runs at a time. Must be called while the app is in the foreground: AICore rejects
+     * background inference.
      */
     suspend fun generate(
         prompt: String,
         options: GenerationOptions = GenerationOptions(),
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): LocalAiResult {
-        if (_state.value != LocalAiState.Ready) return LocalAiResult.NotReady
+        if (!canAnswerQuestions) return LocalAiResult.NotReady
         if (prompt.length > MAX_PROMPT_CHARS) return LocalAiResult.PromptTooLong
-        return inference.withLock {
+        return run(maxAnswerChars) { promptModel.generate(prompt, options) }
+    }
+
+    /**
+     * Summarizes [facts] with whichever engine the phone has. The full model writes in
+     * [replyLanguage]; the summarizer only writes English.
+     */
+    suspend fun summarize(
+        facts: List<Fact>,
+        replyLanguage: String = "English",
+        maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
+    ): LocalAiResult {
+        if (canAnswerQuestions) {
+            return generate(
+                FinancePrompt.build(SUMMARY_TASK, facts, replyLanguage = replyLanguage),
+                maxAnswerChars = maxAnswerChars
+            )
+        }
+        val summarizer = summarizer
+        if (summarizer == null || summary?.state?.value != LocalAiState.Ready) return LocalAiResult.NotReady
+        val text = FinancePrompt.factsAsText(facts)
+        if (text.length > MAX_PROMPT_CHARS) return LocalAiResult.PromptTooLong
+        return run(maxAnswerChars) { summarizer.summarize(text) }
+    }
+
+    private suspend fun run(maxAnswerChars: Int, request: suspend () -> String?): LocalAiResult =
+        inference.withLock {
             try {
-                val text = AnswerFormatter.clean(model.generate(prompt, options).orEmpty(), maxAnswerChars)
+                val text = AnswerFormatter.clean(request().orEmpty(), maxAnswerChars)
                 if (text.isEmpty()) LocalAiResult.Failed(null) else LocalAiResult.Success(text)
             } catch (e: CancellationException) {
                 throw e
@@ -143,10 +140,14 @@ class LocalAiManager(
                 LocalAiResult.Failed(e.message)
             }
         }
+
+    private fun updateState() {
+        _state.value = combine(prompt.state.value, summary?.state?.value ?: LocalAiState.Unsupported)
     }
 
     fun close() {
-        model.close()
+        promptModel.close()
+        summarizer?.close()
     }
 
     companion object {
@@ -155,5 +156,97 @@ class LocalAiManager(
          * fewer of French, so this stays well below the limit for both.
          */
         const val MAX_PROMPT_CHARS = 8_000
+
+        private const val SUMMARY_TASK = "Summarize how the user's finances are going in 2-3 short sentences."
+
+        /** The most useful of two engine states: a usable engine beats one that's still on its way. */
+        internal fun combine(a: LocalAiState, b: LocalAiState): LocalAiState {
+            val both = listOf(a, b)
+            return when {
+                LocalAiState.Ready in both -> LocalAiState.Ready
+                both.any { it is LocalAiState.Downloading } -> LocalAiState.Downloading(
+                    both.filterIsInstance<LocalAiState.Downloading>().sumOf { it.bytesDownloaded }
+                )
+                LocalAiState.NeedsDownload in both -> LocalAiState.NeedsDownload
+                LocalAiState.Checking in both -> LocalAiState.Checking
+                else -> both.firstOrNull { it is LocalAiState.Error } ?: LocalAiState.Unsupported
+            }
+        }
+    }
+}
+
+/** Support check and download for one engine. */
+private class ModelSlot(
+    private val model: DownloadableModel,
+    private val scope: CoroutineScope,
+    private val onChange: () -> Unit
+) {
+    private val _state = MutableStateFlow<LocalAiState>(LocalAiState.Checking)
+    val state: StateFlow<LocalAiState> = _state.asStateFlow()
+
+    private var checkJob: Job? = null
+    private var downloadJob: Job? = null
+
+    private fun set(value: LocalAiState) {
+        _state.value = value
+        onChange()
+    }
+
+    fun refresh() {
+        if (downloadJob?.isActive == true || checkJob?.isActive == true) return
+        checkJob = scope.launch {
+            // A ready model stays usable while it's checked again.
+            if (_state.value != LocalAiState.Ready) set(LocalAiState.Checking)
+            val availability = try {
+                model.availability()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                set(LocalAiState.Error(e.message))
+                return@launch
+            }
+            when (availability) {
+                ModelAvailability.AVAILABLE -> set(LocalAiState.Ready)
+                ModelAvailability.DOWNLOADABLE -> set(LocalAiState.NeedsDownload)
+                ModelAvailability.UNAVAILABLE -> set(LocalAiState.Unsupported)
+                // Started earlier, possibly by another app. Follow it to know when it's done.
+                ModelAvailability.DOWNLOADING -> launchDownload()
+            }
+        }
+    }
+
+    /** Only acts in [LocalAiState.NeedsDownload]; after an error, call [refresh]. */
+    fun startDownload() {
+        if (_state.value != LocalAiState.NeedsDownload || downloadJob?.isActive == true) return
+        launchDownload()
+    }
+
+    private fun launchDownload() {
+        set(LocalAiState.Downloading(0))
+        downloadJob = scope.launch {
+            try {
+                model.download().collect { event ->
+                    when (event) {
+                        ModelDownloadEvent.Started -> Unit
+                        is ModelDownloadEvent.Progress -> set(LocalAiState.Downloading(event.bytesDownloaded))
+                        ModelDownloadEvent.Completed -> set(LocalAiState.Ready)
+                        is ModelDownloadEvent.Failed -> set(LocalAiState.Error(event.cause?.message))
+                    }
+                }
+                // The flow can end without a final event. Ask the model what happened.
+                if (_state.value is LocalAiState.Downloading) {
+                    set(
+                        when (model.availability()) {
+                            ModelAvailability.AVAILABLE -> LocalAiState.Ready
+                            else -> LocalAiState.Error(null)
+                        }
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                set(LocalAiState.Error(e.message))
+            }
+        }
     }
 }
