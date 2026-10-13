@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
+import com.example.sparely.ai.LocalAiState
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.*
@@ -654,6 +655,103 @@ fun SettingsSecurityCard(
     }
 }
 
+/**
+ * Turns Sparely's on-device AI on or off and shows whether this phone can run it. The model is
+ * downloaded only after the user taps Download, and nothing here sends data off the phone.
+ */
+@Composable
+fun SettingsOnDeviceAiCard(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    state: LocalAiState,
+    onRefresh: () -> Unit,
+    onDownload: () -> Unit
+) {
+    // Support can change after Play services fetches a new configuration, so check on every visit.
+    LaunchedEffect(Unit) { onRefresh() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val supported = state is LocalAiState.NeedsDownload ||
+        state is LocalAiState.Downloading ||
+        state is LocalAiState.Ready
+
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = LocalSettingsCardShape.current,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.settings_on_device_ai_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_on_device_ai_toggle_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(R.string.settings_on_device_ai_toggle_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    // A setting restored onto an unsupported phone reads as off, since it can't do anything.
+                    checked = enabled && supported,
+                    enabled = supported,
+                    onCheckedChange = onEnabledChange
+                )
+            }
+
+            val status = when (state) {
+                LocalAiState.Checking -> stringResource(R.string.settings_on_device_ai_status_checking)
+                LocalAiState.Unsupported -> stringResource(R.string.settings_on_device_ai_status_unsupported)
+                LocalAiState.NeedsDownload -> stringResource(R.string.settings_on_device_ai_status_needs_download)
+                is LocalAiState.Downloading -> stringResource(
+                    R.string.settings_on_device_ai_status_downloading,
+                    android.text.format.Formatter.formatShortFileSize(context, state.bytesDownloaded)
+                )
+                LocalAiState.Ready -> stringResource(R.string.settings_on_device_ai_status_ready)
+                is LocalAiState.Error -> stringResource(R.string.settings_on_device_ai_status_error)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    stringResource(R.string.settings_on_device_ai_status_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state is LocalAiState.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
+                if (state is LocalAiState.Checking || state is LocalAiState.Downloading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            when {
+                state is LocalAiState.NeedsDownload && enabled -> {
+                    SparelyButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.settings_on_device_ai_download))
+                    }
+                }
+                state is LocalAiState.Error -> {
+                    SparelyOutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.settings_on_device_ai_retry))
+                    }
+                }
+            }
+
+            Text(
+                text = stringResource(R.string.settings_on_device_ai_privacy),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 /** Recent entries AI assistants added, each with an Undo button while it still stands. */
 @Composable
 private fun AssistantActivityList(
@@ -1011,6 +1109,7 @@ enum class SettingsSection(val titleRes: Int, val descRes: Int, val icon: Int, v
     PaymentMethods(R.string.settings_group_payment_methods, R.string.settings_hub_payment_methods_desc, MaterialSymbols.CREDIT_CARD, R.string.settings_hub_money),
     Notifications(R.string.settings_group_notifications, R.string.settings_hub_notifications_desc, MaterialSymbols.NOTIFICATIONS, R.string.settings_hub_app),
     Security(R.string.settings_group_security, R.string.settings_hub_security_desc, MaterialSymbols.LOCK, R.string.settings_hub_app),
+    OnDeviceAi(R.string.settings_group_on_device_ai, R.string.settings_hub_on_device_ai_desc, MaterialSymbols.LIGHTBULB, R.string.settings_hub_app),
     Data(R.string.settings_group_data_backup, R.string.settings_hub_data_desc, MaterialSymbols.HISTORY, R.string.settings_hub_app)
 }
 

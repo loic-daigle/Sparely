@@ -244,6 +244,9 @@ data class SparelySettings(
     val aiAssistantAccessEnabled: Boolean = false,
     // Also lets them record expenses and income. Only effective while aiAssistantAccessEnabled is on.
     val aiAssistantWriteEnabled: Boolean = false,
+    // Turns on Sparely's own AI features, run by Gemini Nano on the phone. Off until the user opts in,
+    // and only usable on phones that support the model (see LocalAiManager).
+    val onDeviceAiEnabled: Boolean = false,
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

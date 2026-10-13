@@ -424,6 +424,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateOnDeviceAiEnabled(enabled: Boolean) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.onDeviceAiEnabled] = enabled
+        }
+    }
+
     suspend fun updateAiAssistantWriteEnabled(enabled: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.aiAssistantWriteEnabled] = enabled
@@ -576,6 +582,7 @@ class UserPreferencesRepository(private val context: Context) {
         val biometricEnabled = this[PreferenceKeys.biometricEnabled] ?: defaults.biometricEnabled
         val aiAssistantAccessEnabled = this[PreferenceKeys.aiAssistantAccessEnabled] ?: defaults.aiAssistantAccessEnabled
         val aiAssistantWriteEnabled = this[PreferenceKeys.aiAssistantWriteEnabled] ?: defaults.aiAssistantWriteEnabled
+        val onDeviceAiEnabled = this[PreferenceKeys.onDeviceAiEnabled] ?: defaults.onDeviceAiEnabled
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -653,6 +660,7 @@ class UserPreferencesRepository(private val context: Context) {
             biometricEnabled = biometricEnabled,
             aiAssistantAccessEnabled = aiAssistantAccessEnabled,
             aiAssistantWriteEnabled = aiAssistantWriteEnabled,
+            onDeviceAiEnabled = onDeviceAiEnabled,
             smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
@@ -747,6 +755,7 @@ class UserPreferencesRepository(private val context: Context) {
         val biometricEnabled = booleanPreferencesKey("biometric_enabled")
         val aiAssistantAccessEnabled = booleanPreferencesKey("ai_assistant_access_enabled")
         val aiAssistantWriteEnabled = booleanPreferencesKey("ai_assistant_write_enabled")
+        val onDeviceAiEnabled = booleanPreferencesKey("on_device_ai_enabled")
         
         // Smart transfer notification threshold
         val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")

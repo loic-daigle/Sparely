@@ -1,6 +1,6 @@
 # Privacy Policy for Sparely
 
-**Last Updated:** December 29, 2024
+**Last Updated:** October 13, 2026
 
 ## Overview
 
@@ -47,6 +47,14 @@ If you choose to enable store logo fetching:
 - Only the store website URL is sent to Brandfetch
 - No personal financial data is sent to Brandfetch
 - You can disable this feature at any time by removing your API key from Settings
+
+### On-Device AI (Optional)
+
+If you turn on On-device AI in Settings and your phone supports it:
+- Sparely uses Gemini Nano, Google's AI model that runs entirely on your phone through Android AICore
+- The model is downloaded once by Google Play services, only after you tap Download
+- Your financial data is processed on the phone and is never sent to Google, to us or to anyone else
+- You can turn it off at any time in Settings
 
 **This is the ONLY external service that receives any data from the app, and it is entirely optional.**
 

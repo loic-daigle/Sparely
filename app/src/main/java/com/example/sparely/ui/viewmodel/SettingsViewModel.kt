@@ -283,6 +283,23 @@ class SettingsViewModel(
         }
     }
 
+    /** Whether this phone can run the on-device model, and its download progress. */
+    val localAiState: StateFlow<com.example.sparely.ai.LocalAiState> = container.localAiManager.state
+
+    fun refreshLocalAi() {
+        container.localAiManager.refresh()
+    }
+
+    fun startLocalAiDownload() {
+        container.localAiManager.startDownload()
+    }
+
+    fun updateOnDeviceAiEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateOnDeviceAiEnabled(enabled)
+        }
+    }
+
     fun updateAiAssistantWriteEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateAiAssistantWriteEnabled(enabled)

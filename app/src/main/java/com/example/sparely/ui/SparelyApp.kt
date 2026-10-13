@@ -929,6 +929,8 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.Settings.route) {
+            // Collected here, not at the app root, so download progress only recomposes Settings
+            val localAiState by settingsViewModel.localAiState.collectAsStateWithLifecycle()
             // Observe the result of file exports/imports to show snackbars
             LaunchedEffect(settingsUiState.errorMessage) {
                 settingsUiState.errorMessage?.let { msg ->
@@ -992,6 +994,10 @@ private fun SparelyNavHost(
                 onBiometricEnabledChange = settingsViewModel::updateBiometricEnabled,
                 onAiAssistantAccessEnabledChange = settingsViewModel::updateAiAssistantAccessEnabled,
                 onAiAssistantWriteEnabledChange = settingsViewModel::updateAiAssistantWriteEnabled,
+                localAiState = localAiState,
+                onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
+                onRefreshLocalAi = settingsViewModel::refreshLocalAi,
+                onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
                 assistantActions = settingsUiState.assistantActions,
                 onUndoAssistantAction = settingsViewModel::undoAssistantAction,
                 onAuthenticateUser = onAuthenticateUser,

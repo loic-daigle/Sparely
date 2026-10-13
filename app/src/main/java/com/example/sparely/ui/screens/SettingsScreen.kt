@@ -164,6 +164,10 @@ fun SettingsScreen(
     onBiometricEnabledChange: (Boolean) -> Unit = {},
     onAiAssistantAccessEnabledChange: (Boolean) -> Unit = {},
     onAiAssistantWriteEnabledChange: (Boolean) -> Unit = {},
+    localAiState: com.example.sparely.ai.LocalAiState = com.example.sparely.ai.LocalAiState.Checking,
+    onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
+    onRefreshLocalAi: () -> Unit = {},
+    onDownloadLocalAi: () -> Unit = {},
     assistantActions: List<com.example.sparely.domain.model.AssistantAction> = emptyList(),
     onUndoAssistantAction: (Long) -> Unit = {},
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
@@ -381,6 +385,16 @@ fun SettingsScreen(
                             currencySymbol = settings.regionalSettings.getCurrencySymbol(),
                             onUndoAssistantAction = onUndoAssistantAction,
                             onAuthenticateUser = onAuthenticateUser
+                        )
+                    }
+
+                    SettingsSection.OnDeviceAi -> {
+                        SettingsOnDeviceAiCard(
+                            enabled = settings.onDeviceAiEnabled,
+                            onEnabledChange = onOnDeviceAiEnabledChange,
+                            state = localAiState,
+                            onRefresh = onRefreshLocalAi,
+                            onDownload = onDownloadLocalAi
                         )
                     }
 
