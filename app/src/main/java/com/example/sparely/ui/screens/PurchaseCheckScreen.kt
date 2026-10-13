@@ -784,5 +784,7 @@ private fun SaveToWishlistDialog(
 }
 
 private const val PURCHASE_AI_TASK =
-    "The app checked whether the user can afford a purchase. Explain its verdict in 2-3 short sentences " +
-        "using the facts, and say what would make it easier. Never contradict the app's verdict."
+    "The user wants to know if they can afford a purchase. In 2-3 short sentences, tell them the verdict and why, " +
+        "using one or two key numbers (like what's left after buying or months of living costs). If there's a waiting " +
+        "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next " +
+        "step. Never contradict the verdict."

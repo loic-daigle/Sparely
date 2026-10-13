@@ -65,13 +65,22 @@ object FinanceFacts {
     /** What the "Can I afford it?" check found. The verdict comes from the app, not the model. */
     fun purchase(result: PurchaseAffordabilityEngine.Result, money: (Double) -> String): List<Fact> = buildList {
         add(Fact("Price including tax and extras", money(result.price)))
+        // A cool-off can come with "go ahead": the money is fine, but a big purchase deserves a pause.
+        // Said in one fact, so a small model doesn't read "go ahead" and "wait" as a contradiction.
+        val waitDays = result.findings.firstOrNull { it.kind == FindingKind.SUGGESTED_WAIT }?.primary?.roundToInt()
         add(
             Fact(
-                "The app's verdict",
+                "Verdict",
                 when (result.verdict) {
-                    PurchaseAffordabilityEngine.Verdict.GO_AHEAD -> "go ahead, it fits"
-                    PurchaseAffordabilityEngine.Verdict.WAIT -> "wait before buying"
-                    PurchaseAffordabilityEngine.Verdict.AVOID -> "avoid it for now"
+                    PurchaseAffordabilityEngine.Verdict.GO_AHEAD ->
+                        if (waitDays != null && waitDays > 0) {
+                            "affordable; the money is fine, but because it's a big purchase, sleep on it for $waitDays days " +
+                                "to be sure you still want it"
+                        } else {
+                            "affordable, it fits the budget"
+                        }
+                    PurchaseAffordabilityEngine.Verdict.WAIT -> "not yet: better to wait before buying"
+                    PurchaseAffordabilityEngine.Verdict.AVOID -> "not affordable right now: avoid it for now"
                 }
             )
         )
@@ -142,7 +151,7 @@ object FinanceFacts {
             FindingKind.HEALTH_SCORE_LOW -> "Financial health score is low (${f.primary.roundToInt()} out of 100)"
             FindingKind.BUDGETS_OVER -> "Some budgets are already over their limit"
             FindingKind.COULD_PAY_TWICE -> "Available money covers the price at least twice"
-            FindingKind.SUGGESTED_WAIT -> "Suggested to wait ${f.primary.roundToInt()} days before buying"
+            FindingKind.SUGGESTED_WAIT -> return null
             FindingKind.SAVE_UP_PLAN -> "Could be saved up in ${f.primary.roundToInt()} months by setting aside ${money(f.secondary)} a month"
             FindingKind.NO_MONTHLY_SURPLUS -> "Nothing is left over each month to save toward it"
         }

@@ -332,5 +332,7 @@ private fun SetAsideCard(
 }
 
 private const val WISH_AI_TASK =
-    "The user is thinking about buying this wishlist item. In 2-3 short sentences, say whether now is a good " +
-        "time based on the app's verdict and their progress, and what would help. Never contradict the app's verdict."
+    "The user is thinking about buying this wishlist item. In 2-3 short sentences, tell them whether buying it now " +
+        "makes sense and why, using one or two key numbers (what's left after buying, how much is already set aside). " +
+        "If there's a waiting period, explain it's a pause to be sure they still want it, not a money problem. " +
+        "End with one concrete next step. Never contradict the verdict."
