@@ -725,6 +725,13 @@ fun SettingsOnDeviceAiCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state is LocalAiState.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
+                if (state is LocalAiState.Error && !state.message.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(R.string.settings_on_device_ai_error_details, state.message),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (state is LocalAiState.Checking || state is LocalAiState.Downloading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
