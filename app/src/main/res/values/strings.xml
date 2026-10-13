@@ -1574,6 +1574,8 @@
     <string name="ai_budget_title">Budget summary</string>
     <string name="ai_purchase_title">Why this verdict</string>
     <string name="ai_ask_title">Ask about your finances</string>
+    <string name="ai_ask_open">Open questions</string>
+    <string name="ai_ask_close">Close questions</string>
     <string name="ai_ask_placeholder">Am I spending too much on dining?</string>
     <string name="ai_purchase_ask_placeholder">What if I wait a month?</string>
     <string name="ai_ask_button">Ask</string>

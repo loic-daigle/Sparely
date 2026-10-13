@@ -1295,6 +1295,8 @@
     <string name="ai_budget_title">Résumé des budgets</string>
     <string name="ai_purchase_title">Pourquoi ce verdict</string>
     <string name="ai_ask_title">Posez une question sur vos finances</string>
+    <string name="ai_ask_open">Ouvrir les questions</string>
+    <string name="ai_ask_close">Fermer les questions</string>
     <string name="ai_ask_placeholder">Est-ce que je dépense trop au restaurant?</string>
     <string name="ai_purchase_ask_placeholder">Et si j\'attendais un mois?</string>
     <string name="ai_ask_button">Demander</string>

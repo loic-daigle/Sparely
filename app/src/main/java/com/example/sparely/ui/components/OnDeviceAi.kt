@@ -116,6 +116,9 @@ fun OnDeviceAiAskCard(
     val language = LocalOnDeviceAi.current.language
     var question by rememberSaveable { mutableStateOf("") }
     var request by remember(slot) { mutableStateOf(manager.currentAnswer(slot)) }
+    // Folded into one small row by default; open already if a question was asked here, so its
+    // answer is visible when the user comes back.
+    var expanded by rememberSaveable(slot) { mutableStateOf(request != null) }
     val result = request?.result?.collectAsState()?.value
     val running = request != null && (result == null || result is LocalAiResult.Partial)
 
@@ -125,7 +128,35 @@ fun OnDeviceAiAskCard(
         request = manager.askLive(slot, facts, q, language)
     }
 
-    AiCard(title = stringResource(R.string.ai_ask_title), modifier = modifier) {
+    if (!expanded) {
+        ExpressiveCard(
+            modifier = modifier.fillMaxWidth(),
+            onClick = { expanded = true },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentPadding = 14.dp
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MaterialSymbolIcon(icon = MaterialSymbols.LIGHTBULB, contentDescription = null, size = 18.dp)
+                Text(
+                    stringResource(R.string.ai_ask_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                MaterialSymbolIcon(icon = MaterialSymbols.ARROW_DROP_DOWN, contentDescription = stringResource(R.string.ai_ask_open), size = 24.dp)
+            }
+        }
+        return
+    }
+
+    AiCard(
+        title = stringResource(R.string.ai_ask_title),
+        modifier = modifier,
+        onCollapse = if (running) null else ({ expanded = false })
+    ) {
         OutlinedTextField(
             value = question,
             onValueChange = { question = it.take(MAX_QUESTION_CHARS) },
@@ -157,18 +188,35 @@ fun OnDeviceAiAskCard(
 }
 
 @Composable
-private fun AiCard(title: String, modifier: Modifier, content: @Composable () -> Unit) {
+private fun AiCard(
+    title: String,
+    modifier: Modifier,
+    /** Shows a fold-up arrow in the header when set. */
+    onCollapse: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
     ExpressiveCard(
         modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MaterialSymbolIcon(icon = MaterialSymbols.LIGHTBULB, contentDescription = null, size = 20.dp)
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (onCollapse != null) {
+                    androidx.compose.material3.IconButton(onClick = onCollapse) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_DROP_UP, contentDescription = stringResource(R.string.ai_ask_close), size = 24.dp)
+                    }
+                }
             }
             content()
             Text(
