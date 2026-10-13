@@ -25,6 +25,7 @@ interface AppContainer {
     val smartAllocationService: com.example.sparely.domain.allocation.SmartAllocationService
     val brandfetchRepository: com.example.sparely.data.repository.BrandfetchRepository
     val assistantActionRepository: com.example.sparely.data.repository.AssistantActionRepository
+    val localAiManager: com.example.sparely.ai.LocalAiManager
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -92,6 +93,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val autoBackupScheduler: AutoBackupScheduler by lazy {
         AutoBackupScheduler(appContext)
+    }
+
+    override val localAiManager by lazy {
+        com.example.sparely.ai.LocalAiManager(
+            model = com.example.sparely.ai.GeminiNanoTextModel(),
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+        )
     }
 
     // Smart allocation service (phase 2)

@@ -28,6 +28,7 @@ okhttp = "4.12.0"
 ui = "1.10.0"
 places = "5.1.1"
 foundation = "1.11.0"
+genaiPrompt = "1.0.0-beta4"
 
 
 [libraries]
@@ -70,6 +71,7 @@ androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 places = { group = "com.google.android.libraries.places", name = "places", version.ref = "places" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
+mlkit-genai-prompt = { group = "com.google.mlkit", name = "genai-prompt", version.ref = "genaiPrompt" }
 androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
 
 
