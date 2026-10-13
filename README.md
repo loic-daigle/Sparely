@@ -159,7 +159,7 @@ If it worked, Logcat (tag `GeminiNano`) shows `Using Gemini Nano preview/fast`. 
 Notes:
 - Preview models are for testing: Google may change or remove them, and only enrolled phones get them.
 - Status checks can report the model as ready while AICore is still downloading it; the test button is the real check.
-- Keep `genai-prompt` at `1.0.0-beta2`: `beta3` and `beta4` ask AICore for a model feature most phones don't have ([googlesamples/mlkit#1061](https://github.com/googlesamples/mlkit/issues/1061)).
+- Sparely uses `genai-prompt` `1.0.0-beta4`, the first version that runs Gemini Nano 4: on `beta2` the preview model is found but every request fails with `INFERENCE_ERROR` 200. `beta4` has a known bug where its stable/full config isn't found on most phones ([googlesamples/mlkit#1061](https://github.com/googlesamples/mlkit/issues/1061)); Sparely then tries the next variant.
 
 Code:
 - Engine and variant selection: `ai/GeminiNanoTextModel.kt`; summarizer fallback: `ai/GeminiNanoSummarizer.kt`
