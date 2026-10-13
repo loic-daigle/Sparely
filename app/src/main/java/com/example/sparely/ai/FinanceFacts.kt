@@ -84,21 +84,29 @@ object FinanceFacts {
                 }
             )
         )
-        add(Fact("Safe to spend before buying", money(result.before.safeToSpend)))
-        add(Fact("Expected balance in 30 days without it", money(result.before.projectedBalance30Days)))
-        add(Fact("Expected balance in 30 days with it", money(result.after.projectedBalance30Days)))
+        add(Fact("Expected balance in 30 days if bought", money(result.after.projectedBalance30Days)))
+        // A small model given many numbers stitches them into claims of its own, so only the
+        // findings that matter most go in, worst first. The wait is already part of the verdict.
+        val top = result.findings
+            .filter { it.kind != FindingKind.SUGGESTED_WAIT }
+            .sortedByDescending { it.impact.ordinal }
+            .take(MAX_PURCHASE_FINDINGS)
+        val kinds = top.map { it.kind }.toSet()
         // A raw number next to the finding about it reads as two different claims ("only 3.9
-        // months... which is comfortable"), so the raw one is left out when a finding covers it.
-        val kinds = result.findings.map { it.kind }.toSet()
+        // months... which is comfortable"), so the raw one is only used when no finding covers it.
         if (FindingKind.LARGE_SHARE_OF_INCOME !in kinds) {
             result.shareOfMonthlyIncome?.let { add(Fact("Price as a share of monthly income", percent(it))) }
         }
         if (kinds.none { it in BUFFER_FINDINGS }) {
             result.monthsOfBufferAfter?.let { add(Fact("Months of living costs left after buying", oneDecimal(it))) }
         }
-        add(Fact("Left over each month after bills and normal spending", money(result.monthlySurplus)))
-        result.findings.mapNotNullTo(this) { finding(it, money) }
+        top.mapNotNullTo(this) { finding(it, money) }
     }
+
+    private const val MAX_PURCHASE_FINDINGS = 3
+
+    /** "November 8, 2026": an ISO date gets copied into the reply as is. */
+    private val LONG_DATE = java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy", java.util.Locale.ENGLISH)
 
     private val BUFFER_FINDINGS = setOf(FindingKind.BUFFER_UNDER_MONTH, FindingKind.BUFFER_THIN, FindingKind.BUFFER_COMFORTABLE)
 
@@ -117,11 +125,11 @@ object FinanceFacts {
         money: (Double) -> String
     ): List<Fact> = buildList {
         add(Fact("Wishlist item", name))
-        add(Fact("Set aside for it so far", "${money(setAside)} of ${money(price)}"))
-        targetDate?.let { add(Fact("Planned purchase date", it.toString())) }
+        add(Fact("Already saved for it", "${money(setAside)} (of the ${money(price)} price)"))
+        targetDate?.let { add(Fact("Planned purchase date", it.format(LONG_DATE))) }
         add(Fact("The user says it is", if (reallyNeeded) "a real need" else "a want, not a need"))
         if (cooldownDaysLeft > 0) add(Fact("Days left to sleep on it", cooldownDaysLeft.toString()))
-        // The check repeats the price, which is already above.
+        // The check starts with the price, which is already above.
         result?.let { r -> addAll(purchase(r, money).drop(1)) }
     }
 

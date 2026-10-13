@@ -787,4 +787,5 @@ private const val PURCHASE_AI_TASK =
     "The user wants to know if they can afford a purchase. In 2-3 short sentences, tell them the verdict and why, " +
         "using one or two key numbers (like what's left after buying or months of living costs). If there's a waiting " +
         "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next " +
-        "step. Never contradict the verdict. Start with the verdict in the first sentence."
+        "step. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time. " +
+        "Start with the verdict in the first sentence."

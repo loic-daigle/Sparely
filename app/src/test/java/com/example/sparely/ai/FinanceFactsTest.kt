@@ -98,7 +98,7 @@ class FinanceFactsTest {
         assertEquals(
             listOf(
                 Fact("Wishlist item", "New bike"),
-                Fact("Set aside for it so far", "$200 of $800"),
+                Fact("Already saved for it", "$200 (of the $800 price)"),
                 Fact("The user says it is", "a want, not a need"),
                 Fact("Days left to sleep on it", "3")
             ),
