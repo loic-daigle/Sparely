@@ -84,12 +84,13 @@ fun FinancialHealthScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
     ) {
         item(key = "ai_summary") {
-            val aiFacts = remember(healthScore) { com.example.sparely.ai.FinanceFacts.health(healthScore) }
+            val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+            val aiFacts = remember(healthScore, aiLanguage) { com.example.sparely.ai.FinanceFacts.health(healthScore, aiLanguage) }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 com.example.sparely.ui.components.OnDeviceAiSummaryCard(
                     title = stringResource(R.string.ai_health_title),
                     facts = aiFacts,
-                    task = HEALTH_AI_TASK
+                    task = com.example.sparely.ai.AiTask.HEALTH.text(aiLanguage)
                 )
                 com.example.sparely.ui.components.OnDeviceAiAskCard(
                     facts = aiFacts,
@@ -553,7 +554,3 @@ fun getCategoryDisplayName(category: String): String = when (category) {
     "Debt Management" -> stringResource(R.string.health_cat_debt_management)
     else -> category
 }
-
-private const val HEALTH_AI_TASK =
-    "Explain the user's financial health score in 2-3 short sentences: what's going well, and the one change " +
-        "that would raise it most."

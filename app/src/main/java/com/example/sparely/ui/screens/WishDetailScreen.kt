@@ -146,7 +146,8 @@ fun WishDetailScreen(
 
             item(key = "ai_explain") {
                 val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
-                val aiFacts = remember(wish, status, symbol) {
+                val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                val aiFacts = remember(wish, status, symbol, aiLanguage) {
                     com.example.sparely.ai.FinanceFacts.wish(
                         name = wish.description,
                         price = wish.targetAmount,
@@ -154,14 +155,15 @@ fun WishDetailScreen(
                         targetDate = wish.targetDate,
                         reallyNeeded = wish.isReallyNeeded,
                         cooldownDaysLeft = cooldownDays,
-                        result = result
-                    ) { it.formatCurrency(symbol) }
+                        result = result,
+                        lang = aiLanguage
+                    ) { aiLanguage.money(it, symbol) }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     com.example.sparely.ui.components.OnDeviceAiSummaryCard(
                         title = stringResource(R.string.ai_wish_title),
                         facts = aiFacts,
-                        task = WISH_AI_TASK
+                        task = com.example.sparely.ai.AiTask.WISH.text(aiLanguage)
                     )
                     com.example.sparely.ui.components.OnDeviceAiAskCard(
                         facts = aiFacts,
@@ -330,10 +332,3 @@ private fun SetAsideCard(
         }
     }
 }
-
-private const val WISH_AI_TASK =
-    "The user is thinking about buying this wishlist item. In 2-3 short sentences, tell them whether buying it now " +
-        "makes sense and why, using one or two key numbers (what's left after buying, how much is already set aside). " +
-        "If there's a waiting period, explain it's a pause to be sure they still want it, not a money problem. " +
-        "End with one concrete next step. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time. " +
-        "Start with the verdict in the first sentence."

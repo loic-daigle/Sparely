@@ -1,0 +1,93 @@
+package com.example.sparely.ai
+
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
+
+/**
+ * The language of everything the model reads. A small model copies phrases from its prompt into
+ * the reply, so a French reply needs a fully French prompt: English facts come back as franglais.
+ */
+enum class PromptLanguage(private val locale: Locale) {
+    ENGLISH(Locale.ENGLISH),
+    FRENCH(Locale.CANADA_FRENCH);
+
+    /** [en] or [fr], whichever this language is. */
+    fun pick(en: String, fr: String): String = if (this == FRENCH) fr else en
+
+    /** "$1,640.09" or "1 640,09 $". */
+    fun money(value: Double, symbol: String): String {
+        val safe = if (value.isNaN() || value.isInfinite() || (value > -0.005 && value < 0.0)) 0.0 else value
+        val number = String.format(locale, "%,.2f", kotlin.math.abs(safe))
+        val sign = if (safe < 0) "-" else ""
+        return if (this == FRENCH) "$sign$number $symbol" else "$sign$symbol$number"
+    }
+
+    /** "50%" or "50 %". */
+    fun percent(ratio: Double): String {
+        val value = (ratio * 100).roundToInt()
+        return if (this == FRENCH) "$value %" else "$value%"
+    }
+
+    /** "3.9" or "3,9". */
+    fun oneDecimal(value: Double): String = String.format(locale, "%.1f", value)
+
+    /** "November 8, 2026" or "8 novembre 2026": an ISO date gets copied into the reply as is. */
+    fun longDate(date: LocalDate): String =
+        date.format(DateTimeFormatter.ofPattern(pick("MMMM d, yyyy", "d MMMM yyyy"), locale))
+
+    companion object {
+        /** From the app's language setting, e.g. "fr" or "fr-CA". Anything else gets English. */
+        fun fromCode(languageCode: String): PromptLanguage =
+            if (languageCode.lowercase().startsWith("fr")) FRENCH else ENGLISH
+    }
+}
+
+/** What a card asks the model to write, in each language. */
+enum class AiTask(private val en: String, private val fr: String) {
+    SUMMARY(
+        "Summarize how the user's finances are going in 2-3 short sentences.",
+        "Résume en 2 ou 3 phrases courtes comment vont les finances de l'utilisateur."
+    ),
+    QUESTION(
+        "Answer the user's question in 1-3 short sentences, using only the facts.",
+        "Réponds à la question de l'utilisateur en 1 à 3 phrases courtes, avec seulement les faits."
+    ),
+    INSIGHTS(
+        "Summarize how the user's month is going in 2-3 short sentences, then give one practical tip based only on the facts.",
+        "Résume en 2 ou 3 phrases courtes comment se passe le mois de l'utilisateur, puis donne un conseil pratique basé seulement sur les faits."
+    ),
+    BUDGET(
+        "Summarize how the user's budgets are doing this month in 2-3 short sentences, naming the ones that need attention.",
+        "Résume en 2 ou 3 phrases courtes comment vont les budgets de l'utilisateur ce mois-ci, en nommant ceux qui demandent de l'attention."
+    ),
+    PURCHASE(
+        "The user wants to know if they can afford a purchase. Start with the verdict in the first sentence, then say why " +
+            "using one or two key numbers (like the balance after buying or months of living costs). If there's a waiting " +
+            "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next step. " +
+            "Use 2-3 short sentences. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
+        "L'utilisateur veut savoir s'il peut se permettre un achat. Commence par le verdict dans la première phrase, puis explique " +
+            "pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou les mois de dépenses). S'il y a une période de " +
+            "réflexion, explique que c'est une pause pour être sûr de le vouloir, pas un problème d'argent. Termine par une prochaine " +
+            "étape concrète. Utilise 2 ou 3 phrases courtes. Ne contredis jamais le verdict : s'il dit abordable, ne dis jamais que " +
+            "l'achat est une mauvaise idée ou un mauvais moment."
+    ),
+    WISH(
+        "The user is thinking about buying this wishlist item. Start with the verdict in the first sentence, then say why " +
+            "using one or two key numbers (like the balance after buying or how much is already saved). If there's a waiting " +
+            "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next step. " +
+            "Use 2-3 short sentences. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
+        "L'utilisateur pense acheter cet article de sa liste d'envies. Commence par le verdict dans la première phrase, puis " +
+            "explique pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou le montant déjà économisé). S'il y a " +
+            "une période de réflexion, explique que c'est une pause pour être sûr de le vouloir, pas un problème d'argent. Termine " +
+            "par une prochaine étape concrète. Utilise 2 ou 3 phrases courtes. Ne contredis jamais le verdict : s'il dit abordable, " +
+            "ne dis jamais que l'achat est une mauvaise idée ou un mauvais moment."
+    ),
+    HEALTH(
+        "Explain the user's financial health score in 2-3 short sentences: what's going well, and the one change that would raise it most.",
+        "Explique en 2 ou 3 phrases courtes le score de santé financière de l'utilisateur : ce qui va bien, et le changement qui l'améliorerait le plus."
+    );
+
+    fun text(language: PromptLanguage): String = language.pick(en, fr)
+}

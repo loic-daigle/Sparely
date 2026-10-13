@@ -117,17 +117,17 @@ class LocalAiManager(
 
     /**
      * Summarizes [facts] with whichever engine the phone has. The full model follows [task] and
-     * writes in [replyLanguage]; the summarizer ignores both and writes English.
+     * writes in [language]; the summarizer ignores both and writes English.
      */
     suspend fun summarize(
         facts: List<Fact>,
-        replyLanguage: String = "English",
-        task: String = SUMMARY_TASK,
+        language: PromptLanguage = PromptLanguage.ENGLISH,
+        task: String = AiTask.SUMMARY.text(language),
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): LocalAiResult {
         if (canAnswerQuestions) {
             return generate(
-                FinancePrompt.build(task, facts, replyLanguage = replyLanguage),
+                FinancePrompt.build(task, facts, language = language),
                 options = REPLY_OPTIONS,
                 maxAnswerChars = maxAnswerChars
             )
@@ -143,10 +143,10 @@ class LocalAiManager(
     suspend fun ask(
         facts: List<Fact>,
         question: String,
-        replyLanguage: String = "English",
+        language: PromptLanguage = PromptLanguage.ENGLISH,
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): LocalAiResult = generate(
-        FinancePrompt.build(QUESTION_TASK, facts, question = question, replyLanguage = replyLanguage),
+        FinancePrompt.build(AiTask.QUESTION.text(language), facts, question = question, language = language),
         options = REPLY_OPTIONS,
         maxAnswerChars = maxAnswerChars
     )
@@ -158,24 +158,24 @@ class LocalAiManager(
      */
     fun summarizeStream(
         facts: List<Fact>,
-        replyLanguage: String = "English",
-        task: String = SUMMARY_TASK,
+        language: PromptLanguage = PromptLanguage.ENGLISH,
+        task: String = AiTask.SUMMARY.text(language),
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): Flow<LocalAiResult> =
         if (canAnswerQuestions) {
-            stream(FinancePrompt.build(task, facts, replyLanguage = replyLanguage), maxAnswerChars)
+            stream(FinancePrompt.build(task, facts, language = language), maxAnswerChars)
         } else {
-            flow { emit(summarize(facts, replyLanguage, task, maxAnswerChars)) }
+            flow { emit(summarize(facts, language, task, maxAnswerChars)) }
         }
 
     /** Like [ask], but shows the answer as it's written. */
     fun askStream(
         facts: List<Fact>,
         question: String,
-        replyLanguage: String = "English",
+        language: PromptLanguage = PromptLanguage.ENGLISH,
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): Flow<LocalAiResult> =
-        stream(FinancePrompt.build(QUESTION_TASK, facts, question = question, replyLanguage = replyLanguage), maxAnswerChars)
+        stream(FinancePrompt.build(AiTask.QUESTION.text(language), facts, question = question, language = language), maxAnswerChars)
 
     private fun stream(prompt: String, maxAnswerChars: Int): Flow<LocalAiResult> {
         if (!canAnswerQuestions) return flowOf(LocalAiResult.NotReady)
@@ -212,8 +212,8 @@ class LocalAiManager(
     }
 
     /** The cached answer for a request [summarize] or [ask] already answered, if any. */
-    fun cachedSummary(facts: List<Fact>, replyLanguage: String = "English", task: String = SUMMARY_TASK): String? =
-        if (canAnswerQuestions) answers.get("prompt:" + FinancePrompt.build(task, facts, replyLanguage = replyLanguage))
+    fun cachedSummary(facts: List<Fact>, language: PromptLanguage = PromptLanguage.ENGLISH, task: String = AiTask.SUMMARY.text(language)): String? =
+        if (canAnswerQuestions) answers.get("prompt:" + FinancePrompt.build(task, facts, language = language))
         else answers.get("summary:" + FinancePrompt.factsAsText(facts))
 
     /** Forgets every saved answer, e.g. when the user turns on-device AI off. */
@@ -254,9 +254,6 @@ class LocalAiManager(
          */
         const val MAX_PROMPT_CHARS = 8_000
 
-        const val SUMMARY_TASK = "Summarize how the user's finances are going in 2-3 short sentences."
-        private const val QUESTION_TASK =
-            "Answer the user's question in 1-3 short sentences, using only the facts."
 
         /** 2-3 sentences need far fewer than the 256-token maximum, and each token costs time on the CPU. */
         private val REPLY_OPTIONS = GenerationOptions(maxOutputTokens = 160)

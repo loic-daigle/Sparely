@@ -95,7 +95,7 @@ fun InsightsScreen(
                 com.example.sparely.ui.components.OnDeviceAiSummaryCard(
                     title = stringResource(R.string.ai_insights_title),
                     facts = aiFacts,
-                    task = INSIGHTS_AI_TASK
+                    task = com.example.sparely.ai.AiTask.INSIGHTS.text(com.example.sparely.ui.components.LocalOnDeviceAi.current.language)
                 )
             }
             item(key = "ai_ask") {
@@ -1069,6 +1069,3 @@ private fun indexForX(x: Float, stepX: Float, lastIndex: Int): Int {
     if (lastIndex <= 0 || stepX <= 0f || !stepX.isFinite() || !x.isFinite()) return 0
     return (x / stepX).roundToInt().coerceIn(0, lastIndex)
 }
-
-private const val INSIGHTS_AI_TASK =
-    "Summarize how the user's month is going in 2-3 short sentences, then give one practical tip based only on the facts."

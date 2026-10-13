@@ -206,10 +206,10 @@ class LocalAiManagerTest {
         val ai = manager(model, summarizer)
         ai.refresh()
         assertTrue(ai.canAnswerQuestions)
-        assertEquals(LocalAiResult.Success("Dining is over budget."), runBlocking { ai.summarize(facts, "French") })
+        assertEquals(LocalAiResult.Success("Dining is over budget."), runBlocking { ai.summarize(facts, PromptLanguage.FRENCH) })
         assertTrue(summarizer.inputs.isEmpty())
-        assertTrue(model.prompts.single().contains("- Dining this month: $412 of $300 budget"))
-        assertTrue(model.prompts.single().contains("Reply in French."))
+        assertTrue(model.prompts.single().contains("- Dining this month : $412 of $300 budget"))
+        assertTrue(model.prompts.single().contains("Réponds uniquement en français"))
     }
 
     @Test
@@ -266,9 +266,9 @@ class LocalAiManagerTest {
         ai.refresh()
         assertEquals(
             LocalAiResult.Success("Yes, dining is over budget."),
-            runBlocking { ai.ask(facts, "Am I overspending?", "French") }
+            runBlocking { ai.ask(facts, "Am I overspending?", PromptLanguage.FRENCH) }
         )
-        assertTrue(model.prompts.single().contains("User question: Am I overspending?"))
+        assertTrue(model.prompts.single().contains("Question de l'utilisateur : Am I overspending?"))
 
         val summaryOnly = manager(FakeModel(availability = ModelAvailability.UNAVAILABLE), FakeSummarizer())
         summaryOnly.refresh()

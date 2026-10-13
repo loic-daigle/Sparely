@@ -137,7 +137,7 @@ Where it appears:
 - **Wishlist item details:** whether now is a good time to buy it, and questions ("How long until I can afford it?")
 - **Financial health:** the score explained, and questions ("How do I raise my score fastest?")
 
-Sparely calculates every number; the model only puts them into words and never changes the verdict. The cards stay hidden until you turn the feature on.
+Sparely calculates every number; the model only puts them into words and never changes the verdict. The whole prompt (rules, facts, amounts and dates) is written in the app's language, English or French, so replies don't mix the two. The cards stay hidden until you turn the feature on.
 
 **Turning it on:** Settings > On-device AI > "Use on-device AI". That screen shows whether your phone supports it, downloads the model if needed, and has a "Test with sample numbers" button.
 
