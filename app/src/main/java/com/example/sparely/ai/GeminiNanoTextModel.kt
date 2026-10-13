@@ -1,42 +1,102 @@
 package com.example.sparely.ai
 
-import com.google.mlkit.genai.common.DownloadStatus
 import android.util.Log
+import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.GenAiException
 import com.google.mlkit.genai.prompt.Generation
+import com.google.mlkit.genai.prompt.GenerativeModel
+import com.google.mlkit.genai.prompt.ModelPreference
+import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
+import com.google.mlkit.genai.prompt.generationConfig
+import com.google.mlkit.genai.prompt.modelConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Gemini Nano through the ML Kit GenAI Prompt API. AICore picks the model variant that fits the
- * phone, so this class doesn't need to know which one it gets. Everything runs on the device.
+ * Gemini Nano through the ML Kit GenAI Prompt API. Everything runs on the device.
+ *
+ * AICore offers Gemini Nano in variants, and which ones a phone has depends on its hardware. The
+ * default (stable, full) isn't on phones with the smaller model, like the Pixel 9a, which throw
+ * "Feature 636 is not available" for it but can offer the fast variant. So [availability] tries
+ * each variant in [VARIANTS] and keeps the first the phone offers.
  */
 class GeminiNanoTextModel : LocalTextModel {
 
-    private val client by lazy { Generation.getClient() }
+    private data class Variant(val name: String, val releaseStage: Int, val preference: Int)
 
-    override suspend fun availability(): ModelAvailability {
-        val status = try {
-            client.checkStatus()
-        } catch (e: GenAiException) {
-            Log.w(TAG, "checkStatus failed: ${describe(e)}", e)
-            // Phones with Gemini Nano but without this API (like the Pixel 9a, whose smaller model only
-            // serves some ML Kit features) throw here instead of returning UNAVAILABLE.
-            if (isNotAvailable(e)) return ModelAvailability.UNAVAILABLE
-            throw IllegalStateException(describe(e), e)
+    private val lock = Mutex()
+    private var client: GenerativeModel? = null
+    private var variant: Variant? = null
+
+    override suspend fun availability(): ModelAvailability = lock.withLock {
+        // Keep the variant already in use while it still works, so a recheck never closes the
+        // client a request is running on.
+        val current = client
+        val currentVariant = variant
+        if (current != null && currentVariant != null) {
+            val status = check(current, currentVariant)
+            if (status is Checked.Status && status.value != FeatureStatus.UNAVAILABLE) return status.value.toAvailability()
+            current.close()
+            client = null
+            variant = null
         }
-        return when (status) {
-            FeatureStatus.AVAILABLE -> ModelAvailability.AVAILABLE
-            FeatureStatus.DOWNLOADABLE -> ModelAvailability.DOWNLOADABLE
-            FeatureStatus.DOWNLOADING -> ModelAvailability.DOWNLOADING
-            else -> ModelAvailability.UNAVAILABLE
+
+        var failure: Exception? = null
+        for (candidate in VARIANTS) {
+            val model = Generation.getClient(
+                generationConfig {
+                    modelConfig = modelConfig {
+                        releaseStage = candidate.releaseStage
+                        preference = candidate.preference
+                    }
+                }
+            )
+            when (val result = check(model, candidate)) {
+                is Checked.Status -> if (result.value != FeatureStatus.UNAVAILABLE) {
+                    Log.i(TAG, "Using Gemini Nano ${candidate.name}")
+                    client = model
+                    variant = candidate
+                    return result.value.toAvailability()
+                }
+                is Checked.NotOffered -> Unit
+                is Checked.Failed -> failure = failure ?: result.error
+            }
+            model.close()
         }
+        // Report a real error over "not supported", so it shows in Settings.
+        failure?.let { throw it }
+        ModelAvailability.UNAVAILABLE
     }
 
-    override fun download(): Flow<ModelDownloadEvent> = client.download().mapNotNull { status ->
+    private sealed interface Checked {
+        data class Status(val value: Int) : Checked
+        data object NotOffered : Checked
+        data class Failed(val error: Exception) : Checked
+    }
+
+    private suspend fun check(model: GenerativeModel, candidate: Variant): Checked = try {
+        Checked.Status(model.checkStatus())
+    } catch (e: GenAiException) {
+        Log.w(TAG, "checkStatus failed for ${candidate.name}: ${describe(e)}")
+        if (isNotAvailable(e)) Checked.NotOffered else Checked.Failed(IllegalStateException(describe(e), e))
+    }
+
+    private fun Int.toAvailability(): ModelAvailability = when (this) {
+        FeatureStatus.AVAILABLE -> ModelAvailability.AVAILABLE
+        FeatureStatus.DOWNLOADABLE -> ModelAvailability.DOWNLOADABLE
+        FeatureStatus.DOWNLOADING -> ModelAvailability.DOWNLOADING
+        else -> ModelAvailability.UNAVAILABLE
+    }
+
+    private fun requireClient(): GenerativeModel =
+        checkNotNull(client) { "Call availability() before using the model" }
+
+    override fun download(): Flow<ModelDownloadEvent> = requireClient().download().mapNotNull { status ->
         when (status) {
             is DownloadStatus.DownloadStarted -> ModelDownloadEvent.Started
             is DownloadStatus.DownloadProgress -> ModelDownloadEvent.Progress(status.totalBytesDownloaded)
@@ -50,7 +110,7 @@ class GeminiNanoTextModel : LocalTextModel {
     }
 
     override suspend fun warmup() {
-        client.warmup()
+        requireClient().warmup()
     }
 
     override suspend fun generate(prompt: String, options: GenerationOptions): String? {
@@ -59,14 +119,27 @@ class GeminiNanoTextModel : LocalTextModel {
             topK = options.topK
             maxOutputTokens = options.maxOutputTokens
         }
-        return client.generateContent(request).candidates.firstOrNull()?.text
+        return requireClient().generateContent(request).candidates.firstOrNull()?.text
     }
 
     override fun close() {
-        client.close()
+        client?.close()
+        client = null
+        variant = null
     }
 
     private companion object {
         const val TAG = "GeminiNano"
+
+        /**
+         * Most capable first. Preview + Full is left out: it can report AVAILABLE and then fail every
+         * request (googlesamples/mlkit#1078). Preview variants need the phone to be enrolled in the
+         * AICore Developer Preview; without it they're simply not offered.
+         */
+        val VARIANTS = listOf(
+            Variant("stable/full", ModelReleaseStage.STABLE, ModelPreference.FULL),
+            Variant("stable/fast", ModelReleaseStage.STABLE, ModelPreference.FAST),
+            Variant("preview/fast", ModelReleaseStage.PREVIEW, ModelPreference.FAST)
+        )
     }
 }
