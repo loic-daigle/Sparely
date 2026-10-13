@@ -50,6 +50,7 @@ object FinanceFacts {
             val bills = forecast.essentialObligations30Days + forecast.discretionaryObligations30Days
             if (bills > 0) add(Fact(lang.pick("Bills due in the next 30 days", "Factures à payer dans les 30 prochains jours"), money(bills)))
         }
+        addAll(creditCardFacts(state.paymentMethods, lang, money))
         if (state.totalVaultBalance > 0) add(Fact(lang.pick("Saved in vaults", "Épargné dans les coffres"), money(state.totalVaultBalance)))
         state.emergencyFundGoal?.takeIf { it.targetAmount > 0 }?.let {
             add(
@@ -63,6 +64,36 @@ object FinanceFacts {
             )
         }
         state.financialHealthScore?.let { add(healthScoreFact(it, lang)) }
+    }
+
+    /**
+     * What's owed on credit cards, so a card purchase shows up in the summary. One card is named
+     * with its share of the limit; with several, the total comes first, then the 3 largest.
+     */
+    fun creditCardFacts(
+        paymentMethods: List<com.example.sparely.domain.model.PaymentMethod>,
+        lang: PromptLanguage,
+        money: (Double) -> String
+    ): List<Fact> {
+        val cards = paymentMethods.filter { it.isCreditCard && it.currentBalance >= 0.005 }
+        if (cards.isEmpty()) return emptyList()
+        fun owed(card: com.example.sparely.domain.model.PaymentMethod): String {
+            val limit = card.creditLimit?.takeIf { it > 0 } ?: return money(card.currentBalance)
+            return lang.pick(
+                "${money(card.currentBalance)} (${lang.percent(card.utilizationPercent)} of the ${money(limit)} limit)",
+                "${money(card.currentBalance)} (${lang.percent(card.utilizationPercent)} de la limite de ${money(limit)})"
+            )
+        }
+        if (cards.size == 1) {
+            val card = cards.single()
+            return listOf(Fact(lang.pick("Owed on credit card ${card.name}", "Dû sur la carte de crédit ${card.name}"), owed(card)))
+        }
+        return buildList {
+            add(Fact(lang.pick("Owed on all credit cards", "Dû sur toutes les cartes de crédit"), money(cards.sumOf { it.currentBalance })))
+            cards.sortedByDescending { it.currentBalance }.take(3).forEach { card ->
+                add(Fact(lang.pick("Owed on ${card.name}", "Dû sur ${card.name}"), owed(card)))
+            }
+        }
     }
 
     /** Budgets this month, the ones closest to or over their limit first. */
@@ -158,6 +189,12 @@ object FinanceFacts {
             }
         }
         top.mapNotNullTo(this) { finding(it, lang, money) }
+        // What's owed on cards matters to any purchase, so it goes in even when it isn't in the top findings.
+        if (FindingKind.CARD_BALANCE_OWED !in kinds && FindingKind.CARDS_NOT_COVERED !in kinds) {
+            result.findings.firstOrNull { it.kind == FindingKind.CARD_BALANCE_OWED }?.let {
+                add(Fact(lang.pick("Owed on credit cards", "Dû sur les cartes de crédit"), money(it.primary)))
+            }
+        }
     }
 
     private const val MAX_PURCHASE_FINDINGS = 3

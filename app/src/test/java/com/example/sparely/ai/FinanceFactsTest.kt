@@ -140,4 +140,34 @@ class FinanceFactsTest {
 
     // French number formatting uses non-breaking spaces between thousands.
     private fun Fact.normalizeSpaces() = Fact(label, value.replace('\u202F', ' ').replace('\u00A0', ' '))
+
+    private fun card(name: String, balance: Double, limit: Double?) = com.example.sparely.domain.model.PaymentMethod(
+        name = name,
+        type = com.example.sparely.domain.model.PaymentMethodType.CARD,
+        defaultDeductFromMainAccount = false,
+        isCreditCard = true,
+        creditLimit = limit,
+        currentBalance = balance
+    )
+
+    @Test
+    fun overviewIncludesWhatIsOwedOnCreditCards() {
+        val withCard = state.copy(paymentMethods = listOf(card("Visa", 540.0, 2000.0)))
+        val facts = FinanceFacts.overview(withCard, money = money)
+        assertTrue(Fact("Owed on credit card Visa", "$540 (27% of the $2000 limit)") in facts)
+    }
+
+    @Test
+    fun severalCardsGiveATotalThenTheLargest() {
+        val cards = listOf(card("Visa", 540.0, 2000.0), card("Amex", 100.0, null), card("Paid off", 0.0, 1000.0))
+        val facts = FinanceFacts.creditCardFacts(cards, PromptLanguage.ENGLISH, money)
+        assertEquals(
+            listOf(
+                Fact("Owed on all credit cards", "$640"),
+                Fact("Owed on Visa", "$540 (27% of the $2000 limit)"),
+                Fact("Owed on Amex", "$100")
+            ),
+            facts
+        )
+    }
 }
