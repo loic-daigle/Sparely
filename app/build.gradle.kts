@@ -132,6 +132,8 @@ dependencies {
 
     // AppFunctions - expose read-only functions to on-device AI assistants (Android 16+)
     implementation(libs.androidx.appfunctions)
+    // On-device Gemini Nano through AICore. Prompts never leave the phone.
+    implementation(libs.mlkit.genai.prompt)
     ksp(libs.androidx.appfunctions.compiler)
 
     testImplementation(libs.junit)
