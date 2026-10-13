@@ -28,9 +28,12 @@ sealed interface ModelDownloadEvent {
 data class GenerationOptions(
     val temperature: Float = 0.2f,
     val topK: Int = 10,
-    /** Caps the reply length. About 300 tokens is a few short paragraphs. */
-    val maxOutputTokens: Int = 300
+    /** Caps the reply length. The Prompt API accepts 1 to 256; 256 is a few short paragraphs. */
+    val maxOutputTokens: Int = MAX_OUTPUT_TOKENS
 )
+
+/** Highest maxOutputTokens the ML Kit Prompt API accepts. */
+const val MAX_OUTPUT_TOKENS = 256
 
 /** An on-device model that may need a one-time download before it can be used. */
 interface DownloadableModel {
