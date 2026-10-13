@@ -87,11 +87,20 @@ object FinanceFacts {
         add(Fact("Safe to spend before buying", money(result.before.safeToSpend)))
         add(Fact("Expected balance in 30 days without it", money(result.before.projectedBalance30Days)))
         add(Fact("Expected balance in 30 days with it", money(result.after.projectedBalance30Days)))
-        result.shareOfMonthlyIncome?.let { add(Fact("Price as a share of monthly income", percent(it))) }
-        result.monthsOfBufferAfter?.let { add(Fact("Months of living costs left after buying", oneDecimal(it))) }
+        // A raw number next to the finding about it reads as two different claims ("only 3.9
+        // months... which is comfortable"), so the raw one is left out when a finding covers it.
+        val kinds = result.findings.map { it.kind }.toSet()
+        if (FindingKind.LARGE_SHARE_OF_INCOME !in kinds) {
+            result.shareOfMonthlyIncome?.let { add(Fact("Price as a share of monthly income", percent(it))) }
+        }
+        if (kinds.none { it in BUFFER_FINDINGS }) {
+            result.monthsOfBufferAfter?.let { add(Fact("Months of living costs left after buying", oneDecimal(it))) }
+        }
         add(Fact("Left over each month after bills and normal spending", money(result.monthlySurplus)))
         result.findings.mapNotNullTo(this) { finding(it, money) }
     }
+
+    private val BUFFER_FINDINGS = setOf(FindingKind.BUFFER_UNDER_MONTH, FindingKind.BUFFER_THIN, FindingKind.BUFFER_COMFORTABLE)
 
     /**
      * One wishlist item: what it is, how far along saving for it is and, when the check could run,
@@ -139,7 +148,7 @@ object FinanceFacts {
             FindingKind.BUFFER_UNDER_MONTH -> "Less than a month of living costs would be left"
             FindingKind.BUFFER_THIN -> "Only ${oneDecimal(f.primary)} months of living costs would be left"
             FindingKind.BUFFER_COMFORTABLE -> "A comfortable ${oneDecimal(f.primary)} months of living costs would be left"
-            FindingKind.LARGE_SHARE_OF_INCOME -> "It's ${percent(f.primary)} of a month's income"
+            FindingKind.LARGE_SHARE_OF_INCOME -> "The price is ${percent(f.primary)} of a month's income"
             FindingKind.DIPS_INTO_SAVINGS -> "It would take ${money(f.primary)} from savings accounts"
             FindingKind.SAVING_TAX_ADDED -> "Sparely's saving tax adds ${money(f.primary)} set aside into vaults"
             FindingKind.SAVING_TAX_SKIPPED -> "${money(f.primary)} of the usual saving couldn't be set aside"
@@ -155,7 +164,14 @@ object FinanceFacts {
             FindingKind.SAVE_UP_PLAN -> "Could be saved up in ${f.primary.roundToInt()} months by setting aside ${money(f.secondary)} a month"
             FindingKind.NO_MONTHLY_SURPLUS -> "Nothing is left over each month to save toward it"
         }
-        return Fact("Finding", text)
+        // The engine already rates each finding; passing that on keeps the model from guessing
+        // whether a number is good or bad news.
+        val label = when (f.impact) {
+            PurchaseAffordabilityEngine.Impact.OK -> "Good sign"
+            PurchaseAffordabilityEngine.Impact.CAUTION -> "Watch out"
+            PurchaseAffordabilityEngine.Impact.PROBLEM -> "Problem"
+        }
+        return Fact(label, text)
     }
 
     private fun categoryName(category: ExpenseCategory): String =
