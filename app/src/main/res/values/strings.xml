@@ -1582,6 +1582,10 @@
     <string name="ai_failed">The on-device AI couldn\'t answer this time.</string>
     <string name="ai_failed_details">The on-device AI couldn\'t answer: %1$s</string>
     <string name="ai_on_device_note">Written by AI on this phone. It can make mistakes; the numbers above come from Sparely.</string>
+    <string name="ai_wish_title">Should you buy it now?</string>
+    <string name="ai_wish_ask_placeholder">How long until I can afford it?</string>
+    <string name="ai_health_title">Your score, explained</string>
+    <string name="ai_health_ask_placeholder">How do I raise my score fastest?</string>
     <string name="expense_entry_section_basics">Basics</string>
     <string name="expense_entry_section_payment">Payment</string>
     <string name="expense_entry_section_allocations">Savings &amp; asset allocations</string>

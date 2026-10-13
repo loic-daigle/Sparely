@@ -144,6 +144,32 @@ fun WishDetailScreen(
         if (result != null && input != null) {
             item(key = "verdict") { VerdictCard(result) }
 
+            item(key = "ai_explain") {
+                val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
+                val aiFacts = remember(wish, status, symbol) {
+                    com.example.sparely.ai.FinanceFacts.wish(
+                        name = wish.description,
+                        price = wish.targetAmount,
+                        setAside = status.reserved,
+                        targetDate = wish.targetDate,
+                        reallyNeeded = wish.isReallyNeeded,
+                        cooldownDaysLeft = cooldownDays,
+                        result = result
+                    ) { it.formatCurrency(symbol) }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    com.example.sparely.ui.components.OnDeviceAiSummaryCard(
+                        title = stringResource(R.string.ai_wish_title),
+                        facts = aiFacts,
+                        task = WISH_AI_TASK
+                    )
+                    com.example.sparely.ui.components.OnDeviceAiAskCard(
+                        facts = aiFacts,
+                        placeholder = stringResource(R.string.ai_wish_ask_placeholder)
+                    )
+                }
+            }
+
             item(key = "effect_title") { SectionTitle(stringResource(R.string.wishlist_detail_effect)) }
             item(key = "effect_note") {
                 Text(
@@ -304,3 +330,7 @@ private fun SetAsideCard(
         }
     }
 }
+
+private const val WISH_AI_TASK =
+    "The user is thinking about buying this wishlist item. In 2-3 short sentences, say whether now is a good " +
+        "time based on the app's verdict and their progress, and what would help. Never contradict the app's verdict."

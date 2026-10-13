@@ -58,4 +58,51 @@ class FinanceFactsTest {
         assertTrue(Fact("Budgets over their limit", "1") in facts)
         assertTrue(Fact("All budgets this month", "$1240 spent of $1500") in facts)
     }
+
+    @Test
+    fun healthListsScoreBreakdownAndTheBiggestTipsFirst() {
+        val score = com.example.sparely.domain.model.FinancialHealthScore(
+            overallScore = 62,
+            savingsRateScore = 70,
+            emergencyFundScore = 40,
+            budgetAdherenceScore = 80,
+            goalProgressScore = 55,
+            debtRatioScore = 65,
+            healthLevel = com.example.sparely.domain.model.HealthLevel.FAIR,
+            topStrengths = listOf("Budgets are on track"),
+            improvementAreas = listOf(
+                com.example.sparely.domain.model.ImprovementTip("Small", "", com.example.sparely.domain.model.Priority.values().last(), 2, "Do a little"),
+                com.example.sparely.domain.model.ImprovementTip("Big", "", com.example.sparely.domain.model.Priority.values().first(), 10, "Build the emergency fund")
+            )
+        )
+        val facts = FinanceFacts.health(score)
+        assertEquals(Fact("Financial health score", "62 out of 100 (Fair)"), facts.first())
+        assertTrue(Fact("Emergency Fund score", "40 out of 100") in facts)
+        assertTrue(Fact("Strength", "Budgets are on track") in facts)
+        val tips = facts.filter { it.label == "Way to improve" }
+        assertEquals("Big: Build the emergency fund (up to +10 points)", tips.first().value)
+    }
+
+    @Test
+    fun wishIncludesProgressAndSkipsTheCheckWhenItCouldNotRun() {
+        val facts = FinanceFacts.wish(
+            name = "New bike",
+            price = 800.0,
+            setAside = 200.0,
+            targetDate = null,
+            reallyNeeded = false,
+            cooldownDaysLeft = 3,
+            result = null,
+            money = money
+        )
+        assertEquals(
+            listOf(
+                Fact("Wishlist item", "New bike"),
+                Fact("Set aside for it so far", "$200 of $800"),
+                Fact("The user says it is", "a want, not a need"),
+                Fact("Days left to sleep on it", "3")
+            ),
+            facts
+        )
+    }
 }

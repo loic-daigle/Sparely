@@ -1303,6 +1303,10 @@
     <string name="ai_failed">L\'IA sur l\'appareil n\'a pas pu répondre cette fois.</string>
     <string name="ai_failed_details">L\'IA sur l\'appareil n\'a pas pu répondre : %1$s</string>
     <string name="ai_on_device_note">Rédigé par l\'IA sur ce téléphone. Elle peut se tromper; les chiffres ci-dessus viennent de Sparely.</string>
+    <string name="ai_wish_title">Est-ce le bon moment de l\'acheter?</string>
+    <string name="ai_wish_ask_placeholder">Dans combien de temps pourrai-je me le permettre?</string>
+    <string name="ai_health_title">Votre score expliqué</string>
+    <string name="ai_health_ask_placeholder">Comment améliorer mon score le plus vite?</string>
     <string name="expense_entry_section_basics">L\'essentiel</string>
     <string name="expense_entry_section_payment">Paiement</string>
     <string name="expense_entry_section_allocations">Épargne et répartition des biens</string>
