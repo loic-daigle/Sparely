@@ -317,6 +317,8 @@ class SettingsViewModel(
 
     fun updateOnDeviceAiEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
+            // Turning AI off also forgets the answers it wrote about the user's finances.
+            if (!enabled) container.localAiManager.clearAnswers()
             preferencesRepository.updateOnDeviceAiEnabled(enabled)
         }
     }
