@@ -84,6 +84,10 @@ fun BudgetScreen(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var budgetToEdit by remember { mutableStateOf<CategoryBudget?>(null) }
+    val currencySymbol = uiState.settings.regionalSettings.getCurrencySymbol()
+    val aiFacts = remember(uiState.budgetSummary, currencySymbol) {
+        com.example.sparely.ai.FinanceFacts.budgets(uiState) { it.formatCurrency(currencySymbol) }
+    }
     val budgetLookup = remember(uiState.budgets) {
         uiState.budgets.associateBy { it.category to it.yearMonth }
     }
@@ -110,6 +114,15 @@ fun BudgetScreen(
             item(key = "summary") {
                 BudgetSummaryCard(it)
             }
+        }
+
+        item(key = "ai_summary") {
+            com.example.sparely.ui.components.OnDeviceAiSummaryCard(
+                title = stringResource(R.string.ai_budget_title),
+                facts = aiFacts,
+                task = BUDGET_AI_TASK,
+                modifier = Modifier.padding(top = 12.dp)
+            )
         }
         
         // Warning if total budgets exceed monthly income
@@ -1248,3 +1261,5 @@ private fun BudgetHealthStatus.displayName(): String = when (this) {
 // Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
 // (It's defined as a public function there, so we can use it directly)
 
+private const val BUDGET_AI_TASK =
+    "Summarize how the user's budgets are doing this month in 2-3 short sentences, naming the ones that need attention."

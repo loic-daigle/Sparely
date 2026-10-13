@@ -145,6 +145,24 @@ fun PurchaseCheckScreen(
         } else {
             item(key = "verdict") { VerdictCard(result) }
 
+            item(key = "ai_explain") {
+                val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
+                val aiFacts = remember(result, symbol) {
+                    com.example.sparely.ai.FinanceFacts.purchase(result) { it.formatCurrency(symbol) }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    com.example.sparely.ui.components.OnDeviceAiSummaryCard(
+                        title = stringResource(R.string.ai_purchase_title),
+                        facts = aiFacts,
+                        task = PURCHASE_AI_TASK
+                    )
+                    com.example.sparely.ui.components.OnDeviceAiAskCard(
+                        facts = aiFacts,
+                        placeholder = stringResource(R.string.ai_purchase_ask_placeholder)
+                    )
+                }
+            }
+
             item(key = "impact_title") { SectionTitle(stringResource(R.string.purchase_check_section_impact)) }
             item(key = "comparison") { ComparisonCard(result) }
 
@@ -764,3 +782,7 @@ private fun SaveToWishlistDialog(
         }
     )
 }
+
+private const val PURCHASE_AI_TASK =
+    "The app checked whether the user can afford a purchase. Explain its verdict in 2-3 short sentences " +
+        "using the facts, and say what would make it easier. Never contradict the app's verdict."

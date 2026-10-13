@@ -525,6 +525,23 @@ private fun SparelyScaffold(
             }
         }
     ) { innerPadding ->
+        val app = LocalContext.current.applicationContext as com.example.sparely.SparelyApplication
+        val aiEnabled = uiState.settings.onDeviceAiEnabled
+        val languageCode = uiState.settings.regionalSettings.languageCode
+        val onDeviceAi = remember(aiEnabled, languageCode) {
+            com.example.sparely.ui.components.OnDeviceAi(
+                manager = app.container.localAiManager,
+                enabled = aiEnabled,
+                replyLanguage = java.util.Locale.forLanguageTag(languageCode)
+                    .getDisplayLanguage(java.util.Locale.ENGLISH)
+                    .ifBlank { "English" }
+            )
+        }
+        // AI cards only appear once the model is known to be ready, so check as soon as it's on.
+        LaunchedEffect(aiEnabled) {
+            if (aiEnabled) app.container.localAiManager.refresh()
+        }
+        androidx.compose.runtime.CompositionLocalProvider(com.example.sparely.ui.components.LocalOnDeviceAi provides onDeviceAi) {
             SparelyNavHost(
                 navController = navController,
                 innerPadding = innerPadding,
@@ -538,6 +555,7 @@ private fun SparelyScaffold(
                 snackbarHostState = snackbarHostState,
                 onAuthenticateUser = onAuthenticateUser
             )
+        }
     }
     
     // Vault archive confirmation dialog
@@ -1000,6 +1018,7 @@ private fun SparelyNavHost(
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
                 onRefreshLocalAi = settingsViewModel::refreshLocalAi,
                 onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
+                onTestLocalAi = settingsViewModel::testLocalAi,
                 assistantActions = settingsUiState.assistantActions,
                 onUndoAssistantAction = settingsViewModel::undoAssistantAction,
                 onAuthenticateUser = onAuthenticateUser,
@@ -1258,7 +1277,12 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.Insights.route) {
+            val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
+            val aiFacts = remember(uiState, symbol) {
+                com.example.sparely.ai.FinanceFacts.overview(uiState) { it.formatCurrency(symbol) }
+            }
             InsightsScreen(
+                aiFacts = aiFacts,
                 cashflowForecast = uiState.cashflowForecast,
                 spendingPatterns = uiState.spendingPatterns,
                 recurringPatterns = uiState.recurringPatterns,

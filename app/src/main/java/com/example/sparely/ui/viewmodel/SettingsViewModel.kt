@@ -297,6 +297,24 @@ class SettingsViewModel(
         container.localAiManager.startDownload()
     }
 
+    /**
+     * Summarizes made-up numbers so the user can check the model really answers: some preview
+     * models report ready and then fail on the first request.
+     */
+    suspend fun testLocalAi(): com.example.sparely.ai.LocalAiResult {
+        val regional = _uiState.value.settings.regionalSettings
+        val symbol = regional.getCurrencySymbol()
+        val language = java.util.Locale.forLanguageTag(regional.languageCode)
+            .getDisplayLanguage(java.util.Locale.ENGLISH)
+            .ifBlank { "English" }
+        val facts = listOf(
+            com.example.sparely.ai.Fact("Spent this month", "${symbol}1,240 of a ${symbol}1,500 budget"),
+            com.example.sparely.ai.Fact("Dining this month", "${symbol}310 of a ${symbol}250 budget"),
+            com.example.sparely.ai.Fact("Saved this month", "${symbol}400, up from ${symbol}320 last month")
+        )
+        return container.localAiManager.summarize(facts, replyLanguage = language)
+    }
+
     fun updateOnDeviceAiEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateOnDeviceAiEnabled(enabled)

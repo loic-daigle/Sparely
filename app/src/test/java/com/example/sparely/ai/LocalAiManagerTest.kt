@@ -257,4 +257,47 @@ class LocalAiManagerTest {
         assertEquals(error, LocalAiManager.combine(LocalAiState.Unsupported, error))
         assertEquals(LocalAiState.Unsupported, LocalAiManager.combine(LocalAiState.Unsupported, LocalAiState.Unsupported))
     }
+
+    @Test
+    fun askNeedsTheFullModelAndIncludesTheQuestion() {
+        val model = FakeModel(reply = { "Yes, dining is over budget." })
+        val ai = manager(model)
+        ai.refresh()
+        assertEquals(
+            LocalAiResult.Success("Yes, dining is over budget."),
+            runBlocking { ai.ask(facts, "Am I overspending?", "French") }
+        )
+        assertTrue(model.prompts.single().contains("User question: Am I overspending?"))
+
+        val summaryOnly = manager(FakeModel(availability = ModelAvailability.UNAVAILABLE), FakeSummarizer())
+        summaryOnly.refresh()
+        assertEquals(LocalAiResult.NotReady, runBlocking { summaryOnly.ask(facts, "Am I overspending?") })
+    }
+
+    @Test
+    fun repeatedRequestsAreAnsweredFromTheCache() {
+        var calls = 0
+        val model = FakeModel(reply = { calls++; "Answer $calls" })
+        val ai = manager(model)
+        ai.refresh()
+        assertEquals(null, ai.cachedSummary(facts, task = "Sum up."))
+        val first = runBlocking { ai.summarize(facts, task = "Sum up.") }
+        val second = runBlocking { ai.summarize(facts, task = "Sum up.") }
+        assertEquals(LocalAiResult.Success("Answer 1"), first)
+        assertEquals(first, second)
+        assertEquals(1, calls)
+        assertEquals("Answer 1", ai.cachedSummary(facts, task = "Sum up."))
+        // A different task is a different request.
+        assertEquals(LocalAiResult.Success("Answer 2"), runBlocking { ai.summarize(facts, task = "Explain.") })
+    }
+
+    @Test
+    fun failuresAreNotCached() {
+        var fail = true
+        val ai = manager(FakeModel(reply = { if (fail) throw IllegalStateException("busy") else "Done." }))
+        ai.refresh()
+        assertEquals(LocalAiResult.Failed("busy"), runBlocking { ai.generate("Hi") })
+        fail = false
+        assertEquals(LocalAiResult.Success("Done."), runBlocking { ai.generate("Hi") })
+    }
 }
