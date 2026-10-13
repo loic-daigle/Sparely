@@ -151,18 +151,13 @@ fun PurchaseCheckScreen(
                 val aiFacts = remember(result, symbol, aiLanguage) {
                     com.example.sparely.ai.FinanceFacts.purchase(result, aiLanguage) { aiLanguage.money(it, symbol) }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    com.example.sparely.ui.components.OnDeviceAiSummaryCard(
-                        title = stringResource(R.string.ai_purchase_title),
-                        facts = aiFacts,
-                        task = com.example.sparely.ai.AiTask.PURCHASE.text(aiLanguage)
-                    )
-                    com.example.sparely.ui.components.OnDeviceAiAskCard(
-                        slot = "purchase",
-                        facts = aiFacts,
-                        placeholder = stringResource(R.string.ai_purchase_ask_placeholder)
-                    )
-                }
+                com.example.sparely.ui.components.OnDeviceAiSection(
+                    title = stringResource(R.string.ai_purchase_title),
+                    facts = aiFacts,
+                    task = com.example.sparely.ai.AiTask.PURCHASE.text(aiLanguage),
+                    askSlot = "purchase",
+                    askPlaceholder = stringResource(R.string.ai_purchase_ask_placeholder)
+                )
             }
 
             item(key = "impact_title") { SectionTitle(stringResource(R.string.purchase_check_section_impact)) }

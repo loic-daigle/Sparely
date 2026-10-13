@@ -91,17 +91,6 @@ fun InsightsScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item(key = "ai_summary") {
-                com.example.sparely.ui.components.OnDeviceAiSummaryCard(
-                    title = stringResource(R.string.ai_insights_title),
-                    facts = aiFacts,
-                    task = com.example.sparely.ai.AiTask.INSIGHTS.text(com.example.sparely.ui.components.LocalOnDeviceAi.current.language)
-                )
-            }
-            item(key = "ai_ask") {
-                com.example.sparely.ui.components.OnDeviceAiAskCard(slot = "insights", facts = aiFacts)
-            }
-
             // 1. Headline numbers first: what's safe to spend and how long money lasts.
             // Without a forecast (e.g. no income set yet) the other insights still show,
             // instead of an endless loading spinner.
@@ -147,6 +136,16 @@ fun InsightsScreen(
                 item(key = "forecast") {
                     CashflowForecastCard(cashflowForecast)
                 }
+            }
+
+            // On-device AI reads the headline numbers above in a few words, and takes questions.
+            item(key = "ai") {
+                com.example.sparely.ui.components.OnDeviceAiSection(
+                    title = stringResource(R.string.ai_insights_title),
+                    facts = aiFacts,
+                    task = com.example.sparely.ai.AiTask.INSIGHTS.text(com.example.sparely.ui.components.LocalOnDeviceAi.current.language),
+                    askSlot = "insights"
+                )
             }
 
             // 2. Actionable suggestion

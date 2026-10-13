@@ -118,7 +118,7 @@ fun BudgetScreen(
         }
 
         item(key = "ai_summary") {
-            com.example.sparely.ui.components.OnDeviceAiSummaryCard(
+            com.example.sparely.ui.components.OnDeviceAiSection(
                 title = stringResource(R.string.ai_budget_title),
                 facts = aiFacts,
                 task = com.example.sparely.ai.AiTask.BUDGET.text(aiLanguage),

@@ -159,18 +159,13 @@ fun WishDetailScreen(
                         lang = aiLanguage
                     ) { aiLanguage.money(it, symbol) }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    com.example.sparely.ui.components.OnDeviceAiSummaryCard(
-                        title = stringResource(R.string.ai_wish_title),
-                        facts = aiFacts,
-                        task = com.example.sparely.ai.AiTask.WISH.text(aiLanguage)
-                    )
-                    com.example.sparely.ui.components.OnDeviceAiAskCard(
-                        slot = "wish-${wish.id}",
-                        facts = aiFacts,
-                        placeholder = stringResource(R.string.ai_wish_ask_placeholder)
-                    )
-                }
+                com.example.sparely.ui.components.OnDeviceAiSection(
+                    title = stringResource(R.string.ai_wish_title),
+                    facts = aiFacts,
+                    task = com.example.sparely.ai.AiTask.WISH.text(aiLanguage),
+                    askSlot = "wish-${wish.id}",
+                    askPlaceholder = stringResource(R.string.ai_wish_ask_placeholder)
+                )
             }
 
             item(key = "effect_title") { SectionTitle(stringResource(R.string.wishlist_detail_effect)) }

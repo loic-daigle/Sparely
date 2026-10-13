@@ -83,25 +83,21 @@ fun FinancialHealthScreen(
         // Content padding (not Modifier.padding) so cards don't clip while scrolling
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
     ) {
-        item(key = "ai_summary") {
-            val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
-            val aiFacts = remember(healthScore, aiLanguage) { com.example.sparely.ai.FinanceFacts.health(healthScore, aiLanguage) }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                com.example.sparely.ui.components.OnDeviceAiSummaryCard(
-                    title = stringResource(R.string.ai_health_title),
-                    facts = aiFacts,
-                    task = com.example.sparely.ai.AiTask.HEALTH.text(aiLanguage)
-                )
-                com.example.sparely.ui.components.OnDeviceAiAskCard(
-                    slot = "health",
-                    facts = aiFacts,
-                    placeholder = stringResource(R.string.ai_health_ask_placeholder)
-                )
-            }
-        }
-
         item(key = "score") {
             HealthScoreCard(healthScore, potentialGain = potentialGain)
+        }
+
+        item(key = "ai") {
+            val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+            val aiFacts = remember(healthScore, aiLanguage) { com.example.sparely.ai.FinanceFacts.health(healthScore, aiLanguage) }
+            com.example.sparely.ui.components.OnDeviceAiSection(
+                title = stringResource(R.string.ai_health_title),
+                facts = aiFacts,
+                task = com.example.sparely.ai.AiTask.HEALTH.text(aiLanguage),
+                askSlot = "health",
+                askPlaceholder = stringResource(R.string.ai_health_ask_placeholder),
+                modifier = Modifier.padding(top = 12.dp)
+            )
         }
 
         // Actionable tips come before the breakdown and strengths

@@ -1,14 +1,36 @@
 package com.example.sparely.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -20,9 +42,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.sparely.ai.Fact
 import com.example.sparely.ai.LocalAiManager
@@ -53,189 +81,357 @@ private fun readyManager(): LocalAiManager? {
 }
 
 /**
- * A short summary of [facts] written by the on-device model. Shows nothing unless the user turned
- * AI on and the phone supports it. Answers are cached by the manager, so returning to a screen
- * with the same numbers shows the same text without running the model again.
+ * The on-device AI block of a screen, laid out like the app's segmented lists: a summary of
+ * [facts] on top and, when [askSlot] is set and the phone runs the full model, a row for asking
+ * questions underneath, stacked as one rounded group. Shows nothing unless the user turned AI on
+ * and the phone's model is ready.
  *
- * @param task what the model should write, e.g. "Explain this verdict in 2 sentences."
+ * Requests run in the manager, not here, so scrolling the section away doesn't stop them, and
+ * answers are saved, so the same numbers show the same text without running the model again.
+ *
+ * @param task what the model should write, from [com.example.sparely.ai.AiTask]
+ * @param askSlot identifies this screen's question box (e.g. "insights"); null for no questions
  */
 @Composable
-fun OnDeviceAiSummaryCard(
+fun OnDeviceAiSection(
     title: String,
     facts: List<Fact>,
     task: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    askSlot: String? = null,
+    askPlaceholder: String = stringResource(R.string.ai_ask_placeholder)
 ) {
     val manager = readyManager() ?: return
     if (facts.isEmpty()) return
+    val showAsk = askSlot != null && manager.canAnswerQuestions
+    val count = if (showAsk) 2 else 1
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+        AiSummarySegment(manager, title, facts, task, segmentedShape(0, count))
+        if (showAsk) {
+            AiAskSegment(manager, askSlot!!, facts, askPlaceholder, segmentedShape(1, count))
+        }
+    }
+}
+
+@Composable
+private fun AiSummarySegment(
+    manager: LocalAiManager,
+    title: String,
+    facts: List<Fact>,
+    task: String,
+    shape: Shape
+) {
     val language = LocalOnDeviceAi.current.language
-    // The request lives in the manager, so scrolling this card away doesn't stop it, and coming
-    // back shows it where it is. It starts once when the numbers change.
+    // Starts once when the numbers change; the same request comes back when the section is rebuilt.
     var request by remember(facts, task, language) { mutableStateOf(manager.liveSummary(facts, language, task)) }
     val result by request.result.collectAsState()
-    val running = result == null || result is LocalAiResult.Partial
+    val writing = result == null || result is LocalAiResult.Partial
 
-    AiCard(title = title, modifier = modifier) {
-        when (val r = result) {
-            is LocalAiResult.Success -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
-            is LocalAiResult.Partial -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
-            null -> Unit
-            else -> AiError(r)
-        }
-        if (running && result !is LocalAiResult.Partial) {
-            Text(
-                stringResource(R.string.ai_writing),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        } else if (!running && result !is LocalAiResult.Success) {
-            SparelyTextButton(onClick = { request = manager.liveSummary(facts, language, task, restart = true) }) {
-                Text(stringResource(R.string.ai_try_again))
+    Surface(modifier = Modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AiBadge()
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() }
+                )
+                OnDeviceChip()
+            }
+
+            when (val r = result) {
+                null -> PlaceholderLines()
+                is LocalAiResult.Partial -> AiText(r.text)
+                is LocalAiResult.Success -> AiText(r.text)
+                else -> AiErrorRow(r, onRetry = { request = manager.liveSummary(facts, language, task, restart = true) })
+            }
+
+            if (writing) {
+                WritingIndicator()
+            } else if (result is LocalAiResult.Success) {
+                Footnote()
             }
         }
     }
 }
 
-/**
- * Lets the user ask a question answered from [facts] only. Needs the full model, so it's hidden on
- * phones that can only summarize.
- *
- * @param slot identifies this card (e.g. "insights") so its question and answer survive the card
- * being scrolled away and rebuilt
- */
 @Composable
-fun OnDeviceAiAskCard(
+private fun AiAskSegment(
+    manager: LocalAiManager,
     slot: String,
     facts: List<Fact>,
-    modifier: Modifier = Modifier,
-    placeholder: String = stringResource(R.string.ai_ask_placeholder)
+    placeholder: String,
+    shape: Shape
 ) {
-    val manager = readyManager() ?: return
-    if (!manager.canAnswerQuestions) return
     val language = LocalOnDeviceAi.current.language
-    var question by rememberSaveable { mutableStateOf("") }
+    var question by rememberSaveable(slot) { mutableStateOf("") }
     var request by remember(slot) { mutableStateOf(manager.currentAnswer(slot)) }
-    // Folded into one small row by default; open already if a question was asked here, so its
-    // answer is visible when the user comes back.
-    var expanded by rememberSaveable(slot) { mutableStateOf(request != null) }
     val result = request?.result?.collectAsState()?.value
-    val running = request != null && (result == null || result is LocalAiResult.Partial)
+    val writing = request != null && (result == null || result is LocalAiResult.Partial)
+    // Folded into one row until tapped; open already if a question was asked here, so its answer
+    // is visible when the user comes back.
+    var expanded by rememberSaveable(slot) { mutableStateOf(request != null) }
 
     fun ask() {
         val q = question.trim()
-        if (q.isEmpty() || running) return
+        if (q.isEmpty() || writing) return
         request = manager.askLive(slot, facts, q, language)
+        question = ""
     }
 
-    if (!expanded) {
-        ExpressiveCard(
-            modifier = modifier.fillMaxWidth(),
-            onClick = { expanded = true },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentPadding = 14.dp
-        ) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            // Only the header folds and unfolds, so tapping the answer or the field doesn't.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = !writing) { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.LIGHTBULB, contentDescription = null, size = 18.dp)
-                Text(
-                    stringResource(R.string.ai_ask_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.weight(1f)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.INFO,
+                        contentDescription = null,
+                        size = 20.dp,
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.ai_ask_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (!expanded) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                MaterialSymbolIcon(
+                    icon = if (expanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
+                    contentDescription = stringResource(if (expanded) R.string.ai_ask_close else R.string.ai_ask_open),
+                    size = 24.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                MaterialSymbolIcon(icon = MaterialSymbols.ARROW_DROP_DOWN, contentDescription = stringResource(R.string.ai_ask_open), size = 24.dp)
             }
-        }
-        return
-    }
 
-    AiCard(
-        title = stringResource(R.string.ai_ask_title),
-        modifier = modifier,
-        onCollapse = if (running) null else ({ expanded = false })
-    ) {
-        OutlinedTextField(
-            value = question,
-            onValueChange = { question = it.take(MAX_QUESTION_CHARS) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(placeholder) },
-            singleLine = true,
-            enabled = !running,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { ask() })
-        )
-        SparelyButton(
-            onClick = ::ask,
-            enabled = !running && question.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.ai_ask_button))
-        }
-        request?.question?.let {
-            Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (running && result !is LocalAiResult.Partial) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        when (result) {
-            is LocalAiResult.Success -> Text(result.text, style = MaterialTheme.typography.bodyMedium)
-            is LocalAiResult.Partial -> Text(result.text, style = MaterialTheme.typography.bodyMedium)
-            null -> Unit
-            else -> AiError(result)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(top = 14.dp)
+                        .animateContentSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    request?.question?.let { QuestionBubble(it) }
+                    when (result) {
+                        null -> if (request != null) PlaceholderLines(lines = 2)
+                        is LocalAiResult.Partial -> AiText(result.text)
+                        is LocalAiResult.Success -> AiText(result.text)
+                        else -> AiErrorRow(result, onRetry = null)
+                    }
+                    if (writing) WritingIndicator()
+
+                    OutlinedTextField(
+                        value = question,
+                        onValueChange = { question = it.take(MAX_QUESTION_CHARS) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        singleLine = true,
+                        enabled = !writing,
+                        shape = RoundedCornerShape(24.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { ask() }),
+                        trailingIcon = {
+                            IconButton(onClick = ::ask, enabled = !writing && question.isNotBlank()) {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.ARROW_FORWARD,
+                                    contentDescription = stringResource(R.string.ai_ask_button),
+                                    size = 22.dp,
+                                    tint = if (!writing && question.isNotBlank()) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 }
 
+/** The tonal circle that marks AI content, like the badges on the app's list headers. */
 @Composable
-private fun AiCard(
-    title: String,
-    modifier: Modifier,
-    /** Shows a fold-up arrow in the header when set. */
-    onCollapse: (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    ExpressiveCard(
-        modifier = modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer
+private fun AiBadge() {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.LIGHTBULB, contentDescription = null, size = 20.dp)
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                if (onCollapse != null) {
-                    androidx.compose.material3.IconButton(onClick = onCollapse) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_DROP_UP, contentDescription = stringResource(R.string.ai_ask_close), size = 24.dp)
-                    }
-                }
-            }
-            content()
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.LIGHTBULB,
+            contentDescription = null,
+            size = 20.dp,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun OnDeviceChip() {
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+        Text(
+            text = stringResource(R.string.ai_on_device_chip),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun AiText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+/** What the user asked, as a bubble on the right, like a message they sent. */
+@Composable
+private fun QuestionBubble(text: String) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Surface(
+            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 6.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.widthIn(max = 280.dp)
+        ) {
             Text(
-                stringResource(R.string.ai_on_device_note),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+            )
+        }
+    }
+}
+
+/** Pulsing grey lines where the text will appear, before the model writes its first words. */
+@Composable
+private fun PlaceholderLines(lines: Int = 3) {
+    val transition = rememberInfiniteTransition(label = "ai_placeholder")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(durationMillis = 800), RepeatMode.Reverse),
+        label = "ai_placeholder_alpha"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.alpha(alpha)) {
+        repeat(lines) { index ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(if (index == lines - 1) 0.6f else 1f)
+                    .height(12.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             )
         }
     }
 }
 
 @Composable
-private fun AiError(result: LocalAiResult) {
+private fun WritingIndicator() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+        Text(
+            stringResource(R.string.ai_writing),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun Footnote() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.INFO,
+            contentDescription = null,
+            size = 14.dp,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            stringResource(R.string.ai_on_device_note),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun AiErrorRow(result: LocalAiResult, onRetry: (() -> Unit)?) {
     val detail = (result as? LocalAiResult.Failed)?.message
-    Text(
-        text = if (detail.isNullOrBlank()) stringResource(R.string.ai_failed) else stringResource(R.string.ai_failed_details, detail),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.WARNING,
+            contentDescription = null,
+            size = 20.dp,
+            tint = MaterialTheme.colorScheme.error
+        )
+        Text(
+            text = if (detail.isNullOrBlank()) stringResource(R.string.ai_failed) else stringResource(R.string.ai_failed_details, detail),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+    if (onRetry != null) {
+        SparelyTextButton(
+            onClick = onRetry,
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.REFRESH, contentDescription = null, size = 18.dp) }
+        ) {
+            Text(stringResource(R.string.ai_try_again))
+        }
+    }
 }
 
 private const val MAX_QUESTION_CHARS = 300

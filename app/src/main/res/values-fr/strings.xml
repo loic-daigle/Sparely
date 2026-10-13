@@ -1294,7 +1294,7 @@
     <string name="ai_insights_title">Votre mois en quelques mots</string>
     <string name="ai_budget_title">Résumé des budgets</string>
     <string name="ai_purchase_title">Pourquoi ce verdict</string>
-    <string name="ai_ask_title">Posez une question sur vos finances</string>
+    <string name="ai_ask_title">Posez une question</string>
     <string name="ai_ask_open">Ouvrir les questions</string>
     <string name="ai_ask_close">Fermer les questions</string>
     <string name="ai_ask_placeholder">Est-ce que je dépense trop au restaurant?</string>
@@ -1304,7 +1304,8 @@
     <string name="ai_try_again">Réessayer</string>
     <string name="ai_failed">L\'IA sur l\'appareil n\'a pas pu répondre cette fois.</string>
     <string name="ai_failed_details">L\'IA sur l\'appareil n\'a pas pu répondre : %1$s</string>
-    <string name="ai_on_device_note">Rédigé par l\'IA sur ce téléphone. Elle peut se tromper; les chiffres ci-dessus viennent de Sparely.</string>
+    <string name="ai_on_device_note">Rédigé par l\'IA sur ce téléphone. Elle peut se tromper; les chiffres viennent de Sparely.</string>
+    <string name="ai_on_device_chip">Sur l\'appareil</string>
     <string name="ai_wish_title">Est-ce le bon moment de l\'acheter?</string>
     <string name="ai_wish_ask_placeholder">Dans combien de temps pourrai-je me le permettre?</string>
     <string name="ai_health_title">Votre score expliqué</string>
