@@ -40,8 +40,8 @@ data class OnDeviceAi(
     val manager: LocalAiManager? = null,
     /** The user's "Use on-device AI" setting. */
     val enabled: Boolean = false,
-    /** Language name in English, e.g. "French", for the model's replies. */
-    val replyLanguage: String = "English"
+    /** The language prompts are written in, and so the language of the replies. */
+    val language: com.example.sparely.ai.PromptLanguage = com.example.sparely.ai.PromptLanguage.ENGLISH
 )
 
 val LocalOnDeviceAi = compositionLocalOf { OnDeviceAi() }
@@ -71,7 +71,7 @@ fun OnDeviceAiSummaryCard(
 ) {
     val manager = readyManager() ?: return
     if (facts.isEmpty()) return
-    val language = LocalOnDeviceAi.current.replyLanguage
+    val language = LocalOnDeviceAi.current.language
     val scope = rememberCoroutineScope()
     var result by remember(facts, task) {
         mutableStateOf<LocalAiResult?>(manager.cachedSummary(facts, language, task)?.let { LocalAiResult.Success(it) })
@@ -81,7 +81,7 @@ fun OnDeviceAiSummaryCard(
     fun generate() {
         running = true
         scope.launch {
-            manager.summarizeStream(facts, replyLanguage = language, task = task).collect { result = it }
+            manager.summarizeStream(facts, language = language, task = task).collect { result = it }
             running = false
         }
     }
@@ -123,7 +123,7 @@ fun OnDeviceAiAskCard(
 ) {
     val manager = readyManager() ?: return
     if (!manager.canAnswerQuestions) return
-    val language = LocalOnDeviceAi.current.replyLanguage
+    val language = LocalOnDeviceAi.current.language
     val scope = rememberCoroutineScope()
     var question by rememberSaveable { mutableStateOf("") }
     var asked by remember { mutableStateOf<String?>(null) }
@@ -137,7 +137,7 @@ fun OnDeviceAiAskCard(
         running = true
         result = null
         scope.launch {
-            manager.askStream(facts, q, replyLanguage = language).collect { result = it }
+            manager.askStream(facts, q, language = language).collect { result = it }
             running = false
         }
     }

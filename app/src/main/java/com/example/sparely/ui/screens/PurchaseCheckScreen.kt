@@ -147,14 +147,15 @@ fun PurchaseCheckScreen(
 
             item(key = "ai_explain") {
                 val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
-                val aiFacts = remember(result, symbol) {
-                    com.example.sparely.ai.FinanceFacts.purchase(result) { it.formatCurrency(symbol) }
+                val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                val aiFacts = remember(result, symbol, aiLanguage) {
+                    com.example.sparely.ai.FinanceFacts.purchase(result, aiLanguage) { aiLanguage.money(it, symbol) }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     com.example.sparely.ui.components.OnDeviceAiSummaryCard(
                         title = stringResource(R.string.ai_purchase_title),
                         facts = aiFacts,
-                        task = PURCHASE_AI_TASK
+                        task = com.example.sparely.ai.AiTask.PURCHASE.text(aiLanguage)
                     )
                     com.example.sparely.ui.components.OnDeviceAiAskCard(
                         facts = aiFacts,
@@ -782,10 +783,3 @@ private fun SaveToWishlistDialog(
         }
     )
 }
-
-private const val PURCHASE_AI_TASK =
-    "The user wants to know if they can afford a purchase. In 2-3 short sentences, tell them the verdict and why, " +
-        "using one or two key numbers (like what's left after buying or months of living costs). If there's a waiting " +
-        "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next " +
-        "step. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time. " +
-        "Start with the verdict in the first sentence."

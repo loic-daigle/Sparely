@@ -11,37 +11,41 @@ data class Fact(val label: String, val value: String)
 object FinancePrompt {
 
     /**
-     * @param task what to produce, e.g. "Summarize how this month is going in 2-3 sentences."
+     * @param task what to produce, e.g. [AiTask.SUMMARY] in [language]
      * @param facts figures the answer may use; nothing else is available to the model
      * @param question the user's own question, if any
-     * @param replyLanguage language name in English, e.g. "French"
+     * @param language the language of the whole prompt, and so of the reply
      */
     fun build(
         task: String,
         facts: List<Fact>,
         question: String? = null,
-        replyLanguage: String = "English"
+        language: PromptLanguage = PromptLanguage.ENGLISH
     ): String = buildString {
-        appendLine("You are the assistant inside Sparely, a personal budgeting app.")
-        appendLine("Rules:")
-        appendLine("- Use only the facts below. Never invent, estimate or recalculate numbers.")
-        appendLine("- If the facts don't answer the question, say you don't have that information.")
-        appendLine("- Don't give investment, tax or legal advice.")
-        appendLine("- Talk to the user directly (\"you\"). Never write \"the app says\" or \"according to the facts\".")
-        appendLine("- Don't list the facts back. Explain what the 1-2 most important numbers mean for the user.")
-        appendLine("- Plain text only, no Markdown. Be brief and friendly.")
-        appendLine("- Reply in $replyLanguage.")
+        val l = language
+        appendLine(l.pick("You are the assistant inside Sparely, a personal budgeting app.", "Tu es l'assistant de Sparely, une application de budget personnel."))
+        appendLine(l.pick("Rules:", "Règles :"))
+        appendLine(l.pick("- Use only the facts below. Never invent, estimate or recalculate numbers.", "- Utilise seulement les faits ci-dessous. N'invente, n'estime et ne recalcule jamais de chiffres."))
+        appendLine(l.pick("- If the facts don't answer the question, say you don't have that information.", "- Si les faits ne répondent pas à la question, dis que tu n'as pas cette information."))
+        appendLine(l.pick("- Write every amount exactly as in the facts, with its currency symbol (for example $1,640.09).", "- Écris chaque montant exactement comme dans les faits, avec le symbole de la devise (par exemple 1 640,09 $)."))
+        appendLine(l.pick("- Don't give investment, tax or legal advice.", "- Ne donne pas de conseils de placement, d'impôt ou juridiques."))
+        appendLine(l.pick("- Talk to the user directly (\"you\"). Never write \"the app says\" or \"according to the facts\".", "- Parle directement à l'utilisateur en le vouvoyant. N'écris jamais « l'application dit » ou « selon les faits »."))
+        appendLine(l.pick("- Don't list the facts back. Explain what the 1-2 most important numbers mean for the user.", "- Ne répète pas la liste des faits. Explique ce que les 1 ou 2 chiffres les plus importants veulent dire pour l'utilisateur."))
+        appendLine(l.pick("- Plain text only, no Markdown. Be brief and friendly.", "- Texte simple seulement, sans Markdown. Sois bref et amical."))
+        appendLine(l.pick("- Reply in English only.", "- Réponds uniquement en français, sans aucun mot anglais."))
         appendLine()
-        appendLine("Facts:")
+        appendLine(l.pick("Facts:", "Faits :"))
         if (facts.isEmpty()) {
-            appendLine("(none)")
+            appendLine(l.pick("(none)", "(aucun)"))
         } else {
-            facts.forEach { appendLine("- ${oneLine(it.label)}: ${oneLine(it.value)}") }
+            // French puts a space before the colon.
+            val separator = l.pick(": ", " : ")
+            facts.forEach { appendLine("- ${oneLine(it.label)}$separator${oneLine(it.value)}") }
         }
         appendLine()
-        appendLine("Task: ${oneLine(task)}")
+        appendLine(l.pick("Task: ", "Tâche : ") + oneLine(task))
         if (!question.isNullOrBlank()) {
-            appendLine("User question: ${oneLine(question)}")
+            appendLine(l.pick("User question: ", "Question de l'utilisateur : ") + oneLine(question))
         }
     }.trimEnd()
 

@@ -39,7 +39,7 @@ class FinanceFactsTest {
 
     @Test
     fun overviewListsTheMonthAndTheTightestBudgetFirst() {
-        val facts = FinanceFacts.overview(state, money)
+        val facts = FinanceFacts.overview(state, money = money)
         assertEquals(Fact("Spent this month", "$1240 of a $1500 total budget"), facts.first())
         val budgets = facts.filter { it.label.endsWith("budget") }
         assertEquals(Fact("Dining budget", "$310 of $250 (124% used)"), budgets.first())
@@ -48,13 +48,13 @@ class FinanceFactsTest {
 
     @Test
     fun emptyStateGivesNoFacts() {
-        assertTrue(FinanceFacts.overview(SparelyUiState(), money).isEmpty())
-        assertTrue(FinanceFacts.budgets(SparelyUiState(), money).isEmpty())
+        assertTrue(FinanceFacts.overview(SparelyUiState(), money = money).isEmpty())
+        assertTrue(FinanceFacts.budgets(SparelyUiState(), money = money).isEmpty())
     }
 
     @Test
     fun budgetsCountsTheOnesOverTheirLimit() {
-        val facts = FinanceFacts.budgets(state, money)
+        val facts = FinanceFacts.budgets(state, money = money)
         assertTrue(Fact("Budgets over their limit", "1") in facts)
         assertTrue(Fact("All budgets this month", "$1240 spent of $1500") in facts)
     }
@@ -77,10 +77,10 @@ class FinanceFactsTest {
         )
         val facts = FinanceFacts.health(score)
         assertEquals(Fact("Financial health score", "62 out of 100 (Fair)"), facts.first())
-        assertTrue(Fact("Emergency Fund score", "40 out of 100") in facts)
+        assertTrue(Fact("Emergency fund score", "40 out of 100") in facts)
         assertTrue(Fact("Strength", "Budgets are on track") in facts)
         val tips = facts.filter { it.label == "Way to improve" }
-        assertEquals("Big: Build the emergency fund (up to +10 points)", tips.first().value)
+        assertEquals("Big (up to +10 points)", tips.first().value)
     }
 
     @Test
@@ -105,4 +105,39 @@ class FinanceFactsTest {
             facts
         )
     }
+
+    @Test
+    fun frenchFactsHaveNoEnglish() {
+        val euro: (Double) -> String = { PromptLanguage.FRENCH.money(it, "$") }
+        val facts = FinanceFacts.overview(state, PromptLanguage.FRENCH, euro)
+        assertEquals(Fact("Dépensé ce mois-ci", "1 240,00 $ sur un budget total de 1 500,00 $"), facts.first().normalizeSpaces())
+        assertTrue(Fact("Budget restaurants", "310,00 $ sur 250,00 $ (124 % utilisé)") in facts.map { it.normalizeSpaces() })
+    }
+
+    @Test
+    fun frenchHealthSkipsStrengthsWithoutATranslation() {
+        val score = com.example.sparely.domain.model.FinancialHealthScore(
+            overallScore = 62, savingsRateScore = 70, emergencyFundScore = 40, budgetAdherenceScore = 80,
+            goalProgressScore = 55, debtRatioScore = 65,
+            healthLevel = com.example.sparely.domain.model.HealthLevel.FAIR,
+            topStrengths = listOf("Strong emergency fund", "Some new English strength"),
+            improvementAreas = emptyList()
+        )
+        val facts = FinanceFacts.health(score, PromptLanguage.FRENCH)
+        assertEquals(Fact("Score de santé financière", "62 sur 100 (Moyen)"), facts.first())
+        assertEquals(listOf("Solide fonds d'urgence"), facts.filter { it.label == "Point fort" }.map { it.value })
+    }
+
+    @Test
+    fun frenchMoneyAndDatesAreWrittenTheFrenchWay() {
+        assertEquals("1 640,09 $", PromptLanguage.FRENCH.money(1640.09, "$").replace('\u202F', ' ').replace('\u00A0', ' '))
+        assertEquals("$1,640.09", PromptLanguage.ENGLISH.money(1640.09, "$"))
+        assertEquals("8 novembre 2026", PromptLanguage.FRENCH.longDate(java.time.LocalDate.of(2026, 11, 8)))
+        assertEquals("November 8, 2026", PromptLanguage.ENGLISH.longDate(java.time.LocalDate.of(2026, 11, 8)))
+        assertEquals(PromptLanguage.FRENCH, PromptLanguage.fromCode("fr-CA"))
+        assertEquals(PromptLanguage.ENGLISH, PromptLanguage.fromCode("en"))
+    }
+
+    // French number formatting uses non-breaking spaces between thousands.
+    private fun Fact.normalizeSpaces() = Fact(label, value.replace('\u202F', ' ').replace('\u00A0', ' '))
 }

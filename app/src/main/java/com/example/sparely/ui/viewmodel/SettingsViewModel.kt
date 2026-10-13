@@ -304,15 +304,23 @@ class SettingsViewModel(
     suspend fun testLocalAi(): com.example.sparely.ai.LocalAiResult {
         val regional = _uiState.value.settings.regionalSettings
         val symbol = regional.getCurrencySymbol()
-        val language = java.util.Locale.forLanguageTag(regional.languageCode)
-            .getDisplayLanguage(java.util.Locale.ENGLISH)
-            .ifBlank { "English" }
+        val lang = com.example.sparely.ai.PromptLanguage.fromCode(regional.languageCode)
+        fun money(value: Double) = lang.money(value, symbol)
         val facts = listOf(
-            com.example.sparely.ai.Fact("Spent this month", "${symbol}1,240 of a ${symbol}1,500 budget"),
-            com.example.sparely.ai.Fact("Dining this month", "${symbol}310 of a ${symbol}250 budget"),
-            com.example.sparely.ai.Fact("Saved this month", "${symbol}400, up from ${symbol}320 last month")
+            com.example.sparely.ai.Fact(
+                lang.pick("Spent this month", "Dépensé ce mois-ci"),
+                lang.pick("${money(1240.0)} of a ${money(1500.0)} budget", "${money(1240.0)} sur un budget de ${money(1500.0)}")
+            ),
+            com.example.sparely.ai.Fact(
+                lang.pick("Dining budget", "Budget restaurants"),
+                lang.pick("${money(310.0)} of ${money(250.0)}", "${money(310.0)} sur ${money(250.0)}")
+            ),
+            com.example.sparely.ai.Fact(
+                lang.pick("Saved this month", "Épargné ce mois-ci"),
+                lang.pick("${money(400.0)}, up from ${money(320.0)} last month", "${money(400.0)}, contre ${money(320.0)} le mois dernier")
+            )
         )
-        return container.localAiManager.summarize(facts, replyLanguage = language)
+        return container.localAiManager.summarize(facts, language = lang)
     }
 
     fun updateOnDeviceAiEnabled(enabled: Boolean) {

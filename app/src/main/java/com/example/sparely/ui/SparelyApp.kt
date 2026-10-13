@@ -533,9 +533,7 @@ private fun SparelyScaffold(
             com.example.sparely.ui.components.OnDeviceAi(
                 manager = app.container.localAiManager,
                 enabled = aiEnabled,
-                replyLanguage = java.util.Locale.forLanguageTag(languageCode)
-                    .getDisplayLanguage(java.util.Locale.ENGLISH)
-                    .ifBlank { "English" }
+                language = com.example.sparely.ai.PromptLanguage.fromCode(languageCode)
             )
         }
         // AI cards only appear once the model is known to be ready, so check as soon as it's on.
@@ -1284,8 +1282,9 @@ private fun SparelyNavHost(
         }
         composable(SparelyDestination.Insights.route) {
             val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
-            val aiFacts = remember(uiState, symbol) {
-                com.example.sparely.ai.FinanceFacts.overview(uiState) { it.formatCurrency(symbol) }
+            val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+            val aiFacts = remember(uiState, symbol, aiLanguage) {
+                com.example.sparely.ai.FinanceFacts.overview(uiState, aiLanguage) { aiLanguage.money(it, symbol) }
             }
             InsightsScreen(
                 aiFacts = aiFacts,
