@@ -1000,6 +1000,7 @@ private fun SparelyNavHost(
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
                 onRefreshLocalAi = settingsViewModel::refreshLocalAi,
                 onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
+                onTestLocalAi = settingsViewModel::testLocalAi,
                 assistantActions = settingsUiState.assistantActions,
                 onUndoAssistantAction = settingsViewModel::undoAssistantAction,
                 onAuthenticateUser = onAuthenticateUser,

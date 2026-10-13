@@ -1564,6 +1564,10 @@
     <string name="settings_on_device_ai_status_error">Couldn\'t check or download the AI model. Try again in a moment, or update Android AICore from the Play Store.</string>
     <string name="settings_on_device_ai_download">Download AI model</string>
     <string name="settings_on_device_ai_retry">Try again</string>
+    <string name="settings_on_device_ai_test">Test with sample numbers</string>
+    <string name="settings_on_device_ai_test_running">Writing a sample summary…</string>
+    <string name="settings_on_device_ai_test_result">Sample summary</string>
+    <string name="settings_on_device_ai_test_failed">The test didn\'t work: %1$s</string>
     <string name="settings_on_device_ai_error_details">Details: %1$s</string>
     <string name="settings_on_device_ai_privacy">Everything runs on this phone. Your financial data is never sent online.</string>
     <string name="expense_entry_section_basics">Basics</string>

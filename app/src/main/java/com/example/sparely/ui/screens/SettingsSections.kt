@@ -12,7 +12,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
+import com.example.sparely.ai.LocalAiResult
 import com.example.sparely.ai.LocalAiState
+import kotlinx.coroutines.launch
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.*
@@ -666,7 +668,8 @@ fun SettingsOnDeviceAiCard(
     state: LocalAiState,
     canAnswerQuestions: Boolean,
     onRefresh: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onTest: suspend () -> LocalAiResult
 ) {
     // Support can change after Play services fetches a new configuration, so check on every visit.
     LaunchedEffect(Unit) { onRefresh() }
@@ -754,10 +757,72 @@ fun SettingsOnDeviceAiCard(
                 }
             }
 
+            if (state is LocalAiState.Ready && enabled) {
+                OnDeviceAiTest(onTest = onTest)
+            }
+
             Text(
                 text = stringResource(R.string.settings_on_device_ai_privacy),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Runs a sample summary and shows what came back, or why nothing did. */
+@Composable
+private fun OnDeviceAiTest(onTest: suspend () -> LocalAiResult) {
+    val scope = rememberCoroutineScope()
+    var running by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<LocalAiResult?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SparelyOutlinedButton(
+            onClick = {
+                running = true
+                result = null
+                scope.launch {
+                    result = try {
+                        onTest()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        LocalAiResult.Failed(e.message)
+                    }
+                    running = false
+                }
+            },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(if (running) R.string.settings_on_device_ai_test_running else R.string.settings_on_device_ai_test))
+        }
+        if (running) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        when (val r = result) {
+            null -> Unit
+            is LocalAiResult.Success -> {
+                Text(
+                    stringResource(R.string.settings_on_device_ai_test_result),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(r.text, style = MaterialTheme.typography.bodyMedium)
+            }
+            else -> Text(
+                text = stringResource(
+                    R.string.settings_on_device_ai_test_failed,
+                    when (r) {
+                        is LocalAiResult.Failed -> r.message ?: "—"
+                        LocalAiResult.NotReady -> "not ready"
+                        LocalAiResult.PromptTooLong -> "prompt too long"
+                        else -> ""
+                    }
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
             )
         }
     }

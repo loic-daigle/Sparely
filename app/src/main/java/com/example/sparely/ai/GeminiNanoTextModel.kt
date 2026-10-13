@@ -58,7 +58,7 @@ class GeminiNanoTextModel : LocalTextModel {
             )
             when (val result = check(model, candidate)) {
                 is Checked.Status -> if (result.value != FeatureStatus.UNAVAILABLE) {
-                    Log.i(TAG, "Using Gemini Nano ${candidate.name}")
+                    Log.i(TAG, "Using Gemini Nano ${candidate.name} (status ${result.value})")
                     client = model
                     variant = candidate
                     return result.value.toAvailability()

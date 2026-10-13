@@ -1285,6 +1285,10 @@
     <string name="settings_on_device_ai_status_error">Impossible de vérifier ou de télécharger le modèle d\'IA. Réessayez dans un moment, ou mettez à jour Android AICore depuis le Play Store.</string>
     <string name="settings_on_device_ai_download">Télécharger le modèle d\'IA</string>
     <string name="settings_on_device_ai_retry">Réessayer</string>
+    <string name="settings_on_device_ai_test">Tester avec des chiffres fictifs</string>
+    <string name="settings_on_device_ai_test_running">Rédaction d\'un résumé d\'exemple…</string>
+    <string name="settings_on_device_ai_test_result">Résumé d\'exemple</string>
+    <string name="settings_on_device_ai_test_failed">Le test n\'a pas fonctionné : %1$s</string>
     <string name="settings_on_device_ai_error_details">Détails : %1$s</string>
     <string name="settings_on_device_ai_privacy">Tout fonctionne sur ce téléphone. Vos données financières ne sont jamais envoyées en ligne.</string>
     <string name="expense_entry_section_basics">L\'essentiel</string>

@@ -169,6 +169,7 @@ fun SettingsScreen(
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
+    onTestLocalAi: suspend () -> com.example.sparely.ai.LocalAiResult = { com.example.sparely.ai.LocalAiResult.NotReady },
     assistantActions: List<com.example.sparely.domain.model.AssistantAction> = emptyList(),
     onUndoAssistantAction: (Long) -> Unit = {},
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
@@ -396,7 +397,8 @@ fun SettingsScreen(
                             state = localAiState,
                             canAnswerQuestions = localAiCanAnswerQuestions,
                             onRefresh = onRefreshLocalAi,
-                            onDownload = onDownloadLocalAi
+                            onDownload = onDownloadLocalAi,
+                            onTest = onTestLocalAi
                         )
                     }
 
