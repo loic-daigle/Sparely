@@ -158,6 +158,7 @@ fun PurchaseCheckScreen(
                         task = com.example.sparely.ai.AiTask.PURCHASE.text(aiLanguage)
                     )
                     com.example.sparely.ui.components.OnDeviceAiAskCard(
+                        slot = "purchase",
                         facts = aiFacts,
                         placeholder = stringResource(R.string.ai_purchase_ask_placeholder)
                     )

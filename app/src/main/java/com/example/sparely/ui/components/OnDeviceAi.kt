@@ -11,13 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,7 +31,6 @@ import com.example.sparely.ai.LocalAiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.sparely.app.R
-import kotlinx.coroutines.launch
 
 /** What screens need to show on-device AI. Provided once near the root of the app. */
 data class OnDeviceAi(
@@ -72,24 +69,11 @@ fun OnDeviceAiSummaryCard(
     val manager = readyManager() ?: return
     if (facts.isEmpty()) return
     val language = LocalOnDeviceAi.current.language
-    val scope = rememberCoroutineScope()
-    var result by remember(facts, task) {
-        mutableStateOf<LocalAiResult?>(manager.cachedSummary(facts, language, task)?.let { LocalAiResult.Success(it) })
-    }
-    var running by remember(facts, task) { mutableStateOf(false) }
-
-    fun generate() {
-        running = true
-        scope.launch {
-            manager.summarizeStream(facts, language = language, task = task).collect { result = it }
-            running = false
-        }
-    }
-
-    // Write it once when the numbers change; the cache makes revisits instant.
-    LaunchedEffect(facts, task) {
-        if (result == null) generate()
-    }
+    // The request lives in the manager, so scrolling this card away doesn't stop it, and coming
+    // back shows it where it is. It starts once when the numbers change.
+    var request by remember(facts, task, language) { mutableStateOf(manager.liveSummary(facts, language, task)) }
+    val result by request.result.collectAsState()
+    val running = result == null || result is LocalAiResult.Partial
 
     AiCard(title = title, modifier = modifier) {
         when (val r = result) {
@@ -105,8 +89,10 @@ fun OnDeviceAiSummaryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        } else if (!running && result != null && result !is LocalAiResult.Success) {
-            SparelyTextButton(onClick = ::generate) { Text(stringResource(R.string.ai_try_again)) }
+        } else if (!running && result !is LocalAiResult.Success) {
+            SparelyTextButton(onClick = { request = manager.liveSummary(facts, language, task, restart = true) }) {
+                Text(stringResource(R.string.ai_try_again))
+            }
         }
     }
 }
@@ -114,9 +100,13 @@ fun OnDeviceAiSummaryCard(
 /**
  * Lets the user ask a question answered from [facts] only. Needs the full model, so it's hidden on
  * phones that can only summarize.
+ *
+ * @param slot identifies this card (e.g. "insights") so its question and answer survive the card
+ * being scrolled away and rebuilt
  */
 @Composable
 fun OnDeviceAiAskCard(
+    slot: String,
     facts: List<Fact>,
     modifier: Modifier = Modifier,
     placeholder: String = stringResource(R.string.ai_ask_placeholder)
@@ -124,22 +114,15 @@ fun OnDeviceAiAskCard(
     val manager = readyManager() ?: return
     if (!manager.canAnswerQuestions) return
     val language = LocalOnDeviceAi.current.language
-    val scope = rememberCoroutineScope()
     var question by rememberSaveable { mutableStateOf("") }
-    var asked by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf<LocalAiResult?>(null) }
-    var running by remember { mutableStateOf(false) }
+    var request by remember(slot) { mutableStateOf(manager.currentAnswer(slot)) }
+    val result = request?.result?.collectAsState()?.value
+    val running = request != null && (result == null || result is LocalAiResult.Partial)
 
     fun ask() {
         val q = question.trim()
         if (q.isEmpty() || running) return
-        asked = q
-        running = true
-        result = null
-        scope.launch {
-            manager.askStream(facts, q, language = language).collect { result = it }
-            running = false
-        }
+        request = manager.askLive(slot, facts, q, language)
     }
 
     AiCard(title = stringResource(R.string.ai_ask_title), modifier = modifier) {
@@ -160,15 +143,15 @@ fun OnDeviceAiAskCard(
         ) {
             Text(stringResource(R.string.ai_ask_button))
         }
-        asked?.let {
+        request?.question?.let {
             Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (running && result !is LocalAiResult.Partial) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        when (val r = result) {
-            is LocalAiResult.Success -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
-            is LocalAiResult.Partial -> Text(r.text, style = MaterialTheme.typography.bodyMedium)
+        when (result) {
+            is LocalAiResult.Success -> Text(result.text, style = MaterialTheme.typography.bodyMedium)
+            is LocalAiResult.Partial -> Text(result.text, style = MaterialTheme.typography.bodyMedium)
             null -> Unit
-            else -> AiError(r)
+            else -> AiError(result)
         }
     }
 }

@@ -166,6 +166,7 @@ fun WishDetailScreen(
                         task = com.example.sparely.ai.AiTask.WISH.text(aiLanguage)
                     )
                     com.example.sparely.ui.components.OnDeviceAiAskCard(
+                        slot = "wish-${wish.id}",
                         facts = aiFacts,
                         placeholder = stringResource(R.string.ai_wish_ask_placeholder)
                     )
