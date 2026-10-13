@@ -28,9 +28,11 @@ okhttp = "4.12.0"
 ui = "1.10.0"
 places = "5.1.1"
 foundation = "1.11.0"
-# Pinned: beta3 and beta4 ask AICore for a model feature most phones don't have yet, so
-# checkStatus() reports the model unavailable. See github.com/googlesamples/mlkit/issues/1061
-genaiPrompt = "1.0.0-beta2"
+# beta4 is needed for Gemini Nano 4 (the AICore Developer Preview model): on beta2, checkStatus()
+# finds it but every request fails with INFERENCE_ERROR 200. Known beta4 bug: its stable/full config
+# asks for a feature most AICore builds lack (github.com/googlesamples/mlkit/issues/1061);
+# GeminiNanoTextModel then falls through to the next variant.
+genaiPrompt = "1.0.0-beta4"
 genaiSummarization = "1.0.0-beta1"
 
 
