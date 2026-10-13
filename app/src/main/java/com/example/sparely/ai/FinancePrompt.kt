@@ -27,6 +27,8 @@ object FinancePrompt {
         appendLine("- Use only the facts below. Never invent, estimate or recalculate numbers.")
         appendLine("- If the facts don't answer the question, say you don't have that information.")
         appendLine("- Don't give investment, tax or legal advice.")
+        appendLine("- Talk to the user directly (\"you\"). Never write \"the app says\" or \"according to the facts\".")
+        appendLine("- Don't list the facts back. Explain what the 1-2 most important numbers mean for the user.")
         appendLine("- Plain text only, no Markdown. Be brief and friendly.")
         appendLine("- Reply in $replyLanguage.")
         appendLine()
