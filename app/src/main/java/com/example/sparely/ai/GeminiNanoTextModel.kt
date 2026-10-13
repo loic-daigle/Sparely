@@ -66,13 +66,6 @@ class GeminiNanoTextModel : LocalTextModel {
         client.close()
     }
 
-    private fun isNotAvailable(e: GenAiException): Boolean =
-        e.errorCode == GenAiException.ErrorCode.NOT_AVAILABLE ||
-            e.message?.contains("not available", ignoreCase = true) == true
-
-    /** Error code plus message, shown in Settings so a failure can be reported precisely. */
-    private fun describe(e: GenAiException): String = "AICore error ${e.errorCode}: ${e.message}"
-
     private companion object {
         const val TAG = "GeminiNano"
     }

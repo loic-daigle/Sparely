@@ -286,6 +286,9 @@ class SettingsViewModel(
     /** Whether this phone can run the on-device model, and its download progress. */
     val localAiState: StateFlow<com.example.sparely.ai.LocalAiState> = container.localAiManager.state
 
+    /** State of the full model. When it isn't ready, only summaries are available. */
+    val localAiPromptState: StateFlow<com.example.sparely.ai.LocalAiState> = container.localAiManager.promptState
+
     fun refreshLocalAi() {
         container.localAiManager.refresh()
     }

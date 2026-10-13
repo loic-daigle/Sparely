@@ -97,8 +97,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val localAiManager by lazy {
         com.example.sparely.ai.LocalAiManager(
-            model = com.example.sparely.ai.GeminiNanoTextModel(),
-            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+            promptModel = com.example.sparely.ai.GeminiNanoTextModel(),
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
+            summarizer = com.example.sparely.ai.GeminiNanoSummarizer(appContext)
         )
     }
 

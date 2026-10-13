@@ -664,6 +664,7 @@ fun SettingsOnDeviceAiCard(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     state: LocalAiState,
+    canAnswerQuestions: Boolean,
     onRefresh: () -> Unit,
     onDownload: () -> Unit
 ) {
@@ -711,7 +712,10 @@ fun SettingsOnDeviceAiCard(
                     R.string.settings_on_device_ai_status_downloading,
                     android.text.format.Formatter.formatShortFileSize(context, state.bytesDownloaded)
                 )
-                LocalAiState.Ready -> stringResource(R.string.settings_on_device_ai_status_ready)
+                LocalAiState.Ready -> stringResource(
+                    if (canAnswerQuestions) R.string.settings_on_device_ai_status_ready
+                    else R.string.settings_on_device_ai_status_ready_summaries_only
+                )
                 is LocalAiState.Error -> stringResource(R.string.settings_on_device_ai_status_error)
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
