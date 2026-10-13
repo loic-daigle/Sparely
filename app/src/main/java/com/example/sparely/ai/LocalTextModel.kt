@@ -27,7 +27,9 @@ sealed interface ModelDownloadEvent {
 /** Sampling settings. Low values keep answers close to the facts in the prompt. */
 data class GenerationOptions(
     val temperature: Float = 0.2f,
-    val topK: Int = 10
+    val topK: Int = 10,
+    /** Caps the reply length. About 300 tokens is a few short paragraphs. */
+    val maxOutputTokens: Int = 300
 )
 
 /**

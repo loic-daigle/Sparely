@@ -28,7 +28,7 @@ okhttp = "4.12.0"
 ui = "1.10.0"
 places = "5.1.1"
 foundation = "1.11.0"
-genaiPrompt = "1.0.0-beta2"
+genaiPrompt = "1.0.0-beta4"
 
 
 [libraries]
