@@ -72,17 +72,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
     lint {
         baseline = file("lint-baseline.xml")
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
@@ -93,6 +93,15 @@ kapt {
 // AppFunctions: generate the app-wide function inventory (as in Google's AppFunctions sample).
 ksp {
     arg("appfunctions:aggregateAppFunctions", "true")
+}
+
+// Annotation processors bundle an older kotlin-metadata-jvm that can't read Kotlin 2.3 classes.
+configurations.matching { it.name.startsWith("ksp") || it.name.startsWith("kapt") }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name == "kotlin-metadata-jvm") {
+            useVersion(libs.versions.kotlin.get())
+        }
+    }
 }
 
 dependencies {
