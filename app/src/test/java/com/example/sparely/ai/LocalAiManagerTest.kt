@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -299,5 +300,61 @@ class LocalAiManagerTest {
         assertEquals(LocalAiResult.Failed("busy"), runBlocking { ai.generate("Hi") })
         fail = false
         assertEquals(LocalAiResult.Success("Done."), runBlocking { ai.generate("Hi") })
+    }
+
+    private class StreamingModel(private val chunks: List<String>) : LocalTextModel by FakeModel() {
+        var streams = 0
+        override fun generateStream(prompt: String, options: GenerationOptions): Flow<String> {
+            streams++
+            return flowOf(*chunks.toTypedArray())
+        }
+    }
+
+    @Test
+    fun summarizeStreamShowsTheReplyAsItIsWrittenThenCachesIt() {
+        val model = StreamingModel(listOf("Dining is ", "over budget."))
+        val ai = LocalAiManager(model, CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        val results = runBlocking { ai.summarizeStream(facts, task = "Sum up.").toList() }
+        assertEquals(
+            listOf(
+                LocalAiResult.Partial("Dining is"),
+                LocalAiResult.Partial("Dining is over budget."),
+                LocalAiResult.Success("Dining is over budget.")
+            ),
+            results
+        )
+        // Asking again comes straight from the cache, without running the model.
+        assertEquals(
+            listOf(LocalAiResult.Success("Dining is over budget.")),
+            runBlocking { ai.summarizeStream(facts, task = "Sum up.").toList() }
+        )
+        assertEquals(1, model.streams)
+        assertEquals("Dining is over budget.", ai.cachedSummary(facts, task = "Sum up."))
+    }
+
+    @Test
+    fun summarizeStreamFallsBackToTheSummarizerInOneStep() {
+        val ai = manager(FakeModel(availability = ModelAvailability.UNAVAILABLE), FakeSummarizer())
+        ai.refresh()
+        assertEquals(
+            listOf(LocalAiResult.Success("• Spending is down.")),
+            runBlocking { ai.summarizeStream(facts).toList() }
+        )
+        assertEquals(listOf(LocalAiResult.NotReady), runBlocking { ai.askStream(facts, "Why?").toList() })
+    }
+
+    @Test
+    fun askStreamReportsFailures() {
+        val model = object : LocalTextModel by FakeModel() {
+            override fun generateStream(prompt: String, options: GenerationOptions): Flow<String> =
+                flow { throw IllegalStateException("AICore error 200") }
+        }
+        val ai = LocalAiManager(model, CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        assertEquals(
+            listOf(LocalAiResult.Failed("AICore error 200")),
+            runBlocking { ai.askStream(facts, "Why?").toList() }
+        )
     }
 }

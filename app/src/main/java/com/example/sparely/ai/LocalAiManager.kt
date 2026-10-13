@@ -3,7 +3,10 @@ package com.example.sparely.ai
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -28,6 +31,9 @@ sealed interface LocalAiState {
 
 sealed interface LocalAiResult {
     data class Success(val text: String) : LocalAiResult
+
+    /** The reply so far, while the model is still writing. A stream ends with another result. */
+    data class Partial(val text: String) : LocalAiResult
     data object NotReady : LocalAiResult
     data object PromptTooLong : LocalAiResult
     data class Failed(val message: String?) : LocalAiResult
@@ -120,6 +126,7 @@ class LocalAiManager(
         if (canAnswerQuestions) {
             return generate(
                 FinancePrompt.build(task, facts, replyLanguage = replyLanguage),
+                options = REPLY_OPTIONS,
                 maxAnswerChars = maxAnswerChars
             )
         }
@@ -138,8 +145,69 @@ class LocalAiManager(
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): LocalAiResult = generate(
         FinancePrompt.build(QUESTION_TASK, facts, question = question, replyLanguage = replyLanguage),
+        options = REPLY_OPTIONS,
         maxAnswerChars = maxAnswerChars
     )
+
+    /**
+     * Like [summarize], but shows the reply as it's written: [LocalAiResult.Partial] while the
+     * model writes, then one final result. On the CPU a reply can take a minute, so this keeps the
+     * screen from looking stuck. The summarizer can't stream, so it gives just the final result.
+     */
+    fun summarizeStream(
+        facts: List<Fact>,
+        replyLanguage: String = "English",
+        task: String = SUMMARY_TASK,
+        maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
+    ): Flow<LocalAiResult> =
+        if (canAnswerQuestions) {
+            stream(FinancePrompt.build(task, facts, replyLanguage = replyLanguage), maxAnswerChars)
+        } else {
+            flow { emit(summarize(facts, replyLanguage, task, maxAnswerChars)) }
+        }
+
+    /** Like [ask], but shows the answer as it's written. */
+    fun askStream(
+        facts: List<Fact>,
+        question: String,
+        replyLanguage: String = "English",
+        maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
+    ): Flow<LocalAiResult> =
+        stream(FinancePrompt.build(QUESTION_TASK, facts, question = question, replyLanguage = replyLanguage), maxAnswerChars)
+
+    private fun stream(prompt: String, maxAnswerChars: Int): Flow<LocalAiResult> {
+        if (!canAnswerQuestions) return flowOf(LocalAiResult.NotReady)
+        if (prompt.length > MAX_PROMPT_CHARS) return flowOf(LocalAiResult.PromptTooLong)
+        val key = "prompt:$prompt"
+        return flow {
+            synchronized(cache) { cache[key] }?.let {
+                emit(LocalAiResult.Success(it))
+                return@flow
+            }
+            inference.withLock {
+                val raw = StringBuilder()
+                val result = try {
+                    promptModel.generateStream(prompt, REPLY_OPTIONS).collect { chunk ->
+                        raw.append(chunk)
+                        val soFar = AnswerFormatter.clean(raw.toString(), maxAnswerChars)
+                        if (soFar.isNotEmpty()) emit(LocalAiResult.Partial(soFar))
+                    }
+                    val text = AnswerFormatter.clean(raw.toString(), maxAnswerChars)
+                    if (text.isEmpty()) {
+                        LocalAiResult.Failed(null)
+                    } else {
+                        synchronized(cache) { cache[key] = text }
+                        LocalAiResult.Success(text)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    LocalAiResult.Failed(e.message)
+                }
+                emit(result)
+            }
+        }
+    }
 
     /** Answers already given for the same request, so reopening a screen doesn't run the model again. */
     private val cache = object : LinkedHashMap<String, String>(16, 0.75f, true) {
@@ -192,6 +260,9 @@ class LocalAiManager(
         private const val QUESTION_TASK =
             "Answer the user's question in 1-3 short sentences, using only the facts."
         private const val CACHE_SIZE = 32
+
+        /** 2-3 sentences need far fewer than the 256-token maximum, and each token costs time on the CPU. */
+        private val REPLY_OPTIONS = GenerationOptions(maxOutputTokens = 160)
 
         /** The most useful of two engine states: a usable engine beats one that's still on its way. */
         internal fun combine(a: LocalAiState, b: LocalAiState): LocalAiState {

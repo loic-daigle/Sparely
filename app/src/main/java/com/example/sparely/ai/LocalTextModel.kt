@@ -52,6 +52,13 @@ interface LocalTextModel : DownloadableModel {
 
     /** Returns the model's raw reply, or null if it produced none. */
     suspend fun generate(prompt: String, options: GenerationOptions): String?
+
+    /**
+     * The reply as it's written, one piece at a time; joined, the pieces are the whole reply. By
+     * default the reply arrives as a single piece.
+     */
+    fun generateStream(prompt: String, options: GenerationOptions): Flow<String> =
+        kotlinx.coroutines.flow.flow { generate(prompt, options)?.let { emit(it) } }
 }
 
 /**
