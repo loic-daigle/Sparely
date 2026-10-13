@@ -117,7 +117,7 @@ class GeminiNanoTextModel : LocalTextModel {
         val request = generateContentRequest(TextPart(prompt)) {
             temperature = options.temperature
             topK = options.topK
-            maxOutputTokens = options.maxOutputTokens
+            maxOutputTokens = options.maxOutputTokens.coerceIn(1, MAX_OUTPUT_TOKENS)
         }
         return requireClient().generateContent(request).candidates.firstOrNull()?.text
     }
