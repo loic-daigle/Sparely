@@ -99,7 +99,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
         com.example.sparely.ai.LocalAiManager(
             promptModel = com.example.sparely.ai.GeminiNanoTextModel(),
             scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
-            summarizer = com.example.sparely.ai.GeminiNanoSummarizer(appContext)
+            summarizer = com.example.sparely.ai.GeminiNanoSummarizer(appContext),
+            // noBackupFilesDir: saved answers mention the user's finances, so they stay off cloud backups
+            answers = com.example.sparely.ai.FileAnswerStore(java.io.File(appContext.noBackupFilesDir, "ai_answers.json"))
         )
     }
 

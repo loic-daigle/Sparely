@@ -50,7 +50,9 @@ sealed interface LocalAiResult {
 class LocalAiManager(
     private val promptModel: LocalTextModel,
     private val scope: CoroutineScope,
-    private val summarizer: LocalSummarizer? = null
+    private val summarizer: LocalSummarizer? = null,
+    /** Where answers are kept so the same request never runs the model twice. */
+    private val answers: AnswerStore = InMemoryAnswerStore()
 ) {
     private val _state = MutableStateFlow<LocalAiState>(LocalAiState.Checking)
 
@@ -180,7 +182,7 @@ class LocalAiManager(
         if (prompt.length > MAX_PROMPT_CHARS) return flowOf(LocalAiResult.PromptTooLong)
         val key = "prompt:$prompt"
         return flow {
-            synchronized(cache) { cache[key] }?.let {
+            answers.get(key)?.let {
                 emit(LocalAiResult.Success(it))
                 return@flow
             }
@@ -196,7 +198,7 @@ class LocalAiManager(
                     if (text.isEmpty()) {
                         LocalAiResult.Failed(null)
                     } else {
-                        synchronized(cache) { cache[key] = text }
+                        answers.put(key, text)
                         LocalAiResult.Success(text)
                     }
                 } catch (e: CancellationException) {
@@ -209,27 +211,23 @@ class LocalAiManager(
         }
     }
 
-    /** Answers already given for the same request, so reopening a screen doesn't run the model again. */
-    private val cache = object : LinkedHashMap<String, String>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > CACHE_SIZE
-    }
-
     /** The cached answer for a request [summarize] or [ask] already answered, if any. */
     fun cachedSummary(facts: List<Fact>, replyLanguage: String = "English", task: String = SUMMARY_TASK): String? =
-        synchronized(cache) {
-            if (canAnswerQuestions) cache["prompt:" + FinancePrompt.build(task, facts, replyLanguage = replyLanguage)]
-            else cache["summary:" + FinancePrompt.factsAsText(facts)]
-        }
+        if (canAnswerQuestions) answers.get("prompt:" + FinancePrompt.build(task, facts, replyLanguage = replyLanguage))
+        else answers.get("summary:" + FinancePrompt.factsAsText(facts))
+
+    /** Forgets every saved answer, e.g. when the user turns on-device AI off. */
+    fun clearAnswers() = answers.clear()
 
     private suspend fun run(key: String, maxAnswerChars: Int, request: suspend () -> String?): LocalAiResult {
-        synchronized(cache) { cache[key] }?.let { return LocalAiResult.Success(it) }
+        answers.get(key)?.let { return LocalAiResult.Success(it) }
         return inference.withLock {
             try {
                 val text = AnswerFormatter.clean(request().orEmpty(), maxAnswerChars)
                 if (text.isEmpty()) {
                     LocalAiResult.Failed(null)
                 } else {
-                    synchronized(cache) { cache[key] = text }
+                    answers.put(key, text)
                     LocalAiResult.Success(text)
                 }
             } catch (e: CancellationException) {
@@ -259,7 +257,6 @@ class LocalAiManager(
         const val SUMMARY_TASK = "Summarize how the user's finances are going in 2-3 short sentences."
         private const val QUESTION_TASK =
             "Answer the user's question in 1-3 short sentences, using only the facts."
-        private const val CACHE_SIZE = 32
 
         /** 2-3 sentences need far fewer than the 256-token maximum, and each token costs time on the CPU. */
         private val REPLY_OPTIONS = GenerationOptions(maxOutputTokens = 160)
