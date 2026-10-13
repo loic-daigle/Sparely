@@ -66,7 +66,9 @@ fun InsightsScreen(
     uniqueExpenses: List<SmartInsightEngine.UniqueExpenseInsight> = emptyList(),
     onTransferToSavings: (amount: Double) -> Unit = {},
     onNavigateBack: () -> Unit,
-    onAnomalyClick: (Expense) -> Unit = {}
+    onAnomalyClick: (Expense) -> Unit = {},
+    /** Figures for the on-device AI summary and questions; the cards hide themselves when AI is off. */
+    aiFacts: List<com.example.sparely.ai.Fact> = emptyList()
 ) {
     // Note: This screen no longer includes its own TopAppBar to avoid duplicate headers
     // The parent navigation scaffold should provide the app bar
@@ -89,6 +91,17 @@ fun InsightsScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item(key = "ai_summary") {
+                com.example.sparely.ui.components.OnDeviceAiSummaryCard(
+                    title = stringResource(R.string.ai_insights_title),
+                    facts = aiFacts,
+                    task = INSIGHTS_AI_TASK
+                )
+            }
+            item(key = "ai_ask") {
+                com.example.sparely.ui.components.OnDeviceAiAskCard(facts = aiFacts)
+            }
+
             // 1. Headline numbers first: what's safe to spend and how long money lasts.
             // Without a forecast (e.g. no income set yet) the other insights still show,
             // instead of an endless loading spinner.
@@ -1056,3 +1069,6 @@ private fun indexForX(x: Float, stepX: Float, lastIndex: Int): Int {
     if (lastIndex <= 0 || stepX <= 0f || !stepX.isFinite() || !x.isFinite()) return 0
     return (x / stepX).roundToInt().coerceIn(0, lastIndex)
 }
+
+private const val INSIGHTS_AI_TASK =
+    "Summarize how the user's month is going in 2-3 short sentences, then give one practical tip based only on the facts."

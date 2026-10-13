@@ -104,21 +104,22 @@ class LocalAiManager(
     ): LocalAiResult {
         if (!canAnswerQuestions) return LocalAiResult.NotReady
         if (prompt.length > MAX_PROMPT_CHARS) return LocalAiResult.PromptTooLong
-        return run(maxAnswerChars) { promptModel.generate(prompt, options) }
+        return run("prompt:$prompt", maxAnswerChars) { promptModel.generate(prompt, options) }
     }
 
     /**
-     * Summarizes [facts] with whichever engine the phone has. The full model writes in
-     * [replyLanguage]; the summarizer only writes English.
+     * Summarizes [facts] with whichever engine the phone has. The full model follows [task] and
+     * writes in [replyLanguage]; the summarizer ignores both and writes English.
      */
     suspend fun summarize(
         facts: List<Fact>,
         replyLanguage: String = "English",
+        task: String = SUMMARY_TASK,
         maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
     ): LocalAiResult {
         if (canAnswerQuestions) {
             return generate(
-                FinancePrompt.build(SUMMARY_TASK, facts, replyLanguage = replyLanguage),
+                FinancePrompt.build(task, facts, replyLanguage = replyLanguage),
                 maxAnswerChars = maxAnswerChars
             )
         }
@@ -126,20 +127,50 @@ class LocalAiManager(
         if (summarizer == null || summary?.state?.value != LocalAiState.Ready) return LocalAiResult.NotReady
         val text = FinancePrompt.factsAsText(facts)
         if (text.length > MAX_PROMPT_CHARS) return LocalAiResult.PromptTooLong
-        return run(maxAnswerChars) { summarizer.summarize(text) }
+        return run("summary:$text", maxAnswerChars) { summarizer.summarize(text) }
     }
 
-    private suspend fun run(maxAnswerChars: Int, request: suspend () -> String?): LocalAiResult =
-        inference.withLock {
+    /** Answers the user's [question] from [facts] only. Needs the full model ([canAnswerQuestions]). */
+    suspend fun ask(
+        facts: List<Fact>,
+        question: String,
+        replyLanguage: String = "English",
+        maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS
+    ): LocalAiResult = generate(
+        FinancePrompt.build(QUESTION_TASK, facts, question = question, replyLanguage = replyLanguage),
+        maxAnswerChars = maxAnswerChars
+    )
+
+    /** Answers already given for the same request, so reopening a screen doesn't run the model again. */
+    private val cache = object : LinkedHashMap<String, String>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > CACHE_SIZE
+    }
+
+    /** The cached answer for a request [summarize] or [ask] already answered, if any. */
+    fun cachedSummary(facts: List<Fact>, replyLanguage: String = "English", task: String = SUMMARY_TASK): String? =
+        synchronized(cache) {
+            if (canAnswerQuestions) cache["prompt:" + FinancePrompt.build(task, facts, replyLanguage = replyLanguage)]
+            else cache["summary:" + FinancePrompt.factsAsText(facts)]
+        }
+
+    private suspend fun run(key: String, maxAnswerChars: Int, request: suspend () -> String?): LocalAiResult {
+        synchronized(cache) { cache[key] }?.let { return LocalAiResult.Success(it) }
+        return inference.withLock {
             try {
                 val text = AnswerFormatter.clean(request().orEmpty(), maxAnswerChars)
-                if (text.isEmpty()) LocalAiResult.Failed(null) else LocalAiResult.Success(text)
+                if (text.isEmpty()) {
+                    LocalAiResult.Failed(null)
+                } else {
+                    synchronized(cache) { cache[key] = text }
+                    LocalAiResult.Success(text)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 LocalAiResult.Failed(e.message)
             }
         }
+    }
 
     private fun updateState() {
         _state.value = combine(prompt.state.value, summary?.state?.value ?: LocalAiState.Unsupported)
@@ -157,7 +188,10 @@ class LocalAiManager(
          */
         const val MAX_PROMPT_CHARS = 8_000
 
-        private const val SUMMARY_TASK = "Summarize how the user's finances are going in 2-3 short sentences."
+        const val SUMMARY_TASK = "Summarize how the user's finances are going in 2-3 short sentences."
+        private const val QUESTION_TASK =
+            "Answer the user's question in 1-3 short sentences, using only the facts."
+        private const val CACHE_SIZE = 32
 
         /** The most useful of two engine states: a usable engine beats one that's still on its way. */
         internal fun combine(a: LocalAiState, b: LocalAiState): LocalAiState {
