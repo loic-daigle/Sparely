@@ -199,4 +199,40 @@ class FinanceFactsTest {
         assertEquals("Good news", facts.single().label)
         assertTrue(facts.single().value.startsWith("Spending is on track: $1240 of $1500 used"))
     }
+
+    @Test
+    fun vaultsPutTheGoalAtRiskFirst() {
+        val today = java.time.LocalDate.of(2026, 10, 14)
+        val trip = com.example.sparely.domain.model.SmartVault(
+            id = 1, name = "Trip", targetAmount = 2000.0, currentBalance = 800.0,
+            targetDate = java.time.LocalDate.of(2027, 4, 14)
+        )
+        val car = com.example.sparely.domain.model.SmartVault(id = 2, name = "Car", targetAmount = 5000.0, currentBalance = 1000.0)
+        val atRisk = com.example.sparely.domain.model.VaultProjection(
+            vaultId = 2, projectedCompletionDate = null, monthlyContributionNeeded = 0.0,
+            riskFlag = com.example.sparely.domain.model.VaultRiskFlag(com.example.sparely.domain.model.VaultRiskType.TARGET_AT_RISK, "")
+        )
+        val facts = FinanceFacts.vaults(listOf(trip, car), listOf(atRisk), monthlyIncome = 4000.0, money = money, today = today)
+        assertEquals(Fact("Saved across all goals", "$1800 of $7000 (26%) in 2 goals"), facts.first())
+        val goals = facts.filter { it.label.startsWith("Goal ") }
+        assertEquals("Goal Car", goals.first().label)
+        assertTrue(goals.first().value.endsWith("target at risk"))
+        assertTrue(goals[1].value.contains("a month"))
+    }
+
+    @Test
+    fun recurringWorksOutTheMonthlyCost() {
+        fun recurring(name: String, amount: Double, frequency: com.example.sparely.domain.model.RecurringFrequency, category: ExpenseCategory) =
+            com.example.sparely.domain.model.RecurringExpense(
+                description = name, amount = amount, category = category, frequency = frequency,
+                startDate = java.time.LocalDate.of(2026, 1, 1)
+            )
+        val rent = recurring("Rent", 1200.0, com.example.sparely.domain.model.RecurringFrequency.MONTHLY, ExpenseCategory.UTILITIES)
+        val netflix = recurring("Netflix", 20.0, com.example.sparely.domain.model.RecurringFrequency.MONTHLY, ExpenseCategory.ENTERTAINMENT)
+        val insurance = recurring("Insurance", 600.0, com.example.sparely.domain.model.RecurringFrequency.YEARLY, ExpenseCategory.OTHER)
+        val facts = FinanceFacts.recurring(listOf(rent, netflix, insurance), emptyList(), monthlyIncome = 0.0, money = money)
+        assertEquals(Fact("Recurring payments", "3 active, about $1270 a month ($15240 a year)"), facts.first())
+        assertEquals("Rent", facts[1].label)
+        assertTrue(Fact("Entertainment subscriptions", "about $20 a month") in facts)
+    }
 }

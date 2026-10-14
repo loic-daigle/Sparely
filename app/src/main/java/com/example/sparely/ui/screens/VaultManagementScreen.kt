@@ -91,7 +91,9 @@ fun VaultManagementScreen(
     onManualDeposit: ((Long, Double, String?, Boolean) -> Unit)? = null,
     onManualWithdrawal: ((Long, Double, String?, Boolean) -> Unit)? = null,
     onViewHistory: ((Long) -> Unit)? = null,
-    onBalanceOverride: ((Long, Double, String?) -> Unit)? = null
+    onBalanceOverride: ((Long, Double, String?) -> Unit)? = null,
+    /** Figures for the on-device AI section; it hides itself when AI is off. */
+    aiFacts: List<com.example.sparely.ai.Fact> = emptyList()
 ) {
 
     var vaultToEdit by remember { mutableStateOf<SmartVault?>(null) }
@@ -211,6 +213,17 @@ fun VaultManagementScreen(
                         monthlyIncome = monthlyIncome,
                         recentExpenses = recentMonthlyExpenses,
                         savingsRate = savingsRate
+                    )
+                }
+                item(key = "ai") {
+                    val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                    com.example.sparely.ui.components.OnDeviceAiSection(
+                        title = stringResource(R.string.ai_vaults_title),
+                        facts = aiFacts,
+                        task = com.example.sparely.ai.AiTask.VAULTS.text(aiLanguage),
+                        askSlot = "vaults",
+                        askPlaceholder = stringResource(R.string.ai_vaults_ask_placeholder),
+                        modifier = Modifier.padding(top = 12.dp)
                     )
                 }
             }

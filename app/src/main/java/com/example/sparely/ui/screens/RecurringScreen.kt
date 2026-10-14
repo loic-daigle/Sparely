@@ -166,7 +166,9 @@ fun RecurringExpensesScreen(
     paymentMethods: List<PaymentMethod> = emptyList(),
     onManagePaymentMethods: () -> Unit = {},
     brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
-    onBrandSearch: (String) -> Unit = {}
+    onBrandSearch: (String) -> Unit = {},
+    /** Figures for the on-device AI section; it hides itself when AI is off. */
+    aiFacts: List<com.example.sparely.ai.Fact> = emptyList()
 ) {
     var isDialogVisible by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<RecurringExpense?>(null) }
@@ -208,6 +210,17 @@ fun RecurringExpensesScreen(
                     detected = unsavedDetected,
                     selectedMode = overviewMode,
                     onModeChange = { overviewMode = it }
+                )
+            }
+            item(key = "ai") {
+                val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                com.example.sparely.ui.components.OnDeviceAiSection(
+                    title = stringResource(R.string.ai_recurring_title),
+                    facts = aiFacts,
+                    task = com.example.sparely.ai.AiTask.RECURRING.text(aiLanguage),
+                    askSlot = "recurring",
+                    askPlaceholder = stringResource(R.string.ai_recurring_ask_placeholder),
+                    modifier = Modifier.padding(top = 12.dp)
                 )
             }
             if (unsavedDetected.isNotEmpty()) {

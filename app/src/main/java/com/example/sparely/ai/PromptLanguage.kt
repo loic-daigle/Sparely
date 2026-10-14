@@ -92,6 +92,18 @@ enum class AiTask(private val en: String, private val fr: String) {
             "important d'abord, et propose une action concrète si un fait le demande. Ne parle pas de son solde ni du montant " +
             "dépensable sans risque, sauf si un fait en parle."
     ),
+    VAULTS(
+        "In 2-3 short sentences, tell the user how their savings goals are going: the overall progress, the goal that " +
+            "needs the most attention and why, and what monthly amount would keep it on track.",
+        "En 2 ou 3 phrases courtes, dis à l'utilisateur comment vont ses objectifs d'épargne : le progrès global, " +
+            "l'objectif qui demande le plus d'attention et pourquoi, et le montant mensuel qui le garderait dans les temps."
+    ),
+    RECURRING(
+        "In 2-3 short sentences, tell the user what their recurring payments cost each month and per year, which ones " +
+            "weigh the most, and one they could review to save money.",
+        "En 2 ou 3 phrases courtes, dis à l'utilisateur combien ses paiements récurrents coûtent par mois et par année, " +
+            "lesquels pèsent le plus, et un qu'il pourrait revoir pour économiser."
+    ),
     HEALTH(
         "Explain the user's financial health score in 2-3 short sentences: what's going well, and the one change that would raise it most.",
         "Explique en 2 ou 3 phrases courtes le score de santé financière de l'utilisateur : ce qui va bien, et le changement qui l'améliorerait le plus."

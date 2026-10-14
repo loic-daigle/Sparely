@@ -134,6 +134,8 @@ Where it appears:
 - **Dashboard:** a one-sentence brief under the greeting; tap it to open Insights
 - **Insights:** a summary of your month with one tip, and "Ask about your finances"
 - **Budgets:** a summary of how your budgets are doing
+- **Vaults:** how your savings goals are going, which one needs attention and what it needs per month, with questions
+- **Recurring:** what your recurring payments cost per month and per year, the biggest ones and one to review, with questions
 - **Can I afford it?:** an explanation of the verdict, and questions about the purchase ("What if I wait a month?")
 - **Wishlist item details:** whether now is a good time to buy it, and questions ("How long until I can afford it?")
 - **Financial health:** the score explained, and questions ("How do I raise my score fastest?")

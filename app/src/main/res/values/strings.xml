@@ -1590,6 +1590,10 @@
     <string name="ai_wish_ask_placeholder">How long until I can afford it?</string>
     <string name="ai_health_title">Your score, explained</string>
     <string name="ai_health_ask_placeholder">How do I raise my score fastest?</string>
+    <string name="ai_vaults_title">Your goals, in a few words</string>
+    <string name="ai_vaults_ask_placeholder">How much per month to reach my trip goal?</string>
+    <string name="ai_recurring_title">Your recurring payments, in a few words</string>
+    <string name="ai_recurring_ask_placeholder">Which subscription costs me the most?</string>
     <string name="expense_entry_section_basics">Basics</string>
     <string name="expense_entry_section_payment">Payment</string>
     <string name="expense_entry_section_allocations">Savings &amp; asset allocations</string>

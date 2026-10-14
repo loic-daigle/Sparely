@@ -7,6 +7,7 @@ import com.example.sparely.domain.model.FinancialHealthScore
 import com.example.sparely.domain.model.HealthLevel
 import com.example.sparely.domain.model.ImprovementTip
 import com.example.sparely.domain.model.needsDecision
+import com.example.sparely.domain.model.calculateMonthlyContribution
 import com.example.sparely.ui.state.SparelyUiState
 import java.time.LocalDate
 import kotlin.math.abs
@@ -189,6 +190,148 @@ object FinanceFacts {
     }
 
     private const val MAX_BRIEF_POINTS = 3
+
+    /**
+     * Savings goals: overall progress, then the goals that need attention first (behind schedule
+     * or at risk), then the soonest due, each with what it needs per month.
+     */
+    fun vaults(
+        vaults: List<com.example.sparely.domain.model.SmartVault>,
+        projections: List<com.example.sparely.domain.model.VaultProjection>,
+        monthlyIncome: Double,
+        lang: PromptLanguage = PromptLanguage.ENGLISH,
+        money: (Double) -> String,
+        today: LocalDate = LocalDate.now()
+    ): List<Fact> = buildList {
+        val open = vaults.filter { !it.archived }
+        if (open.isEmpty()) return@buildList
+        val withTarget = open.filter { it.targetAmount > 0 }
+        val saved = open.sumOf { it.currentBalance }
+        val target = withTarget.sumOf { it.targetAmount }
+        add(
+            Fact(
+                lang.pick("Saved across all goals", "Épargné dans tous les objectifs"),
+                if (target > 0) {
+                    lang.pick(
+                        "${money(saved)} of ${money(target)} (${lang.percent(saved / target)}) in ${open.size} goals",
+                        "${money(saved)} sur ${money(target)} (${lang.percent(saved / target)}) dans ${open.size} objectifs"
+                    )
+                } else money(saved)
+            )
+        )
+        val done = withTarget.count { it.currentBalance >= it.targetAmount }
+        if (done > 0) add(Fact(lang.pick("Goals reached", "Objectifs atteints"), done.toString()))
+        val monthly = open.sumOf { it.calculateMonthlyContribution(today) }
+        if (monthly >= 1) {
+            add(
+                Fact(
+                    lang.pick("Needed each month to stay on schedule", "Nécessaire chaque mois pour rester dans les temps"),
+                    money(monthly) + if (monthlyIncome > 0) lang.pick(
+                        " (${lang.percent(monthly / monthlyIncome)} of monthly income)",
+                        " (${lang.percent(monthly / monthlyIncome)} du revenu mensuel)"
+                    ) else ""
+                )
+            )
+        }
+        val byId = projections.associateBy { it.vaultId }
+        fun urgency(v: com.example.sparely.domain.model.SmartVault): Int = when (byId[v.id]?.riskFlag?.type) {
+            com.example.sparely.domain.model.VaultRiskType.TARGET_AT_RISK -> 0
+            com.example.sparely.domain.model.VaultRiskType.BEHIND_SCHEDULE -> 1
+            else -> 2
+        }
+        withTarget.filter { it.currentBalance < it.targetAmount }
+            .sortedWith(compareBy({ urgency(it) }, { it.targetDate ?: LocalDate.MAX }))
+            .take(MAX_VAULT_FACTS)
+            .forEach { v ->
+                val parts = mutableListOf(
+                    lang.pick(
+                        "${money(v.currentBalance)} of ${money(v.targetAmount)} (${lang.percent(v.currentBalance / v.targetAmount)})",
+                        "${money(v.currentBalance)} sur ${money(v.targetAmount)} (${lang.percent(v.currentBalance / v.targetAmount)})"
+                    )
+                )
+                v.targetDate?.let { parts += lang.pick("due ${lang.longDate(it)}", "pour le ${lang.longDate(it)}") }
+                val need = v.calculateMonthlyContribution(today)
+                if (need >= 1) parts += lang.pick("needs ${money(need)} a month", "demande ${money(need)} par mois")
+                when (urgency(v)) {
+                    0 -> parts += lang.pick("target at risk", "objectif en danger")
+                    1 -> parts += lang.pick("behind schedule", "en retard sur le plan")
+                }
+                add(Fact(lang.pick("Goal ${oneLineName(v.name)}", "Objectif ${oneLineName(v.name)}"), parts.joinToString(", ")))
+            }
+    }
+
+    private const val MAX_VAULT_FACTS = 4
+
+    /**
+     * Recurring payments: what they cost per month in total, the ones that weigh the most, and
+     * what's due in the next two weeks. Monthly costs are worked out here from each frequency.
+     */
+    fun recurring(
+        expenses: List<com.example.sparely.domain.model.RecurringExpense>,
+        upcoming: List<com.example.sparely.domain.model.UpcomingRecurringExpense>,
+        monthlyIncome: Double,
+        lang: PromptLanguage = PromptLanguage.ENGLISH,
+        money: (Double) -> String
+    ): List<Fact> = buildList {
+        val active = expenses.filter { it.isActive }
+        if (active.isEmpty()) return@buildList
+        val perMonth = active.associateWith { monthlyCost(it) }
+        val total = perMonth.values.sum()
+        add(
+            Fact(
+                lang.pick("Recurring payments", "Paiements récurrents"),
+                lang.pick(
+                    "${active.size} active, about ${money(total)} a month (${money(total * 12)} a year)",
+                    "${active.size} actifs, environ ${money(total)} par mois (${money(total * 12)} par année)"
+                ) + if (monthlyIncome > 0) lang.pick(
+                    ", ${lang.percent(total / monthlyIncome)} of monthly income",
+                    ", ${lang.percent(total / monthlyIncome)} du revenu mensuel"
+                ) else ""
+            )
+        )
+        perMonth.entries.sortedByDescending { it.value }.take(MAX_RECURRING_FACTS).forEach { (expense, cost) ->
+            add(
+                Fact(
+                    oneLineName(expense.description),
+                    lang.pick(
+                        "about ${money(cost)} a month (${lang.percent(if (total > 0) cost / total else 0.0)} of the total), ${categoryName(expense.category, lang)}",
+                        "environ ${money(cost)} par mois (${lang.percent(if (total > 0) cost / total else 0.0)} du total), ${categoryName(expense.category, lang)}"
+                    )
+                )
+            )
+        }
+        val entertainment = perMonth.filterKeys { it.category == ExpenseCategory.ENTERTAINMENT }.values.sum()
+        if (entertainment >= 1) {
+            add(Fact(lang.pick("Entertainment subscriptions", "Abonnements de divertissement"), lang.pick("about ${money(entertainment)} a month", "environ ${money(entertainment)} par mois")))
+        }
+        val soon = upcoming.filter { it.daysUntilDue in 0..14 }.sortedBy { it.daysUntilDue }
+        if (soon.isNotEmpty()) {
+            add(
+                Fact(
+                    lang.pick("Due in the next 14 days", "À payer dans les 14 prochains jours"),
+                    money(soon.sumOf { it.predictedAmount ?: it.recurringExpense.amount }) + " (" +
+                        soon.take(3).joinToString(", ") { "${oneLineName(it.recurringExpense.description)} ${lang.longDate(it.dueDate)}" } + ")"
+                )
+            )
+        }
+        val paused = expenses.count { !it.isActive }
+        if (paused > 0) add(Fact(lang.pick("Paused recurring payments", "Paiements récurrents en pause"), paused.toString()))
+    }
+
+    private const val MAX_RECURRING_FACTS = 3
+
+    /** What a recurring payment costs per month, from its frequency. */
+    internal fun monthlyCost(expense: com.example.sparely.domain.model.RecurringExpense): Double = when (expense.frequency) {
+        com.example.sparely.domain.model.RecurringFrequency.DAILY -> expense.amount * 365 / 12
+        com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> expense.amount * 52 / 12
+        com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> expense.amount * 26 / 12
+        com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> expense.amount
+        com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> expense.amount / 3
+        com.example.sparely.domain.model.RecurringFrequency.YEARLY -> expense.amount / 12
+    }
+
+    // Names the user typed, kept on one line so they can't break the prompt's layout.
+    private fun oneLineName(text: String): String = text.replace(Regex("\\s+"), " ").trim()
 
     /**
      * What's owed on credit cards, so a card purchase shows up in the summary. One card is named

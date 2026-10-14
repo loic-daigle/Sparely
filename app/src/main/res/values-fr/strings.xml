@@ -1311,6 +1311,10 @@
     <string name="ai_wish_ask_placeholder">Dans combien de temps pourrai-je me le permettre?</string>
     <string name="ai_health_title">Votre score expliqué</string>
     <string name="ai_health_ask_placeholder">Comment améliorer mon score le plus vite?</string>
+    <string name="ai_vaults_title">Vos objectifs en quelques mots</string>
+    <string name="ai_vaults_ask_placeholder">Combien par mois pour atteindre mon objectif voyage?</string>
+    <string name="ai_recurring_title">Vos paiements récurrents en quelques mots</string>
+    <string name="ai_recurring_ask_placeholder">Quel abonnement me coûte le plus cher?</string>
     <string name="expense_entry_section_basics">L\'essentiel</string>
     <string name="expense_entry_section_payment">Paiement</string>
     <string name="expense_entry_section_allocations">Épargne et répartition des biens</string>

@@ -817,7 +817,19 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.Vaults.route) {
+            val vaultAiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+            val vaultSymbol = uiState.settings.regionalSettings.getCurrencySymbol()
+            val vaultAiFacts = remember(allVaults, uiState.vaultProjections, uiState.settings.monthlyIncome, vaultAiLanguage, vaultSymbol) {
+                com.example.sparely.ai.FinanceFacts.vaults(
+                    vaults = allVaults,
+                    projections = uiState.vaultProjections,
+                    monthlyIncome = uiState.settings.monthlyIncome,
+                    lang = vaultAiLanguage,
+                    money = { vaultAiLanguage.money(it, vaultSymbol) }
+                )
+            }
             VaultManagementScreen(
+                aiFacts = vaultAiFacts,
                 vaults = allVaults,
                 monthlyIncome = uiState.settings.monthlyIncome,
                 recentMonthlyExpenses = uiState.analytics.totalSpent,
@@ -876,7 +888,18 @@ private fun SparelyNavHost(
                     if (result == SnackbarResult.ActionPerformed) undoRecurringPayment(id)
                 }
             }
+            val recurringAiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+            val recurringSymbol = uiState.settings.regionalSettings.getCurrencySymbol()
+            val recurringAiFacts = remember(uiState.recurringExpenses, uiState.upcomingRecurring, uiState.settings.monthlyIncome, recurringAiLanguage, recurringSymbol) {
+                com.example.sparely.ai.FinanceFacts.recurring(
+                    expenses = uiState.recurringExpenses,
+                    upcoming = uiState.upcomingRecurring,
+                    monthlyIncome = uiState.settings.monthlyIncome,
+                    lang = recurringAiLanguage
+                ) { recurringAiLanguage.money(it, recurringSymbol) }
+            }
             RecurringExpensesScreen(
+                aiFacts = recurringAiFacts,
                 recurringExpenses = uiState.recurringExpenses,
                 recurringPaidRecords = uiState.recurringPaidRecords,
                 smartVaults = uiState.smartVaults,
