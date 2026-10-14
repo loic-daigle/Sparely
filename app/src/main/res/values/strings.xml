@@ -1329,6 +1329,16 @@
     <string name="credit_cards_pay_dialog_title">Pay %1$s</string>
     <string name="credit_cards_current_balance_label">Current Balance: %1$s</string>
     <string name="credit_cards_preset_full">Full</string>
+    <string name="credit_cards_bill_of">Bill of %1$s</string>
+    <string name="credit_cards_bill_due">%1$s due by %2$s</string>
+    <string name="credit_cards_bill_overdue">%1$s was due %2$s</string>
+    <string name="credit_cards_bill_paid">Paid in full</string>
+    <string name="credit_cards_bill_new_charges">%1$s in new purchases goes on the next bill</string>
+    <string name="credit_cards_preset_statement">Bill</string>
+    <string name="credit_card_due_today">%1$s bill due today</string>
+    <string name="credit_card_due_tomorrow">%1$s bill due tomorrow</string>
+    <string name="credit_card_due_in_days">%1$s bill due in %2$d days</string>
+    <string name="credit_card_due_message">%1$s to pay by %2$s. Purchases made since the bill came out are due next time. Tap to pay.</string>
     <string name="credit_cards_deduct_main_label">Deduct from Main Account</string>
     <string name="credit_cards_main_available_label">Available: %1$s</string>
     <string name="credit_cards_preset_half">Half</string>

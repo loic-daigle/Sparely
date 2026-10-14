@@ -1097,6 +1097,16 @@
     <string name="credit_cards_pay_dialog_title">Payer %1$s</string>
     <string name="credit_cards_current_balance_label">Solde actuel : %1$s</string>
     <string name="credit_cards_preset_full">Total</string>
+    <string name="credit_cards_bill_of">Facture du %1$s</string>
+    <string name="credit_cards_bill_due">%1$s à payer d\'ici le %2$s</string>
+    <string name="credit_cards_bill_overdue">%1$s devait être payé le %2$s</string>
+    <string name="credit_cards_bill_paid">Payée en entier</string>
+    <string name="credit_cards_bill_new_charges">%1$s de nouveaux achats iront sur la prochaine facture</string>
+    <string name="credit_cards_preset_statement">Facture</string>
+    <string name="credit_card_due_today">Facture %1$s à payer aujourd\'hui</string>
+    <string name="credit_card_due_tomorrow">Facture %1$s à payer demain</string>
+    <string name="credit_card_due_in_days">Facture %1$s à payer dans %2$d jours</string>
+    <string name="credit_card_due_message">%1$s à payer d\'ici le %2$s. Les achats faits depuis la facture seront dus la prochaine fois. Touchez pour payer.</string>
     <string name="credit_cards_preset_half">Moitié</string>
     <string name="credit_cards_preset_min">Min</string>
     <string name="credit_cards_payment_amount_label">Montant du paiement</string>

@@ -98,9 +98,14 @@ fun CreditCardsScreen(
     onPayBill: (paymentMethodId: Long, amount: Double, note: String?, deductFromMainAccount: Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     initialExpandedCardId: Long? = null,
-    onAddCard: (() -> Unit)? = null
+    onAddCard: (() -> Unit)? = null,
+    /** Used to tell this bill's purchases from the ones made since it came out. */
+    expenses: List<com.example.sparely.domain.model.Expense> = emptyList()
 ) {
     val spacing = MaterialTheme.spacing
+    val bills = remember(creditCards, expenses) {
+        creditCards.associate { it.id to com.example.sparely.domain.logic.CreditCardStatements.currentBill(it, expenses) }
+    }
     var expandedCardId by remember { mutableStateOf<Long?>(initialExpandedCardId) }
     var payingCard by remember { mutableStateOf<PaymentMethod?>(null) }
     
@@ -160,6 +165,7 @@ fun CreditCardsScreen(
                         modifier = Modifier.segmentSpacing(index),
                         isExpanded = expandedCardId == card.id,
                         recentPayments = recentPayments[card.id] ?: emptyList(),
+                        bill = bills[card.id],
                         onClick = { 
                             expandedCardId = if (expandedCardId == card.id) null else card.id
                         },
@@ -174,6 +180,7 @@ fun CreditCardsScreen(
     payingCard?.let { card ->
         PayBillBottomSheet(
             card = card,
+            statementAmount = bills[card.id]?.amountDue?.takeIf { it >= 0.005 },
             mainAccountBalance = mainAccountBalance,
             onDismiss = { payingCard = null },
             onPay = { amount, note, deductFromMain ->
@@ -308,6 +315,7 @@ private fun CreditCardDetailItem(
     onClick: () -> Unit,
     onPayBill: () -> Unit,
     shape: Shape = ExpressiveShapes.large,
+    bill: com.example.sparely.domain.logic.CreditCardStatements.Bill? = null,
     modifier: Modifier = Modifier
 ) {
     val spacing = MaterialTheme.spacing
@@ -451,6 +459,8 @@ private fun CreditCardDetailItem(
                         )
                     }
                     
+                    bill?.let { CurrentBillSummary(it) }
+
                     // Recent Payments
                     if (recentPayments.isNotEmpty()) {
                         Text(
@@ -565,16 +575,64 @@ private fun PaymentHistoryItem(payment: CreditCardPayment) {
     }
 }
 
+/**
+ * The bill that came out on the statement date: what's still owed on it and by when, apart from
+ * purchases made since, which go on the next bill.
+ */
+@Composable
+private fun CurrentBillSummary(bill: com.example.sparely.domain.logic.CreditCardStatements.Bill) {
+    val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ExpressiveShapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.credit_cards_bill_of, bill.statementDate.format(dateFormat)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = when {
+                bill.isPaid -> stringResource(R.string.credit_cards_bill_paid)
+                bill.isOverdue -> stringResource(R.string.credit_cards_bill_overdue, bill.amountDue.formatCurrency(), bill.dueDate.format(dateFormat))
+                else -> stringResource(R.string.credit_cards_bill_due, bill.amountDue.formatCurrency(), bill.dueDate.format(dateFormat))
+            },
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = when {
+                bill.isPaid -> MaterialTheme.colorScheme.success
+                bill.isOverdue -> MaterialTheme.colorScheme.error
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+        )
+        if (bill.newCharges >= 0.005) {
+            Text(
+                text = stringResource(R.string.credit_cards_bill_new_charges, bill.newCharges.formatCurrency()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PayBillBottomSheet(
     card: PaymentMethod,
     mainAccountBalance: Double,
     onDismiss: () -> Unit,
-    onPay: (amount: Double, note: String?, deductFromMainAccount: Boolean) -> Unit
+    onPay: (amount: Double, note: String?, deductFromMainAccount: Boolean) -> Unit,
+    /** What's owed on the current bill, when the card has a billing day and something's still due. */
+    statementAmount: Double? = null
 ) {
-    // Paying the full balance is the common case, so start there
-    var amountText by remember { mutableStateOf(card.currentBalance.coerceAtLeast(0.0).formatCurrency("", 2)) }
+    // Paying the bill in full avoids interest, so start there; without a bill, the whole balance.
+    var amountText by remember {
+        mutableStateOf((statementAmount ?: card.currentBalance.coerceAtLeast(0.0)).formatCurrency("", 2))
+    }
     var note by remember { mutableStateOf("") }
     var deductFromMainAccount by remember { mutableStateOf(true) }
     val currentBalance = card.currentBalance
@@ -624,6 +682,13 @@ private fun PayBillBottomSheet(
 
                 // One-tap amounts
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    statementAmount?.let { due ->
+                        SparelyChip(
+                            selected = amountText == due.formatCurrency("", 2),
+                            onClick = { amountText = due.formatCurrency("", 2) },
+                            label = { Text(stringResource(R.string.credit_cards_preset_statement)) }
+                        )
+                    }
                     SparelyChip(
                         selected = amountText == currentBalance.formatCurrency("", 2),
                         onClick = { amountText = currentBalance.formatCurrency("", 2) },

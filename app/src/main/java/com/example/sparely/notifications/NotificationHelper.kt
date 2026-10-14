@@ -417,21 +417,27 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(PAYDAY_NOTIFICATION_ID)
     }
 
+    /**
+     * Reminds that a card's bill is coming due. [amountDue] is what's on that bill, not the whole
+     * balance: purchases made since the statement came out are due on the next one.
+     */
     fun showCreditCardDueReminder(
         context: Context,
         cardId: Long,
         cardName: String,
-        balance: Double,
+        amountDue: Double,
+        dueDate: java.time.LocalDate,
         daysUntilDue: Int
     ) {
         ensureChannels(context)
-        val formattedBalance = formatAmount(balance)
+        val formattedAmount = formatAmount(amountDue)
         val title = when (daysUntilDue) {
-            0 -> "$cardName bill due today!"
-            1 -> "$cardName bill due tomorrow"
-            else -> "$cardName bill due in $daysUntilDue days"
+            0 -> context.getString(R.string.credit_card_due_today, cardName)
+            1 -> context.getString(R.string.credit_card_due_tomorrow, cardName)
+            else -> context.getString(R.string.credit_card_due_in_days, cardName, daysUntilDue)
         }
-        val message = "Current balance: $formattedBalance. Tap to pay now."
+        val formattedDate = dueDate.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))
+        val message = context.getString(R.string.credit_card_due_message, formattedAmount, formattedDate)
 
         val contentIntent = PendingIntent.getActivity(
             context,

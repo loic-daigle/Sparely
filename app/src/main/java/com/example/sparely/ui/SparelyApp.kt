@@ -1300,7 +1300,8 @@ private fun SparelyNavHost(
                 },
                 onNavigateBack = { navController.popBackStack() },
                 // Payment methods (including credit cards) are managed in Settings
-                onAddCard = { navController.navigate(SparelyDestination.Settings.route) }
+                onAddCard = { navController.navigate(SparelyDestination.Settings.route) },
+                expenses = uiState.expenses
             )
         }
         composable(SparelyDestination.Insights.route) {

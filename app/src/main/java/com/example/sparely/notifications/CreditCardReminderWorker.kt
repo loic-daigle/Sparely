@@ -6,10 +6,11 @@ import androidx.work.WorkerParameters
 import com.example.sparely.AppContainer
 import com.example.sparely.SparelyApplication
 import kotlinx.coroutines.flow.first
+import com.example.sparely.domain.logic.CreditCardStatements
 import java.time.LocalDate
 
 /**
- * Worker that checks for upcoming credit card billing due dates and shows reminders.
+ * Worker that checks for credit card bills coming due and shows reminders.
  * Runs daily at the configured reminder hour.
  */
 class CreditCardReminderWorker(
@@ -33,23 +34,23 @@ class CreditCardReminderWorker(
         
         val today = LocalDate.now()
         val daysBefore = settings.creditCardReminderDaysBefore
+        // Purchases since a statement came out are on the next bill, so the amount due needs them.
+        val expenses = container.savingsRepository.observeExpenses().first()
         
-        // Check each credit card with a billing cycle day
+        // The billing day is the statement date; the payment is due some days after it.
         creditCards.forEach { card ->
-            val billingDay = card.billingCycleDay ?: return@forEach
             if (card.currentBalance <= 0) return@forEach
-            
-            val dueDate = calculateNextBillingDate(today, billingDay)
-            val daysUntilDue = java.time.temporal.ChronoUnit.DAYS.between(today, dueDate).toInt()
-            
-            // Show reminder if within the reminder window
-            if (daysUntilDue in 0..daysBefore) {
+            val bill = CreditCardStatements.currentBill(card, expenses, today) ?: return@forEach
+
+            // Remind only about what's on the bill, ahead of its real due date.
+            if (!bill.isPaid && bill.daysUntilDue in 0..daysBefore) {
                 NotificationHelper.showCreditCardDueReminder(
                     context = context,
                     cardId = card.id,
                     cardName = card.name,
-                    balance = card.currentBalance,
-                    daysUntilDue = daysUntilDue
+                    amountDue = bill.amountDue,
+                    dueDate = bill.dueDate,
+                    daysUntilDue = bill.daysUntilDue
                 )
             }
 
@@ -72,15 +73,6 @@ class CreditCardReminderWorker(
         }
         
         return Result.success()
-    }
-    
-    private fun calculateNextBillingDate(today: LocalDate, billingDay: Int): LocalDate {
-        val safeBillingDay = billingDay.coerceIn(1, 28)
-        var dueDate = today.withDayOfMonth(safeBillingDay)
-        if (dueDate.isBefore(today)) {
-            dueDate = dueDate.plusMonths(1)
-        }
-        return dueDate
     }
     
     companion object {
