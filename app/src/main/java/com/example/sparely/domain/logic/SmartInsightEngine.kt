@@ -281,6 +281,11 @@ object SmartInsightEngine {
 
     /**
      * Analyze if there's excess money in the account that could be earning interest.
+     *
+     * Money is only idle once everything it's already promised to is set aside: [committedMoney]
+     * (credit card balances, money held for wishes, pending transfers) comes off the balance first,
+     * then a reserve of the largest of 1.5 months of normal spending, the bills due in the next 30
+     * days ([upcomingBills30Days]) and the main account's minimum.
      */
     fun analyzeIdleMoney(
         currentBalance: Double,
@@ -289,34 +294,38 @@ object SmartInsightEngine {
         minMainAccountBalance: Double = 0.0,
         monthlyIncome: Double = 0.0,
         mainOverflowAccountId: Long? = null,
-        defaultApy: Double = DEFAULT_APY
+        defaultApy: Double = DEFAULT_APY,
+        committedMoney: Double = 0.0,
+        upcomingBills30Days: Double = 0.0,
+        today: LocalDate = LocalDate.now()
     ): IdleMoneyInsight? {
         if (currentBalance <= 0) return null
 
-        // Calculate average monthly expenses from last 3 months
-        val threeMonthsAgo = LocalDate.now().minusMonths(3)
-        val recentExpenses = expenses.filter { !it.date.isBefore(threeMonthsAgo) }
-
-        if (recentExpenses.isEmpty()) return null
+        // Average over the last 3 complete calendar months. The current month is still partial,
+        // and so is the month a "3 months ago" date lands in; averaging partial months in made the
+        // reserve too small and the idle amount too big. A newer user gets the complete months they
+        // have; with no complete month yet there's not enough history to judge.
+        val currentMonth = YearMonth.from(today)
+        val firstMonth = expenses.minOfOrNull { YearMonth.from(it.date) } ?: return null
+        val months = (1L..3L).map { currentMonth.minusMonths(it) }.filter { !it.isBefore(firstMonth) }
+        if (months.isEmpty()) return null
+        val recentExpenses = expenses.filter { YearMonth.from(it.date) in months }
 
         // Filter out one-time large expenses to get accurate average
         val uniqueExpenses = detectUniqueExpenses(recentExpenses)
         val uniqueExpenseIds = uniqueExpenses.map { it.expense.id }.toSet()
         val filteredExpenses = recentExpenses.filter { it.id !in uniqueExpenseIds }
 
-        val monthlyExpenses = filteredExpenses.groupBy { YearMonth.from(it.date) }
-            .mapValues { (_, monthExpenses) -> monthExpenses.sumOf { it.amount }.roundToTwoDecimals() }
-            .values.toList()
+        // Months with no spending count as zero rather than being skipped.
+        val avgMonthlyExpenses = (filteredExpenses.sumOf { it.amount } / months.size).roundToTwoDecimals()
 
-        val avgMonthlyExpenses = if (monthlyExpenses.isNotEmpty()) {
-            monthlyExpenses.average().roundToTwoDecimals()
-        } else {
-            return null
-        }
-
-        // Recommended reserve = 1.5x monthly expenses OR user defined min balance, whichever is higher
-        val recommendedReserve = max(avgMonthlyExpenses * IDLE_MONEY_MULTIPLIER, minMainAccountBalance).roundToTwoDecimals()
-        val excessAmount = (currentBalance - recommendedReserve).coerceAtLeast(0.0).roundToTwoDecimals()
+        val recommendedReserve = maxOf(
+            avgMonthlyExpenses * IDLE_MONEY_MULTIPLIER,
+            upcomingBills30Days.coerceAtLeast(0.0),
+            minMainAccountBalance
+        ).roundToTwoDecimals()
+        val available = currentBalance - committedMoney.coerceAtLeast(0.0)
+        val excessAmount = (available - recommendedReserve).coerceAtLeast(0.0).roundToTwoDecimals()
 
         // Only suggest transfer if excess is significant
         if (excessAmount < MIN_IDLE_TRANSFER) return null

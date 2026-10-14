@@ -499,7 +499,10 @@ class SparelyViewModel(
                         vaults = feed.vaults,
                         minMainAccountBalance = feed.settings.minMainAccountBalance,
                         monthlyIncome = feed.settings.monthlyIncome,
-                        mainOverflowAccountId = feed.settings.mainOverflowAccountId
+                        mainOverflowAccountId = feed.settings.mainOverflowAccountId,
+                        // Card balances, money held for wishes and pending transfers aren't idle.
+                        committedMoney = forecastInput.creditCardBalance + wishlistReserved + pendingTransfersTotal,
+                        upcomingBills30Days = cashflowForecast.essentialObligations30Days + cashflowForecast.discretionaryObligations30Days
                     )
                     val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(
                         expenses = predictionExpenses,
