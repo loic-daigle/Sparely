@@ -268,7 +268,7 @@ class LocalAiManagerTest {
             LocalAiResult.Success("Yes, dining is over budget."),
             runBlocking { ai.ask(facts, "Am I overspending?", PromptLanguage.FRENCH) }
         )
-        assertTrue(model.prompts.single().contains("Question de l'utilisateur : Am I overspending?"))
+        assertTrue(model.prompts.single().contains("L'utilisateur demande : Am I overspending?"))
 
         val summaryOnly = manager(FakeModel(availability = ModelAvailability.UNAVAILABLE), FakeSummarizer())
         summaryOnly.refresh()

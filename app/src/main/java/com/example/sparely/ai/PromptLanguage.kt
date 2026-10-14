@@ -51,8 +51,8 @@ enum class AiTask(private val en: String, private val fr: String) {
         "Résume en 2 ou 3 phrases courtes comment vont les finances de l'utilisateur."
     ),
     QUESTION(
-        "Answer the user's question in 1-3 short sentences, using only the facts.",
-        "Réponds à la question de l'utilisateur en 1 à 3 phrases courtes, avec seulement les faits."
+        "Answer the user's question directly, starting with the answer, in 1-3 short sentences.",
+        "Réponds directement à la question de l'utilisateur, en commençant par la réponse, en 1 à 3 phrases courtes."
     ),
     INSIGHTS(
         "Summarize how the user's month is going in 2-3 short sentences, then give one practical tip based only on the facts.",
