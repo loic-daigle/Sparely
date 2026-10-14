@@ -1911,4 +1911,5 @@
     <string name="savings_interest_estimate_hint">Estimated interest since the last entry: %1$s. Replace it with the amount your bank actually paid.</string>
     <string name="usable_money_reserved_wishes">Held for wishes</string>
     <string name="usable_money_pending_transfers">Pending transfers</string>
+    <string name="splash_tagline">Save the small stuff.</string>
 </resources>

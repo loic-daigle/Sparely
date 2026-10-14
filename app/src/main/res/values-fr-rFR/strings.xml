@@ -931,6 +931,5 @@
     <string name="dashboard_plan_spending_subtitle">Planifiez vos dépenses</string>
     <string name="dashboard_ongoing_challenge">Défi en cours</string>
     <string name="dashboard_total_usable_money_title">Argent total utilisable</string>
-
-
+    <string name="splash_tagline">Épargnez les petits montants.</string>
 </resources>

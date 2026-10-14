@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification small icon: the mark in solid white, centered on a 24dp canvas at scale 0.155. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:translateX="12"
+        android:translateY="12"
+        android:scaleX="0.155"
+        android:scaleY="0.155">
+        <group
+            android:translateX="-100"
+            android:translateY="-89.5">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M61,110a15,15 0,0 1,15 15v20a15,15 0,0 1,-30 0v-20a15,15 0,0 1,15 -15z" />
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M100,82a15,15 0,0 1,15 15v48a15,15 0,0 1,-30 0v-48a15,15 0,0 1,15 -15z" />
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M139,56a15,15 0,0 1,15 15v74a15,15 0,0 1,-30 0v-74a15,15 0,0 1,15 -15z" />
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M139,19a15,15 0,1 1,0 30a15,15 0,1 1,0 -30z" />
+        </group>
+    </group>
+</vector>

@@ -23,7 +23,7 @@
         <activity
             android:name="com.example.sparely.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Sparely">
+            android:theme="@style/Theme.Sparely.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

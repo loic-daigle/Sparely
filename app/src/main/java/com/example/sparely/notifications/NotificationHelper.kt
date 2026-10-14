@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.example.sparely.MainActivity
 import com.sparely.app.R
 import com.example.sparely.domain.model.VaultSchedule
@@ -122,6 +123,7 @@ object NotificationHelper {
         val text = context.getString(R.string.wishlist_notif_text)
         val notification = NotificationCompat.Builder(context, WISHLIST_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(context.getString(R.string.wishlist_notif_title, name))
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -142,6 +144,7 @@ object NotificationHelper {
     fun showReminder(context: Context, message: String) {
         val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle("Sparely reminder")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -172,6 +175,7 @@ object NotificationHelper {
         
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -193,6 +197,7 @@ object NotificationHelper {
         val notificationId = scheduleNotificationId(schedule.id, 1)
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle("Scheduled transfer starting soon")
             .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -212,6 +217,7 @@ object NotificationHelper {
         val notificationId = scheduleNotificationId(schedule.id, 2)
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle("Scheduled transfer complete")
             .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -232,6 +238,7 @@ object NotificationHelper {
         val notificationId = scheduleNotificationId(schedule.id, 3)
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle("Scheduled transfer needs attention")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -257,6 +264,7 @@ object NotificationHelper {
         )
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText("$formattedAmount processed today")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -328,6 +336,7 @@ object NotificationHelper {
         
         val notification = NotificationCompat.Builder(context, VAULT_TRANSFER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
@@ -335,12 +344,12 @@ object NotificationHelper {
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Transferred",
                 transferredIntent
             )
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Dismiss",
                 dismissIntent
             )
@@ -392,6 +401,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, PAYDAY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle("Payday — $formattedDate")
             .setContentText(baseMessage)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -399,12 +409,12 @@ object NotificationHelper {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Record Income",
                 recordIncomeIntent
             )
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Remind Later",
                 remindLaterIntent
             )
@@ -455,6 +465,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CREDIT_CARD_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -491,6 +502,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CREDIT_CARD_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -553,6 +565,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, PAYDAY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
             .setContentText("Predicted: $formattedAmount")
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -560,12 +573,12 @@ object NotificationHelper {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Confirm",
                 confirmIntent
             )
             .addAction(
-                R.drawable.ic_launcher_foreground,
+                R.drawable.ic_sparely_mark_mono,
                 "Edit Amount",
                 editAmountIntent
             )

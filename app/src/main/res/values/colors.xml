@@ -7,4 +7,12 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Sparely brand -->
+    <color name="sparely_spruce">#FF0F3D34</color>
+    <color name="sparely_spruce_deep">#FF0A2C26</color>
+    <color name="sparely_mint">#FF8FE3C0</color>
+    <color name="sparely_gold">#FFF4CB6A</color>
+    <color name="sparely_ink">#FFEAF5F0</color>
+    <color name="sparely_muted">#FF9DBDB2</color>
 </resources>

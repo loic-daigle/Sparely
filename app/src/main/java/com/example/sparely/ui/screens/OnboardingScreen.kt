@@ -3,6 +3,7 @@ package com.example.sparely.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
@@ -415,10 +417,10 @@ fun WelcomeStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "💰",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 2
+        Image(
+            painter = painterResource(R.drawable.ic_sparely_logo),
+            contentDescription = null,
+            modifier = Modifier.size(120.dp)
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -2002,10 +2004,10 @@ private fun WelcomeStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS,
+        Image(
+            painter = painterResource(R.drawable.ic_sparely_logo),
             contentDescription = null,
-            modifier = Modifier.size(120.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier.size(120.dp)
         )
         
         Spacer(modifier = Modifier.height(32.dp))

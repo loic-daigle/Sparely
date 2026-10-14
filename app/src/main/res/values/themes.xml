@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="Theme.Sparely" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Launch theme. installSplashScreen() swaps it for postSplashScreenTheme once the app is ready.
+         Before Android 12 the icon is static; values-v31 swaps in the animated one. -->
+    <style name="Theme.Sparely.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/sparely_spruce</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon_static</item>
+        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="postSplashScreenTheme">@style/Theme.Sparely</item>
+        <!-- Draw behind transparent system bars with light icons on the dark background. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
 </resources>

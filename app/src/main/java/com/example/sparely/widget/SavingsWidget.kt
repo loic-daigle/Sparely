@@ -443,6 +443,12 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_sparely_logo),
+                contentDescription = null,
+                modifier = GlanceModifier.size(32.dp)
+            )
+            Spacer(modifier = GlanceModifier.width(10.dp))
             Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
                     text = "Sparely",

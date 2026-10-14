@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/branding/sparely-icon-512.png" width="128" alt="Sparely logo"></p>
+
 # Sparely
 
 **Sparely** is a modern Android personal finance and savings app built with Jetpack Compose. Track expenses, manage smart savings vaults, set budgets, and achieve your financial goals with intelligent allocation recommendations.

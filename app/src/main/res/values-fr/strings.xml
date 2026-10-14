@@ -1634,4 +1634,5 @@
     <string name="savings_interest_estimate_hint">Intérêts estimés depuis la dernière saisie : %1$s. Remplacez-les par le montant réellement versé par votre banque.</string>
     <string name="usable_money_reserved_wishes">Réservé pour les souhaits</string>
     <string name="usable_money_pending_transfers">Virements en attente</string>
+    <string name="splash_tagline">Épargnez les petits montants.</string>
 </resources>

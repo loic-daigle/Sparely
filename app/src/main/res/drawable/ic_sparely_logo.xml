@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sparely "rising bars" mark in full color, no background. Source geometry: docs/branding/sparely-mark.svg -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="141"
+    android:viewportHeight="141">
+    <group
+        android:translateX="-29.5"
+        android:translateY="-19">
+        <path
+            android:fillColor="@color/sparely_mint"
+            android:pathData="M61,110a15,15 0,0 1,15 15v20a15,15 0,0 1,-30 0v-20a15,15 0,0 1,15 -15z" />
+        <path
+            android:fillColor="@color/sparely_mint"
+            android:pathData="M100,82a15,15 0,0 1,15 15v48a15,15 0,0 1,-30 0v-48a15,15 0,0 1,15 -15z" />
+        <path
+            android:fillColor="@color/sparely_mint"
+            android:pathData="M139,56a15,15 0,0 1,15 15v74a15,15 0,0 1,-30 0v-74a15,15 0,0 1,15 -15z" />
+        <path
+            android:fillColor="@color/sparely_gold"
+            android:pathData="M139,19a15,15 0,1 1,0 30a15,15 0,1 1,0 -30z" />
+    </group>
+</vector>

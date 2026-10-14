@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate Sparely's app icons from the "rising bars" logo definition.
+"""Generate Sparely's launcher icons from the "rising bars" logo definition.
+
+The notification icon and in-app logos are vector drawables (res/drawable/ic_stat_logo.xml,
+ic_sparely_logo.xml, ic_sparely_mark_mono.xml, ic_splash_icon*.xml) and are not generated here.
 
 Requires: pip install cairosvg pillow
 Run from anywhere: python3 scripts/generate_icons.py
@@ -71,10 +74,6 @@ def legacy_svg():
     return svg(48, f'<circle cx="24" cy="24" r="24" fill="{SPRUCE}"/>' + mark(24, 0.2))
 
 
-def notification_svg():
-    return svg(24, mark(12, 0.155, WHITE, WHITE))
-
-
 def branding_icon_svg():
     return svg(200, f'<rect width="200" height="200" rx="46" fill="{SPRUCE}"/>' + mark(100, 0.82))
 
@@ -87,13 +86,11 @@ def main():
     outputs = []  # (path, expected px)
     for density, factor in DENSITIES.items():
         mipmap = RES / f"mipmap-{density}"
-        drawable = RES / f"drawable-{density}"
         for name, body, dp, folder in [
             ("ic_launcher_foreground.png", foreground_svg(), 108, mipmap),
             ("ic_launcher_background.png", background_svg(), 108, mipmap),
             ("ic_launcher_monochrome.png", monochrome_svg(), 108, mipmap),
             ("ic_launcher.png", legacy_svg(), 48, mipmap),
-            ("ic_stat_logo.png", notification_svg(), 24, drawable),
         ]:
             px = round(dp * factor)
             out = folder / name
