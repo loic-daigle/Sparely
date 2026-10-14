@@ -291,7 +291,7 @@ private fun AiAskSegment(
 }
 
 /**
- * A one-sentence brief written by the on-device model, meant to sit under a screen's greeting as a
+ * A short brief (one or two sentences) written by the on-device model, meant to sit under a screen's greeting as a
  * subtitle rather than as another card. Tapping it calls [onClick] (e.g. to open Insights).
  *
  * While a new brief is written for changed numbers, the previous one stays, faded, so the line
@@ -345,7 +345,7 @@ fun OnDeviceAiBrief(
                     text = shown,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                     // The previous brief, while the new one is written.
                     modifier = Modifier.alpha(if (fresh == null) 0.55f else 1f)
@@ -365,8 +365,8 @@ fun OnDeviceAiBrief(
     }
 }
 
-/** One sentence; anything past this is cut at the last full sentence. */
-private const val BRIEF_MAX_CHARS = 180
+/** Two short sentences; anything past this is cut at the last full sentence. */
+private const val BRIEF_MAX_CHARS = 260
 
 /** The tonal circle that marks AI content, like the badges on the app's list headers. */
 @Composable

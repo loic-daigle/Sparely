@@ -172,17 +172,31 @@ class FinanceFactsTest {
     }
 
     @Test
-    fun briefKeepsOnlyTodaysEssentials() {
-        val withCard = state.copy(paymentMethods = listOf(card("Visa", 540.0, 2000.0)))
-        val facts = FinanceFacts.brief(withCard, money = money)
+    fun briefPointsOutWhatNeedsAttentionInsteadOfRepeatingTheDashboard() {
+        val withCards = state.copy(paymentMethods = listOf(card("Visa", 1100.0, 2000.0)))
+        val facts = FinanceFacts.brief(withCards, money = money)
         assertEquals(
             listOf(
-                Fact("Spent this month", "$1240 of a $1500 total budget"),
-                // Dining is over 90% of its limit, so it's the one budget mentioned.
-                Fact("Dining budget", "$310 of $250 (124% used)"),
-                Fact("Owed on credit cards", "$540")
+                // Problems first: the dining budget is over, and the card is above half its limit.
+                Fact("Problem", "Dining budget is over by $60 ($310 of $250)"),
+                Fact("Problem", "Visa is at 55% of its limit ($1100 owed); under 30% is healthier")
             ),
             facts
         )
+        // Nothing here repeats safe-to-spend or the balance, which the dashboard already shows.
+        assertTrue(facts.none { it.value.contains("safe", ignoreCase = true) })
+    }
+
+    @Test
+    fun briefSaysOnTrackWhenNothingStandsOut() {
+        val calm = state.copy(
+            budgetSummary = state.budgetSummary!!.copy(
+                categoryStatuses = listOf(status(ExpenseCategory.GROCERIES, 200.0, 400.0))
+            )
+        )
+        val facts = FinanceFacts.brief(calm, money = money)
+        assertEquals(1, facts.size)
+        assertEquals("Good news", facts.single().label)
+        assertTrue(facts.single().value.startsWith("Spending is on track: $1240 of $1500 used"))
     }
 }

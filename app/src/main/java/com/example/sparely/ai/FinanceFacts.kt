@@ -6,6 +6,7 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.FinancialHealthScore
 import com.example.sparely.domain.model.HealthLevel
 import com.example.sparely.domain.model.ImprovementTip
+import com.example.sparely.domain.model.needsDecision
 import com.example.sparely.ui.state.SparelyUiState
 import java.time.LocalDate
 import kotlin.math.abs
@@ -67,50 +68,127 @@ object FinanceFacts {
     }
 
     /**
-     * The few numbers that matter today, for the one-line brief on the dashboard: kept short so
-     * the sentence is quick to write and picks the one thing worth saying.
+     * What deserves attention today, for the brief on the dashboard. The dashboard already shows
+     * the balance and safe-to-spend, so repeating them helps no one: these are the things worked
+     * out from them (on pace to overspend, a bill bigger than what's free, a card running high),
+     * ranked problems first, then warnings, then good news, keeping the top [MAX_BRIEF_POINTS].
      */
     fun brief(
         state: SparelyUiState,
         lang: PromptLanguage = PromptLanguage.ENGLISH,
         money: (Double) -> String
-    ): List<Fact> = buildList {
-        state.cashflowForecast?.let { forecast ->
-            add(Fact(lang.pick("Safe to spend now", "Montant dépensable sans risque"), money(forecast.safeToSpend)))
-            forecast.lowBalanceWarning?.let { warning ->
-                add(
-                    Fact(
-                        lang.pick("Low balance ahead", "Solde bas à venir"),
-                        lang.pick(
-                            "balance could drop to ${money(warning.projectedLowBalance)} in ${warning.daysUntilLowBalance} days",
-                            "le solde pourrait baisser à ${money(warning.projectedLowBalance)} dans ${warning.daysUntilLowBalance} jours"
-                        )
-                    )
-                )
+    ): List<Fact> {
+        val points = mutableListOf<Pair<Int, Fact>>()
+        val problem = lang.pick("Problem", "Problème")
+        val watch = lang.pick("Watch out", "Attention")
+        val good = lang.pick("Good news", "Bonne nouvelle")
+        fun add(rank: Int, label: String, text: String) { points += rank to Fact(label, text) }
+
+        val forecast = state.cashflowForecast
+        forecast?.lowBalanceWarning?.let { w ->
+            add(0, problem, lang.pick(
+                "Your balance could drop to ${money(w.projectedLowBalance)} in ${w.daysUntilLowBalance} days",
+                "Votre solde pourrait baisser à ${money(w.projectedLowBalance)} dans ${w.daysUntilLowBalance} jours"
+            ))
+        }
+        if (forecast != null) forecast.upcomingObligations.filter { it.daysUntilDue in 0..7 }.forEach { bill ->
+            val name = bill.description.replace(Regex("\\s+"), " ").trim()
+            val due = when (bill.daysUntilDue) {
+                0 -> lang.pick("today", "aujourd'hui")
+                1 -> lang.pick("tomorrow", "demain")
+                else -> lang.pick("in ${bill.daysUntilDue} days", "dans ${bill.daysUntilDue} jours")
             }
-            val thisWeek = forecast.upcomingObligations.filter { it.daysUntilDue in 0..7 }
-            if (thisWeek.isNotEmpty()) {
-                add(Fact(lang.pick("Bills due in the next 7 days", "Factures à payer dans les 7 prochains jours"), money(thisWeek.sumOf { it.amount })))
+            if (bill.amount > forecast.safeToSpend) {
+                add(0, problem, lang.pick(
+                    "$name (${money(bill.amount)}) is due $due, more than the ${money(forecast.safeToSpend)} you can safely spend",
+                    "$name (${money(bill.amount)}) est dû $due, plus que les ${money(forecast.safeToSpend)} que vous pouvez dépenser sans risque"
+                ))
+            } else if (bill.daysUntilDue <= 3) {
+                add(1, watch, lang.pick("$name (${money(bill.amount)}) is due $due", "$name (${money(bill.amount)}) est dû $due"))
             }
         }
-        state.budgetSummary?.takeIf { it.totalBudget > 0 }?.let { budget ->
-            add(
-                Fact(
-                    lang.pick("Spent this month", "Dépensé ce mois-ci"),
-                    lang.pick(
-                        "${money(budget.totalSpent)} of a ${money(budget.totalBudget)} total budget",
-                        "${money(budget.totalSpent)} sur un budget total de ${money(budget.totalBudget)}"
-                    )
-                )
-            )
+
+        val summary = state.budgetSummary
+        val statuses = summary?.categoryStatuses.orEmpty().filter { it.limit > 0 }
+        val daysLeft = statuses.firstOrNull()?.daysRemainingInMonth
+        statuses.filter { it.spent > it.limit }.sortedByDescending { it.spent - it.limit }.take(2).forEach {
+            add(0, problem, lang.pick(
+                "${categoryName(it.category, lang)} budget is over by ${money(it.spent - it.limit)} (${money(it.spent)} of ${money(it.limit)})",
+                "Le budget ${categoryName(it.category, lang)} est dépassé de ${money(it.spent - it.limit)} (${money(it.spent)} sur ${money(it.limit)})"
+            ))
         }
-        // Only a budget that's nearly used up is worth a mention in one sentence.
-        budgetFacts(state, lang, money, limit = 1)
-            .takeIf { state.budgetSummary?.categoryStatuses.orEmpty().any { it.limit > 0 && it.spent / it.limit >= 0.9 } }
-            ?.let { addAll(it) }
-        val owed = state.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance }
-        if (owed >= 0.005) add(Fact(lang.pick("Owed on credit cards", "Dû sur les cartes de crédit"), money(owed)))
+        statuses.filter { it.spent <= it.limit && it.spent / it.limit >= 0.9 }.take(1).forEach {
+            add(1, watch, lang.pick(
+                "${categoryName(it.category, lang)} budget is at ${lang.percent(it.spent / it.limit)}" + (daysLeft?.let { d -> " with $d days left" } ?: ""),
+                "Le budget ${categoryName(it.category, lang)} est à ${lang.percent(it.spent / it.limit)}" + (daysLeft?.let { d -> " avec $d jours restants" } ?: "")
+            ))
+        }
+        val predicted = state.analytics.predictedMonthEndSpending
+        if (summary != null && summary.totalBudget > 0 && predicted > 0) {
+            val gap = predicted - summary.totalBudget
+            if (gap >= 1) {
+                add(1, watch, lang.pick(
+                    "At this pace you'll spend ${money(predicted)} this month, ${money(gap)} over your ${money(summary.totalBudget)} budget",
+                    "À ce rythme, vous dépenserez ${money(predicted)} ce mois-ci, ${money(gap)} de plus que votre budget de ${money(summary.totalBudget)}"
+                ))
+            } else if (-gap >= 1) {
+                add(2, good, lang.pick(
+                    "At this pace you'll finish the month ${money(-gap)} under your ${money(summary.totalBudget)} budget",
+                    "À ce rythme, vous finirez le mois ${money(-gap)} sous votre budget de ${money(summary.totalBudget)}"
+                ))
+            }
+        }
+
+        val change = state.analytics.monthOverMonthChange
+        val growing = state.analytics.topGrowingCategory?.let { categoryName(it, lang) }
+        if (change >= 15) {
+            add(1, watch, lang.pick(
+                "Spending is up ${lang.percent(change / 100)} from last month" + (growing?.let { g -> ", mostly in $g" } ?: ""),
+                "Les dépenses sont en hausse de ${lang.percent(change / 100)} par rapport au mois dernier" + (growing?.let { g -> ", surtout en $g" } ?: "")
+            ))
+        } else if (change <= -10) {
+            add(2, good, lang.pick(
+                "Spending is down ${lang.percent(-change / 100)} from last month",
+                "Les dépenses sont en baisse de ${lang.percent(-change / 100)} par rapport au mois dernier"
+            ))
+        }
+
+        state.paymentMethods.filter { it.isCreditCard && it.utilizationPercent > 0.30 }
+            .maxByOrNull { it.utilizationPercent }
+            ?.let { card ->
+                add(if (card.utilizationPercent > 0.50) 0 else 1, if (card.utilizationPercent > 0.50) problem else watch, lang.pick(
+                    "${card.name} is at ${lang.percent(card.utilizationPercent)} of its limit (${money(card.currentBalance)} owed); under 30% is healthier",
+                    "${card.name} est à ${lang.percent(card.utilizationPercent)} de sa limite (${money(card.currentBalance)} dû); sous 30 % c'est plus sain"
+                ))
+            }
+
+        val decisions = state.wishlists.count { it.needsDecision() }
+        if (decisions > 0) {
+            add(1, watch, lang.pick(
+                "$decisions wishlist item(s) waiting for your decision",
+                "$decisions article(s) de la liste d'envies attendent votre décision"
+            ))
+        }
+
+        state.idleMoneyInsight?.takeIf { it.suggestedTransferAmount >= 1 }?.let { idle ->
+            val vault = idle.suggestedVault?.name
+            add(2, good, lang.pick(
+                "You could move ${money(idle.suggestedTransferAmount)} of idle money" + (vault?.let { v -> " to $v" } ?: " to savings"),
+                "Vous pourriez déplacer ${money(idle.suggestedTransferAmount)} d'argent inactif" + (vault?.let { v -> " vers $v" } ?: " vers l'épargne")
+            ))
+        }
+
+        // Nothing stands out: say the month is on track rather than nothing at all.
+        if (points.isEmpty() && summary != null && summary.totalBudget > 0) {
+            add(2, good, lang.pick(
+                "Spending is on track: ${money(summary.totalSpent)} of ${money(summary.totalBudget)} used" + (daysLeft?.let { d -> " with $d days left" } ?: ""),
+                "Les dépenses sont sur la bonne voie : ${money(summary.totalSpent)} sur ${money(summary.totalBudget)} utilisés" + (daysLeft?.let { d -> " avec $d jours restants" } ?: "")
+            ))
+        }
+        return points.sortedBy { it.first }.take(MAX_BRIEF_POINTS).map { it.second }
     }
+
+    private const val MAX_BRIEF_POINTS = 3
 
     /**
      * What's owed on credit cards, so a card purchase shows up in the summary. One card is named

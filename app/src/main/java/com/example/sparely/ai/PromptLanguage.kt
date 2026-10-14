@@ -85,8 +85,12 @@ enum class AiTask(private val en: String, private val fr: String) {
             "ne dis jamais que l'achat est une mauvaise idée ou un mauvais moment."
     ),
     BRIEF(
-        "In one short sentence of at most 20 words, tell the user the single most useful thing about their money today.",
-        "En une seule phrase courte d'au plus 20 mots, dis à l'utilisateur la chose la plus utile à savoir sur son argent aujourd'hui."
+        "In 1 or 2 short sentences (at most 35 words), tell the user what deserves their attention today, most important " +
+            "first, and suggest one concrete action if a fact calls for one. Don't mention their balance or safe-to-spend " +
+            "unless a fact is about it.",
+        "En 1 ou 2 phrases courtes (au plus 35 mots), dis à l'utilisateur ce qui mérite son attention aujourd'hui, le plus " +
+            "important d'abord, et propose une action concrète si un fait le demande. Ne parle pas de son solde ni du montant " +
+            "dépensable sans risque, sauf si un fait en parle."
     ),
     HEALTH(
         "Explain the user's financial health score in 2-3 short sentences: what's going well, and the one change that would raise it most.",
