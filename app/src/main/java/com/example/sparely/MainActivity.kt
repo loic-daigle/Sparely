@@ -81,11 +81,15 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     )
                 }.getOrNull()
                 // Let the animated icon finish (Android 12+), then fade into the intro underneath.
-                val iconAnimationLeft = provider.iconAnimationStartMillis +
-                    provider.iconAnimationDurationMillis - SystemClock.uptimeMillis()
+                // iconAnimationStartMillis is wall-clock time (0 when there's no animation). Clamp so
+                // a bad timestamp can never hold the splash longer than the animation itself.
+                val iconAnimationDuration = provider.iconAnimationDurationMillis.coerceAtLeast(0L)
+                val iconAnimationLeft = provider.iconAnimationStartMillis.takeIf { it > 0L }
+                    ?.let { it + iconAnimationDuration - System.currentTimeMillis() }
+                    ?: 0L
                 provider.view.animate()
                     .alpha(0f)
-                    .setStartDelay(iconAnimationLeft.coerceAtLeast(0L))
+                    .setStartDelay(iconAnimationLeft.coerceIn(0L, iconAnimationDuration))
                     .setDuration(SPLASH_FADE_MS)
                     .withStartAction { handoff.started = true }
                     .withEndAction { provider.remove() }
