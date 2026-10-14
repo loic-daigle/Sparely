@@ -64,4 +64,8 @@
         <item quantity="one">Inclut %1$s de %2$d paiement détecté non ajouté</item>
         <item quantity="other">Inclut %1$s de %2$d paiements détectés non ajoutés</item>
     </plurals>
+    <plurals name="dashboard_insight_unusual">
+        <item quantity="one">%1$d dépense inhabituelle</item>
+        <item quantity="other">%1$d dépenses inhabituelles</item>
+    </plurals>
 </resources>

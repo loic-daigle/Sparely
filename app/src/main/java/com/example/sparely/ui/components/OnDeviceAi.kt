@@ -290,77 +290,90 @@ private fun AiAskSegment(
     }
 }
 
+/** True when the user turned on-device AI on and the phone's model is ready, so AI rows can be laid out. */
+@Composable
+fun rememberOnDeviceAiReady(): Boolean = readyManager() != null
+
 /**
- * A short brief (one or two sentences) written by the on-device model, meant to sit under a screen's greeting as a
- * subtitle rather than as another card. Tapping it calls [onClick] (e.g. to open Insights).
+ * The on-device AI row at the top of a segmented group, such as the dashboard's insights: a
+ * header like the other AI sections and a short brief (one or two sentences). Tapping it calls
+ * [onClick] (e.g. to open Insights). Check [rememberOnDeviceAiReady] before giving it a place in
+ * the group; it draws nothing when AI isn't ready.
  *
- * While a new brief is written for changed numbers, the previous one stays, faded, so the line
- * never empties or jumps; only the very first brief shows a placeholder line. A failure hides it
- * instead of putting an error on the screen. Shows nothing when AI is off or not ready.
+ * While a new brief is written for changed numbers, the previous one stays, faded, so the row
+ * never empties or jumps; only the very first brief shows placeholder lines.
  *
  * @param slot names this brief so the last one can be shown while the next is written
  */
 @Composable
-fun OnDeviceAiBrief(
+fun OnDeviceAiBriefSegment(
+    title: String,
     facts: List<Fact>,
     task: String,
     slot: String,
+    shape: Shape,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val manager = readyManager() ?: return
-    if (facts.isEmpty()) return
     val language = LocalOnDeviceAi.current.language
-    val request = remember(facts, task, language) {
-        manager.liveSummary(facts, language, task, maxAnswerChars = BRIEF_MAX_CHARS, rememberAs = slot)
+    var request by remember(facts, task, language) {
+        mutableStateOf(manager.liveSummary(facts, language, task, maxAnswerChars = BRIEF_MAX_CHARS, rememberAs = slot))
     }
     val result by request.result.collectAsState()
     val previous = remember(slot, language) { manager.latestSummary(slot, language) }
     val fresh = (result as? LocalAiResult.Success)?.text ?: (result as? LocalAiResult.Partial)?.text
     val writing = result == null || result is LocalAiResult.Partial
     val shown = fresh ?: previous
-    if (shown == null && !writing) return
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClickLabel = stringResource(R.string.ai_brief_open), onClick = onClick)
-            .padding(vertical = 6.dp, horizontal = 2.dp)
-            .animateContentSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        MaterialSymbolIcon(
-            icon = MaterialSymbols.LIGHTBULB,
-            contentDescription = null,
-            size = 16.dp,
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Box(modifier = Modifier.weight(1f)) {
-            if (shown == null) {
-                PlaceholderLines(lines = 1)
-            } else {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AiBadge()
                 Text(
-                    text = shown,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 4,
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                OnDeviceChip()
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ARROW_FORWARD,
+                    contentDescription = null,
+                    size = 18.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            when {
+                shown != null -> Text(
+                    text = shown,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
                     // The previous brief, while the new one is written.
                     modifier = Modifier.alpha(if (fresh == null) 0.55f else 1f)
                 )
+                writing -> PlaceholderLines(lines = 2)
+                else -> AiErrorRow(result ?: LocalAiResult.Failed(null), onRetry = {
+                    request = manager.liveSummary(facts, language, task, restart = true, maxAnswerChars = BRIEF_MAX_CHARS, rememberAs = slot)
+                })
             }
-        }
-        if (writing && fresh == null && shown != null) {
-            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
-        } else {
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.ARROW_FORWARD,
-                contentDescription = null,
-                size = 16.dp,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (writing) WritingIndicator()
         }
     }
 }

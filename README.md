@@ -131,7 +131,7 @@ Code:
 Sparely can write short summaries and answer questions about your money using Gemini Nano, Google's AI model that runs **entirely on your phone** through Android AICore. Your financial data never leaves the device.
 
 Where it appears:
-- **Dashboard:** a one-sentence brief under the greeting; tap it to open Insights
+- **Dashboard:** "Your day at a glance" at the top of the Insights section: one or two sentences on what needs attention today, above the low balance, idle money and spending trend rows; tap it to open Insights
 - **Insights:** a summary of your month with one tip, and "Ask about your finances"
 - **Budgets:** a summary of how your budgets are doing
 - **Vaults:** how your savings goals are going, which one needs attention and what it needs per month, with questions

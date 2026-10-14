@@ -1306,7 +1306,16 @@
     <string name="ai_failed_details">L\'IA sur l\'appareil n\'a pas pu répondre : %1$s</string>
     <string name="ai_on_device_note">Rédigé par l\'IA sur ce téléphone. Elle peut se tromper; les chiffres viennent de Sparely.</string>
     <string name="ai_on_device_chip">Sur l\'appareil</string>
-    <string name="ai_brief_open">Ouvrir les aperçus</string>
+    <string name="dashboard_insight_ai_title">Votre journée en bref</string>
+    <string name="dashboard_insight_low_balance">Solde bas à venir</string>
+    <string name="dashboard_insight_low_balance_detail">Pourrait baisser à %1$s dans %2$d jours</string>
+    <string name="dashboard_insight_idle_to_vault">%1$s pourraient aller vers %2$s</string>
+    <string name="dashboard_insight_idle_to_savings">%1$s pourraient aller vers l\'épargne</string>
+    <string name="dashboard_insight_idle_move">Déplacer</string>
+    <string name="dashboard_insight_trend">Tendance des dépenses</string>
+    <string name="dashboard_insight_trend_up">En hausse de %1$.0f %%</string>
+    <string name="dashboard_insight_trend_down">En baisse de %1$.0f %%</string>
+    <string name="dashboard_insight_month_end">fin de mois prévue %1$s</string>
     <string name="ai_wish_title">Est-ce le bon moment de l\'acheter?</string>
     <string name="ai_wish_ask_placeholder">Dans combien de temps pourrai-je me le permettre?</string>
     <string name="ai_health_title">Votre score expliqué</string>

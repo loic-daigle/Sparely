@@ -82,6 +82,10 @@ import com.example.sparely.ui.components.SingleLineText
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
+import com.example.sparely.ui.components.SegmentGap
+import com.example.sparely.ui.components.SegmentedListItem
+import com.example.sparely.ui.components.segmentedShape
+import androidx.compose.ui.graphics.Shape
 import com.example.sparely.ui.components.TotalUsableMoneyBottomSheet
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.ExpressiveMotionTokens
@@ -191,6 +195,12 @@ fun DashboardScreen(
     val spendingPatterns = uiState.spendingPatterns
     val hasInsights = lowBalanceWarning != null || idleMoneyInsight != null ||
         (spendingPatterns != null && (spendingPatterns.anomalies.isNotEmpty() || spendingPatterns.trend != SpendingPatternEngine.SpendingTrend.STABLE))
+    val aiReady = com.example.sparely.ui.components.rememberOnDeviceAiReady()
+    val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+    val aiSymbol = uiState.settings.regionalSettings.getCurrencySymbol()
+    val aiBriefFacts = remember(uiState, aiLanguage, aiSymbol) {
+        com.example.sparely.ai.FinanceFacts.brief(uiState, aiLanguage) { aiLanguage.money(it, aiSymbol) }
+    }
     val today = LocalDate.now()
     val activeRecurringInsights = uiState.detectedRecurringTransactions.filter { insight ->
         val daysSinceLast = ChronoUnit.DAYS.between(insight.lastOccurrence, today).toInt()
@@ -236,22 +246,7 @@ fun DashboardScreen(
         ) {
             // ── At a glance ─────────────────────────────────────────────
             item(key = "greeting") {
-                val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
-                val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
-                val briefFacts = remember(uiState, aiLanguage, symbol) {
-                    com.example.sparely.ai.FinanceFacts.brief(uiState, aiLanguage) { aiLanguage.money(it, symbol) }
-                }
-                DashboardGreeting {
-                    // On-device AI's one-line take on today, as a subtitle under the greeting rather
-                    // than another card; tapping it opens Insights for the full summary and questions.
-                    com.example.sparely.ui.components.OnDeviceAiBrief(
-                        facts = briefFacts,
-                        task = com.example.sparely.ai.AiTask.BRIEF.text(aiLanguage),
-                        slot = "dashboard",
-                        onClick = onNavigateToInsights,
-                        modifier = Modifier.padding(top = MaterialTheme.spacing.xxs)
-                    )
-                }
+                DashboardGreeting()
             }
 
             item(key = "hero") {
@@ -282,17 +277,17 @@ fun DashboardScreen(
                 }
             }
 
-            // ── Insights (low balance, idle money, spending trend) ──────
-            if (hasInsights) {
+            // ── Insights: on-device AI's take on today, then each signal as a row ──
+            if (hasInsights || aiReady) {
                 dashboardSection(
                     key = "insights",
                     titleRes = R.string.dashboard_insights_title,
                     onAction = onNavigateToInsights,
                     actionRes = R.string.dashboard_view_all
                 ) {
-                    PrimaryInsightsCard(
-                        safeToSpend = uiState.cashflowForecast?.safeToSpend ?: 0.0,
-                        runwayDays = uiState.cashflowForecast?.runwayDays ?: 0,
+                    DashboardInsightsGroup(
+                        aiFacts = aiBriefFacts,
+                        aiReady = aiReady,
                         lowBalanceWarning = lowBalanceWarning,
                         idleMoneyInsight = idleMoneyInsight,
                         spendingPatterns = spendingPatterns,
@@ -544,7 +539,7 @@ private fun RoundedProgressBar(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DashboardGreeting(below: @Composable () -> Unit = {}) {
+private fun DashboardGreeting() {
     val greetingRes = remember {
         when (LocalTime.now().hour) {
             in 5..11 -> R.string.dashboard_greeting_morning
@@ -564,7 +559,6 @@ private fun DashboardGreeting(below: @Composable () -> Unit = {}) {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
-        below()
     }
 }
 
@@ -2021,535 +2015,122 @@ private fun CreditCardSummaryCard(
     }
 }
 
+/**
+ * The dashboard's insights, as one segmented group like the rest of the app: on-device AI's take
+ * on today first (when it's on), then a compact row for each signal the app found. Every row is
+ * visible at once; tapping one opens Insights, and idle money can be moved from its row.
+ */
 @Composable
-private fun PrimaryInsightsCard(
-    safeToSpend: Double,
-    runwayDays: Int,
+private fun DashboardInsightsGroup(
+    aiFacts: List<com.example.sparely.ai.Fact>,
+    aiReady: Boolean,
     lowBalanceWarning: CashflowEngine.LowBalanceWarning?,
     idleMoneyInsight: SmartInsightEngine.IdleMoneyInsight?,
     spendingPatterns: SpendingPatternEngine.SpendingPatternResult?,
     onNavigateToInsights: () -> Unit,
     onTransferIdle: (Double) -> Unit
 ) {
-    val spacing = MaterialTheme.spacing
-    
-    // Determine which insights to show
-    val availableInsights = remember(lowBalanceWarning, idleMoneyInsight, spendingPatterns) {
-        buildList {
-            if (lowBalanceWarning != null) add(InsightType.Warning)
-            if (idleMoneyInsight != null) add(InsightType.IdleMoney)
-            if (spendingPatterns != null && (spendingPatterns.anomalies.isNotEmpty() || spendingPatterns.trend != SpendingPatternEngine.SpendingTrend.STABLE)) {
-                add(InsightType.Spending)
-            }
-        }
-    }
-    
-    if (availableInsights.isEmpty()) return
-
-    val pagerState = rememberPagerState(pageCount = { availableInsights.size })
-    val coroutineScope = rememberCoroutineScope()
-    
-    ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 0.dp
-    ) {
-        Column {
-            // Header / Tabs
-            if (availableInsights.size > 1) {
-                TabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    divider = {},
-                    indicator = { tabPositions ->
-                        if (pagerState.currentPage < tabPositions.size) {
-                            Box(
-                                modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                                    .height(3.dp)
-                                    .padding(horizontal = 12.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                                    )
-                            )
-                        }
-                    }
-                ) {
-                    availableInsights.forEachIndexed { index, type ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            text = {
-                                Text(
-                                    text = stringResource(type.titleResId),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        )
-                    }
-                }
-            } else {
-                // Simple label if only one insight
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(availableInsights.first().titleResId),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.LIGHTBULB,
-                        contentDescription = null,
-                        size = 18.dp,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                }
-            }
-            
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) { pageIndex ->
-                val insightType = availableInsights[pageIndex]
-                Box(modifier = Modifier.padding(20.dp)) {
-                    when (insightType) {
-                        InsightType.Warning -> SafeToSpendInsightContent(
-                            safeToSpend = safeToSpend,
-                            runwayDays = runwayDays,
-                            lowBalanceWarning = lowBalanceWarning!!,
-                            onClick = onNavigateToInsights
-                        )
-                        InsightType.IdleMoney -> IdleMoneyInsightContent(
-                            insight = idleMoneyInsight!!,
-                            onTransfer = { onTransferIdle(idleMoneyInsight.suggestedTransferAmount) }
-                        )
-                        InsightType.Spending -> SpendingInsightsContent(
-                            patterns = spendingPatterns!!,
-                            onViewDetails = onNavigateToInsights
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private sealed class InsightType(val titleResId: Int) {
-    object Warning : InsightType(R.string.dashboard_low_balance_alert)
-    object IdleMoney : InsightType(R.string.dashboard_money_sitting_idle)
-    object Spending : InsightType(R.string.dashboard_spending_trend)
-}
-
-@Composable
-private fun SafeToSpendInsightContent(
-    safeToSpend: Double,
-    runwayDays: Int,
-    lowBalanceWarning: CashflowEngine.LowBalanceWarning,
-    onClick: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    val contentColor = MaterialTheme.colorScheme.onErrorContainer
-    
-    Column(
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(ExpressiveShapes.extraSmall)
-                        .background(MaterialTheme.colorScheme.errorContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.WARNING,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        size = 24.dp
-                    )
-                }
-                Column {
-                    Text(
-                        text = stringResource(R.string.dashboard_low_balance_alert),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        text = stringResource(R.string.dashboard_balance_drop_soon),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = formatCurrency(safeToSpend),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (runwayDays < Int.MAX_VALUE) {
-                    Text(
-                        text = stringResource(R.string.dashboard_runway_days, runwayDays),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.padding(vertical = spacing.xs)
-        )
-        
-        Surface(
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-            shape = ExpressiveShapes.extraSmall,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = stringResource(
-                    R.string.dashboard_balance_drop_detail,
-                    formatCurrency(lowBalanceWarning.projectedLowBalance),
-                    lowBalanceWarning.daysUntilLowBalance
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(12.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SpendingInsightsContent(
-    patterns: SpendingPatternEngine.SpendingPatternResult,
-    onViewDetails: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    val trend = patterns.trend
-    val trendPercentage = patterns.trendPercentage
-    val anomalies = patterns.anomalies
-    val predictedMonthEnd = patterns.predictedMonthEndSpending
-    
-    val trendColor = when (trend) {
-        SpendingPatternEngine.SpendingTrend.INCREASING -> MaterialTheme.colorScheme.error
-        SpendingPatternEngine.SpendingTrend.DECREASING -> MaterialTheme.colorScheme.success
-        SpendingPatternEngine.SpendingTrend.STABLE -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.primary
-    }
-    
-    val trendIcon = when (trend) {
-        SpendingPatternEngine.SpendingTrend.INCREASING -> MaterialSymbols.TRENDING_UP
-        SpendingPatternEngine.SpendingTrend.DECREASING -> MaterialSymbols.TRENDING_DOWN
-        SpendingPatternEngine.SpendingTrend.STABLE -> MaterialSymbols.SWAP_HORIZ
-        else -> MaterialSymbols.SWAP_HORIZ
-    }
-    
-    val trendText = when (trend) {
-        SpendingPatternEngine.SpendingTrend.INCREASING -> 
-            stringResource(R.string.dashboard_trend_increasing, kotlin.math.abs(trendPercentage))
-        SpendingPatternEngine.SpendingTrend.DECREASING -> 
-            stringResource(R.string.dashboard_trend_decreasing, kotlin.math.abs(trendPercentage))
-        SpendingPatternEngine.SpendingTrend.STABLE -> 
-            stringResource(R.string.dashboard_trend_stable)
-        else -> stringResource(R.string.dashboard_trend_stable)
-    }
-    
-    Column(
-        verticalArrangement = Arrangement.spacedBy(spacing.md)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.dashboard_spending_trend),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            
-            // Trend Chip
-            Surface(
-                shape = CircleShape,
-                color = trendColor.copy(alpha = 0.15f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = trendIcon,
-                        contentDescription = null,
-                        size = 16.dp,
-                        tint = trendColor
-                    )
-                    Text(
-                        text = trendText,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = trendColor
-                    )
-                }
-            }
-        }
-        
-        Text(
-            text = stringResource(R.string.dashboard_predicted_month_end, formatCurrency(predictedMonthEnd)),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (patterns.predictedMonthEndConfidence != SuggestionConfidence.HIGH) {
-            Text(
-                text = stringResource(
-                    R.string.dashboard_predicted_month_end_confidence,
-                    patterns.predictedMonthEndConfidence.displayName(),
-                    java.time.LocalDate.now().dayOfMonth
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        }
-
-        if (anomalies.isNotEmpty()) {
-            Surface(
-                shape = ExpressiveShapes.extraSmall,
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.WARNING,
-                            contentDescription = null,
-                            size = 16.dp,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.dashboard_unusual_transactions_count,
-                                anomalies.size,
-                                anomalies.size
-                            ),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    for (anomaly in anomalies.take(2)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = anomaly.expense.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = formatCurrency(anomaly.expense.amount),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        
-        SparelyTextButton(
-            onClick = onViewDetails,
-            modifier = Modifier.align(Alignment.End),
-            icon = null
-        ) {
-            Text(stringResource(R.string.dashboard_full_analysis))
-            Spacer(Modifier.width(4.dp))
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.ARROW_FORWARD,
-                contentDescription = null,
-                size = 16.dp
-            )
-        }
-    }
-}
-
-@Composable
-private fun IdleMoneyInsightContent(
-    insight: SmartInsightEngine.IdleMoneyInsight,
-    onTransfer: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                shape = ExpressiveShapes.extraSmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.SAVINGS,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.dashboard_money_sitting_idle),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.dashboard_put_idle_cash_to_work),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    val showTrend = spendingPatterns != null &&
+        (spendingPatterns.anomalies.isNotEmpty() || spendingPatterns.trend != SpendingPatternEngine.SpendingTrend.STABLE)
+    val rows = buildList<@Composable (Shape) -> Unit> {
+        if (aiReady && aiFacts.isNotEmpty()) {
+            add { shape ->
+                val language = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                com.example.sparely.ui.components.OnDeviceAiBriefSegment(
+                    title = stringResource(R.string.dashboard_insight_ai_title),
+                    facts = aiFacts,
+                    task = com.example.sparely.ai.AiTask.BRIEF.text(language),
+                    slot = "dashboard",
+                    shape = shape,
+                    onClick = onNavigateToInsights
                 )
             }
         }
-
-        // Main Suggestion Overlay
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = ExpressiveShapes.small,
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.dashboard_suggested_transfer),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatCurrency(insight.suggestedTransferAmount),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                SparelyButton(
-                    onClick = onTransfer
-                ) {
-                    Text(stringResource(R.string.dashboard_transfer_action))
-                }
-            }
-        }
-        
-        // Growth Projection
-        if (insight.growthProjections.isNotEmpty()) {
-            Column {
-                Text(
-                    text = stringResource(R.string.dashboard_projected_growth),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    for ((months, amount) in insight.growthProjections.toList().sortedBy { it.first }) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = when(months) {
-                                    6 -> stringResource(R.string.dashboard_duration_months, 6)
-                                    12 -> stringResource(R.string.dashboard_duration_years, 1)
-                                    24 -> stringResource(R.string.dashboard_duration_years, 2)
-                                    else -> stringResource(R.string.dashboard_duration_months, months)
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            Text(
-                                text = formatCurrency(amount),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (insight.estimatedAnnualInterest > 0) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f), ExpressiveShapes.extraSmall)
-                    .padding(8.dp)
-            ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.TRENDING_UP,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = stringResource(
-                        R.string.dashboard_est_annual_interest,
-                        formatCurrency(insight.estimatedAnnualInterest)
+        if (lowBalanceWarning != null) {
+            add { shape ->
+                SegmentedListItem(
+                    title = stringResource(R.string.dashboard_insight_low_balance),
+                    subtitle = stringResource(
+                        R.string.dashboard_insight_low_balance_detail,
+                        formatCurrency(lowBalanceWarning.projectedLowBalance),
+                        lowBalanceWarning.daysUntilLowBalance
                     ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    shape = shape,
+                    icon = MaterialSymbols.WARNING,
+                    iconTint = MaterialTheme.colorScheme.critical,
+                    onClick = onNavigateToInsights,
+                    trailing = { RowChevron() }
+                )
+            }
+        }
+        if (idleMoneyInsight != null && idleMoneyInsight.suggestedTransferAmount >= 1) {
+            add { shape ->
+                val amount = formatCurrency(idleMoneyInsight.suggestedTransferAmount)
+                SegmentedListItem(
+                    title = stringResource(R.string.dashboard_money_sitting_idle),
+                    subtitle = idleMoneyInsight.suggestedVault?.name
+                        ?.let { stringResource(R.string.dashboard_insight_idle_to_vault, amount, it) }
+                        ?: stringResource(R.string.dashboard_insight_idle_to_savings, amount),
+                    shape = shape,
+                    icon = MaterialSymbols.SAVINGS,
+                    iconTint = MaterialTheme.colorScheme.success,
+                    trailing = {
+                        SparelyTonalButton(onClick = { onTransferIdle(idleMoneyInsight.suggestedTransferAmount) }) {
+                            Text(stringResource(R.string.dashboard_insight_idle_move))
+                        }
+                    }
+                )
+            }
+        }
+        if (showTrend) {
+            add { shape ->
+                val patterns = spendingPatterns!!
+                val up = patterns.trend == SpendingPatternEngine.SpendingTrend.INCREASING
+                val down = patterns.trend == SpendingPatternEngine.SpendingTrend.DECREASING
+                val parts = buildList {
+                    when {
+                        up -> add(stringResource(R.string.dashboard_insight_trend_up, kotlin.math.abs(patterns.trendPercentage)))
+                        down -> add(stringResource(R.string.dashboard_insight_trend_down, kotlin.math.abs(patterns.trendPercentage)))
+                    }
+                    if (patterns.predictedMonthEndSpending > 0) {
+                        add(stringResource(R.string.dashboard_insight_month_end, formatCurrency(patterns.predictedMonthEndSpending)))
+                    }
+                    if (patterns.anomalies.isNotEmpty()) {
+                        add(pluralStringResource(R.plurals.dashboard_insight_unusual, patterns.anomalies.size, patterns.anomalies.size))
+                    }
+                }
+                SegmentedListItem(
+                    title = stringResource(R.string.dashboard_insight_trend),
+                    subtitle = parts.joinToString(" · "),
+                    shape = shape,
+                    icon = if (down) MaterialSymbols.TRENDING_DOWN else MaterialSymbols.TRENDING_UP,
+                    iconTint = when {
+                        up -> MaterialTheme.colorScheme.critical
+                        down -> MaterialTheme.colorScheme.success
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                    onClick = onNavigateToInsights,
+                    trailing = { RowChevron() }
                 )
             }
         }
     }
+    if (rows.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+        rows.forEachIndexed { index, row -> row(segmentedShape(index, rows.size)) }
+    }
 }
+
+@Composable
+private fun RowChevron() {
+    MaterialSymbolIcon(
+        icon = MaterialSymbols.ARROW_FORWARD,
+        contentDescription = null,
+        size = 18.dp,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
 
 private fun formatApy(value: Double): String {
     return value.formatPercent(2)

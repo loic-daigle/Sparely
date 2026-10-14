@@ -594,6 +594,16 @@
     <string name="dashboard_suggested_allocations">Suggested allocations</string>
     <string name="dashboard_investments_split">Investments: %1$s safe / %2$s high risk</string>
     <string name="dashboard_insights_title">Insights</string>
+    <string name="dashboard_insight_ai_title">Your day at a glance</string>
+    <string name="dashboard_insight_low_balance">Low balance ahead</string>
+    <string name="dashboard_insight_low_balance_detail">Could drop to %1$s in %2$d days</string>
+    <string name="dashboard_insight_idle_to_vault">%1$s could go to %2$s</string>
+    <string name="dashboard_insight_idle_to_savings">%1$s could go to savings</string>
+    <string name="dashboard_insight_idle_move">Move</string>
+    <string name="dashboard_insight_trend">Spending trend</string>
+    <string name="dashboard_insight_trend_up">Up %1$.0f%%</string>
+    <string name="dashboard_insight_trend_down">Down %1$.0f%%</string>
+    <string name="dashboard_insight_month_end">month-end %1$s</string>
     <string name="dashboard_vaults_progress_title">Vaults progress</string>
     <string name="dashboard_amount_of_target">%1$s of %2$s</string>
     <string name="dashboard_target_date_label">Target date %1$s</string>
@@ -1585,7 +1595,6 @@
     <string name="ai_failed_details">The on-device AI couldn\'t answer: %1$s</string>
     <string name="ai_on_device_note">Written by AI on this phone. It can make mistakes; the numbers come from Sparely.</string>
     <string name="ai_on_device_chip">On device</string>
-    <string name="ai_brief_open">Open insights</string>
     <string name="ai_wish_title">Should you buy it now?</string>
     <string name="ai_wish_ask_placeholder">How long until I can afford it?</string>
     <string name="ai_health_title">Your score, explained</string>

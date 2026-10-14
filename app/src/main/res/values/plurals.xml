@@ -64,4 +64,8 @@
         <item quantity="one">Includes %1$s from %2$d detected payment not added yet</item>
         <item quantity="other">Includes %1$s from %2$d detected payments not added yet</item>
     </plurals>
+    <plurals name="dashboard_insight_unusual">
+        <item quantity="one">%1$d unusual expense</item>
+        <item quantity="other">%1$d unusual expenses</item>
+    </plurals>
 </resources>
