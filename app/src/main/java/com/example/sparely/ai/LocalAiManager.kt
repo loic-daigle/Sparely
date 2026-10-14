@@ -248,15 +248,28 @@ class LocalAiManager(
         facts: List<Fact>,
         language: PromptLanguage = PromptLanguage.ENGLISH,
         task: String = AiTask.SUMMARY.text(language),
-        restart: Boolean = false
+        restart: Boolean = false,
+        maxAnswerChars: Int = AnswerFormatter.DEFAULT_MAX_CHARS,
+        /** Also keep the answer as the latest for this slot; see [latestSummary]. */
+        rememberAs: String? = null
     ): LiveAiRequest = synchronized(liveSummaries) {
-        val key = "$language|$task|$facts"
+        val key = "$language|$task|$maxAnswerChars|$facts"
         val existing = liveSummaries[key]
         if (existing != null && (!restart || existing.isRunning || existing.result.value is LocalAiResult.Success)) {
             return existing
         }
-        launchLive(null) { summarizeStream(facts, language, task) }.also { liveSummaries[key] = it }
+        val onSuccess: ((String) -> Unit)? = rememberAs?.let { slot -> { text -> answers.put(latestKey(slot, language), text) } }
+        launchLive(null, onSuccess) { summarizeStream(facts, language, task, maxAnswerChars) }.also { liveSummaries[key] = it }
     }
+
+    /**
+     * The last summary saved with `rememberAs = slot`, whatever numbers it was written for. Lets a
+     * screen keep showing yesterday's text while today's is written, instead of an empty space.
+     */
+    fun latestSummary(slot: String, language: PromptLanguage = PromptLanguage.ENGLISH): String? =
+        answers.get(latestKey(slot, language))
+
+    private fun latestKey(slot: String, language: PromptLanguage) = "latest:$slot:$language"
 
     /**
      * Asks [question] for the card identified by [slot] (e.g. "insights"), replacing what that
@@ -274,11 +287,18 @@ class LocalAiManager(
     /** The last question asked from [slot] and its answer, if any. */
     fun currentAnswer(slot: String): LiveAiRequest? = synchronized(liveAnswers) { liveAnswers[slot] }
 
-    private fun launchLive(question: String?, start: () -> Flow<LocalAiResult>): LiveAiRequest {
+    private fun launchLive(
+        question: String?,
+        onSuccess: ((String) -> Unit)? = null,
+        start: () -> Flow<LocalAiResult>
+    ): LiveAiRequest {
         val result = MutableStateFlow<LocalAiResult?>(null)
         scope.launch {
             try {
-                start().collect { result.value = it }
+                start().collect {
+                    result.value = it
+                    if (it is LocalAiResult.Success) onSuccess?.invoke(it.text)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

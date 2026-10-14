@@ -236,7 +236,22 @@ fun DashboardScreen(
         ) {
             // ── At a glance ─────────────────────────────────────────────
             item(key = "greeting") {
-                DashboardGreeting()
+                val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
+                val symbol = uiState.settings.regionalSettings.getCurrencySymbol()
+                val briefFacts = remember(uiState, aiLanguage, symbol) {
+                    com.example.sparely.ai.FinanceFacts.brief(uiState, aiLanguage) { aiLanguage.money(it, symbol) }
+                }
+                DashboardGreeting {
+                    // On-device AI's one-line take on today, as a subtitle under the greeting rather
+                    // than another card; tapping it opens Insights for the full summary and questions.
+                    com.example.sparely.ui.components.OnDeviceAiBrief(
+                        facts = briefFacts,
+                        task = com.example.sparely.ai.AiTask.BRIEF.text(aiLanguage),
+                        slot = "dashboard",
+                        onClick = onNavigateToInsights,
+                        modifier = Modifier.padding(top = MaterialTheme.spacing.xxs)
+                    )
+                }
             }
 
             item(key = "hero") {
@@ -529,7 +544,7 @@ private fun RoundedProgressBar(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DashboardGreeting() {
+private fun DashboardGreeting(below: @Composable () -> Unit = {}) {
     val greetingRes = remember {
         when (LocalTime.now().hour) {
             in 5..11 -> R.string.dashboard_greeting_morning
@@ -549,6 +564,7 @@ private fun DashboardGreeting() {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
+        below()
     }
 }
 

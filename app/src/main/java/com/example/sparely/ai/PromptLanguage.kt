@@ -84,6 +84,10 @@ enum class AiTask(private val en: String, private val fr: String) {
             "par une prochaine étape concrète. Utilise 2 ou 3 phrases courtes. Ne contredis jamais le verdict : s'il dit abordable, " +
             "ne dis jamais que l'achat est une mauvaise idée ou un mauvais moment."
     ),
+    BRIEF(
+        "In one short sentence of at most 20 words, tell the user the single most useful thing about their money today.",
+        "En une seule phrase courte d'au plus 20 mots, dis à l'utilisateur la chose la plus utile à savoir sur son argent aujourd'hui."
+    ),
     HEALTH(
         "Explain the user's financial health score in 2-3 short sentences: what's going well, and the one change that would raise it most.",
         "Explique en 2 ou 3 phrases courtes le score de santé financière de l'utilisateur : ce qui va bien, et le changement qui l'améliorerait le plus."

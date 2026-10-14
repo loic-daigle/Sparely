@@ -170,4 +170,19 @@ class FinanceFactsTest {
             facts
         )
     }
+
+    @Test
+    fun briefKeepsOnlyTodaysEssentials() {
+        val withCard = state.copy(paymentMethods = listOf(card("Visa", 540.0, 2000.0)))
+        val facts = FinanceFacts.brief(withCard, money = money)
+        assertEquals(
+            listOf(
+                Fact("Spent this month", "$1240 of a $1500 total budget"),
+                // Dining is over 90% of its limit, so it's the one budget mentioned.
+                Fact("Dining budget", "$310 of $250 (124% used)"),
+                Fact("Owed on credit cards", "$540")
+            ),
+            facts
+        )
+    }
 }

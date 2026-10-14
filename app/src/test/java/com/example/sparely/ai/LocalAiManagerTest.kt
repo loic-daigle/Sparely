@@ -407,4 +407,15 @@ class LocalAiManagerTest {
         assertEquals(LocalAiResult.Success("Yes."), current?.result?.value)
         assertEquals(null, ai.currentAnswer("health"))
     }
+
+    @Test
+    fun rememberedSummaryOutlivesItsNumbers() {
+        val ai = LocalAiManager(StreamingModel(listOf("You're on track.")), CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        ai.refresh()
+        assertEquals(null, ai.latestSummary("dashboard"))
+        ai.liveSummary(facts, task = "Brief.", rememberAs = "dashboard")
+        assertEquals("You're on track.", ai.latestSummary("dashboard"))
+        assertEquals(null, ai.latestSummary("dashboard", PromptLanguage.FRENCH))
+        assertEquals(null, ai.latestSummary("insights"))
+    }
 }

@@ -67,6 +67,52 @@ object FinanceFacts {
     }
 
     /**
+     * The few numbers that matter today, for the one-line brief on the dashboard: kept short so
+     * the sentence is quick to write and picks the one thing worth saying.
+     */
+    fun brief(
+        state: SparelyUiState,
+        lang: PromptLanguage = PromptLanguage.ENGLISH,
+        money: (Double) -> String
+    ): List<Fact> = buildList {
+        state.cashflowForecast?.let { forecast ->
+            add(Fact(lang.pick("Safe to spend now", "Montant dépensable sans risque"), money(forecast.safeToSpend)))
+            forecast.lowBalanceWarning?.let { warning ->
+                add(
+                    Fact(
+                        lang.pick("Low balance ahead", "Solde bas à venir"),
+                        lang.pick(
+                            "balance could drop to ${money(warning.projectedLowBalance)} in ${warning.daysUntilLowBalance} days",
+                            "le solde pourrait baisser à ${money(warning.projectedLowBalance)} dans ${warning.daysUntilLowBalance} jours"
+                        )
+                    )
+                )
+            }
+            val thisWeek = forecast.upcomingObligations.filter { it.daysUntilDue in 0..7 }
+            if (thisWeek.isNotEmpty()) {
+                add(Fact(lang.pick("Bills due in the next 7 days", "Factures à payer dans les 7 prochains jours"), money(thisWeek.sumOf { it.amount })))
+            }
+        }
+        state.budgetSummary?.takeIf { it.totalBudget > 0 }?.let { budget ->
+            add(
+                Fact(
+                    lang.pick("Spent this month", "Dépensé ce mois-ci"),
+                    lang.pick(
+                        "${money(budget.totalSpent)} of a ${money(budget.totalBudget)} total budget",
+                        "${money(budget.totalSpent)} sur un budget total de ${money(budget.totalBudget)}"
+                    )
+                )
+            )
+        }
+        // Only a budget that's nearly used up is worth a mention in one sentence.
+        budgetFacts(state, lang, money, limit = 1)
+            .takeIf { state.budgetSummary?.categoryStatuses.orEmpty().any { it.limit > 0 && it.spent / it.limit >= 0.9 } }
+            ?.let { addAll(it) }
+        val owed = state.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance }
+        if (owed >= 0.005) add(Fact(lang.pick("Owed on credit cards", "Dû sur les cartes de crédit"), money(owed)))
+    }
+
+    /**
      * What's owed on credit cards, so a card purchase shows up in the summary. One card is named
      * with its share of the limit; with several, the total comes first, then the 3 largest.
      */

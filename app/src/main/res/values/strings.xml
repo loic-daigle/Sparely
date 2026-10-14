@@ -1585,6 +1585,7 @@
     <string name="ai_failed_details">The on-device AI couldn\'t answer: %1$s</string>
     <string name="ai_on_device_note">Written by AI on this phone. It can make mistakes; the numbers come from Sparely.</string>
     <string name="ai_on_device_chip">On device</string>
+    <string name="ai_brief_open">Open insights</string>
     <string name="ai_wish_title">Should you buy it now?</string>
     <string name="ai_wish_ask_placeholder">How long until I can afford it?</string>
     <string name="ai_health_title">Your score, explained</string>

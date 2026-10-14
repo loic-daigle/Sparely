@@ -290,6 +290,84 @@ private fun AiAskSegment(
     }
 }
 
+/**
+ * A one-sentence brief written by the on-device model, meant to sit under a screen's greeting as a
+ * subtitle rather than as another card. Tapping it calls [onClick] (e.g. to open Insights).
+ *
+ * While a new brief is written for changed numbers, the previous one stays, faded, so the line
+ * never empties or jumps; only the very first brief shows a placeholder line. A failure hides it
+ * instead of putting an error on the screen. Shows nothing when AI is off or not ready.
+ *
+ * @param slot names this brief so the last one can be shown while the next is written
+ */
+@Composable
+fun OnDeviceAiBrief(
+    facts: List<Fact>,
+    task: String,
+    slot: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val manager = readyManager() ?: return
+    if (facts.isEmpty()) return
+    val language = LocalOnDeviceAi.current.language
+    val request = remember(facts, task, language) {
+        manager.liveSummary(facts, language, task, maxAnswerChars = BRIEF_MAX_CHARS, rememberAs = slot)
+    }
+    val result by request.result.collectAsState()
+    val previous = remember(slot, language) { manager.latestSummary(slot, language) }
+    val fresh = (result as? LocalAiResult.Success)?.text ?: (result as? LocalAiResult.Partial)?.text
+    val writing = result == null || result is LocalAiResult.Partial
+    val shown = fresh ?: previous
+    if (shown == null && !writing) return
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClickLabel = stringResource(R.string.ai_brief_open), onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 2.dp)
+            .animateContentSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        MaterialSymbolIcon(
+            icon = MaterialSymbols.LIGHTBULB,
+            contentDescription = null,
+            size = 16.dp,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            if (shown == null) {
+                PlaceholderLines(lines = 1)
+            } else {
+                Text(
+                    text = shown,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    // The previous brief, while the new one is written.
+                    modifier = Modifier.alpha(if (fresh == null) 0.55f else 1f)
+                )
+            }
+        }
+        if (writing && fresh == null && shown != null) {
+            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
+        } else {
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ARROW_FORWARD,
+                contentDescription = null,
+                size = 16.dp,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** One sentence; anything past this is cut at the last full sentence. */
+private const val BRIEF_MAX_CHARS = 180
+
 /** The tonal circle that marks AI content, like the badges on the app's list headers. */
 @Composable
 private fun AiBadge() {
