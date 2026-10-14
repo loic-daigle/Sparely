@@ -1335,6 +1335,7 @@
     <string name="credit_cards_bill_paid">Paid in full</string>
     <string name="credit_cards_bill_new_charges">%1$s in new purchases goes on the next bill</string>
     <string name="credit_cards_preset_statement">Bill</string>
+    <string name="credit_card_new_bill">New %1$s bill</string>
     <string name="credit_card_due_today">%1$s bill due today</string>
     <string name="credit_card_due_tomorrow">%1$s bill due tomorrow</string>
     <string name="credit_card_due_in_days">%1$s bill due in %2$d days</string>

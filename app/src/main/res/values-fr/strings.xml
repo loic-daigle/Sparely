@@ -1103,6 +1103,7 @@
     <string name="credit_cards_bill_paid">Payée en entier</string>
     <string name="credit_cards_bill_new_charges">%1$s de nouveaux achats iront sur la prochaine facture</string>
     <string name="credit_cards_preset_statement">Facture</string>
+    <string name="credit_card_new_bill">Nouvelle facture %1$s</string>
     <string name="credit_card_due_today">Facture %1$s à payer aujourd\'hui</string>
     <string name="credit_card_due_tomorrow">Facture %1$s à payer demain</string>
     <string name="credit_card_due_in_days">Facture %1$s à payer dans %2$d jours</string>

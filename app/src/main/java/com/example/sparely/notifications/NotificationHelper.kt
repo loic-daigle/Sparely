@@ -427,13 +427,16 @@ object NotificationHelper {
         cardName: String,
         amountDue: Double,
         dueDate: java.time.LocalDate,
-        daysUntilDue: Int
+        daysUntilDue: Int,
+        /** The bill came out today: a nudge to pay it early, so it isn't forgotten. */
+        isNewBill: Boolean = false
     ) {
         ensureChannels(context)
         val formattedAmount = formatAmount(amountDue)
-        val title = when (daysUntilDue) {
-            0 -> context.getString(R.string.credit_card_due_today, cardName)
-            1 -> context.getString(R.string.credit_card_due_tomorrow, cardName)
+        val title = when {
+            isNewBill -> context.getString(R.string.credit_card_new_bill, cardName)
+            daysUntilDue == 0 -> context.getString(R.string.credit_card_due_today, cardName)
+            daysUntilDue == 1 -> context.getString(R.string.credit_card_due_tomorrow, cardName)
             else -> context.getString(R.string.credit_card_due_in_days, cardName, daysUntilDue)
         }
         val formattedDate = dueDate.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))

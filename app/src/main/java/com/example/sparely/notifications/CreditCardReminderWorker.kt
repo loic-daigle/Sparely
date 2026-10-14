@@ -42,15 +42,18 @@ class CreditCardReminderWorker(
             if (card.currentBalance <= 0) return@forEach
             val bill = CreditCardStatements.currentBill(card, expenses, today) ?: return@forEach
 
-            // Remind only about what's on the bill, ahead of its real due date.
-            if (!bill.isPaid && bill.daysUntilDue in 0..daysBefore) {
+            // A nudge the day the bill comes out, so paying it isn't forgotten, then a reminder
+            // ahead of its real due date. Both are about what's on the bill only.
+            val isNewBill = bill.statementDate == today
+            if (!bill.isPaid && (isNewBill || bill.daysUntilDue in 0..daysBefore)) {
                 NotificationHelper.showCreditCardDueReminder(
                     context = context,
                     cardId = card.id,
                     cardName = card.name,
                     amountDue = bill.amountDue,
                     dueDate = bill.dueDate,
-                    daysUntilDue = bill.daysUntilDue
+                    daysUntilDue = bill.daysUntilDue,
+                    isNewBill = isNewBill
                 )
             }
 
