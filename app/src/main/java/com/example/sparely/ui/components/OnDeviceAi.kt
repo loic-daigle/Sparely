@@ -150,7 +150,6 @@ private fun AiSummarySegment(
                         .weight(1f)
                         .semantics { heading() }
                 )
-                OnDeviceChip()
             }
 
             when (val r = result) {
@@ -352,7 +351,6 @@ fun OnDeviceAiBriefSegment(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                OnDeviceChip()
                 MaterialSymbolIcon(
                     icon = MaterialSymbols.ARROW_FORWARD,
                     contentDescription = null,
@@ -396,18 +394,6 @@ private fun AiBadge() {
             contentDescription = null,
             size = 20.dp,
             tint = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-    }
-}
-
-@Composable
-private fun OnDeviceChip() {
-    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-        Text(
-            text = stringResource(R.string.ai_on_device_chip),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
 }
