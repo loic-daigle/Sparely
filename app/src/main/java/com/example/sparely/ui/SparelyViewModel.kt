@@ -401,7 +401,7 @@ class SparelyViewModel(
                         val today = LocalDate.now()
                         if (lastBirthdayGreetingDate != today) {
                             val message = AlertMessage(
-                                title = settings.displayName?.takeIf { it.isNotBlank() }?.let { AppStrings.get(R.string.birthday_title_named, "Happy birthday, %1$s!", it) } ?: AppStrings.get(R.string.birthday_title, "Happy birthday!"),
+                                title = settings.displayName?.takeIf { it.isNotBlank() }?.let { AppStrings.get(R.string.birthday_title_named, "Happy birthday, $it!", it) } ?: AppStrings.get(R.string.birthday_title, "Happy birthday!"),
                                 description = AppStrings.get(R.string.birthday_desc, "Enjoy your day! Treat yourself, your savings plan has you covered."),
                                 type = AlertType.SUCCESS,
                                 priority = 12,
