@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -25,6 +27,7 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.setAppLocale
 import com.example.sparely.domain.model.CountryProfiles
+import com.example.sparely.domain.model.BackupPreference
 import com.example.sparely.domain.model.ExpenseHistoryRetention
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -344,7 +347,47 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
     
-    suspend fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
+    /** Every stored setting, with its type, so a backup carries all of them (including future ones). */
+    suspend fun exportAllPreferences(): List<BackupPreference> =
+        context.dataStore.data.first().asMap().mapNotNull { (key, value) ->
+            when (value) {
+                is Boolean -> BackupPreference(key.name, BackupPreference.BOOLEAN, value.toString())
+                is Int -> BackupPreference(key.name, BackupPreference.INT, value.toString())
+                is Long -> BackupPreference(key.name, BackupPreference.LONG, value.toString())
+                is Float -> BackupPreference(key.name, BackupPreference.FLOAT, value.toString())
+                is Double -> BackupPreference(key.name, BackupPreference.DOUBLE, value.toString())
+                is String -> BackupPreference(key.name, BackupPreference.STRING, value)
+                is Set<*> -> BackupPreference(key.name, BackupPreference.STRING_SET, values = value.map { it.toString() })
+                else -> null
+            }
+        }
+
+    /**
+     * Replaces all settings with the ones from a backup, then applies the restored language. Entries
+     * with an unknown type or an unreadable value are skipped. Onboarding is always marked done.
+     */
+    suspend fun replaceAllPreferences(entries: List<BackupPreference>) {
+        context.dataStore.edit { prefs ->
+            prefs.clear()
+            entries.forEach { entry ->
+                val raw = entry.value
+                when (entry.type) {
+                    BackupPreference.BOOLEAN -> raw?.toBooleanStrictOrNull()?.let { prefs[booleanPreferencesKey(entry.key)] = it }
+                    BackupPreference.INT -> raw?.toIntOrNull()?.let { prefs[intPreferencesKey(entry.key)] = it }
+                    BackupPreference.LONG -> raw?.toLongOrNull()?.let { prefs[longPreferencesKey(entry.key)] = it }
+                    BackupPreference.FLOAT -> raw?.toFloatOrNull()?.let { prefs[floatPreferencesKey(entry.key)] = it }
+                    BackupPreference.DOUBLE -> raw?.toDoubleOrNull()?.takeIf { it.isFinite() }?.let { prefs[doublePreferencesKey(entry.key)] = it }
+                    BackupPreference.STRING -> raw?.let { prefs[stringPreferencesKey(entry.key)] = it }
+                    BackupPreference.STRING_SET -> entry.values?.let { prefs[stringSetPreferencesKey(entry.key)] = it.toSet() }
+                }
+            }
+            prefs[PreferenceKeys.onboardingCompleted] = true
+        }
+        val restored = context.dataStore.data.first()
+        restored[PreferenceKeys.languageCode]?.let { context.setAppLocale(it, restored[PreferenceKeys.countryCode]) }
+    }
+
+countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
         editSafely { prefs ->
             prefs[PreferenceKeys.countryCode] = countryCode
             prefs[PreferenceKeys.languageCode] = languageCode

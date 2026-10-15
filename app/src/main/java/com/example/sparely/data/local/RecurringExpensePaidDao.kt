@@ -45,4 +45,10 @@ interface RecurringExpensePaidDao {
 
     @Query("SELECT * FROM recurring_expenses_paid ORDER BY dueDate DESC")
     fun observeAllPaidRecords(): Flow<List<RecurringExpensePaidEntity>>
+
+    @Query("SELECT * FROM recurring_expenses_paid ORDER BY id")
+    suspend fun getAll(): List<RecurringExpensePaidEntity>
+
+    @Query("DELETE FROM recurring_expenses_paid")
+    suspend fun clearAll()
 }

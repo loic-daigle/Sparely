@@ -43,4 +43,10 @@ interface AssistantActionDao {
     /** Marks an action undone; returns 0 when it was already undone, so undo runs at most once. */
     @Query("UPDATE assistant_actions SET undoneAtEpochMillis = :undoneAtEpochMillis WHERE id = :id AND undoneAtEpochMillis IS NULL")
     suspend fun markUndone(id: Long, undoneAtEpochMillis: Long): Int
+
+    @Query("SELECT * FROM assistant_actions ORDER BY id")
+    suspend fun getAll(): List<AssistantActionEntity>
+
+    @Query("DELETE FROM assistant_actions")
+    suspend fun clearAll()
 }

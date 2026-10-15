@@ -68,7 +68,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val backupRepository: BackupRepository by lazy {
-        BackupRepository(savingsRepository, preferencesRepository)
+        BackupRepository(savingsRepository, preferencesRepository, database.assistantActionDao())
     }
 
     override val preferencesRepository: UserPreferencesRepository by lazy {

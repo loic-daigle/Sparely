@@ -1210,12 +1210,17 @@ class SavingsRepository(
     suspend fun getMainAccountTransactionById(id: Long): com.example.sparely.domain.model.MainAccountTransaction? =
         mainAccountDao.getTransactionById(id)?.toDomain()
 
-    suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long {
+    suspend fun insertMainAccountTransaction(
+        transaction: com.example.sparely.domain.model.MainAccountTransaction,
+        // A restore links contributions later (restoreTransactionVaultLinks), once they exist.
+        linkVaultContributions: Boolean = true
+    ): Long {
         // A NaN/Infinity here would poison every later balance computed from the latest row.
         require(transaction.amount.isFinite() && transaction.balanceAfter.isFinite()) {
             "Refusing to record a main account transaction with an invalid amount"
         }
         val transactionId = mainAccountDao.insertTransaction(transaction.toEntity())
+        if (!linkVaultContributions) return transactionId
         transaction.relatedVaultContributionIds?.forEach { contributionId ->
             mainAccountDao.insertTransactionVaultCrossRef(
                 com.example.sparely.data.local.TransactionVaultContributionCrossRef(
@@ -1602,6 +1607,56 @@ class SavingsRepository(
     suspend fun clearChallenges() {
         challengeDao.deleteAllMilestones()
         challengeDao.deleteAllChallenges()
+    }
+
+    // ===== Full backup helpers =====
+
+    suspend fun getAllSavingsAccountsIncludingArchived(): List<SavingsAccount> =
+        savingsAccountDao.observeAllAccounts().first().map { it.toDomain() }
+
+    suspend fun clearSavingsAccounts() {
+        savingsAccountTransactionDao.clearAll()
+        savingsAccountDao.clearAll()
+    }
+
+    suspend fun getAllSavingsAccountTransactions(): List<com.example.sparely.data.local.SavingsAccountTransactionEntity> =
+        savingsAccountTransactionDao.getAll()
+
+    suspend fun insertSavingsAccountTransaction(transaction: com.example.sparely.data.local.SavingsAccountTransactionEntity) {
+        savingsAccountTransactionDao.insert(transaction)
+    }
+
+    suspend fun getAllRecurringExpensePayments(): List<com.example.sparely.data.local.RecurringExpensePaidEntity> =
+        recurringExpensePaidDao.getAll()
+
+    suspend fun insertRecurringExpensePayment(payment: com.example.sparely.data.local.RecurringExpensePaidEntity) {
+        recurringExpensePaidDao.insertPaid(payment)
+    }
+
+    suspend fun getAllPendingVariableRecurringExpenses(): List<com.example.sparely.data.local.PendingVariableRecurringExpenseEntity> =
+        pendingVariableRecurringExpenseDao.getAll()
+
+    suspend fun insertPendingVariableRecurringExpense(pending: com.example.sparely.data.local.PendingVariableRecurringExpenseEntity) {
+        pendingVariableRecurringExpenseDao.insert(pending)
+    }
+
+    suspend fun clearRecurringPaymentState() {
+        recurringExpensePaidDao.clearAll()
+        pendingVariableRecurringExpenseDao.clearAll()
+    }
+
+    /** Re-creates the transaction <-> vault contribution links of restored main account transactions. */
+    suspend fun restoreTransactionVaultLinks(transactions: List<com.example.sparely.domain.model.MainAccountTransaction>) {
+        transactions.forEach { transaction ->
+            transaction.relatedVaultContributionIds?.forEach { contributionId ->
+                mainAccountDao.insertTransactionVaultCrossRef(
+                    com.example.sparely.data.local.TransactionVaultContributionCrossRef(
+                        transactionId = transaction.id,
+                        contributionId = contributionId
+                    )
+                )
+            }
+        }
     }
 
     suspend fun clearVaultData() {

@@ -29,4 +29,7 @@ interface PendingVariableRecurringExpenseDao {
 
     @Query("SELECT * FROM pending_variable_recurring_expenses ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<PendingVariableRecurringExpenseEntity>>
+
+    @Query("DELETE FROM pending_variable_recurring_expenses")
+    suspend fun clearAll()
 }

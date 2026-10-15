@@ -43,6 +43,33 @@ data class BackupData(
     val assetExpenseLinks: List<com.example.sparely.domain.model.AssetExpenseLink>? = null,
     val wishlists: List<com.example.sparely.domain.model.Wishlist>? = null,
     val wishlistSavings: List<com.example.sparely.data.local.WishlistSavingsEntity>? = null,
-    val expenseRefunds: List<com.example.sparely.domain.model.ExpenseRefund>? = null
+    val expenseRefunds: List<com.example.sparely.domain.model.ExpenseRefund>? = null,
+    // Full-fidelity additions: the remaining tables, and every setting as stored
+    val savingsAccountTransactions: List<com.example.sparely.data.local.SavingsAccountTransactionEntity>? = null,
+    val recurringExpensePayments: List<com.example.sparely.data.local.RecurringExpensePaidEntity>? = null,
+    val pendingVariableRecurringExpenses: List<com.example.sparely.data.local.PendingVariableRecurringExpenseEntity>? = null,
+    val assistantActions: List<com.example.sparely.data.local.AssistantActionEntity>? = null,
+    val preferences: List<BackupPreference>? = null
 )
+
+/**
+ * One stored setting. Values are kept as text so JSON number handling can't change their type
+ * (Gson would read a Long back as a Double); [values] holds string sets.
+ */
+data class BackupPreference(
+    val key: String,
+    val type: String,
+    val value: String? = null,
+    val values: List<String>? = null
+) {
+    companion object {
+        const val BOOLEAN = "boolean"
+        const val INT = "int"
+        const val LONG = "long"
+        const val FLOAT = "float"
+        const val DOUBLE = "double"
+        const val STRING = "string"
+        const val STRING_SET = "string_set"
+    }
+}
 

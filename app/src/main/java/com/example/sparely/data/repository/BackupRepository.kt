@@ -29,6 +29,7 @@ import com.example.sparely.domain.model.SparelySettings
 class BackupRepository(
     private val savingsRepository: SavingsRepository,
     private val preferencesRepository: UserPreferencesRepository,
+    private val assistantActionDao: com.example.sparely.data.local.AssistantActionDao,
     private val gson: Gson = GsonBuilder()
         .registerTypeHierarchyAdapter(LocalDate::class.java, LocalDateAdapter())
         .registerTypeHierarchyAdapter(LocalDateTime::class.java, LocalDateTimeAdapter())
@@ -49,7 +50,8 @@ class BackupRepository(
         val vaults = savingsRepository.observeAllSmartVaults().first()
         val budgets = savingsRepository.observeBudgets().first()
         val expenses = savingsRepository.observeExpenses().first()
-        val savingsAccounts = savingsRepository.observeSavingsAccounts().first()
+        // Archived accounts too, so their history survives a restore.
+        val savingsAccounts = savingsRepository.getAllSavingsAccountsIncludingArchived()
         val recurring = savingsRepository.observeRecurringExpenses().first()
         val transactions = savingsRepository.observeMainAccountTransactions().first()
         val frozenFunds = savingsRepository.observeFrozenFunds().first()
@@ -98,7 +100,12 @@ class BackupRepository(
             assetExpenseLinks = assetExpenseLinks,
             wishlists = wishlists,
             wishlistSavings = wishlistSavings,
-            expenseRefunds = expenseRefunds
+            expenseRefunds = expenseRefunds,
+            savingsAccountTransactions = savingsRepository.getAllSavingsAccountTransactions(),
+            recurringExpensePayments = savingsRepository.getAllRecurringExpensePayments(),
+            pendingVariableRecurringExpenses = savingsRepository.getAllPendingVariableRecurringExpenses(),
+            assistantActions = assistantActionDao.getAll(),
+            preferences = preferencesRepository.exportAllPreferences()
         )
 
         gson.toJson(backup)
@@ -149,6 +156,10 @@ class BackupRepository(
                 savingsRepository.clearWishlists()
                 savingsRepository.clearWishlistSavings()
                 savingsRepository.clearExpenseRefunds()
+                savingsRepository.clearRecurringPaymentState()
+                // Vaults (which reference accounts) are already gone; this also clears account history.
+                savingsRepository.clearSavingsAccounts()
+                assistantActionDao.clearAll()
                 android.util.Log.d("BackupRepository", "Cleared existing data")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to clear existing data", e)
@@ -180,7 +191,10 @@ class BackupRepository(
             
             // 3. Transactions & History
             try {
-                backup.transactions.orEmpty().restoreEach("transactions") { savingsRepository.insertMainAccountTransaction(it) }
+                backup.transactions.orEmpty().restoreEach("transactions") {
+                    // Links to vault contributions are restored after the contributions (step 5).
+                    savingsRepository.insertMainAccountTransaction(it, linkVaultContributions = false)
+                }
                 android.util.Log.d("BackupRepository", "Restored ${backup.transactions.size} transactions")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore transactions", e)
@@ -240,6 +254,9 @@ class BackupRepository(
                 savingsRepository.insertVaultContributions(backup.vaultContributions.orEmpty())
                 savingsRepository.insertVaultAdjustments(backup.vaultAdjustments.orEmpty())
                 savingsRepository.insertAllocationHistory(backup.allocationHistory.orEmpty())
+                backup.transactions.orEmpty().restoreEach("transactionVaultLinks") {
+                    savingsRepository.restoreTransactionVaultLinks(listOf(it))
+                }
                 android.util.Log.d("BackupRepository", "Restored vault history")
             } catch (e: Exception) {
                 android.util.Log.e("BackupRepository", "Failed to restore vault history", e)
@@ -303,11 +320,40 @@ class BackupRepository(
                 throw e
             }
 
+            // 11b. Account history, recurring payment state and assistant actions (null in older backups)
+            try {
+                backup.savingsAccountTransactions.orEmpty().restoreEach("savingsAccountTransactions") {
+                    savingsRepository.insertSavingsAccountTransaction(it)
+                }
+                backup.recurringExpensePayments.orEmpty().restoreEach("recurringExpensePayments") {
+                    savingsRepository.insertRecurringExpensePayment(it)
+                }
+                backup.pendingVariableRecurringExpenses.orEmpty().restoreEach("pendingVariableRecurringExpenses") {
+                    savingsRepository.insertPendingVariableRecurringExpense(it)
+                }
+                backup.assistantActions.orEmpty().restoreEach("assistantActions") { assistantActionDao.insert(it) }
+                android.util.Log.d("BackupRepository", "Restored account history, recurring payments and assistant actions")
+            } catch (e: Exception) {
+                android.util.Log.e("BackupRepository", "Failed to restore account history/recurring payments", e)
+                throw e
+            }
+
             // 12. Restore Settings - deliberately last: this is the only part of the restore
             // that touches DataStore rather than Room, so it isn't covered by this transaction's
             // rollback. Running it after every Room write succeeds means a failure anywhere above
             // leaves settings untouched instead of ending up out of sync with reverted entities.
-            try {
+            val fullSettings = backup.preferences.orEmpty()
+            if (fullSettings.isNotEmpty()) {
+                // Newer backups carry every setting as stored; put them all back as they were.
+                try {
+                    preferencesRepository.replaceAllPreferences(fullSettings)
+                    android.util.Log.d("BackupRepository", "Restored ${fullSettings.size} settings")
+                } catch (e: Exception) {
+                    android.util.Log.e("BackupRepository", "Failed to restore settings", e)
+                    throw e
+                }
+            } else try {
+                // Older backups: only the profile fields below were saved.
                 val s = sanitizeSettings(backup.settings)
                 preferencesRepository.updateMonthlyIncome(s.monthlyIncome)
                 preferencesRepository.updateAge(s.age)
@@ -406,7 +452,12 @@ class BackupRepository(
             assetExpenseLinks = parsed.assetExpenseLinks.clean(),
             wishlists = wishlists,
             wishlistSavings = wishlistSavings,
-            expenseRefunds = parsed.expenseRefunds.clean()
+            expenseRefunds = parsed.expenseRefunds.clean(),
+            savingsAccountTransactions = parsed.savingsAccountTransactions.clean(),
+            recurringExpensePayments = parsed.recurringExpensePayments.clean(),
+            pendingVariableRecurringExpenses = parsed.pendingVariableRecurringExpenses.clean(),
+            assistantActions = parsed.assistantActions.clean(),
+            preferences = parsed.preferences.clean().filter { (it.key as String?) != null && (it.type as String?) != null }
         )
     }
 

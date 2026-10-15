@@ -29,4 +29,7 @@ interface SavingsAccountTransactionDao {
     
     @Query("DELETE FROM savings_account_transactions")
     suspend fun clearAll()
+
+    @Query("SELECT * FROM savings_account_transactions ORDER BY id")
+    suspend fun getAll(): List<SavingsAccountTransactionEntity>
 }
