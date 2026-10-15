@@ -25,6 +25,10 @@ WHITE = "#FFFFFF"
 # Visual center of the mark in its 200x200 coordinate space.
 MARK_CENTER = (100, 89.5)
 
+# Mark scale on the 108dp adaptive-icon canvas. Launchers mask that canvas to a ~72dp circle (or other
+# shape); 0.30 keeps the mark at about 59% of the circle's height so it doesn't crowd the edge.
+ADAPTIVE_MARK_SCALE = 0.30
+
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 
 
@@ -59,7 +63,7 @@ def render(svg_text, px, out):
 
 # Icon specs: canvas size in dp -> SVG body (in dp units).
 def foreground_svg():
-    return svg(108, mark(54, 0.38))
+    return svg(108, mark(54, ADAPTIVE_MARK_SCALE))
 
 
 def background_svg():
@@ -67,7 +71,7 @@ def background_svg():
 
 
 def monochrome_svg():
-    return svg(108, mark(54, 0.38, WHITE, WHITE))
+    return svg(108, mark(54, ADAPTIVE_MARK_SCALE, WHITE, WHITE))
 
 
 def legacy_svg():
