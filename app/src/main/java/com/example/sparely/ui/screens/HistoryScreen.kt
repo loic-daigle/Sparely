@@ -2,7 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.animation.*
 import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.toInputString
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -1824,7 +1824,7 @@ private fun RefundExpenseDialog(
                 SheetAmountField(
                     value = amountText,
                     onValueChange = {
-                        amountText = it.filterCurrencyInput()
+                        amountText = it.filterAmountExpressionInput()
                         wasManuallyEdited = true
                     },
                     label = stringResource(R.string.refund_amount),

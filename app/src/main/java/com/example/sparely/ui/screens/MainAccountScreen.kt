@@ -2,7 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
 import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.example.sparely.ui.components.SparelySheetHeader
@@ -472,7 +472,7 @@ private fun TransactionDialog(
 
             SheetAmountField(
                 value = amount,
-                onValueChange = { amount = it.filterCurrencyInput() },
+                onValueChange = { amount = it.filterAmountExpressionInput() },
                 label = stringResource(R.string.vault_amount_label),
                 isError = overBalance,
                 supportingText = if (overBalance && availableBalance != null) {
@@ -575,7 +575,7 @@ private fun AdjustBalanceDialog(
             val delta = balanceValue?.minus(currentBalance)
             SheetAmountField(
                 value = newBalance,
-                onValueChange = { newBalance = it.filterCurrencyInput() },
+                onValueChange = { newBalance = it.filterAmountExpressionInput() },
                 label = stringResource(R.string.main_account_new_balance),
                 supportingText = delta?.takeIf { kotlin.math.abs(it) >= 0.005 }?.let {
                     stringResource(

@@ -36,6 +36,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -192,10 +195,12 @@ fun SheetAmountField(
     supportingText: String? = null,
     autoFocus: Boolean = true,
     imeAction: ImeAction = ImeAction.Done,
-    onImeAction: () -> Unit = {}
+    onImeAction: () -> Unit = {},
+    showCalculator: Boolean = true
 ) {
     val colors = MaterialTheme.colorScheme
     val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (autoFocus) focusRequester.requestFocus()
     }
@@ -238,7 +243,10 @@ fun SheetAmountField(
                 textStyle = amountStyle,
                 cursorBrush = SolidColor(colors.primary),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = imeAction),
-                keyboardActions = KeyboardActions(onDone = { onImeAction() }, onNext = { onImeAction() }),
+                keyboardActions = KeyboardActions(
+                    onDone = { settleAmountExpression(value, onValueChange); onImeAction() },
+                    onNext = { settleAmountExpression(value, onValueChange); onImeAction() }
+                ),
                 modifier = Modifier
                     // Sized to the digits plus room for the cursor, so the symbol stays beside them.
                     // An intrinsic width left the text a hair wider than the field, which then
@@ -246,6 +254,11 @@ fun SheetAmountField(
                     .width(amountWidth)
                     .widthIn(min = 40.dp)
                     .focusRequester(focusRequester)
+                    .onFocusChanged { state ->
+                        // Leaving the field settles any math into its result
+                        if (isFocused && !state.isFocused) settleAmountExpression(value, onValueChange)
+                        isFocused = state.isFocused
+                    }
                     .semantics { contentDescription = label },
                 decorationBox = { innerTextField ->
                     Box(contentAlignment = Alignment.Center) {
@@ -263,6 +276,14 @@ fun SheetAmountField(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isError) colors.error else colors.onSurfaceVariant,
                 textAlign = TextAlign.Center
+            )
+        }
+        if (showCalculator) {
+            AmountCalculatorKeys(
+                value = value,
+                onValueChange = onValueChange,
+                visible = isFocused,
+                currencySymbol = currencySymbol
             )
         }
     }

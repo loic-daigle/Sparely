@@ -43,7 +43,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.rememberDatePickerState
 import com.example.sparely.ui.utils.DateUtils
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.toSafeDouble
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -440,7 +440,7 @@ private fun SparelyScaffold(
 
                             com.example.sparely.ui.components.SheetAmountField(
                                 value = manualAmountText.value,
-                                onValueChange = { v -> manualAmountText.value = v.filterCurrencyInput() },
+                                onValueChange = { v -> manualAmountText.value = v.filterAmountExpressionInput() },
                                 label = stringResource(R.string.vault_amount_label),
                                 imeAction = androidx.compose.ui.text.input.ImeAction.Next,
                                 onImeAction = {}

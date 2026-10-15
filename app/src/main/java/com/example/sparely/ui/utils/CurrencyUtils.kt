@@ -20,6 +20,88 @@ fun String.filterCurrencyInput(): String {
         .take(MAX_NUMERIC_INPUT_LENGTH)
 }
 
+/** Longer than a plain number so a few amounts can be strung together ("12.50+8.99+3"). */
+private const val MAX_AMOUNT_EXPRESSION_LENGTH = 40
+
+/** What the amount calculator accepts as operators, including the symbols its keys insert. */
+private val EXPRESSION_OPERATORS = setOf('+', '-', '−', '*', '×', '/', '÷')
+
+/**
+ * Like [filterCurrencyInput] but keeps the calculator's operators, for amount fields that accept
+ * simple math such as "12.50+8.99". Spaces are dropped so the expression stays compact.
+ */
+fun String.filterAmountExpressionInput(): String {
+    // Leading operators are dropped: amounts are entered positive, as in the plain fields
+    return this.filter { it.isDigit() || it == '.' || it == ',' || it in EXPRESSION_OPERATORS }
+        .dropWhile { it in EXPRESSION_OPERATORS }
+        .take(MAX_AMOUNT_EXPRESSION_LENGTH)
+}
+
+/** True when the text uses math (an operator after the first character), not just a number. */
+fun String.isAmountExpression(): Boolean {
+    val text = trim()
+    return text.length > 1 && text.drop(1).any { it in EXPRESSION_OPERATORS }
+}
+
+/**
+ * Evaluates simple calculator math typed into an amount field: + − × ÷ with the usual precedence
+ * (× and ÷ before + and −), no brackets. Each number is read by [parseDecimalInput], so "12,50"
+ * works for French users. A dangling operator at the end ("12+") is ignored so a half-typed
+ * expression still has a value. Returns null for anything else, including division by zero.
+ */
+fun evaluateAmountExpression(raw: String?): Double? {
+    if (raw == null) return null
+    var text = raw.filterNot { it.isWhitespace() }
+    while (text.isNotEmpty() && text.last() in EXPRESSION_OPERATORS) text = text.dropLast(1)
+    if (text.isEmpty()) return null
+
+    // Split into numbers and operators; a minus at the start or right after an operator is a sign
+    val numbers = mutableListOf<Double>()
+    val operators = mutableListOf<Char>()
+    var start = 0
+    var index = 0
+    while (index < text.length) {
+        val c = text[index]
+        val isSign = (c == '-' || c == '−' || c == '+') &&
+            (index == start)
+        if (c in EXPRESSION_OPERATORS && !isSign) {
+            numbers += parseDecimalInput(text.substring(start, index)) ?: return null
+            operators += when (c) {
+                '−' -> '-'
+                '×' -> '*'
+                '÷' -> '/'
+                else -> c
+            }
+            start = index + 1
+        }
+        index++
+    }
+    numbers += parseDecimalInput(text.substring(start)) ?: return null
+
+    // × and ÷ first, folding each run into the number before it
+    val terms = mutableListOf(numbers.first())
+    val termOperators = mutableListOf<Char>()
+    operators.forEachIndexed { i, op ->
+        val next = numbers[i + 1]
+        when (op) {
+            '*' -> terms[terms.lastIndex] = terms.last() * next
+            '/' -> {
+                if (next == 0.0) return null
+                terms[terms.lastIndex] = terms.last() / next
+            }
+            else -> {
+                terms += next
+                termOperators += op
+            }
+        }
+    }
+    var result = terms.first()
+    termOperators.forEachIndexed { i, op ->
+        result = if (op == '+') result + terms[i + 1] else result - terms[i + 1]
+    }
+    return result.takeIf { !it.isNaN() && !it.isInfinite() }
+}
+
 /**
  * Filters the input string to allow only digits (e.g. quantities, day counts).
  */
@@ -105,9 +187,11 @@ private fun isValidGrouping(integerPart: String, groupSep: Char): Boolean {
 
 /**
  * Safely converts a string to a Double, handling both dot and comma separators.
- * Returns null if parsing fails or the value is not finite.
+ * Amount fields with the calculator can hold math like "12.50+8.99"; that gives its result,
+ * rounded to cents. Returns null if parsing fails or the value is not finite.
  */
-fun String.toSafeDouble(): Double? = parseDecimalInput(this)
+fun String.toSafeDouble(): Double? =
+    if (isAmountExpression()) evaluateAmountExpression(this)?.roundToTwoDecimals() else parseDecimalInput(this)
 
 /**
  * Safely converts a string to a Double, defaulting to 0.0 if parsing fails.

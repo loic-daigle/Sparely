@@ -118,6 +118,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
@@ -1783,7 +1784,7 @@ private fun PayRecurringExpenseEarlyDialog(
 
                 SheetAmountField(
                     value = amountText,
-                    onValueChange = { amountText = it.filterCurrencyInput() },
+                    onValueChange = { amountText = it.filterAmountExpressionInput() },
                     label = stringResource(R.string.recurring_amount_paid),
                     supportingText = stringResource(R.string.recurring_pay_from_hint, earliestPaymentDate.format(dateFormatter)),
                     autoFocus = false,

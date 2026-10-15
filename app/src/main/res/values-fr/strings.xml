@@ -2113,4 +2113,9 @@
     <string name="payment_settings_allow_access">Autoriser l\'accès</string>
     <string name="payment_settings_restricted_hint">Si Android indique que le paramètre est restreint, ouvrez les infos de l\'app Sparely, touchez ⋮ et choisissez « Autoriser les paramètres restreints ».</string>
     <string name="payment_settings_privacy">Seules les notifications des applis ci-dessus sont lues, sur ce téléphone. Rien n\'est envoyé ailleurs.</string>
+    <string name="calculator_add">Additionner</string>
+    <string name="calculator_subtract">Soustraire</string>
+    <string name="calculator_multiply">Multiplier</string>
+    <string name="calculator_divide">Diviser</string>
+    <string name="calculator_equals">Calculer le résultat</string>
 </resources>

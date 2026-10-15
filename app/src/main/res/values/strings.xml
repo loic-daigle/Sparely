@@ -2143,4 +2143,9 @@
     <string name="payment_settings_allow_access">Allow access</string>
     <string name="payment_settings_restricted_hint">If Android says the setting is restricted, open Sparely\'s app info, tap ⋮ and choose \"Allow restricted settings\".</string>
     <string name="payment_settings_privacy">Only notifications from the apps above are read, on this phone. Nothing is sent anywhere.</string>
+    <string name="calculator_add">Add</string>
+    <string name="calculator_subtract">Subtract</string>
+    <string name="calculator_multiply">Multiply</string>
+    <string name="calculator_divide">Divide</string>
+    <string name="calculator_equals">Calculate the result</string>
 </resources>

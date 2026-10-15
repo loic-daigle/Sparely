@@ -57,6 +57,7 @@ import java.time.temporal.ChronoUnit
 import java.time.format.TextStyle
 import java.util.Locale
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.formatCurrency
@@ -1080,7 +1081,7 @@ private fun ManualAdjustmentDialog(
 
             SheetAmountField(
                 value = amountText,
-                onValueChange = { amountText = it.filterCurrencyInput() },
+                onValueChange = { amountText = it.filterAmountExpressionInput() },
                 label = stringResource(R.string.vault_amount_label),
                 isError = overBalance,
                 supportingText = if (overBalance) stringResource(R.string.vault_error_insufficient_balance) else null,

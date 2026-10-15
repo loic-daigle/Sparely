@@ -2,7 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
@@ -673,7 +673,7 @@ private fun PayBillBottomSheet(
                 // Prefilled with the full balance, so the keypad doesn't open by itself
                 SheetAmountField(
                     value = amountText,
-                    onValueChange = { amountText = it.filterCurrencyInput() },
+                    onValueChange = { amountText = it.filterAmountExpressionInput() },
                     label = stringResource(R.string.credit_cards_payment_amount_label),
                     currencySymbol = currencySymbol,
                     autoFocus = false,

@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toInputString
 import androidx.compose.animation.core.animateFloatAsState
@@ -253,7 +254,7 @@ fun SavingsAccountsScreen(
                     )
                     SheetAmountField(
                         value = newBalanceText,
-                        onValueChange = { newBalanceText = it.filterCurrencyInput() },
+                        onValueChange = { newBalanceText = it.filterAmountExpressionInput() },
                         label = stringResource(id = R.string.savings_current_balance),
                         onImeAction = save
                     )
@@ -295,7 +296,7 @@ fun SavingsAccountsScreen(
                     )
                     SheetAmountField(
                         value = amountText,
-                        onValueChange = { amountText = it.filterCurrencyInput() },
+                        onValueChange = { amountText = it.filterAmountExpressionInput() },
                         label = stringResource(id = R.string.savings_amount),
                         isError = tooMuch || closed,
                         supportingText = when {
@@ -344,7 +345,7 @@ fun SavingsAccountsScreen(
                     )
                     SheetAmountField(
                         value = amountText,
-                        onValueChange = { amountText = it.filterCurrencyInput() },
+                        onValueChange = { amountText = it.filterAmountExpressionInput() },
                         label = stringResource(id = R.string.savings_amount),
                         isError = quote is WithdrawalQuote.Blocked,
                         supportingText = when (quote) {
@@ -426,7 +427,7 @@ fun SavingsAccountsScreen(
                     )
                     SheetAmountField(
                         value = interestAmountText,
-                        onValueChange = { interestAmountText = it.filterCurrencyInput() },
+                        onValueChange = { interestAmountText = it.filterAmountExpressionInput() },
                         label = stringResource(id = R.string.savings_interest_amount),
                         // The estimate is pre-filled; say where it came from and what's been earned so far
                         supportingText = listOfNotNull(

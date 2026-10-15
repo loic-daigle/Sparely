@@ -78,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.pluralStringResource
@@ -113,7 +114,9 @@ import com.example.sparely.domain.model.displayName
 import com.example.sparely.ui.components.SparelySheetHeader
 import com.example.sparely.ui.components.SheetActions
 import com.example.sparely.ui.components.SheetSectionLabel
+import com.example.sparely.ui.components.AmountCalculatorKeys
 import com.example.sparely.ui.components.AssetSelectionDialog
+import com.example.sparely.ui.components.settleAmountExpression
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.PaymentMethodSelector
 import com.example.sparely.ui.components.SearchableStoreSelector
@@ -132,7 +135,7 @@ import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.categoryColor
 import com.example.sparely.ui.theme.getCategoryIcon
 import com.example.sparely.ui.theme.onCategoryColor
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
@@ -466,7 +469,7 @@ fun ExpenseEntryScreen(
                 currencySymbol = currencySymbol,
                 amountText = amountText,
                 onAmountChange = {
-                    amountText = it.filterCurrencyInput()
+                    amountText = it.filterAmountExpressionInput()
                     amountError = null
                     // Typing an amount takes it over from the items; clearing it hands it back
                     amountFollowsItems = amountText.isBlank()
@@ -961,6 +964,7 @@ private fun AmountHeroCard(
     val colors = MaterialTheme.colorScheme
     val categoryColor by animateColorAsState(colors.categoryColor(category), label = "heroCategoryColor")
     val amountLabel = stringResource(R.string.expense_entry_amount_label)
+    var amountFocused by remember { mutableStateOf(false) }
     val descriptionLabel = stringResource(R.string.expense_entry_description_label)
 
     Surface(
@@ -1014,11 +1018,19 @@ private fun AmountHeroCard(
                     textStyle = amountStyle.copy(color = if (amountError != null) colors.error else colors.onSurface),
                     cursorBrush = SolidColor(colors.primary),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { onAmountNext() }),
+                    keyboardActions = KeyboardActions(onNext = {
+                        settleAmountExpression(amountText, onAmountChange)
+                        onAmountNext()
+                    }),
                     modifier = Modifier
                         .width(amountWidth)
                         .widthIn(min = 40.dp)
                         .focusRequester(amountFocus)
+                        .onFocusChanged { state ->
+                            // Leaving the field settles any math into its result
+                            if (amountFocused && !state.isFocused) settleAmountExpression(amountText, onAmountChange)
+                            amountFocused = state.isFocused
+                        }
                         .semantics { contentDescription = amountLabel },
                     decorationBox = { innerTextField ->
                         Box(contentAlignment = Alignment.Center) {
@@ -1033,6 +1045,12 @@ private fun AmountHeroCard(
             if (amountError != null) {
                 Text(amountError, style = MaterialTheme.typography.labelMedium, color = colors.error)
             }
+            AmountCalculatorKeys(
+                value = amountText,
+                onValueChange = onAmountChange,
+                visible = amountFocused,
+                currencySymbol = currencySymbol
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 

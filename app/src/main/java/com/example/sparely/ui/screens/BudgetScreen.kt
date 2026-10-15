@@ -67,7 +67,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.abs
 import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.displayName
@@ -1145,7 +1145,7 @@ fun AddBudgetDialog(
 
             SheetAmountField(
                 value = amount,
-                onValueChange = { amount = it.filterCurrencyInput() },
+                onValueChange = { amount = it.filterAmountExpressionInput() },
                 label = stringResource(R.string.budget_monthly_limit_label),
                 // The category comes first, so the keypad waits for a tap
                 autoFocus = false,
@@ -1219,7 +1219,7 @@ fun EditBudgetDialog(
 
                 SheetAmountField(
                     value = amount,
-                    onValueChange = { amount = it.filterCurrencyInput() },
+                    onValueChange = { amount = it.filterAmountExpressionInput() },
                     label = stringResource(R.string.budget_monthly_limit_label),
                     autoFocus = false,
                     onImeAction = save
