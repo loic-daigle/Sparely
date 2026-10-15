@@ -138,7 +138,7 @@ private fun HistoryItemCard(
                          com.example.sparely.domain.model.VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_source_schedule)
                          com.example.sparely.domain.model.VaultContributionSource.MANUAL -> stringResource(R.string.vault_source_manual)
                          com.example.sparely.domain.model.VaultContributionSource.TRANSFER -> stringResource(R.string.vault_adjust_type_transfer)
-                         com.example.sparely.domain.model.VaultContributionSource.INTEREST -> "Interest Earned"
+                         com.example.sparely.domain.model.VaultContributionSource.INTEREST -> stringResource(R.string.savings_interest_earned_label)
                     }
                     is com.example.sparely.domain.model.HistoryAdjustment -> when (item.adjustment.type) {
                         VaultAdjustmentType.MANUAL_DEPOSIT -> stringResource(R.string.vault_manual_deposit_title)

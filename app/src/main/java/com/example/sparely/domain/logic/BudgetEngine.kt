@@ -487,7 +487,6 @@ object BudgetEngine {
         return parts.joinToString(" ").replace("  ", " ").trim()
     }
 
-    private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
 
     fun detectBudgetPrompts(
         summary: BudgetSummary,

@@ -21,6 +21,7 @@ class SparelyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppStrings.init(this)
         NotificationHelper.ensureChannels(this)
         container = DefaultAppContainer(this)
         

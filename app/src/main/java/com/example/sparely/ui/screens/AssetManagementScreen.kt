@@ -114,11 +114,11 @@ fun AssetManagementScreen(
                 icon = {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
-                        contentDescription = if (fabExpanded) null else "Add Asset",
+                        contentDescription = if (fabExpanded) null else stringResource(R.string.assets_add),
                         size = 24.dp
                     )
                 },
-                text = { Text("Add Asset") },
+                text = { Text(stringResource(R.string.assets_add)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -133,14 +133,14 @@ fun AssetManagementScreen(
             ) {
                 ExpressiveEmptyState(
                     icon = MaterialSymbols.SHOPPING_BAG,
-                    title = "No assets yet",
-                    description = "Track what a car, home or hobby really costs by linking expenses to it.",
+                    title = stringResource(R.string.assets_empty_title_short),
+                    description = stringResource(R.string.assets_empty_desc_short),
                     action = {
                         SparelyButton(
                             onClick = { showAddDialog = true },
                             icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
                         ) {
-                            Text("Add Asset")
+                            Text(stringResource(R.string.assets_add))
                         }
                     }
                 )
@@ -164,7 +164,7 @@ fun AssetManagementScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                "Total Spending",
+                                stringResource(R.string.assets_total_spending),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
@@ -243,8 +243,8 @@ fun AssetManagementScreen(
     if (assetToDelete != null) {
         AlertDialog(
             onDismissRequest = { assetToDelete = null },
-            title = { Text("Delete Asset?") },
-            text = { Text("Delete ${assetToDelete!!.name}? This cannot be undone.") },
+            title = { Text(stringResource(R.string.assets_delete_title)) },
+            text = { Text(stringResource(R.string.assets_delete_message, assetToDelete!!.name)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -252,12 +252,12 @@ fun AssetManagementScreen(
                         assetToDelete = null
                     }
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { assetToDelete = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -332,7 +332,7 @@ private fun AssetCard(
                 IconButton(onClick = { onEdit(asset) }) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.EDIT,
-                        contentDescription = "Edit",
+                        contentDescription = stringResource(R.string.action_edit_short),
                         size = 20.dp,
                         tint = colors.onSurfaceVariant
                     )
@@ -340,7 +340,7 @@ private fun AssetCard(
                 IconButton(onClick = { onDelete(asset) }) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.DELETE,
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.action_delete),
                         size = 20.dp,
                         tint = colors.onSurfaceVariant
                     )
@@ -390,13 +390,13 @@ private fun AssetCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AssetStat(
-                    label = "Total Spending",
+                    label = stringResource(R.string.assets_total_spending),
                     value = currencyFormatter.format(asset.totalSpending),
                     modifier = Modifier.weight(1f)
                 )
                 if (asset.assetPrice > 0) {
                     AssetStat(
-                        label = "Asset Cost",
+                        label = stringResource(R.string.assets_cost),
                         value = currencyFormatter.format(asset.assetPrice),
                         valueColor = if (asset.totalSpending > asset.assetPrice) colors.error else colors.primary,
                         modifier = Modifier.weight(1f)
@@ -495,7 +495,7 @@ private fun AssetBottomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SparelySheetHeader(
-                title = if (asset == null) "New Asset" else "Edit Asset",
+                title = if (asset == null) stringResource(R.string.assets_new) else stringResource(R.string.assets_edit),
                 icon = MaterialSymbols.SHOPPING_BAG
             )
 
@@ -503,7 +503,7 @@ private fun AssetBottomSheet(
                 SparelyTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Asset Name") },
+                    label = { Text(stringResource(R.string.assets_name)) },
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Next
@@ -512,7 +512,7 @@ private fun AssetBottomSheet(
                 )
 
                 // Category: every option visible, with readable names
-                SheetSectionLabel("Category")
+                SheetSectionLabel(stringResource(R.string.category_label))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -529,7 +529,7 @@ private fun AssetBottomSheet(
                 SparelyTextField(
                     value = assetPriceText,
                     onValueChange = { assetPriceText = it.filterCurrencyInput() },
-                    label = { Text("Asset Cost (Optional)") },
+                    label = { Text(stringResource(R.string.assets_cost_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                     prefix = { Text(stringResource(R.string.currency_prefix)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
@@ -584,9 +584,9 @@ private fun AssetBottomSheet(
                             }
                             Text(
                                 if (costVsPrice.isOverBudget)
-                                    "At current spending pace, this asset will exceed budget"
+                                    stringResource(R.string.assets_pace_over)
                                 else
-                                    "At current spending pace, remaining budget: ${currencyFormatter.format(costVsPrice.remainingBudget)}",
+                                    stringResource(R.string.assets_pace_remaining, currencyFormatter.format(costVsPrice.remainingBudget)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -597,7 +597,7 @@ private fun AssetBottomSheet(
                 SparelyTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description (Optional)") },
+                    label = { Text(stringResource(R.string.assets_description_optional)) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = false,
@@ -608,7 +608,7 @@ private fun AssetBottomSheet(
 
             // Creator Expense Section
             if (asset != null) {
-                SheetSectionLabel("Creator Expense")
+                SheetSectionLabel(stringResource(R.string.assets_creator_expense))
 
                 if (asset.creatorExpenseId != null) {
                     ExpressiveCard(
@@ -627,7 +627,7 @@ private fun AssetBottomSheet(
                             ) {
                                 Column {
                                     Text(
-                                        "Linked Expense",
+                                        stringResource(R.string.assets_linked_expense),
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                     Text(
@@ -640,7 +640,7 @@ private fun AssetBottomSheet(
                                     onClick = { onUnlinkCreatorExpense() },
                                     contentColor = MaterialTheme.colorScheme.error
                                 ) {
-                                    Text("Unlink")
+                                    Text(stringResource(R.string.assets_unlink))
                                 }
                             }
                         }
@@ -651,13 +651,13 @@ private fun AssetBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         icon = { MaterialSymbolIcon(icon = MaterialSymbols.SYNC, contentDescription = null, size = 20.dp) }
                     ) {
-                        Text("Link Creator Expense")
+                        Text(stringResource(R.string.assets_link_creator))
                     }
                 }
             }
 
             SheetActions(
-                confirmLabel = "Save Asset",
+                confirmLabel = stringResource(R.string.assets_save),
                 onConfirm = {
                     if (name.isNotBlank()) {
                         val newAsset = Asset(
@@ -675,7 +675,7 @@ private fun AssetBottomSheet(
                     }
                 },
                 confirmEnabled = name.isNotBlank(),
-                dismissLabel = "Cancel",
+                dismissLabel = stringResource(R.string.action_cancel),
                 onDismiss = onDismiss
             )
         }
@@ -743,7 +743,7 @@ private fun AssetDetailsBottomSheet(
             }
 
             Text(
-                "Linked Expenses",
+                stringResource(R.string.assets_linked_expenses),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -763,7 +763,7 @@ private fun AssetDetailsBottomSheet(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No expenses linked to this asset",
+                            stringResource(R.string.assets_no_linked),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -838,7 +838,7 @@ private fun AssetDetailsBottomSheet(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Close")
+                Text(stringResource(R.string.action_close_short))
             }
         }
     }
@@ -880,12 +880,12 @@ private fun CreatorExpenseBottomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SparelySheetHeader(
-                title = "Link Creator Expense",
+                title = stringResource(R.string.assets_link_creator),
                 icon = MaterialSymbols.RECEIPT
             )
 
             Text(
-                "Select the expense that created this asset",
+                stringResource(R.string.assets_select_creator),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -894,7 +894,7 @@ private fun CreatorExpenseBottomSheet(
             SparelyTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                label = { Text("Search expenses") },
+                label = { Text(stringResource(R.string.assets_search_expenses)) },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
                     MaterialSymbolIcon(
@@ -915,14 +915,14 @@ private fun CreatorExpenseBottomSheet(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else if (expenses.isEmpty()) {
                     Text(
-                        "No expenses found",
+                        stringResource(R.string.assets_no_expenses),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else if (filteredExpenses.isEmpty()) {
                     Text(
-                        "No matching expenses",
+                        stringResource(R.string.assets_no_matching),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.Center)
@@ -951,7 +951,7 @@ private fun CreatorExpenseBottomSheet(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     }

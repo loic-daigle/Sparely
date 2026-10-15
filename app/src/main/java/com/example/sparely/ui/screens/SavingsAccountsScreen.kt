@@ -865,9 +865,9 @@ fun EnhancedSavingsAccountCard(
                 ) {
                     val badgeText = when (account.productType) {
                         SavingsProductType.TERM -> {
-                            val term = account.termMonths?.let { "$it mo" } ?: "Term"
-                            val start = account.termStartDate?.toString()?.let { " • Start $it" } ?: ""
-                            val penalty = account.earlyWithdrawalPenaltyDays?.let { " • Penalty ${it}d interest" } ?: ""
+                            val term = account.termMonths?.let { stringResource(R.string.savings_badge_term_months, it) } ?: stringResource(R.string.savings_badge_term)
+                            val start = account.termStartDate?.toString()?.let { " • " + stringResource(R.string.savings_start_label, it) } ?: ""
+                            val penalty = account.earlyWithdrawalPenaltyDays?.let { " • " + stringResource(R.string.savings_badge_penalty, it) } ?: ""
                             stringResource(id = R.string.savings_badge_locked, "$term$start$penalty")
                         }
                         SavingsProductType.NOTICE -> stringResource(id = R.string.savings_badge_notice, account.noticeDays ?: 30)

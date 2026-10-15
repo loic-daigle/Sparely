@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,7 +50,7 @@ fun RefundItemSelector(
                     .padding(horizontal = 16.dp)
             ) {
                 Text(
-                    text = "No items to refund",
+                    text = stringResource(R.string.refund_no_items),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp)
@@ -103,7 +107,7 @@ fun RefundItemSelector(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Total Refund Amount",
+                            stringResource(R.string.refund_total_amount),
                             style = MaterialTheme.typography.labelLarge
                         )
                         Text(
@@ -153,7 +157,7 @@ private fun RefundItemRow(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Qty: ${item.quantity}",
+                    text = stringResource(R.string.refund_qty, item.quantity),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

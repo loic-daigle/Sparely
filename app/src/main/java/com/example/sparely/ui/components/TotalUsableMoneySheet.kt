@@ -52,7 +52,7 @@ fun TotalUsableMoneyBottomSheet(
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
             SparelySheetHeader(
-                title = "Total Usable Money",
+                title = stringResource(R.string.dashboard_total_usable_money_title),
                 icon = com.example.sparely.ui.theme.MaterialSymbols.ACCOUNT_BALANCE_WALLET
             )
 
@@ -110,7 +110,7 @@ fun TotalUsableMoneyBottomSheet(
                 ) {
                     Column {
                         Text(
-                            text = "Reserved (Min Balance)",
+                            text = stringResource(R.string.usable_money_reserved_min),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -140,7 +140,7 @@ fun TotalUsableMoneyBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Net Usable",
+                    text = stringResource(R.string.usable_money_net),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,7 +50,7 @@ fun AssetSelectionDialog(
     assets: List<Asset>,
     onAssetSelected: (Asset) -> Unit,
     onDismiss: () -> Unit,
-    title: String = "Link Asset"
+    title: String = stringResource(R.string.asset_selector_title)
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val availableAssets = assets.filter { !selectedAssetIds.contains(it.id) }
@@ -76,21 +80,21 @@ fun AssetSelectionDialog(
             SparelyTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search assets...") },
+                placeholder = { Text(stringResource(R.string.asset_selector_search)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             if (availableAssets.isEmpty()) {
                 Text(
-                    "All assets are already linked",
+                    stringResource(R.string.asset_selector_all_linked),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp)
                 )
             } else if (filteredAssets.isEmpty()) {
                 Text(
-                    "No assets match your search",
+                    stringResource(R.string.asset_selector_no_match),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp)
@@ -150,7 +154,7 @@ private fun AssetSelectionCard(
                 )
                 if (asset.totalSpending > 0) {
                     Text(
-                        "Total: ${asset.totalSpending.formatCurrency()}",
+                        stringResource(R.string.asset_selector_total, asset.totalSpending.formatCurrency()),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -158,7 +162,7 @@ private fun AssetSelectionCard(
             }
             MaterialSymbolIcon(
                 icon = MaterialSymbols.ADD_CIRCLE,
-                contentDescription = "Add",
+                contentDescription = stringResource(R.string.store_add_confirm),
                 tint = MaterialTheme.colorScheme.primary,
                 size = 28.dp
             )

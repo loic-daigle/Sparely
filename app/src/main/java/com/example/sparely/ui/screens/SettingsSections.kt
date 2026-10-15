@@ -148,14 +148,14 @@ fun SettingsMainAccountCard(
                     }
                 }
                 Text(
-                    "Excess funds after allocations will be sent here.",
+                    stringResource(R.string.settings_overflow_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 
                 var expanded by remember { mutableStateOf(false) }
-                val selectedVaultName = savingsAccounts.find { it.id == mainOverflowAccountId }?.name ?: "None"
+                val selectedVaultName = savingsAccounts.find { it.id == mainOverflowAccountId }?.name ?: stringResource(R.string.store_none)
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -166,7 +166,7 @@ fun SettingsMainAccountCard(
                         value = selectedVaultName,
                         onValueChange = {},
                         expanded = expanded,
-                        label = "Select HISA Vault",
+                        label = stringResource(R.string.settings_overflow_select),
                         modifier = Modifier.fillMaxWidth()
                     )
                     SparelyDropdownMenu(

@@ -1758,8 +1758,8 @@ private fun RefundExpenseDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SparelySheetHeader(
-                    title = "Refund Expense",
-                    subtitle = "${expense.description} · Max refundable ${maxRefundable.formatCurrency()}",
+                    title = stringResource(R.string.refund_title),
+                    subtitle = stringResource(R.string.refund_subtitle, expense.description, maxRefundable.formatCurrency()),
                     icon = MaterialSymbols.UNDO
                 )
 
@@ -1767,7 +1767,7 @@ private fun RefundExpenseDialog(
                     // Items as one segmented list; tapping a row ticks it
                     Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
                         SheetSectionLabel(
-                            text = "Items refunded",
+                            text = stringResource(R.string.refund_items_title),
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                         expense.items.forEachIndexed { index, item ->
@@ -1821,11 +1821,11 @@ private fun RefundExpenseDialog(
                         amountText = it.filterCurrencyInput()
                         wasManuallyEdited = true
                     },
-                    label = "Refund Amount",
+                    label = stringResource(R.string.refund_amount),
                     isError = tooMuch,
                     supportingText = when {
-                        tooMuch -> "More than the ${maxRefundable.formatCurrency()} left to refund"
-                        selectedItemIds.isNotEmpty() && !wasManuallyEdited -> "Calculated from the selected items"
+                        tooMuch -> stringResource(R.string.refund_too_much, maxRefundable.formatCurrency())
+                        selectedItemIds.isNotEmpty() && !wasManuallyEdited -> stringResource(R.string.refund_from_items)
                         else -> null
                     },
                     // Prefilled with the full refundable amount
@@ -1835,7 +1835,7 @@ private fun RefundExpenseDialog(
             }
 
             SheetActions(
-                confirmLabel = "Refund",
+                confirmLabel = stringResource(R.string.refund_confirm),
                 onConfirm = refund,
                 confirmEnabled = canRefund,
                 dismissLabel = stringResource(R.string.action_cancel),

@@ -1,5 +1,9 @@
 package com.example.sparely.ui.viewmodel
 
+import com.example.sparely.AppStrings
+
+import com.sparely.app.R
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -54,7 +58,7 @@ class SettingsViewModel(
     // viewModelScope coroutine would otherwise crash the whole app. Surface it instead.
     private val errorHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
         android.util.Log.e("SettingsViewModel", "Unhandled coroutine error", throwable)
-        _uiState.update { it.copy(isLoading = false, errorMessage = throwable.message ?: "Something went wrong") }
+        _uiState.update { it.copy(isLoading = false, errorMessage = throwable.message ?: AppStrings.get(R.string.error_generic, "Something went wrong")) }
     }
 
     init {
@@ -376,7 +380,7 @@ class SettingsViewModel(
                 container.autoBackupScheduler.runImmediateBackup(context, onResult)
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    onResult(false, "Backup failed: ${e.message}")
+                    onResult(false, AppStrings.get(R.string.backup_failed, "Backup failed", e.message ?: ""))
                 }
             }
         }
@@ -544,7 +548,7 @@ class SettingsViewModel(
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(json.toByteArray())
                 }
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Backup exported successfully") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = AppStrings.get(R.string.backup_export_success, "Backup exported")) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Export failed: ${e.message}") }
             }
@@ -559,7 +563,7 @@ class SettingsViewModel(
                 _uiState.update { 
                     it.copy(
                         isLoading = false, 
-                        errorMessage = if (success) "CSV exported successfully" else "CSV export failed"
+                        errorMessage = if (success) AppStrings.get(R.string.csv_export_success, "CSV exported") else AppStrings.get(R.string.csv_export_failed, "CSV export failed")
                     ) 
                 }
             } catch (e: Exception) {
@@ -587,9 +591,9 @@ class SettingsViewModel(
                     withContext(Dispatchers.Main) {
                         onSuccess?.invoke()
                     }
-                    _uiState.update { it.copy(errorMessage = "Restore successful", isLoading = false) }
+                    _uiState.update { it.copy(errorMessage = AppStrings.get(R.string.restore_success, "Backup restored"), isLoading = false) }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to read file") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = AppStrings.get(R.string.restore_read_failed, "Couldn't read the file")) }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Import failed: ${e.message}") }

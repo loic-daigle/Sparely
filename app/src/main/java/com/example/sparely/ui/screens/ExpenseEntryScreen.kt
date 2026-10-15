@@ -1379,16 +1379,16 @@ private fun AssetCreationDialog(
         ) {
             // The price comes from this expense, so it's context rather than a field
             SparelySheetHeader(
-                title = "Create New Asset",
-                subtitle = "Asset price from this expense: ${assetPrice.formatCurrency()}",
+                title = stringResource(R.string.asset_create_title),
+                subtitle = stringResource(R.string.asset_create_price, assetPrice.formatCurrency()),
                 icon = MaterialSymbols.SHOPPING_BAG
             )
 
             SparelyTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Asset Name") },
-                placeholder = { Text("e.g., MacBook Pro") },
+                label = { Text(stringResource(R.string.assets_name)) },
+                placeholder = { Text(stringResource(R.string.asset_name_placeholder)) },
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
@@ -1396,7 +1396,7 @@ private fun AssetCreationDialog(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            SheetSectionLabel("Category")
+            SheetSectionLabel(stringResource(R.string.category_label))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1413,8 +1413,8 @@ private fun AssetCreationDialog(
             SparelyTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description (Optional)") },
-                placeholder = { Text("Notes about this asset") },
+                label = { Text(stringResource(R.string.assets_description_optional)) },
+                placeholder = { Text(stringResource(R.string.asset_notes_placeholder)) },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = false,
@@ -1422,14 +1422,14 @@ private fun AssetCreationDialog(
             )
 
             SheetActions(
-                confirmLabel = "Create Asset",
+                confirmLabel = stringResource(R.string.asset_create_confirm),
                 onConfirm = {
                     if (name.isNotBlank()) {
                         onConfirm(name, category, description.takeIf { it.isNotBlank() } ?: "")
                     }
                 },
                 confirmEnabled = name.isNotBlank(),
-                dismissLabel = "Cancel",
+                dismissLabel = stringResource(R.string.action_cancel),
                 onDismiss = onDismiss
             )
         }

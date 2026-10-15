@@ -1,5 +1,9 @@
 package com.example.sparely.ui
 
+import com.example.sparely.AppStrings
+
+import com.sparely.app.R
+
 import com.example.sparely.domain.model.nextOccurrenceAfter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -138,7 +142,7 @@ class SparelyViewModel(
     // viewModelScope coroutine would otherwise crash the whole app. Surface it instead.
     private val errorHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
         android.util.Log.e("SparelyViewModel", "Unhandled coroutine error", throwable)
-        _uiState.update { it.copy(errorMessage = throwable.message ?: "Something went wrong") }
+        _uiState.update { it.copy(errorMessage = throwable.message ?: AppStrings.get(R.string.error_generic, "Something went wrong")) }
     }
 
     // Launches on [dispatcher] like viewModelScope.launch(dispatcher), but catches exceptions
@@ -152,7 +156,7 @@ class SparelyViewModel(
             throw e
         } catch (e: Exception) {
             android.util.Log.e("SparelyViewModel", "Unhandled error in safeLaunch", e)
-            _uiState.update { it.copy(errorMessage = e.message ?: "Something went wrong") }
+            _uiState.update { it.copy(errorMessage = e.message ?: AppStrings.get(R.string.error_generic, "Something went wrong")) }
         }
     }
 
@@ -397,8 +401,8 @@ class SparelyViewModel(
                         val today = LocalDate.now()
                         if (lastBirthdayGreetingDate != today) {
                             val message = AlertMessage(
-                                title = "Happy birthday " + (settings.displayName ?: "!"),
-                                description = "We boosted your celebrations by keeping spending tips fresh. Enjoy your day!",
+                                title = settings.displayName?.takeIf { it.isNotBlank() }?.let { AppStrings.get(R.string.birthday_title_named, "Happy birthday, %1$s!", it) } ?: AppStrings.get(R.string.birthday_title, "Happy birthday!"),
+                                description = AppStrings.get(R.string.birthday_desc, "Enjoy your day! Treat yourself, your savings plan has you covered."),
                                 type = AlertType.SUCCESS,
                                 priority = 12,
                                 actionable = false
@@ -550,10 +554,10 @@ class SparelyViewModel(
                                 }
                             }
                         } else {
-                            automationNotes = listOf("Awaiting paycheck history to compute automation.")
+                            automationNotes = listOf(AppStrings.get(R.string.automation_note_awaiting, "Waiting for paycheck history to compute automation."))
                         }
                     } else {
-                        automationNotes = listOf("Automation toggles are off — adjust savings and tax rates manually.")
+                        automationNotes = listOf(AppStrings.get(R.string.automation_note_off, "Automation is off. Adjust savings and tax rates manually."))
                     }
 
                     val activeSaveRate = when {
@@ -1037,7 +1041,7 @@ class SparelyViewModel(
     /** [onComplete] receives the new expense's id once it's saved. */
     fun addExpense(input: ExpenseInput, onComplete: (Long) -> Unit = {}) {
         if (!input.amount.isFinite() || input.amount <= 0.0) {
-            _uiState.update { it.copy(errorMessage = "Please enter a valid amount") }
+            _uiState.update { it.copy(errorMessage = AppStrings.get(R.string.error_invalid_amount, "Please enter a valid amount")) }
             return
         }
         safeLaunch {
@@ -1251,7 +1255,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
     fun updateExpenseWithAssets(expense: Expense, assetAllocations: Map<Long, Double>) {
         if (!expense.amount.isFinite() || expense.amount <= 0.0) {
-            _uiState.update { it.copy(errorMessage = "Please enter a valid amount") }
+            _uiState.update { it.copy(errorMessage = AppStrings.get(R.string.error_invalid_amount, "Please enter a valid amount")) }
             return
         }
         safeLaunch { savingsRepository.withMainAccountLock { savingsRepository.runInTransaction {

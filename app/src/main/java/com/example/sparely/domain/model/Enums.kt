@@ -1,5 +1,9 @@
 package com.example.sparely.domain.model
 
+import com.sparely.app.R
+
+import com.example.sparely.AppStrings
+
 /**
  * Enumerations used across the Sparely domain layer.
  */
@@ -60,9 +64,9 @@ fun ExpenseCategory.defaultNecessity(): Necessity = when (this) {
 }
 
 fun Necessity.displayName(): String = when (this) {
-    Necessity.ESSENTIAL -> "Essential"
-    Necessity.IMPORTANT -> "Important"
-    Necessity.DISCRETIONARY -> "Nice to have"
+    Necessity.ESSENTIAL -> AppStrings.get(R.string.necessity_essential, "Essential")
+    Necessity.IMPORTANT -> AppStrings.get(R.string.necessity_important, "Important")
+    Necessity.DISCRETIONARY -> AppStrings.get(R.string.necessity_discretionary, "Nice to have")
 }
 
 enum class ExpenseType {
@@ -139,45 +143,45 @@ enum class ExpenseHistoryRetention(val label: String, val months: Int?) {
 }
 
 fun VaultType.displayName(): String = when (this) {
-    VaultType.GOAL -> "Goal"
-    VaultType.EMERGENCY -> "Emergency Fund"
-    VaultType.INVESTMENT -> "Investment"
-    VaultType.SHORT_TERM -> "Short-Term"
-    VaultType.LONG_TERM -> "Long-Term"
-    VaultType.PASSIVE_INVESTMENT -> "Passive Investment"
-    VaultType.HIGH_YIELD_SAVINGS -> "High-Yield Savings"
+    VaultType.GOAL -> AppStrings.get(R.string.vault_type_goal, "Goal")
+    VaultType.EMERGENCY -> AppStrings.get(R.string.vault_type_emergency, "Emergency Fund")
+    VaultType.INVESTMENT -> AppStrings.get(R.string.vault_type_investment, "Investment")
+    VaultType.SHORT_TERM -> AppStrings.get(R.string.vault_type_short_term, "Short-Term")
+    VaultType.LONG_TERM -> AppStrings.get(R.string.vault_type_long_term, "Long-Term")
+    VaultType.PASSIVE_INVESTMENT -> AppStrings.get(R.string.vault_type_passive_investment, "Passive Investment")
+    VaultType.HIGH_YIELD_SAVINGS -> AppStrings.get(R.string.vault_type_high_yield, "High-Yield Savings")
 }
 
 
 fun VaultPriority.displayName(): String = when (this) {
-    VaultPriority.LOW -> "Low"
-    VaultPriority.MEDIUM -> "Medium"
-    VaultPriority.HIGH -> "High"
-    VaultPriority.CRITICAL -> "Critical"
+    VaultPriority.LOW -> AppStrings.get(R.string.vault_priority_low, "Low")
+    VaultPriority.MEDIUM -> AppStrings.get(R.string.vault_priority_medium, "Medium")
+    VaultPriority.HIGH -> AppStrings.get(R.string.vault_priority_high, "High")
+    VaultPriority.CRITICAL -> AppStrings.get(R.string.vault_priority_critical, "Critical")
 }
 
 fun ExpenseCategory.displayName(): String = when (this) {
-    ExpenseCategory.GROCERIES -> "Groceries"
-    ExpenseCategory.DINING -> "Dining"
-    ExpenseCategory.TRANSPORTATION -> "Transportation"
-    ExpenseCategory.ENTERTAINMENT -> "Entertainment"
-    ExpenseCategory.UTILITIES -> "Utilities"
-    ExpenseCategory.HEALTH -> "Health"
-    ExpenseCategory.EDUCATION -> "Education"
-    ExpenseCategory.SHOPPING -> "Shopping"
-    ExpenseCategory.TRAVEL -> "Travel"
-    ExpenseCategory.OTHER -> "Other"
+    ExpenseCategory.GROCERIES -> AppStrings.get(R.string.category_groceries, "Groceries")
+    ExpenseCategory.DINING -> AppStrings.get(R.string.category_dining, "Dining")
+    ExpenseCategory.TRANSPORTATION -> AppStrings.get(R.string.category_transportation, "Transportation")
+    ExpenseCategory.ENTERTAINMENT -> AppStrings.get(R.string.category_entertainment, "Entertainment")
+    ExpenseCategory.UTILITIES -> AppStrings.get(R.string.category_utilities, "Utilities")
+    ExpenseCategory.HEALTH -> AppStrings.get(R.string.category_health, "Health")
+    ExpenseCategory.EDUCATION -> AppStrings.get(R.string.category_education, "Education")
+    ExpenseCategory.SHOPPING -> AppStrings.get(R.string.category_shopping, "Shopping")
+    ExpenseCategory.TRAVEL -> AppStrings.get(R.string.category_travel, "Travel")
+    ExpenseCategory.OTHER -> AppStrings.get(R.string.category_other, "Other")
 }
 
 fun IncomeCategory.displayName(): String = when (this) {
-    IncomeCategory.SALARY -> "Salary"
-    IncomeCategory.FREELANCE -> "Freelance"
-    IncomeCategory.GIFT -> "Gift"
-    IncomeCategory.INVESTMENT -> "Investment"
-    IncomeCategory.OTHER -> "Other"
+    IncomeCategory.SALARY -> AppStrings.get(R.string.income_category_salary, "Salary")
+    IncomeCategory.FREELANCE -> AppStrings.get(R.string.income_category_freelance, "Freelance")
+    IncomeCategory.GIFT -> AppStrings.get(R.string.income_category_gift, "Gift")
+    IncomeCategory.INVESTMENT -> AppStrings.get(R.string.income_category_investment, "Investment")
+    IncomeCategory.OTHER -> AppStrings.get(R.string.income_category_other, "Other")
 }
 
 fun ExpenseType.displayName(): String = when (this) {
-    ExpenseType.PRODUCT -> "Product"
-    ExpenseType.SERVICE -> "Service"
+    ExpenseType.PRODUCT -> AppStrings.get(R.string.expense_type_product, "Product")
+    ExpenseType.SERVICE -> AppStrings.get(R.string.expense_type_service, "Service")
 }

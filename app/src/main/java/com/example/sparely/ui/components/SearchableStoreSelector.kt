@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,9 +91,9 @@ fun SearchableStoreSelector(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("Store/Website (optional)", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.store_field_title), style = MaterialTheme.typography.titleSmall)
         Text(
-            text = "Track where you made this purchase",
+            text = stringResource(R.string.store_field_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -122,7 +126,7 @@ fun SearchableStoreSelector(
                     onStoreSelected(null)
                     onSearchQueryChange("") // Clear search when clearing selection
                 }) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = "Clear store")
+                    MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = stringResource(R.string.store_clear))
                 }
             }
         } else {
@@ -141,14 +145,14 @@ fun SearchableStoreSelector(
                         }
                         if (!expanded) expanded = true
                     },
-                    label = { Text("Search or add store") },
+                    label = { Text(stringResource(R.string.store_search_label)) },
                     trailingIcon = { 
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { 
                                 onSearchQueryChange("")
                                 onBrandSearch("")
                             }) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = "Clear search")
+                                MaterialSymbolIcon(icon = MaterialSymbols.CLEAR, contentDescription = stringResource(R.string.history_search_clear))
                             }
                         } else {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -167,9 +171,9 @@ fun SearchableStoreSelector(
                     SparelyDropdownMenuItem(
                         text = {
                             Column {
-                                Text("None")
+                                Text(stringResource(R.string.store_none))
                                 Text(
-                                    text = "Skip store tracking for this expense",
+                                    text = stringResource(R.string.store_none_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -186,7 +190,7 @@ fun SearchableStoreSelector(
                     // Filtered local stores
                     if (filteredStores.isNotEmpty()) {
                         Text(
-                            text = "Your Stores",
+                            text = stringResource(R.string.store_yours),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -221,7 +225,7 @@ fun SearchableStoreSelector(
                                         ) {
                                             MaterialSymbolIcon(
                                                 icon = MaterialSymbols.EDIT,
-                                                contentDescription = "Edit store",
+                                                contentDescription = stringResource(R.string.store_edit),
                                                 modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -237,7 +241,7 @@ fun SearchableStoreSelector(
                                         ) {
                                             MaterialSymbolIcon(
                                                 icon = MaterialSymbols.DELETE,
-                                                contentDescription = "Delete store",
+                                                contentDescription = stringResource(R.string.store_delete),
                                                 modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.error
                                             )
@@ -258,7 +262,7 @@ fun SearchableStoreSelector(
                     // Remote brand results
                     if (brandSearchResults.isNotEmpty() && searchQuery.isNotBlank()) {
                          Text(
-                             text = "Found on Brandfetch",
+                             text = stringResource(R.string.store_found_brandfetch),
                              style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.primary,
                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -268,7 +272,7 @@ fun SearchableStoreSelector(
                             SparelyDropdownMenuItem(
                                 text = { 
                                     Column {
-                                        Text(brand.name ?: "Unknown")
+                                        Text(brand.name ?: stringResource(R.string.store_unknown))
                                         if (!brand.domain.isNullOrBlank()) {
                                             Text(
                                                 text = brand.domain,
@@ -306,7 +310,7 @@ fun SearchableStoreSelector(
                     } else if (searchQuery.isNotBlank() && stores.none { it.name.equals(searchQuery, ignoreCase = true) }) {
                         // Create new manually
                          Text(
-                             text = "Don't see it?",
+                             text = stringResource(R.string.store_dont_see),
                              style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.primary,
                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -315,9 +319,9 @@ fun SearchableStoreSelector(
                         SparelyDropdownMenuItem(
                             text = {
                                 Column {
-                                    Text("Add \"$searchQuery\"")
+                                    Text(stringResource(R.string.store_add_named, searchQuery))
                                     Text(
-                                        text = "Create custom store",
+                                        text = stringResource(R.string.store_create_custom),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -476,7 +480,7 @@ private fun AddStoreDialog(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SparelySheetHeader(
-                title = "Add New Store",
+                title = stringResource(R.string.store_add_title),
                 icon = MaterialSymbols.STORE
             )
 
@@ -489,7 +493,7 @@ private fun AddStoreDialog(
                         websiteUrl = "${newName.trim().lowercase().replace(" ", "")}.com"
                     }
                 },
-                label = { Text("Store Name") },
+                label = { Text(stringResource(R.string.store_name)) },
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
@@ -503,15 +507,15 @@ private fun AddStoreDialog(
                     websiteUrl = it
                     userEditedUrl = true // Mark as manually edited
                 },
-                label = { Text("Website URL (optional)") },
-                placeholder = { Text("e.g., amazon.com") },
-                supportingText = { Text("Adding a website URL will display the store's logo automatically.") },
+                label = { Text(stringResource(R.string.store_website_optional)) },
+                placeholder = { Text(stringResource(R.string.store_website_placeholder)) },
+                supportingText = { Text(stringResource(R.string.store_website_help_add)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth()
             )
 
             SheetActions(
-                confirmLabel = "Add",
+                confirmLabel = stringResource(R.string.store_add_confirm),
                 onConfirm = {
                     if (name.isNotBlank()) {
                         onConfirm(
@@ -523,7 +527,7 @@ private fun AddStoreDialog(
                     }
                 },
                 confirmEnabled = name.isNotBlank(),
-                dismissLabel = "Cancel",
+                dismissLabel = stringResource(R.string.action_cancel),
                 onDismiss = onDismiss
             )
         }
@@ -555,14 +559,14 @@ private fun EditStoreDialog(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SparelySheetHeader(
-                title = "Edit Store",
+                title = stringResource(R.string.store_edit_title),
                 icon = MaterialSymbols.EDIT
             )
 
             SparelyTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Store Name") },
+                label = { Text(stringResource(R.string.store_name)) },
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
@@ -573,15 +577,15 @@ private fun EditStoreDialog(
             SparelyTextField(
                 value = websiteUrl,
                 onValueChange = { websiteUrl = it },
-                label = { Text("Website URL (optional)") },
-                placeholder = { Text("e.g., amazon.com") },
-                supportingText = { Text("The website URL is used to fetch the store's logo.") },
+                label = { Text(stringResource(R.string.store_website_optional)) },
+                placeholder = { Text(stringResource(R.string.store_website_placeholder)) },
+                supportingText = { Text(stringResource(R.string.store_website_help_edit)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth()
             )
 
             SheetActions(
-                confirmLabel = "Save",
+                confirmLabel = stringResource(R.string.action_save),
                 onConfirm = {
                     if (name.isNotBlank()) {
                         onConfirm(
@@ -593,7 +597,7 @@ private fun EditStoreDialog(
                     }
                 },
                 confirmEnabled = name.isNotBlank(),
-                dismissLabel = "Cancel",
+                dismissLabel = stringResource(R.string.action_cancel),
                 onDismiss = onDismiss
             )
         }

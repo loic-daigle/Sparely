@@ -1,5 +1,7 @@
 package com.example.sparely.workers
 
+import com.sparely.app.R
+
 import android.content.Context
 import android.util.Log
 import androidx.work.*
@@ -89,12 +91,12 @@ class AutoBackupScheduler(private val context: Context) {
                 Log.d(TAG, "Backup saved: ${backupFile.absolutePath}")
                 
                 withContext(Dispatchers.Main) {
-                    onResult(true, "Backup saved successfully")
+                    onResult(true, context.getString(R.string.backup_saved))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Backup failed", e)
                 withContext(Dispatchers.Main) {
-                    onResult(false, "Backup failed: ${e.message}")
+                    onResult(false, context.getString(R.string.backup_failed, e.message ?: ""))
                 }
             }
         }

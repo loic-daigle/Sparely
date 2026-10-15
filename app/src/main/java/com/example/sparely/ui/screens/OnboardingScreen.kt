@@ -684,7 +684,7 @@ private fun SmartVaultsStep(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                Text("Continue", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -1135,7 +1135,7 @@ fun IncomeStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "This helps us provide personalized savings recommendations",
+            text = stringResource(R.string.onboarding_personalize_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1352,7 +1352,7 @@ fun RiskLevelStep(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 }

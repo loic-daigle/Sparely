@@ -223,7 +223,7 @@ private fun SummaryCard(
 @Composable
 private fun AggregatedPendingContributionCard(
     vault: SmartVault?,
-    displayName: String = vault?.name ?: "Unknown",
+    displayName: String = vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
     isHisaTransfer: Boolean = false,
     contributions: List<VaultContribution>,
     onApproveAll: (List<Long>) -> Unit,

@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,12 +63,12 @@ fun AssetCostProjectionCard(
             // Header
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Projected Cost",
+                    text = stringResource(R.string.asset_projection_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Estimated spending based on recurring and historical expenses",
+                    text = stringResource(R.string.asset_projection_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -192,7 +196,7 @@ private fun BudgetComparisonSection(
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "vs. Target Price",
+            text = stringResource(R.string.asset_projection_vs_target),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -204,7 +208,7 @@ private fun BudgetComparisonSection(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Target Price",
+                    text = stringResource(R.string.asset_projection_target),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -217,7 +221,7 @@ private fun BudgetComparisonSection(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "Projected (12M)",
+                    text = stringResource(R.string.asset_projection_12m),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -260,7 +264,7 @@ private fun BudgetComparisonSection(
 
             if (!costVsPrice.isOverBudget) {
                 Text(
-                    text = "Remaining: ${currencyFormatter.format(costVsPrice.remainingBudget)}",
+                    text = stringResource(R.string.asset_projection_remaining, currencyFormatter.format(costVsPrice.remainingBudget)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
@@ -306,7 +310,7 @@ private fun MonthlyProjectionRow(
             if (monthlyProjection.recurringContribution > 0) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Recurring",
+                        text = stringResource(R.string.asset_projection_recurring),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -322,7 +326,7 @@ private fun MonthlyProjectionRow(
             if (monthlyProjection.historicalAverage > 0) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Historical Avg",
+                        text = stringResource(R.string.asset_projection_hist_avg),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

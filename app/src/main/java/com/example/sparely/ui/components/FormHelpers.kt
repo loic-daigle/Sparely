@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -94,7 +98,7 @@ fun OptionalChip(modifier: Modifier = Modifier) {
         enabled = false,
         label = {
             Text(
-                "Optional",
+                stringResource(R.string.form_optional),
                 style = MaterialTheme.typography.labelSmall
             )
         },
@@ -163,7 +167,7 @@ fun SectionHeader(
             ) {
                 MaterialSymbolIcon(
                     icon = if (isExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                    contentDescription = if (isExpanded) "Collapse section" else "Expand section",
+                    contentDescription = if (isExpanded) stringResource(R.string.form_collapse_section) else stringResource(R.string.form_expand_section),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

@@ -335,10 +335,10 @@ private fun SparelyScaffold(
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
                                     .fillMaxHeight()
                                     .padding(horizontal = 12.dp)) {
-                                    MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = "Record income", modifier = Modifier.size(18.dp))
+                                    MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = stringResource(R.string.fab_record_income), modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.size(8.dp))
                                     Text(
-                                        text = "Record income",
+                                        text = stringResource(R.string.fab_record_income),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onPrimary
                                     )
@@ -362,10 +362,10 @@ private fun SparelyScaffold(
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
                                     .fillMaxHeight()
                                     .padding(horizontal = 12.dp)) {
-                                    MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT, contentDescription = "Record expense", modifier = Modifier.size(18.dp))
+                                    MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT, contentDescription = stringResource(R.string.fab_record_expense), modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.size(8.dp))
                                     Text(
-                                        text = "Record expense",
+                                        text = stringResource(R.string.fab_record_expense),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onPrimary
                                     )
@@ -382,7 +382,7 @@ private fun SparelyScaffold(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ) {
-                        MaterialSymbolIcon(icon = if (fabExpanded.value) MaterialSymbols.CLOSE else MaterialSymbols.ADD, contentDescription = "Quick actions", modifier = Modifier.size(24.dp))
+                        MaterialSymbolIcon(icon = if (fabExpanded.value) MaterialSymbols.CLOSE else MaterialSymbols.ADD, contentDescription = stringResource(R.string.fab_quick_actions), modifier = Modifier.size(24.dp))
                     }
                 }
 
@@ -1095,7 +1095,7 @@ private fun SparelyNavHost(
         }
         composable(SparelyDestination.SavingsHistory.route) { backStackEntry ->
             val accountId = backStackEntry.arguments?.getString("accountId")?.toLongOrNull() ?: 0L
-            val accountName = backStackEntry.arguments?.getString("accountName") ?: "Savings Account"
+            val accountName = backStackEntry.arguments?.getString("accountName") ?: stringResource(R.string.savings_account_fallback_name)
 
             SavingsHistoryScreen(
                 accountId = accountId,
@@ -1253,7 +1253,7 @@ private fun SparelyNavHost(
             val historyItems = vaultUiState.vaultHistory[vaultId] ?: emptyList()
             
             VaultHistoryScreen(
-                vaultName = vault?.name ?: "Vault",
+                vaultName = vault?.name ?: stringResource(R.string.vault_fallback_name),
                 historyItems = historyItems,
                 onNavigateBack = { navController.popBackStack() }
             )
@@ -1402,7 +1402,7 @@ private fun VaultArchiveConfirmationDialog(
         onDismissRequest = onDismiss,
         title = { 
             Text(
-                text = "Archive ${prompt.vaultName}?",
+                text = stringResource(R.string.vault_archive_prompt_title, prompt.vaultName),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -1410,7 +1410,7 @@ private fun VaultArchiveConfirmationDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "You've used ${(prompt.expenseAmount / prompt.vaultBalanceBefore.coerceAtLeast(0.01)).formatPercent(0)} of this vault's balance.",
+                    text = stringResource(R.string.vault_archive_prompt_used, (prompt.expenseAmount / prompt.vaultBalanceBefore.coerceAtLeast(0.01)).formatPercent(0)),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 
@@ -1423,18 +1423,18 @@ private fun VaultArchiveConfirmationDialog(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Expense amount: ${prompt.expenseAmount.formatCurrency()}",
+                        text = stringResource(R.string.vault_archive_prompt_expense, prompt.expenseAmount.formatCurrency()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Vault balance before: ${prompt.vaultBalanceBefore.formatCurrency()}",
+                        text = stringResource(R.string.vault_archive_prompt_balance_before, prompt.vaultBalanceBefore.formatCurrency()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     if (prompt.overflowToMainAccount > 0) {
                         Text(
-                            text = "Overflow to main account: ${prompt.overflowToMainAccount.formatCurrency()}",
+                            text = stringResource(R.string.vault_archive_prompt_overflow, prompt.overflowToMainAccount.formatCurrency()),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -1443,19 +1443,19 @@ private fun VaultArchiveConfirmationDialog(
                 }
                 
                 Text(
-                    text = "Would you like to archive this vault now that it's nearly depleted?",
+                    text = stringResource(R.string.vault_archive_prompt_question),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
         },
         confirmButton = { 
             TextButton(onClick = { onConfirmArchive() }) {
-                Text("Archive Vault")
+                Text(stringResource(R.string.vault_archive_prompt_confirm))
             }
         },
         dismissButton = { 
             TextButton(onClick = { onDismiss() }) {
-                Text("Keep Active")
+                Text(stringResource(R.string.vault_archive_prompt_keep))
             }
         }
     )

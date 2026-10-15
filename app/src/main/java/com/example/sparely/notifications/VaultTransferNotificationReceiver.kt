@@ -1,5 +1,7 @@
 package com.example.sparely.notifications
 
+import com.sparely.app.R
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -81,7 +83,7 @@ class VaultTransferNotificationReceiver : BroadcastReceiver() {
             NotificationHelper.showVaultTransferNotification(
                 context = context,
                 vaultId = nextVaultId,
-                vaultName = vault?.name ?: "Vault",
+                vaultName = vault?.name ?: context.getString(R.string.vault_fallback_name),
                 contributions = nextContributions,
                 currentIndex = completedCount,
                 totalVaultCount = groupedByVault.size + completedCount

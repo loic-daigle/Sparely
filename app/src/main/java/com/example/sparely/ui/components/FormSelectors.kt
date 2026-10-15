@@ -66,9 +66,9 @@ fun ExpenseTypeSelector(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (isRequired) {
-            RequiredFieldLabel("Type")
+            RequiredFieldLabel(stringResource(R.string.form_type))
         } else {
-            Text("Type", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.form_type), style = MaterialTheme.typography.titleSmall)
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),

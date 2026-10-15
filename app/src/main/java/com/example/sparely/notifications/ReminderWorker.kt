@@ -1,5 +1,7 @@
 package com.example.sparely.notifications
 
+import com.sparely.app.R
+
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -16,15 +18,15 @@ class ReminderWorker(
         val database = SparelyDatabase.getInstance(applicationContext)
         val expenses = database.expenseDao().observeExpenses().first()
         val message = if (expenses.isEmpty()) {
-            "Log your latest purchase in Sparely to start automating savings."
+            applicationContext.getString(R.string.reminder_no_expenses)
         } else {
             val sevenDaysAgo = LocalDate.now().minusDays(7)
             val recent = expenses.filter { !it.expense.date.isBefore(sevenDaysAgo) }
             val reserved = recent.sumOf { it.expense.emergencyAmount + it.expense.investmentAmount + it.expense.funAmount }
             if (recent.isEmpty()) {
-                "You haven't logged a purchase this week. Add one to keep your savings plan on track."
+                applicationContext.getString(R.string.reminder_none_this_week)
             } else {
-                "You set aside $${"%.2f".format(reserved)} in the last 7 days. Review goals to stay ahead."
+                applicationContext.getString(R.string.reminder_set_aside, NotificationHelper.formatAmount(reserved))
             }
         }
         NotificationHelper.showReminder(applicationContext, message)

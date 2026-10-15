@@ -1,5 +1,7 @@
 package com.example.sparely.notifications
 
+import com.sparely.app.R
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -36,7 +38,7 @@ class VariableRecurringExpenseReceiver : BroadcastReceiver() {
                             // Show a brief confirmation notification
                             NotificationHelper.showReminder(
                                 context,
-                                "Amount confirmed: ${NotificationHelper.formatAmount(confirmedAmount)}"
+                                context.getString(R.string.notif_amount_confirmed, NotificationHelper.formatAmount(confirmedAmount))
                             )
                         } catch (e: Exception) {
                             android.util.Log.e("VariableRecurringReceiver", "Failed to record confirmed amount", e)

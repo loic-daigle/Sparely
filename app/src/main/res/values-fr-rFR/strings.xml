@@ -430,7 +430,7 @@
     <string name="dashboard_log_subscriptions_reminders">Enregistrez vos abonnements et factures pour recevoir des rappels.</string>
     <string name="dashboard_due_on">Échéance %1$s</string>
     <string name="dashboard_emergency_runway">Voie d\'urgence</string>
-    <string name="dashboard_month_goal">Objectif de %1$.1f mois • %2$s</string>
+    <string name="dashboard_month_goal">Objectif de %1$d mois</string>
     <string name="dashboard_current_cushion">Coussin actuel</string>
     <string name="dashboard_monthly_target">Cible mensuelle</string>
     <string name="dashboard_goal_reached">Objectif atteint ! Continuez à contribuer pour rester en avance sur l\'inflation.</string>

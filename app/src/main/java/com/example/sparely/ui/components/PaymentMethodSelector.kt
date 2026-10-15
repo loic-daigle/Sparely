@@ -1,5 +1,9 @@
 package com.example.sparely.ui.components
 
+import com.sparely.app.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -54,17 +58,17 @@ fun PaymentMethodSelector(
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Payment Method", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.payment_method_title), style = MaterialTheme.typography.titleSmall)
         
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = it }
         ) {
             SparelyDropdownAnchor(
-                value = selectedMethod?.name ?: "Select payment method",
+                value = selectedMethod?.name ?: stringResource(R.string.payment_method_select),
                 onValueChange = {},
                 expanded = expanded,
-                label = "Payment Method",
+                label = stringResource(R.string.payment_method_title),
                 leadingIcon = selectedMethod?.let { method -> { PaymentMethodIcon(method = method) } },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -81,7 +85,7 @@ fun PaymentMethodSelector(
                                 if (method.isCreditCard) {
                                     val utilizationPercentStr = method.utilizationPercent.formatPercent()
                                     Text(
-                                        "Balance: ${method.currentBalance.formatCurrency()} ($utilizationPercentStr used)",
+                                        stringResource(R.string.payment_method_balance_used, method.currentBalance.formatCurrency(), utilizationPercentStr),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = when {
                                             method.isUtilizationHealthy -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -109,7 +113,7 @@ fun PaymentMethodSelector(
                 }
                 
                 SparelyDropdownMenuItem(
-                    text = { Text("Manage methods") },
+                    text = { Text(stringResource(R.string.payment_method_manage)) },
                     leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null) },
                     onClick = {
                         onManageMethods()
@@ -138,7 +142,7 @@ fun PaymentMethodSelector(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Current Balance", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.savings_current_balance), style = MaterialTheme.typography.bodySmall)
                             Text(
                                 method.currentBalance.formatCurrency(),
                                 style = MaterialTheme.typography.bodyMedium
@@ -148,7 +152,7 @@ fun PaymentMethodSelector(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Available Credit", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.payment_method_available_credit), style = MaterialTheme.typography.bodySmall)
                             Text(
                                 method.availableCredit.formatCurrency(),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -159,7 +163,7 @@ fun PaymentMethodSelector(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Current Utilization", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.payment_method_current_utilization), style = MaterialTheme.typography.bodySmall)
                             val utilizationColor = when {
                                 method.isUtilizationHealthy -> MaterialTheme.colorScheme.primary
                                 method.isUtilizationWarning -> MaterialTheme.colorScheme.warning

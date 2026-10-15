@@ -1746,8 +1746,8 @@ private fun PayRecurringExpenseEarlyDialog(
     val earliestPaymentDate = nextDueDate.minusDays(maxDaysBefore.toLong())
     val isDateValid = !paidDate.isBefore(earliestPaymentDate) && !paidDate.isAfter(nextDueDate)
     val errorMessage = when {
-        paidDate.isBefore(earliestPaymentDate) -> "Can only pay from ${earliestPaymentDate.format(dateFormatter)} onwards"
-        paidDate.isAfter(nextDueDate) -> "Payment date cannot be after due date"
+        paidDate.isBefore(earliestPaymentDate) -> stringResource(R.string.recurring_pay_from_error, earliestPaymentDate.format(dateFormatter))
+        paidDate.isAfter(nextDueDate) -> stringResource(R.string.recurring_pay_after_due_error)
         else -> null
     }
     val confirm = {
@@ -1784,8 +1784,8 @@ private fun PayRecurringExpenseEarlyDialog(
                 SheetAmountField(
                     value = amountText,
                     onValueChange = { amountText = it.filterCurrencyInput() },
-                    label = "Amount Paid",
-                    supportingText = "Pay from ${earliestPaymentDate.format(dateFormatter)}",
+                    label = stringResource(R.string.recurring_amount_paid),
+                    supportingText = stringResource(R.string.recurring_pay_from_hint, earliestPaymentDate.format(dateFormatter)),
                     autoFocus = false,
                     imeAction = ImeAction.Next,
                     onImeAction = {}
@@ -1834,7 +1834,7 @@ private fun PayRecurringExpenseEarlyDialog(
                     singleLine = false,
                     minLines = 2,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    placeholder = { Text("Optional") }
+                    placeholder = { Text(stringResource(R.string.form_optional)) }
                 )
             }
 

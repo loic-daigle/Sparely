@@ -71,8 +71,8 @@ fun SavingsHistoryScreen(
             ) {
                 ExpressiveEmptyState(
                     icon = MaterialSymbols.HISTORY,
-                    title = "No Transaction History",
-                    description = "Deposits, withdrawals, and interest will appear here"
+                    title = stringResource(R.string.savings_history_empty_title),
+                    description = stringResource(R.string.savings_history_empty_desc)
                 )
             }
         } else {

@@ -1,5 +1,7 @@
 package com.example.sparely.notifications
 
+import com.sparely.app.R
+
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -150,7 +152,7 @@ class NotificationScheduler(context: Context) {
         NotificationHelper.showVaultTransferNotification(
             context = appContext,
             vaultId = firstVaultId,
-            vaultName = vault?.name ?: "Vault",
+            vaultName = vault?.name ?: appContext.getString(R.string.vault_fallback_name),
             contributions = firstContributions,
             currentIndex = 0,
             totalVaultCount = groupedByVault.size

@@ -36,40 +36,40 @@ object NotificationHelper {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val reminderChannel = NotificationChannel(
                 REMINDER_CHANNEL_ID,
-                context.getString(R.string.app_name) + " reminders",
+                context.getString(R.string.notif_channel_reminders),
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Savings and goal nudges from Sparely"
+                description = context.getString(R.string.notif_channel_reminders_desc)
             }
             val autoDepositChannel = NotificationChannel(
                 AUTO_DEPOSIT_CHANNEL_ID,
-                "Auto Deposits",
+                context.getString(R.string.notif_channel_auto_deposits),
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Notifications for scheduled vault auto-deposits"
+                description = context.getString(R.string.notif_channel_auto_deposits_desc)
             }
             val paydayChannel = NotificationChannel(
                 PAYDAY_CHANNEL_ID,
-                "Payday Reminders",
+                context.getString(R.string.notif_channel_payday),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Reminders to log your paycheck"
+                description = context.getString(R.string.notif_channel_payday_desc)
                 setShowBadge(false)
             }
             val vaultTransferChannel = NotificationChannel(
                 VAULT_TRANSFER_CHANNEL_ID,
-                "Vault Transfers",
+                context.getString(R.string.notif_channel_vault_transfers),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Step-by-step vault transfer workflow"
+                description = context.getString(R.string.notif_channel_vault_transfers_desc)
                 setShowBadge(false)
             }
             val creditCardChannel = NotificationChannel(
                 CREDIT_CARD_CHANNEL_ID,
-                "Credit Card Reminders",
+                context.getString(R.string.notif_channel_credit_cards),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Reminders for credit card bill due dates"
+                description = context.getString(R.string.notif_channel_credit_cards_desc)
                 setShowBadge(true)
             }
             val wishlistChannel = NotificationChannel(
@@ -145,7 +145,7 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle("Sparely reminder")
+            .setContentTitle(context.getString(R.string.notif_reminder_title))
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -157,11 +157,11 @@ object NotificationHelper {
     fun showAutoDepositReminder(context: Context, depositCount: Int, totalAmount: Double) {
         val formattedAmount = formatAmount(totalAmount)
         val title = if (depositCount == 1) {
-            "Vault Auto-Deposit Due"
+            context.getString(R.string.notif_auto_deposit_due_one)
         } else {
-            "$depositCount Vault Auto-Deposits Due"
+            context.getString(R.string.notif_auto_deposit_due_many, depositCount)
         }
-        val message = "Transfer $formattedAmount to your savings vaults and mark them as complete in the app."
+        val message = context.getString(R.string.notif_auto_deposit_message, formattedAmount)
         
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -198,8 +198,8 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle("Scheduled transfer starting soon")
-            .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
+            .setContentTitle(context.getString(R.string.notif_schedule_soon_title))
+            .setContentText(transferLine(context, amount, schedule, vaultName))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(vaultScheduleIntent(context, schedule, notificationId))
             .setAutoCancel(true)
@@ -218,8 +218,8 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle("Scheduled transfer complete")
-            .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
+            .setContentTitle(context.getString(R.string.notif_schedule_done_title))
+            .setContentText(transferLine(context, amount, schedule, vaultName))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(vaultScheduleIntent(context, schedule, notificationId))
             .setAutoCancel(true)
@@ -234,12 +234,12 @@ object NotificationHelper {
         schedule: VaultSchedule
     ) {
         ensureChannels(context)
-        val message = "Transfer of ${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName did not complete."
+        val message = context.getString(R.string.notif_schedule_failed_message, transferLine(context, amount, schedule, vaultName))
         val notificationId = scheduleNotificationId(schedule.id, 3)
         val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle("Scheduled transfer needs attention")
+            .setContentTitle(context.getString(R.string.notif_schedule_failed_title))
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -252,7 +252,7 @@ object NotificationHelper {
     fun showVaultScheduleSummary(context: Context, count: Int, totalAmount: Double) {
         ensureChannels(context)
         val formattedAmount = formatAmount(totalAmount)
-        val title = if (count == 1) "1 scheduled transfer executed" else "$count scheduled transfers executed"
+        val title = if (count == 1) context.getString(R.string.notif_schedule_summary_one) else context.getString(R.string.notif_schedule_summary_many, count)
         val contentIntent = PendingIntent.getActivity(
             context,
             SCHEDULE_SUMMARY_NOTIFICATION_ID,
@@ -266,7 +266,7 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
-            .setContentText("$formattedAmount processed today")
+            .setContentText(context.getString(R.string.notif_schedule_summary_text, formattedAmount))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
@@ -294,7 +294,7 @@ object NotificationHelper {
         }
         
         val progressText = if (totalVaultCount > 1) {
-            " (${currentIndex + 1} of $totalVaultCount)"
+            " " + context.getString(R.string.notif_transfer_progress, currentIndex + 1, totalVaultCount)
         } else {
             ""
         }
@@ -345,12 +345,12 @@ object NotificationHelper {
             .setOngoing(true)
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Transferred",
+                context.getString(R.string.notif_action_transferred),
                 transferredIntent
             )
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Dismiss",
+                context.getString(R.string.notif_action_dismiss),
                 dismissIntent
             )
             .build()
@@ -369,10 +369,10 @@ object NotificationHelper {
     ) {
         ensureChannels(context)
         val formattedDate = expectedDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
-        val baseMessage = "Enter the amount you received this payday."
+        val baseMessage = context.getString(R.string.notif_payday_message)
         val body = if (suggestedAmount != null && suggestedAmount > 0.0) {
             val formattedAmount = formatAmount(suggestedAmount)
-            "$baseMessage\nSuggested amount based on recent paychecks: $formattedAmount"
+            baseMessage + "\n" + context.getString(R.string.notif_payday_suggested, formattedAmount)
         } else baseMessage
 
         val contentIntent = PendingIntent.getActivity(
@@ -402,7 +402,7 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, PAYDAY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle("Payday — $formattedDate")
+            .setContentTitle(context.getString(R.string.notif_payday_title, formattedDate))
             .setContentText(baseMessage)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -410,12 +410,12 @@ object NotificationHelper {
             .setAutoCancel(true)
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Record Income",
+                context.getString(R.string.fab_record_income),
                 recordIncomeIntent
             )
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Remind Later",
+                context.getString(R.string.notif_action_remind_later),
                 remindLaterIntent
             )
             .build()
@@ -486,8 +486,8 @@ object NotificationHelper {
         threshold: Int
     ) {
         ensureChannels(context)
-        val title = "High utilization on $cardName"
-        val message = "Utilization is at $utilization%, which exceeds your $threshold% limit. Tap to pay now."
+        val title = context.getString(R.string.notif_utilization_title, cardName)
+        val message = context.getString(R.string.notif_utilization_message, utilization, threshold)
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -528,8 +528,8 @@ object NotificationHelper {
     ) {
         ensureChannels(context)
         val formattedAmount = formatAmount(predictedAmount)
-        val title = "Confirm bill amount: $recurringExpenseName"
-        val body = "Predicted amount: $formattedAmount. Please confirm the actual amount charged."
+        val title = context.getString(R.string.notif_variable_bill_title, recurringExpenseName)
+        val body = context.getString(R.string.notif_variable_bill_body, formattedAmount)
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -567,19 +567,19 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
             .setContentTitle(title)
-            .setContentText("Predicted: $formattedAmount")
+            .setContentText(context.getString(R.string.notif_variable_bill_short, formattedAmount))
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Confirm",
+                context.getString(R.string.pending_bills_confirm),
                 confirmIntent
             )
             .addAction(
                 R.drawable.ic_sparely_mark_mono,
-                "Edit Amount",
+                context.getString(R.string.notif_action_edit_amount),
                 editAmountIntent
             )
             .build()
@@ -601,12 +601,11 @@ object NotificationHelper {
         }.format(sanitizedAmount)
     }
 
-    private fun directionPhrase(schedule: VaultSchedule): String {
-        return when (schedule.direction) {
-            VaultTransferDirection.MAIN_TO_VAULT -> "into"
-            VaultTransferDirection.VAULT_TO_MAIN -> "from"
+    private fun transferLine(context: Context, amount: Double, schedule: VaultSchedule, vaultName: String): String =
+        when (schedule.direction) {
+            VaultTransferDirection.MAIN_TO_VAULT -> context.getString(R.string.notif_transfer_into, formatAmount(amount), vaultName)
+            VaultTransferDirection.VAULT_TO_MAIN -> context.getString(R.string.notif_transfer_from, formatAmount(amount), vaultName)
         }
-    }
 
     private fun scheduleNotificationId(scheduleId: Long, offset: Int): Int {
         val base = (scheduleId % Int.MAX_VALUE).toInt()

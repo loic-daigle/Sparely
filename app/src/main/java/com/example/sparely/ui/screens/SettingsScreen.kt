@@ -2052,7 +2052,7 @@ private fun PaymentMethodsSettingsCard(
                 showAddDialog = false 
                 editingMethod = null
             },
-            title = { Text(if (isEditing) "Edit Payment Method" else "Add Payment Method") },
+            title = { Text(if (isEditing) stringResource(R.string.settings_pm_edit_title) else stringResource(R.string.settings_pm_add_title)) },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -2099,7 +2099,7 @@ private fun PaymentMethodsSettingsCard(
                                     Text(stringResource(R.string.settings_pm_is_credit), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Text(
-                                    "Track balance and credit utilization",
+                                    stringResource(R.string.settings_pm_track_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2183,8 +2183,8 @@ private fun PaymentMethodsSettingsCard(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.settings_pm_deduct_default), style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                if (isCreditCard) "Credit cards don't deduct immediately."
-                                else "Turn off for Credit Cards, on for Debit/Cash.",
+                                if (isCreditCard) stringResource(R.string.settings_pm_credit_no_deduct)
+                                else stringResource(R.string.settings_pm_deduct_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

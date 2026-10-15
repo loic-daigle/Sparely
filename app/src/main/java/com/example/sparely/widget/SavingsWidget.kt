@@ -1,5 +1,7 @@
 package com.example.sparely.widget
 
+import com.example.sparely.domain.model.displayName
+
 import com.example.sparely.domain.model.nextOccurrenceAfter
 import android.content.Context
 import android.content.Intent
@@ -114,11 +116,11 @@ private fun SuggestionConfidence.displayLabel(): String = when (this) {
     SuggestionConfidence.LOW -> "early insight"
 }
 
-private fun formatCountdown(daysUntil: Int): String = when {
-    daysUntil < 0 -> "overdue by ${-daysUntil}d"
-    daysUntil == 0 -> "due today"
-    daysUntil == 1 -> "in 1 day"
-    else -> "in ${daysUntil}d"
+private fun formatCountdown(ctx: android.content.Context, daysUntil: Int): String = when {
+    daysUntil < 0 -> ctx.getString(R.string.widget_countdown_overdue, -daysUntil)
+    daysUntil == 0 -> ctx.getString(R.string.widget_countdown_today)
+    daysUntil == 1 -> ctx.getString(R.string.widget_countdown_tomorrow)
+    else -> ctx.getString(R.string.widget_countdown_days, daysUntil)
 }
 
 private fun computeBirthdayMessage(settings: SparelySettings, today: LocalDate = LocalDate.now()): String? {
@@ -346,6 +348,7 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
 )
 @Composable
 private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action) {
+    val ctx = androidx.glance.LocalContext.current
     val currencyFormatter = rememberCurrencyFormatter()
 
     // Sparely brand palette (same as the splash and lock screens), in light and dark mode alike.
@@ -443,7 +446,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                 .padding(16.dp)
         ) {
             Text(
-                text = "Total Savings",
+                text = ctx.getString(R.string.widget_total_savings),
                 style = TextStyle(
                     color = primaryColor,
                     fontSize = 12.sp,
@@ -476,7 +479,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
-                        text = "This month",
+                        text = ctx.getString(R.string.widget_this_month),
                         style = TextStyle(
                             color = onSurfaceVariantColor,
                             fontSize = 11.sp
@@ -499,7 +502,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                         modifier = GlanceModifier.defaultWeight()
                     ) {
                         Text(
-                            text = "Savings rate",
+                            text = ctx.getString(R.string.dashboard_savings_rate_label),
                             style = TextStyle(
                                 color = onSurfaceVariantColor,
                                 fontSize = 11.sp
@@ -532,7 +535,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "Saved",
+                    text = ctx.getString(R.string.widget_saved),
                     style = TextStyle(
                         color = onSurfaceVariantColor,
                         fontSize = 11.sp,
@@ -561,7 +564,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "Spent",
+                    text = ctx.getString(R.string.widget_spent),
                     style = TextStyle(
                         color = onSurfaceVariantColor,
                         fontSize = 11.sp,
@@ -616,7 +619,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = "Emergency",
+                            text = ctx.getString(R.string.widget_emergency),
                             style = TextStyle(
                                 color = onSurfaceVariantColor,
                                 fontSize = 10.sp
@@ -642,14 +645,14 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     Text(
-                        text = "Debts",
+                        text = ctx.getString(R.string.widget_debts),
                         style = TextStyle(
                             color = onSurfaceVariantColor,
                             fontSize = 10.sp
                         )
                     )
                     Text(
-                        text = if (settings.hasDebts) "Active" else "Clear",
+                        text = if (settings.hasDebts) ctx.getString(R.string.widget_debts_active) else ctx.getString(R.string.widget_debts_clear),
                         style = TextStyle(
                             color = if (settings.hasDebts) errorColor else primaryColor,
                             fontSize = 14.sp,
@@ -780,6 +783,7 @@ private fun NextRecurringWidgetCard(
     onSurfaceVariantColor: ColorProvider,
     accentColor: ColorProvider,    neutralContainerColor: ColorProvider
 ) {
+    val ctx = androidx.glance.LocalContext.current
 
     val dueDateLabel = summary.dueDate.format(widgetDateFormatter)
     Column(
@@ -808,7 +812,7 @@ private fun NextRecurringWidgetCard(
         )
         Spacer(modifier = GlanceModifier.height(2.dp))
         Text(
-            text = "Due $dueDateLabel (${formatCountdown(summary.daysUntil)})",
+            text = ctx.getString(R.string.widget_due, dueDateLabel, formatCountdown(ctx, summary.daysUntil)),
             style = TextStyle(
                 color = onSurfaceVariantColor,
                 fontSize = 11.sp
@@ -850,6 +854,7 @@ private fun BudgetAlertCard(
     onSurfaceVariantColor: ColorProvider,
     errorContainerColor: ColorProvider
 ) {
+    val ctx = androidx.glance.LocalContext.current
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -863,13 +868,13 @@ private fun BudgetAlertCard(
         ) {
             Image(
                 provider = ImageProvider(R.drawable.ic_warning),
-                contentDescription = "Warning",
+                contentDescription = null,
                 modifier = GlanceModifier.size(20.dp),
                 colorFilter = androidx.glance.ColorFilter.tint(errorColor)
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
-                text = "Budget Alert",
+                text = ctx.getString(R.string.widget_budget_alert),
                 style = TextStyle(
                     color = errorColor,
                     fontSize = 14.sp,
@@ -888,7 +893,7 @@ private fun BudgetAlertCard(
         )
         Spacer(modifier = GlanceModifier.height(4.dp))
         Text(
-            text = if (prompt.overspend > 0) "Over by ${currencyFormatter(prompt.overspend)}" else "Approaching limit",
+            text = if (prompt.overspend > 0) ctx.getString(R.string.widget_over_by, currencyFormatter(prompt.overspend)) else ctx.getString(R.string.widget_approaching_limit),
             style = TextStyle(
                 color = onSurfaceVariantColor,
                 fontSize = 12.sp
@@ -905,6 +910,7 @@ private fun UpcomingBillsCard(
     onSurfaceVariantColor: ColorProvider,
     surfaceContainerColor: ColorProvider
 ) {
+    val ctx = androidx.glance.LocalContext.current
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -918,13 +924,13 @@ private fun UpcomingBillsCard(
         ) {
             Image(
                 provider = ImageProvider(R.drawable.ic_calendar),
-                contentDescription = "Calendar",
+                contentDescription = null,
                 modifier = GlanceModifier.size(20.dp),
                 colorFilter = androidx.glance.ColorFilter.tint(onSurfaceColor)
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
-                text = "Upcoming Bills",
+                text = ctx.getString(R.string.widget_upcoming_bills),
                 style = TextStyle(
                     color = onSurfaceColor,
                     fontSize = 14.sp,
@@ -944,7 +950,7 @@ private fun UpcomingBillsCard(
         Spacer(modifier = GlanceModifier.height(4.dp))
         val dueDateLabel = summary.dueDate.format(widgetDateFormatter)
         Text(
-            text = "Due $dueDateLabel (${formatCountdown(summary.daysUntil)}) • ${currencyFormatter(summary.amount)}",
+            text = ctx.getString(R.string.widget_due_with_amount, dueDateLabel, formatCountdown(ctx, summary.daysUntil), currencyFormatter(summary.amount)),
             style = TextStyle(
                 color = onSurfaceVariantColor,
                 fontSize = 12.sp
@@ -953,4 +959,3 @@ private fun UpcomingBillsCard(
     }
 }
 
-private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
