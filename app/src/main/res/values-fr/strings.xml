@@ -2090,4 +2090,23 @@
     <string name="reminder_set_aside">Vous avez mis %1$s de côté ces 7 derniers jours. Revoyez vos objectifs pour garder le cap.</string>
     <string name="notif_amount_confirmed">Montant confirmé : %1$s</string>
     <string name="backup_saved">Sauvegarde enregistrée</string>
+    <string name="wallet_listener_label">Paiements Google Wallet</string>
+    <string name="wallet_channel_name">Paiements Google Wallet</string>
+    <string name="wallet_channel_desc">Suggestions pour noter les achats payés avec Google Wallet</string>
+    <string name="wallet_suggest_title">Noter cet achat ?</string>
+    <string name="wallet_suggest_text_merchant">%1$s chez %2$s, payé avec Google Wallet</string>
+    <string name="wallet_suggest_text">%1$s payé avec Google Wallet</string>
+    <string name="wallet_action_add">Ajouter</string>
+    <string name="wallet_action_edit">Modifier</string>
+    <string name="wallet_action_ignore">Ignorer</string>
+    <string name="wallet_logged_merchant">Noté : %1$s chez %2$s</string>
+    <string name="wallet_logged">Noté : %1$s</string>
+    <string name="wallet_default_description">Paiement Google Wallet</string>
+    <string name="wallet_settings_title">Google Wallet</string>
+    <string name="wallet_settings_toggle">Détecter les paiements Google Wallet</string>
+    <string name="wallet_settings_desc">Quand vous payez avec votre téléphone, Sparely propose de noter l\'achat.</string>
+    <string name="wallet_settings_needs_access">Sparely a besoin de l\'accès aux notifications pour voir les paiements Wallet.</string>
+    <string name="wallet_settings_allow_access">Autoriser l\'accès</string>
+    <string name="wallet_settings_restricted_hint">Si Android indique que le paramètre est restreint, ouvrez les infos de l\'app Sparely, touchez ⋮ et choisissez « Autoriser les paramètres restreints ».</string>
+    <string name="wallet_settings_privacy">Seules les notifications de Google Wallet sont lues, sur ce téléphone. Rien n\'est envoyé ailleurs.</string>
 </resources>

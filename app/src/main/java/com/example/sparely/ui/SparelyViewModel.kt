@@ -1171,6 +1171,34 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         }
     }
 
+    /**
+     * Prefills the expense form from a Google Wallet payment (the suggestion's Edit button), with the
+     * store and category from past purchases there. [onReady] runs on the main thread once it's set,
+     * so the form opens with the values already in place.
+     */
+    fun prefillWalletPurchase(amount: Double, merchant: String?, onReady: () -> Unit) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            val guess = com.example.sparely.wallet.WalletExpenseDefaults.guess(container, merchant)
+            val settings = preferencesRepository.getSettingsSnapshot()
+            setPrefillExpense(
+                com.example.sparely.domain.model.Expense(
+                    id = 0L,
+                    description = merchant.orEmpty(),
+                    amount = amount,
+                    category = guess.category,
+                    date = LocalDate.now(),
+                    includesTax = false,
+                    allocation = com.example.sparely.domain.model.AllocationBreakdown(0.0, 0.0, 0.0, 0.0, 0.0),
+                    appliedPercentages = settings.defaultPercentages,
+                    autoRecommended = false,
+                    riskLevelUsed = settings.riskLevel,
+                    storeId = guess.storeId
+                )
+            )
+            withContext(Dispatchers.Main) { onReady() }
+        }
+    }
+
     fun clearPrefillExpense() {
         _uiState.update { it.copy(prefillExpense = null, prefillAssetAllocations = emptyMap()) }
     }

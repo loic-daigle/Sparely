@@ -33,6 +33,7 @@ import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.theme.critical
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -1175,6 +1176,84 @@ fun SettingsDataCard(
     }
 }
 
+
+@Composable
+fun SettingsWalletDetectionCard(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    fun accessGranted() = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context)
+        .contains(context.packageName)
+    var hasAccess by remember { mutableStateOf(accessGranted()) }
+    // Coming back from Android's Notification access screen
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        hasAccess = accessGranted()
+    }
+
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = LocalSettingsCardShape.current,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.wallet_settings_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.wallet_settings_toggle), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(R.string.wallet_settings_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+            }
+            if (enabled && !hasAccess) {
+                Text(
+                    text = stringResource(R.string.wallet_settings_needs_access),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.critical
+                )
+                SparelyTonalButton(onClick = { openNotificationAccessSettings(context) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.wallet_settings_allow_access))
+                }
+                Text(
+                    text = stringResource(R.string.wallet_settings_restricted_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (enabled) {
+                Text(
+                    text = stringResource(R.string.wallet_settings_privacy),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Opens Android's Notification access page for Sparely's Wallet listener (or the full list on older Android). */
+private fun openNotificationAccessSettings(context: android.content.Context) {
+    val component = android.content.ComponentName(context, com.example.sparely.wallet.WalletPaymentListener::class.java)
+    val detail = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component.flattenToString())
+    } else {
+        null
+    }
+    val list = android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+    try {
+        context.startActivity(detail ?: list)
+    } catch (e: android.content.ActivityNotFoundException) {
+        context.startActivity(list)
+    }
+}
 
 @Composable
 fun SettingsAppearanceCard(

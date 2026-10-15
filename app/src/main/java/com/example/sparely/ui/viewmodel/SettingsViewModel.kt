@@ -327,6 +327,12 @@ class SettingsViewModel(
         return container.localAiManager.summarize(facts, language = lang)
     }
 
+    fun updateWalletDetectionEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateWalletDetectionEnabled(enabled)
+        }
+    }
+
     fun updateDynamicColorEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateDynamicColorEnabled(enabled)

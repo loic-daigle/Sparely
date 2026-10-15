@@ -64,6 +64,22 @@
             android:name="com.example.sparely.notifications.WishlistDecisionReceiver"
             android:exported="false" />
 
+        <!-- Reads Google Wallet's tap-to-pay notifications to suggest logging the purchase. Android
+             only binds it after the user grants Notification access, and it ignores every other app. -->
+        <service
+            android:name="com.example.sparely.wallet.WalletPaymentListener"
+            android:exported="true"
+            android:label="@string/wallet_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name="com.example.sparely.wallet.WalletPaymentReceiver"
+            android:exported="false" />
+
         <!-- Where the user approves vault transfers and refunds an AI assistant prepared. Only
              reachable through the one-time PendingIntent the AppFunction returns. -->
         <activity

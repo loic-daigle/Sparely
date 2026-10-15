@@ -170,6 +170,7 @@ fun SettingsScreen(
     localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
+    onWalletDetectionEnabledChange: (Boolean) -> Unit = {},
     headerState: SettingsHeaderState? = null,
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
@@ -553,6 +554,13 @@ fun SettingsScreen(
                                     utilizationThreshold = settings.creditCardUtilizationThreshold,
                                     onReminderChange = onCreditCardReminderChange,
                                     onUtilizationChange = onCreditCardUtilizationChange
+                                )
+                            }
+
+                            segment {
+                                SettingsWalletDetectionCard(
+                                    enabled = settings.walletDetectionEnabled,
+                                    onEnabledChange = onWalletDetectionEnabledChange
                                 )
                             }
 
