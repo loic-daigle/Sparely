@@ -66,11 +66,14 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         splashScreen.setKeepOnScreenCondition { viewModel.uiState.value.isLoading }
 
         val handoff = SplashHandoff(createdAtUptimeMs = SystemClock.uptimeMillis())
-        val playIntro = !introPlayedInProcess && savedInstanceState == null && !animationsDisabled()
-        introPlayedInProcess = true
+        // Every fresh open from the launcher, including one where the process was still alive (the app
+        // closed with Back): Android shows its splash then too, so the intro has to take over from it.
+        // Not after a rotation or process restore, nor from a notification or widget tap.
+        val playIntro = savedInstanceState == null && launchedFromLauncher(intent) && !animationsDisabled()
         showIntro.value = playIntro
         if (playIntro) {
             splashScreen.setOnExitAnimationListener { provider ->
+                handoff.exitRequested = true
                 handoff.iconBounds = runCatching {
                     val icon = provider.iconView
                     val location = IntArray(2).also { icon.getLocationInWindow(it) }
@@ -271,10 +274,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         biometricPrompt.authenticate(promptInfo)
     }
     
-    companion object {
-        /** The intro plays once per process, so returning from the background or recreating skips it. */
-        private var introPlayedInProcess = false
-    }
+    private fun launchedFromLauncher(intent: android.content.Intent?): Boolean =
+        intent?.action == android.content.Intent.ACTION_MAIN &&
+            intent.hasCategory(android.content.Intent.CATEGORY_LAUNCHER)
 
     // Logic for returning to app - simple version: require auth again if we were backgrounded?
     // For MVP, simplistic "onCreate" check + state flow collection is a good start. 

@@ -82,9 +82,9 @@ private const val TAGLINE_DURATION_MS = 300
 private const val MIN_HOLD_MS = 1_450L
 private const val EXIT_DURATION_MS = 350
 
-// Measured from activity creation: the intro leaves at about 2.1s and is gone by 2.9s at the latest.
+// Measured from activity creation: the intro leaves at about 2.1s, or after MIN_HOLD_MS if the app
+// took longer to load.
 private const val EXIT_TARGET_MS = 2_100L
-private const val EXIT_LATEST_MS = 2_550L
 
 /** How far above its resting place the coin starts, in the icon canvas's 108 units. */
 private const val COIN_DROP_UNITS = 30f
@@ -104,8 +104,12 @@ private val CoinBounce = Easing { fraction ->
 // Icon box used when the system splash didn't report one (warm starts, the lock screen on its own).
 private val DEFAULT_ICON_SIZE = 200.dp
 
-// If the system splash never hands over (no splash on this launch), start without it.
+// If the system splash never calls its exit listener (no splash on this launch), start without it.
 private const val HANDOFF_TIMEOUT_MS = 500L
+
+// Once it has, it waits out the rest of its icon animation before fading; this only guards against a
+// fade that never starts, and is longer than that animation.
+private const val FADE_START_TIMEOUT_MS = 1_500L
 
 /**
  * State shared between MainActivity's splash exit listener and [SplashIntro]: where the system splash
@@ -114,6 +118,9 @@ private const val HANDOFF_TIMEOUT_MS = 500L
 class SplashHandoff(val createdAtUptimeMs: Long) {
     /** Bounds of the splash icon view in window pixels; null if the system didn't provide one. */
     var iconBounds by mutableStateOf<Rect?>(null)
+    /** The system splash called its exit listener; it may still be finishing its icon animation. */
+    var exitRequested by mutableStateOf(false)
+    /** The system splash started fading out over the intro. */
     var started by mutableStateOf(false)
 }
 
@@ -158,12 +165,18 @@ fun SplashIntro(
     LaunchedEffect(Unit) {
         // Wait until startup work is done, then for the system splash to hand over.
         snapshotFlow { ready }.first { it }
-        withTimeoutOrNull(HANDOFF_TIMEOUT_MS) { snapshotFlow { handoff.started }.first { it } }
+        // The timeline must not start under a splash that is still animating: it would play out
+        // unseen and the intro (or the lock screen it fades into) would appear already finished
+        val listenerCalled = withTimeoutOrNull(HANDOFF_TIMEOUT_MS) {
+            snapshotFlow { handoff.exitRequested }.first { it }
+        } != null
+        if (listenerCalled) {
+            withTimeoutOrNull(FADE_START_TIMEOUT_MS) { snapshotFlow { handoff.started }.first { it } }
+        }
         val introStart = SystemClock.uptimeMillis()
         val sinceCreate = introStart - handoff.createdAtUptimeMs
-        val holdMs = (EXIT_TARGET_MS - sinceCreate)
-            .coerceAtLeast(MIN_HOLD_MS)
-            .coerceAtMost((EXIT_LATEST_MS - sinceCreate).coerceAtLeast(LETTER_START_MS))
+        // Always long enough for the coin, the rise and the wordmark; a slow start never cuts it short
+        val holdMs = (EXIT_TARGET_MS - sinceCreate).coerceAtLeast(MIN_HOLD_MS)
 
         // The coin falls onto the bars from above, fading in on the way, then the whole logo rises
         launch {
