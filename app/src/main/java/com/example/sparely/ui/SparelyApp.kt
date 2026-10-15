@@ -1,5 +1,17 @@
 package com.example.sparely.ui
 
+import androidx.compose.ui.unit.sp
+
+import androidx.compose.ui.text.style.TextOverflow
+
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+
+import androidx.compose.runtime.key
+
+import androidx.compose.material3.rememberTopAppBarState
+
+import androidx.compose.material3.TopAppBarScrollBehavior
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +32,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -261,8 +272,15 @@ private fun SparelyScaffold(
     // own FABs (Vaults, Recurring, etc.) and we don't want to collide with them.
     val showFab = currentDestination?.route == SparelyDestination.Dashboard.route
     val isExpenseEntry = currentDestination?.route == SparelyDestination.ExpenseEntry.route
+    // The header shares the page's background and only tints once content scrolls under it.
+    // Keyed by page so a new page doesn't start out tinted from the previous one's scroll.
+    val topBarScrollBehavior = key(currentDestination?.route) {
+        TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    }
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
         // Without a bottom bar, the expense form's action bar fills the nav-bar area itself
         contentWindowInsets = if (isExpenseEntry) {
             ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
@@ -280,6 +298,7 @@ private fun SparelyScaffold(
                 SparelyTopBar(
                     currentDestination = currentDestination,
                     navController = navController,
+                    scrollBehavior = topBarScrollBehavior,
                     titleOverride = if (isEditingExpense) stringResource(R.string.expense_entry_edit_title) else null
                 )
             }
@@ -593,6 +612,7 @@ private fun SparelyScaffold(
 private fun SparelyTopBar(
     currentDestination: NavDestination?,
     navController: NavHostController,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     titleOverride: String? = null
 ) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
@@ -600,12 +620,15 @@ private fun SparelyTopBar(
         ?: destination?.labelRes?.let { stringResource(it) }
         ?: stringResource(R.string.app_name)
     val isTopLevel = destination != null && destination in bottomBarDestinations
-    CenterAlignedTopAppBar(
-        title = { 
+    // Left-aligned like the dashboard greeting and page content, a step smaller than titleLarge
+    TopAppBar(
+        title = {
             Text(
-                text = title, 
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
-            ) 
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         },
         navigationIcon = {
             if (!isTopLevel) {
@@ -619,10 +642,11 @@ private fun SparelyTopBar(
                 }
             }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        scrollBehavior = scrollBehavior
     )
 }
 
