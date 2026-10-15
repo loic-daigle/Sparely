@@ -274,7 +274,11 @@ private fun SparelyScaffold(
     val isExpenseEntry = currentDestination?.route == SparelyDestination.ExpenseEntry.route
     // The header shares the page's background and only tints once content scrolls under it.
     // Keyed by page so a new page doesn't start out tinted from the previous one's scroll.
-    val topBarScrollBehavior = key(currentDestination?.route) {
+    // Settings sections show their title and back arrow in this header (see SettingsHeaderState)
+    val settingsHeader = remember { com.example.sparely.ui.screens.SettingsHeaderState() }
+    val inSettingsSection = currentDestination?.route == SparelyDestination.Settings.route &&
+        settingsHeader.sectionTitle != null
+    val topBarScrollBehavior = key(currentDestination?.route, inSettingsSection) {
         TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     }
     Scaffold(
@@ -299,7 +303,12 @@ private fun SparelyScaffold(
                     currentDestination = currentDestination,
                     navController = navController,
                     scrollBehavior = topBarScrollBehavior,
-                    titleOverride = if (isEditingExpense) stringResource(R.string.expense_entry_edit_title) else null
+                    titleOverride = when {
+                        isEditingExpense -> stringResource(R.string.expense_entry_edit_title)
+                        inSettingsSection -> settingsHeader.sectionTitle
+                        else -> null
+                    },
+                    onBack = if (inSettingsSection) settingsHeader.closeSection else null
                 )
             }
         },
@@ -578,7 +587,8 @@ private fun SparelyScaffold(
                 vaultUiState = vaultUiState,
                 allVaults = allVaults,
                 snackbarHostState = snackbarHostState,
-                onAuthenticateUser = onAuthenticateUser
+                onAuthenticateUser = onAuthenticateUser,
+                settingsHeader = settingsHeader
             )
         }
     }
@@ -613,7 +623,9 @@ private fun SparelyTopBar(
     currentDestination: NavDestination?,
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    titleOverride: String? = null
+    titleOverride: String? = null,
+    // Replaces the usual back navigation, e.g. closing an open settings section
+    onBack: (() -> Unit)? = null
 ) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
     val title = titleOverride
@@ -631,10 +643,10 @@ private fun SparelyTopBar(
             )
         },
         navigationIcon = {
-            if (!isTopLevel) {
+            if (!isTopLevel || onBack != null) {
                 // Through the dispatcher so a screen's BackHandler (e.g. unsaved changes) sees it too
                 val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-                IconButton(onClick = { backDispatcher?.onBackPressed() ?: navController.popBackStack() }) {
+                IconButton(onClick = { onBack?.invoke() ?: backDispatcher?.onBackPressed() ?: navController.popBackStack() }) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ARROW_BACK,
                         contentDescription = stringResource(R.string.action_back)
@@ -726,7 +738,8 @@ private fun SparelyNavHost(
     vaultUiState: com.example.sparely.ui.viewmodel.VaultUiState,
     allVaults: List<com.example.sparely.domain.model.SmartVault>,
     snackbarHostState: SnackbarHostState,
-    onAuthenticateUser: ((Boolean) -> Unit) -> Unit
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit,
+    settingsHeader: com.example.sparely.ui.screens.SettingsHeaderState
 ) {
     val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -1076,6 +1089,7 @@ private fun SparelyNavHost(
                 localAiCanAnswerQuestions = localAiPromptState == com.example.sparely.ai.LocalAiState.Ready,
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
                 onDynamicColorEnabledChange = settingsViewModel::updateDynamicColorEnabled,
+                headerState = settingsHeader,
                 onRefreshLocalAi = settingsViewModel::refreshLocalAi,
                 onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
                 onTestLocalAi = settingsViewModel::testLocalAi,

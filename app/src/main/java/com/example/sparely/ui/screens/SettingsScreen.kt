@@ -1,5 +1,7 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.runtime.DisposableEffect
+
 import androidx.compose.foundation.layout.Arrangement
 import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.layout.Column
@@ -168,6 +170,7 @@ fun SettingsScreen(
     localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
+    headerState: SettingsHeaderState? = null,
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
     onTestLocalAi: suspend () -> com.example.sparely.ai.LocalAiResult = { com.example.sparely.ai.LocalAiResult.NotReady },
@@ -251,9 +254,22 @@ fun SettingsScreen(
     BackHandler(enabled = openSection != null) { openSection = null }
     val hubScrollState = rememberScrollState()
 
+    // An open section takes over the app's header (its title and back arrow) instead of adding a second one
+    val sectionTitle = openSection?.let { stringResource(it.titleRes) }
+    if (headerState != null) {
+        DisposableEffect(headerState, sectionTitle) {
+            headerState.sectionTitle = sectionTitle
+            headerState.closeSection = if (sectionTitle != null) ({ openSection = null }) else null
+            onDispose {
+                headerState.sectionTitle = null
+                headerState.closeSection = null
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         val section = openSection
-        if (section != null) {
+        if (section != null && headerState == null) {
             SettingsSectionHeader(title = stringResource(section.titleRes), onBack = { openSection = null })
         }
 
@@ -2254,7 +2270,16 @@ private fun PaymentMethodsSettingsCard(
     }
 }
 
-/** Back arrow and title shown above an open settings section; the app bar above still says "Settings". */
+/**
+ * Lets an open settings section take over the app's header: [sectionTitle] replaces "Settings" and
+ * [closeSection] backs the header's back arrow, returning to the settings list.
+ */
+class SettingsHeaderState {
+    var sectionTitle by mutableStateOf<String?>(null)
+    var closeSection by mutableStateOf<(() -> Unit)?>(null)
+}
+
+/** Back arrow and title for an open settings section, used only when no [SettingsHeaderState] is given. */
 @Composable
 private fun SettingsSectionHeader(title: String, onBack: () -> Unit) {
     Row(
