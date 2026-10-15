@@ -100,7 +100,10 @@ class FinanceFactsTest {
                 Fact("Wishlist item", "New bike"),
                 Fact("Already saved for it", "$200 (of the $800 price)"),
                 Fact("The user says it is", "a want, not a need"),
-                Fact("Days left to sleep on it", "3")
+                Fact(
+                    "Reflection pause",
+                    "3 days left; because it's marked as a want, Sparely suggests waiting a bit before buying to be sure"
+                )
             ),
             facts
         )

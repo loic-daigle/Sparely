@@ -44,4 +44,18 @@ class AnswerFormatterTest {
     fun blankStaysBlank() {
         assertEquals("", AnswerFormatter.clean("  \n "))
     }
+
+    @Test
+    fun dropsASentenceRepeatedWordForWord() {
+        assertEquals(
+            "Vous avez indiqué que c'est une envie. C'est une envie, pas un besoin.",
+            AnswerFormatter.clean("Vous avez indiqué que c'est une envie. C'est une envie, pas un besoin. C'est une envie, pas un besoin.")
+        )
+    }
+
+    @Test
+    fun keepsSimilarButDifferentSentences() {
+        val raw = "You can afford it. You can afford it next month too."
+        assertEquals(raw, AnswerFormatter.clean(raw))
+    }
 }

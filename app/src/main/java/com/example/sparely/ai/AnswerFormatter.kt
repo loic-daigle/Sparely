@@ -15,6 +15,8 @@ object AnswerFormatter {
     private val TRAILING_SPACES = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val EXTRA_BLANK_LINES = Regex("\\n{3,}")
     private val SENTENCE_END = Regex("[.!?](\\s|$)")
+    private val SENTENCE_SPLIT = Regex("(?<=[.!?])\\s+")
+    private val NOT_A_LETTER_OR_DIGIT = Regex("[^\\p{L}\\p{N}]+")
 
     fun clean(raw: String, maxChars: Int = DEFAULT_MAX_CHARS): String {
         var text = raw.replace("\r\n", "\n").trim()
@@ -25,7 +27,21 @@ object AnswerFormatter {
         text = text.replace(TRAILING_SPACES, "")
         text = text.replace(EXTRA_BLANK_LINES, "\n\n")
         text = unquote(text.trim())
+        text = dropRepeatedSentences(text)
         return truncate(text, maxChars)
+    }
+
+    /**
+     * Small models sometimes say the same sentence twice ("It's a want, not a need. It's a want, not a
+     * need."). Drops a sentence only when it repeats an earlier one word for word (ignoring case and
+     * punctuation); everything else is left as written.
+     */
+    private fun dropRepeatedSentences(text: String): String = text.lines().joinToString("\n") { line ->
+        val seen = mutableSetOf<String>()
+        line.split(SENTENCE_SPLIT).filter { sentence ->
+            val key = sentence.lowercase().replace(NOT_A_LETTER_OR_DIGIT, " ").trim()
+            key.isEmpty() || seen.add(key)
+        }.joinToString(" ")
     }
 
     private fun unquote(text: String): String {

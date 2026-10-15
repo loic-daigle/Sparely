@@ -435,7 +435,7 @@ object FinanceFacts {
                 }
             )
         )
-        add(Fact(lang.pick("Expected balance in 30 days if bought", "Solde prévu dans 30 jours après l'achat"), money(result.after.projectedBalance30Days)))
+        add(Fact(lang.pick("Expected balance 30 days from now, if bought today", "Solde prévu dans 30 jours, si acheté aujourd'hui"), money(result.after.projectedBalance30Days)))
         // A small model given many numbers stitches them into claims of its own, so only the
         // findings that matter most go in, worst first. The wait is already part of the verdict.
         val top = result.findings
@@ -498,7 +498,23 @@ object FinanceFacts {
             )
         )
         if (cooldownDaysLeft > 0) {
-            add(Fact(lang.pick("Days left to sleep on it", "Jours de réflexion restants"), cooldownDaysLeft.toString()))
+            // With the reason in the fact, "why?" gets a real answer instead of the need/want label repeated.
+            add(
+                Fact(
+                    lang.pick("Reflection pause", "Pause de réflexion"),
+                    if (reallyNeeded) {
+                        lang.pick(
+                            "$cooldownDaysLeft days left, to be sure before buying",
+                            "encore $cooldownDaysLeft jours, pour être sûr avant d'acheter"
+                        )
+                    } else {
+                        lang.pick(
+                            "$cooldownDaysLeft days left; because it's marked as a want, Sparely suggests waiting a bit before buying to be sure",
+                            "encore $cooldownDaysLeft jours; comme c'est une envie, Sparely suggère d'attendre un peu avant d'acheter pour en être sûr"
+                        )
+                    }
+                )
+            )
         }
         // The check starts with the price, which is already above.
         result?.let { r -> addAll(purchase(r, lang, money).drop(1)) }

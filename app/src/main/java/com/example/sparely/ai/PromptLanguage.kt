@@ -63,26 +63,25 @@ enum class AiTask(private val en: String, private val fr: String) {
         "Résume en 2 ou 3 phrases courtes comment vont les budgets de l'utilisateur ce mois-ci, en nommant ceux qui demandent de l'attention."
     ),
     PURCHASE(
-        "The user wants to know if they can afford a purchase. Start with the verdict in the first sentence, then say why " +
-            "using one or two key numbers (like the balance after buying or months of living costs). If there's a waiting " +
-            "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next step. " +
-            "Use 2-3 short sentences. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
-        "L'utilisateur veut savoir s'il peut se permettre un achat. Commence par le verdict dans la première phrase, puis explique " +
-            "pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou les mois de dépenses). S'il y a une période de " +
-            "réflexion, explique que c'est une pause pour être sûr de le vouloir, pas un problème d'argent. Termine par une prochaine " +
-            "étape concrète. Utilise 2 ou 3 phrases courtes. Ne contredis jamais le verdict : s'il dit abordable, ne dis jamais que " +
-            "l'achat est une mauvaise idée ou un mauvais moment."
+        "The user checked if they can afford a purchase. The verdict is already shown to them, so don't repeat it. In 2 short " +
+            "sentences, explain why, using one or two key numbers (like the balance after buying or months of living costs). " +
+            "If there's a waiting period, say it's a pause to be sure they still want it, not a money problem. " +
+            "Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
+        "L'utilisateur a vérifié s'il peut se permettre un achat. Le verdict lui est déjà affiché : ne le répète pas. En 2 phrases " +
+            "courtes, explique pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou les mois de dépenses). " +
+            "S'il y a une période de réflexion, dis que c'est une pause pour être sûr de le vouloir, pas un problème d'argent. " +
+            "Ne contredis jamais le verdict : s'il dit abordable, ne dis jamais que l'achat est une mauvaise idée ou un mauvais moment."
     ),
     WISH(
-        "The user is thinking about buying this wishlist item. Start with the verdict in the first sentence, then say why " +
-            "using one or two key numbers (like the balance after buying or how much is already saved). If there's a waiting " +
-            "period, explain it's a pause to be sure they still want it, not a money problem. End with one concrete next step. " +
-            "Use 2-3 short sentences. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
-        "L'utilisateur pense acheter cet article de sa liste d'envies. Commence par le verdict dans la première phrase, puis " +
-            "explique pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou le montant déjà économisé). S'il y a " +
-            "une période de réflexion, explique que c'est une pause pour être sûr de le vouloir, pas un problème d'argent. Termine " +
-            "par une prochaine étape concrète. Utilise 2 ou 3 phrases courtes. Ne contredis jamais le verdict : s'il dit abordable, " +
-            "ne dis jamais que l'achat est une mauvaise idée ou un mauvais moment."
+        "The user is thinking about buying this wishlist item. The verdict is already shown to them, so don't repeat it. In 2 " +
+            "short sentences, explain why, using one or two key numbers (like the balance after buying or how much is already " +
+            "saved). If there's a reflection pause, say how many days are left and that it's a pause to be sure, not a money " +
+            "problem. Never contradict the verdict: if it says affordable, never call buying a bad idea or a bad time.",
+        "L'utilisateur pense acheter cet article de sa liste d'envies. Le verdict lui est déjà affiché : ne le répète pas. En 2 " +
+            "phrases courtes, explique pourquoi avec un ou deux chiffres clés (comme le solde après l'achat ou le montant déjà " +
+            "économisé). S'il y a une pause de réflexion, dis combien de jours il reste et que c'est une pause pour être sûr, pas " +
+            "un problème d'argent. Ne contredis jamais le verdict : s'il dit abordable, ne dis jamais que l'achat est une mauvaise " +
+            "idée ou un mauvais moment."
     ),
     BRIEF(
         "In 1 or 2 short sentences (at most 35 words), tell the user what deserves their attention today, most important " +
