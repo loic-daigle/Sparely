@@ -16,6 +16,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +35,18 @@ import com.example.sparely.ui.utils.isAmountExpression
 import com.example.sparely.ui.utils.roundToTwoDecimals
 import com.example.sparely.ui.utils.toInputString
 import com.sparely.app.R
+
+/**
+ * Keeps an amount field's cursor and selection while its text is a plain String owned by the
+ * caller. Text that changes from outside the keyboard (a calculator key, the math settling into
+ * its result) puts the cursor at the end, where String-backed fields would leave it behind.
+ */
+@Composable
+fun rememberAmountFieldValue(text: String): MutableState<TextFieldValue> {
+    val state = remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
+    if (state.value.text != text) state.value = TextFieldValue(text, TextRange(text.length))
+    return state
+}
 
 private val OPERATOR_KEYS = listOf('+', '−', '×', '÷')
 

@@ -201,6 +201,7 @@ fun SheetAmountField(
     val colors = MaterialTheme.colorScheme
     val focusRequester = remember { FocusRequester() }
     var isFocused by remember { mutableStateOf(false) }
+    var fieldValue by rememberAmountFieldValue(value)
     LaunchedEffect(Unit) {
         if (autoFocus) focusRequester.requestFocus()
     }
@@ -237,8 +238,11 @@ fun SheetAmountField(
                 modifier = Modifier.padding(end = 4.dp)
             )
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = fieldValue,
+                onValueChange = { newValue ->
+                    fieldValue = newValue
+                    if (newValue.text != value) onValueChange(newValue.text)
+                },
                 singleLine = true,
                 textStyle = amountStyle,
                 cursorBrush = SolidColor(colors.primary),

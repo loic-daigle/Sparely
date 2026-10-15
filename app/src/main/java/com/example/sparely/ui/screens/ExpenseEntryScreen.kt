@@ -116,6 +116,7 @@ import com.example.sparely.ui.components.SheetActions
 import com.example.sparely.ui.components.SheetSectionLabel
 import com.example.sparely.ui.components.AmountCalculatorKeys
 import com.example.sparely.ui.components.AssetSelectionDialog
+import com.example.sparely.ui.components.rememberAmountFieldValue
 import com.example.sparely.ui.components.settleAmountExpression
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.PaymentMethodSelector
@@ -965,6 +966,7 @@ private fun AmountHeroCard(
     val categoryColor by animateColorAsState(colors.categoryColor(category), label = "heroCategoryColor")
     val amountLabel = stringResource(R.string.expense_entry_amount_label)
     var amountFocused by remember { mutableStateOf(false) }
+    var amountFieldValue by rememberAmountFieldValue(amountText)
     val descriptionLabel = stringResource(R.string.expense_entry_description_label)
 
     Surface(
@@ -1012,8 +1014,11 @@ private fun AmountHeroCard(
                     modifier = Modifier.padding(end = 4.dp)
                 )
                 BasicTextField(
-                    value = amountText,
-                    onValueChange = onAmountChange,
+                    value = amountFieldValue,
+                    onValueChange = { newValue ->
+                        amountFieldValue = newValue
+                        if (newValue.text != amountText) onAmountChange(newValue.text)
+                    },
                     singleLine = true,
                     textStyle = amountStyle.copy(color = if (amountError != null) colors.error else colors.onSurface),
                     cursorBrush = SolidColor(colors.primary),
