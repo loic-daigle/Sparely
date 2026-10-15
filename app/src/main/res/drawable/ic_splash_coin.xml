@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The gold coin of the splash mark alone, on the same canvas and placement as ic_splash_bars so the
+     two line up when drawn in the same box. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="54"
+        android:translateY="54"
+        android:scaleX="0.38"
+        android:scaleY="0.38">
+        <group
+            android:translateX="-100"
+            android:translateY="-89.5">
+            <path
+                android:fillColor="@color/sparely_gold"
+                android:pathData="M139,19a15,15 0,1 1,0 30a15,15 0,1 1,0 -30z" />
+        </group>
+    </group>
+</vector>

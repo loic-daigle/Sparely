@@ -7,8 +7,8 @@
          Before Android 12 the icon is static; values-v31 swaps in the animated one. -->
     <style name="Theme.Sparely.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/sparely_spruce</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon_static</item>
-        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_bars</item>
+        <item name="windowSplashScreenAnimationDuration">600</item>
         <item name="postSplashScreenTheme">@style/Theme.Sparely</item>
         <!-- Draw behind transparent system bars with light icons on the dark background. -->
         <item name="android:statusBarColor">@android:color/transparent</item>

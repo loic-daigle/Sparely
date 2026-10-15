@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Animated splash icon (Android 12+): the mark on the 108dp adaptive-icon canvas at scale 0.38, inside
-     the 66dp safe zone. The bars grow from the bottom 150ms apart with an overshoot, then the coin drops
-     in with a bounce. 900ms in all; the last frame matches ic_splash_icon_static. -->
+     the 66dp safe zone. The bars grow from the bottom 150ms apart with an overshoot, 600ms in all; the
+     last frame matches ic_splash_bars. The coin isn't here: the system clips the splash icon to a
+     circle, so SplashIntro drops it in afterwards where nothing cuts it off. -->
 <animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt">
     <aapt:attr name="android:drawable">
@@ -46,15 +47,6 @@
                             android:fillColor="@color/sparely_mint"
                             android:pathData="M139,56a15,15 0,0 1,15 15v74a15,15 0,0 1,-30 0v-74a15,15 0,0 1,15 -15z" />
                     </group>
-                    <group
-                        android:name="coin"
-                        android:translateY="-70">
-                        <path
-                            android:name="coinPath"
-                            android:fillAlpha="0"
-                            android:fillColor="@color/sparely_gold"
-                            android:pathData="M139,19a15,15 0,1 1,0 30a15,15 0,1 1,0 -30z" />
-                    </group>
                 </group>
             </group>
         </vector>
@@ -91,29 +83,6 @@
                 android:interpolator="@android:interpolator/overshoot"
                 android:propertyName="scaleY"
                 android:startOffset="300"
-                android:valueFrom="0"
-                android:valueTo="1"
-                android:valueType="floatType" />
-        </aapt:attr>
-    </target>
-    <target android:name="coin">
-        <aapt:attr name="android:animation">
-            <objectAnimator
-                android:duration="350"
-                android:interpolator="@android:interpolator/bounce"
-                android:propertyName="translateY"
-                android:startOffset="550"
-                android:valueFrom="-70"
-                android:valueTo="0"
-                android:valueType="floatType" />
-        </aapt:attr>
-    </target>
-    <target android:name="coinPath">
-        <aapt:attr name="android:animation">
-            <objectAnimator
-                android:duration="120"
-                android:propertyName="fillAlpha"
-                android:startOffset="550"
                 android:valueFrom="0"
                 android:valueTo="1"
                 android:valueType="floatType" />

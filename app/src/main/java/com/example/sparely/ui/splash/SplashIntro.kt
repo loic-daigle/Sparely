@@ -2,6 +2,7 @@ package com.example.sparely.ui.splash
 
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -66,18 +67,39 @@ private const val WORDMARK = "sparely"
 /** How long the system splash takes to fade into the intro. */
 const val SPLASH_FADE_MS = 200L
 
-// Intro timeline, measured from the moment the system splash starts fading out.
-private const val LETTER_START_MS = 150L
+// Intro timeline, measured from the moment the system splash starts fading out. Nothing moves until
+// that fade is over: the splash still shows its own copy of the logo while it fades, and a logo moving
+// underneath read as two logos crossfading.
+private const val COIN_START_MS = SPLASH_FADE_MS
+private const val COIN_FADE_MS = 220
+private const val COIN_DROP_MS = 520
+private const val SETTLE_START_MS = 700L
+private const val LETTER_START_MS = 720L
 private const val LETTER_STAGGER_MS = 50L
 private const val LETTER_DURATION_MS = 280
-private const val TAGLINE_START_MS = 600L
+private const val TAGLINE_START_MS = 1_100L
 private const val TAGLINE_DURATION_MS = 300
-private const val MIN_HOLD_MS = 900L
+private const val MIN_HOLD_MS = 1_450L
 private const val EXIT_DURATION_MS = 350
 
-// Measured from activity creation: the intro leaves at about 1.6s and is gone by 2.5s at the latest.
-private const val EXIT_TARGET_MS = 1_600L
-private const val EXIT_LATEST_MS = 2_150L
+// Measured from activity creation: the intro leaves at about 2.1s and is gone by 2.9s at the latest.
+private const val EXIT_TARGET_MS = 2_100L
+private const val EXIT_LATEST_MS = 2_550L
+
+/** How far above its resting place the coin starts, in the icon canvas's 108 units. */
+private const val COIN_DROP_UNITS = 30f
+
+/** Ease-out bounce: lands, then two small hops, like a coin settling on the bars. */
+private val CoinBounce = Easing { fraction ->
+    val n = 7.5625f
+    val d = 2.75f
+    when {
+        fraction < 1f / d -> n * fraction * fraction
+        fraction < 2f / d -> (fraction - 1.5f / d).let { n * it * it + 0.75f }
+        fraction < 2.5f / d -> (fraction - 2.25f / d).let { n * it * it + 0.9375f }
+        else -> (fraction - 2.625f / d).let { n * it * it + 0.984375f }
+    }
+}
 
 // Icon box used when the system splash didn't report one (warm starts, the lock screen on its own).
 private val DEFAULT_ICON_SIZE = 200.dp
@@ -114,6 +136,8 @@ fun SplashIntro(
     val letterCount = WORDMARK.length + 1 // plus the gold "."
 
     val logoSettle = remember { Animatable(0f) }
+    val coinDrop = remember { Animatable(0f) }
+    val coinAlpha = remember { Animatable(0f) }
     val letters = remember { List(letterCount) { Animatable(0f) } }
     val tagline = remember { Animatable(0f) }
     val progress = remember { Animatable(0f) }
@@ -141,7 +165,16 @@ fun SplashIntro(
             .coerceAtLeast(MIN_HOLD_MS)
             .coerceAtMost((EXIT_LATEST_MS - sinceCreate).coerceAtLeast(LETTER_START_MS))
 
-        launch { logoSettle.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessLow)) }
+        // The coin falls onto the bars from above, fading in on the way, then the whole logo rises
+        launch {
+            delay(COIN_START_MS)
+            launch { coinAlpha.animateTo(1f, tween(COIN_FADE_MS, easing = LinearEasing)) }
+            coinDrop.animateTo(1f, tween(COIN_DROP_MS, easing = CoinBounce))
+        }
+        launch {
+            delay(SETTLE_START_MS)
+            logoSettle.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow))
+        }
         letters.forEachIndexed { index, letter ->
             launch {
                 delay(LETTER_START_MS + index * LETTER_STAGGER_MS)
@@ -169,6 +202,8 @@ fun SplashIntro(
         BrandBackdrop(
             iconBounds = handoff.iconBounds,
             settle = logoSettle.value,
+            coinDrop = coinDrop.value,
+            coinAlpha = coinAlpha.value,
             letterProgress = { letters[it].value }
         ) {
             Text(
@@ -195,12 +230,16 @@ fun SplashIntro(
 /**
  * The logo and "sparely." wordmark laid out the way the intro leaves them: the icon drawn in the box the
  * system splash used ([iconBounds], or a centered default), lifted and scaled by [settle], with the
- * wordmark underneath. [below] goes under the wordmark. Shared by [SplashIntro] and [AppLockScreen].
+ * wordmark underneath. The coin is drawn apart from the bars so it can drop in from above ([coinDrop]
+ * 0 → 1) while fading in ([coinAlpha]), without the circle the system splash clips its icon to.
+ * [below] goes under the wordmark. Shared by [SplashIntro] and [AppLockScreen].
  */
 @Composable
 internal fun BrandBackdrop(
     iconBounds: Rect?,
     settle: Float = 1f,
+    coinDrop: Float = 1f,
+    coinAlpha: Float = 1f,
     letterProgress: (Int) -> Float = { 1f },
     below: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -216,9 +255,8 @@ internal fun BrandBackdrop(
         val iconSide = with(density) { icon.width.toDp() }
         val settleLift = with(density) { 48.dp.toPx() }
 
-        Image(
-            painter = painterResource(R.drawable.ic_splash_icon_static),
-            contentDescription = null,
+        // One layer for the whole mark, so it rises and shrinks as a single logo
+        Box(
             modifier = Modifier
                 .offset { IntOffset(icon.left.roundToInt(), icon.top.roundToInt()) }
                 .size(iconSide)
@@ -228,7 +266,24 @@ internal fun BrandBackdrop(
                     scaleY = s
                     translationY = -settleLift * settle
                 }
-        )
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_splash_bars),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
+            val coinDropPx = icon.width * COIN_DROP_UNITS / 108f
+            Image(
+                painter = painterResource(R.drawable.ic_splash_coin),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = coinAlpha
+                        translationY = -coinDropPx * (1f - coinDrop)
+                    }
+            )
+        }
 
         // Wordmark sits just under the visible part of the icon (the inner 2/3 of its canvas).
         val textTop = icon.center.y + icon.height / 3f - settleLift * settle
