@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sparely.ui.theme.PoppinsFontFamily
+import com.example.sparely.ui.theme.RobotoFlexFamily
 import com.sparely.app.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -174,6 +175,8 @@ fun SplashIntro(
                 text = stringResource(R.string.splash_tagline),
                 color = Muted,
                 fontSize = 16.sp,
+                // The intro is drawn outside SparelyTheme, so name the app's body font explicitly.
+                fontFamily = RobotoFlexFamily,
                 modifier = Modifier.graphicsLayer { alpha = tagline.value }
             )
         }

@@ -52,16 +52,6 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SuggestionConfidence
 import com.example.sparely.domain.model.UpcomingRecurringExpense
-import com.example.sparely.ui.theme.FallbackPrimary
-import com.example.sparely.ui.theme.FallbackPrimaryDark
-import com.example.sparely.ui.theme.FallbackSecondary
-import com.example.sparely.ui.theme.FallbackSecondaryDark
-import com.example.sparely.ui.theme.FallbackSurface
-import com.example.sparely.ui.theme.FallbackSurfaceDark
-import com.example.sparely.ui.theme.FallbackOutline
-import com.example.sparely.ui.theme.FallbackOutlineDark
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.glance.unit.ColorProvider
 import kotlinx.coroutines.Dispatchers
@@ -354,61 +344,26 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
     autoLog = recurringExpense.executeAutomatically,
     reminderDays = recurringExpense.reminderDaysBefore
 )
-@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action) {
     val currencyFormatter = rememberCurrencyFormatter()
 
-    // Dynamic Material You Colors (Android 12+) or Fallback
-    val surfaceColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(day = FallbackSurface, night = FallbackSurfaceDark),
-        systemResId = android.R.color.system_neutral1_50
+    // Sparely brand palette (same as the splash and lock screens), in light and dark mode alike.
+    fun brand(color: Long) = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(color),
+        night = androidx.compose.ui.graphics.Color(color)
     )
-    val onSurfaceColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(
-            day = androidx.compose.ui.graphics.Color(0xFF1C1B1F),
-            night = androidx.compose.ui.graphics.Color(0xFFE6E1E5)
-        ),
-        systemResId = android.R.color.system_neutral1_900
-    )
-    val onSurfaceVariantColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(day = FallbackOutline, night = FallbackOutlineDark),
-        systemResId = android.R.color.system_neutral2_500
-    )
-    val primaryColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(day = FallbackPrimary, night = FallbackPrimaryDark),
-        systemResId = android.R.color.system_accent1_600
-    )
-    val primaryContainerColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(
-            day = androidx.compose.ui.graphics.Color(0xFFEADDFF),
-            night = androidx.compose.ui.graphics.Color(0xFF4F378B)
-        ),
-        systemResId = android.R.color.system_accent1_100
-    )
-    val secondaryColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(day = FallbackSecondary, night = FallbackSecondaryDark),
-        systemResId = android.R.color.system_accent2_600
-    )
-    val secondaryContainerColor = dynamicColorProvider(
-        fallback = androidx.glance.color.ColorProvider(
-            day = androidx.compose.ui.graphics.Color(0xFFE8DEF8),
-            night = androidx.compose.ui.graphics.Color(0xFF4A4458)
-        ),
-        systemResId = android.R.color.system_accent2_100
-    )
-    val surfaceContainerColor = androidx.glance.color.ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFFAFAFA), // Very light gray
-        night = androidx.compose.ui.graphics.Color(0xFF2A2F35) // Dark gray with slight alpha
-    )
-    val errorContainerColor = androidx.glance.color.ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFFDEDED),
-        night = androidx.compose.ui.graphics.Color(0xFF3A2020)
-    )
-    val errorColor = androidx.glance.color.ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFB00020),
-        night = androidx.compose.ui.graphics.Color(0xFFCF6679)
-    )
+    val surfaceColor = brand(0xFF0F3D34)            // spruce
+    val onSurfaceColor = brand(0xFFEAF5F0)          // ink
+    val onSurfaceVariantColor = brand(0xFF9DBDB2)   // muted
+    val primaryColor = brand(0xFF8FE3C0)            // mint
+    val primaryContainerColor = brand(0xFF0A2C26)   // deep spruce
+    val secondaryColor = brand(0xFFF4CB6A)          // gold
+    val secondaryContainerColor = brand(0xFF2E3F2A) // spruce warmed toward gold
+    val surfaceContainerColor = brand(0xFF14483E)   // raised spruce
+    val dividerColor = brand(0xFF1F5A4D)
+    val errorContainerColor = brand(0xFF3D2A26)
+    val errorColor = brand(0xFFFFB4A6)
 
     val settings = snapshot.settings
     val monthBadge = remember {
@@ -450,15 +405,13 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
             )
             Spacer(modifier = GlanceModifier.width(10.dp))
             Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(
-                    text = "Sparely",
-                    style = TextStyle(
-                        color = onSurfaceColor,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                // Widgets can't load the Poppins font, so the wordmark is drawn from its outlines.
+                Image(
+                    provider = ImageProvider(R.drawable.ic_sparely_wordmark),
+                    contentDescription = "Sparely",
+                    modifier = GlanceModifier.width(74.dp).height(19.dp)
                 )
-                Spacer(modifier = GlanceModifier.height(2.dp))
+                Spacer(modifier = GlanceModifier.height(4.dp))
                 settings.displayName?.takeIf { it.isNotBlank() }?.let { name ->
                     Text(
                         text = "$name - $monthBadge",
@@ -514,10 +467,7 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(androidx.glance.color.ColorProvider(
-                        day = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
-                        night = androidx.compose.ui.graphics.Color(0xFF3A3A3A)
-                    ))
+                    .background(dividerColor)
             )
             
             Spacer(modifier = GlanceModifier.height(12.dp))
@@ -1004,17 +954,3 @@ private fun UpcomingBillsCard(
 }
 
 private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
-
-// Helper to use System Colors on Android 12+ (system_accent1_600, etc.)
-// On Android 12+, use dynamic system color resources; otherwise use fallback
-private fun dynamicColorProvider(
-    fallback: androidx.glance.unit.ColorProvider,
-    systemResId: Int
-): androidx.glance.unit.ColorProvider {
-    return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-        // ColorProvider(resId) automatically handles theme/day-night variants
-        androidx.glance.unit.ColorProvider(systemResId)
-    } else {
-        fallback
-    }
-}
