@@ -137,7 +137,6 @@ fun SparelyApp(
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     
     val context = LocalContext.current
@@ -705,6 +704,7 @@ private fun SparelyNavHost(
     snackbarHostState: SnackbarHostState,
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
+    val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     NavHost(
