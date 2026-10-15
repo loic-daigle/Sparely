@@ -8,6 +8,7 @@ import com.example.sparely.ui.components.ExpressiveEmptyState
 import com.example.sparely.ui.components.SegmentedListItem
 import com.example.sparely.ui.components.segmentSpacing
 import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.critical
 import com.example.sparely.ui.theme.ExpressiveShapes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -104,15 +105,15 @@ fun SavingsTransactionCard(
 ) {
     val (icon, tint) = when (transaction.type) {
         SavingsAccountTransactionDisplayType.DEPOSIT ->
-            MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.primary
+            MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.success
         SavingsAccountTransactionDisplayType.WITHDRAWAL ->
-            MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.error
+            MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.critical
         SavingsAccountTransactionDisplayType.INTEREST ->
             MaterialSymbols.TRENDING_UP to MaterialTheme.colorScheme.success
         SavingsAccountTransactionDisplayType.TRANSFER_IN ->
-            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.primary
+            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.success
         SavingsAccountTransactionDisplayType.TRANSFER_OUT ->
-            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.error
+            MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.critical
     }
     val isPositive = transaction.type == SavingsAccountTransactionDisplayType.DEPOSIT ||
         transaction.type == SavingsAccountTransactionDisplayType.INTEREST ||
@@ -163,7 +164,7 @@ fun SavingsTransactionCard(
             text = (if (isPositive) "+" else "-") + transaction.amount.formatCurrency(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = if (isPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            color = if (isPositive) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.critical
         )
     }
 }

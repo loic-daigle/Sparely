@@ -38,6 +38,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.theme.SparelyBrandSurface
+import com.example.sparely.ui.theme.warning
+import com.example.sparely.ui.theme.critical
+import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.ui.platform.LocalContext
@@ -106,46 +110,49 @@ fun MainAccountScreen(
         ) {
             // Balance Card
             item(key = "balance") {
-                ExpressiveCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    shape = MaterialTheme.shapes.large,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentPadding = 24.dp
-                ) {
-                    Column(
+                // Same signature card as the dashboard: Sparely spruce and mint in every theme.
+                SparelyBrandSurface {
+                    ExpressiveCard(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        shape = MaterialTheme.shapes.large,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentPadding = 24.dp
                     ) {
-                        Text(
-                            text = stringResource(R.string.main_account_current_balance),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = currentBalance.formatCurrency(),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        if (monthIn > 0 || monthOut > 0) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text(
-                                    text = stringResource(R.string.main_account_month_in, monthIn.formatCurrency()),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = stringResource(R.string.main_account_month_out, monthOut.formatCurrency()),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(R.string.main_account_current_balance),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = currentBalance.formatCurrency(),
+                                style = MaterialTheme.typography.displayMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            if (monthIn > 0 || monthOut > 0) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.main_account_month_in, monthIn.formatCurrency()),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.success
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.main_account_month_out, monthOut.formatCurrency()),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -318,17 +325,17 @@ private fun TransactionItem(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon
+            // Money colors: in = saved green, to vaults = goal gold, out = alert red.
             val (icon, color) = when (transaction.type) {
-                MainAccountTransactionType.DEPOSIT -> MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.primary
-                MainAccountTransactionType.WITHDRAWAL -> MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.error
-                MainAccountTransactionType.EXPENSE -> MaterialSymbols.SHOPPING_CART to MaterialTheme.colorScheme.tertiary
-                MainAccountTransactionType.VAULT_CONTRIBUTION -> MaterialSymbols.SAVINGS to MaterialTheme.colorScheme.secondary
+                MainAccountTransactionType.DEPOSIT -> MaterialSymbols.ARROW_DOWNWARD to MaterialTheme.colorScheme.success
+                MainAccountTransactionType.WITHDRAWAL -> MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.critical
+                MainAccountTransactionType.EXPENSE -> MaterialSymbols.SHOPPING_CART to MaterialTheme.colorScheme.critical
+                MainAccountTransactionType.VAULT_CONTRIBUTION -> MaterialSymbols.SAVINGS to MaterialTheme.colorScheme.warning
                 MainAccountTransactionType.ADJUSTMENT -> MaterialSymbols.EDIT to MaterialTheme.colorScheme.outline
-                MainAccountTransactionType.CREDIT_CARD_PAYMENT -> MaterialSymbols.CREDIT_CARD to MaterialTheme.colorScheme.error
+                MainAccountTransactionType.CREDIT_CARD_PAYMENT -> MaterialSymbols.CREDIT_CARD to MaterialTheme.colorScheme.critical
                 MainAccountTransactionType.HISA_TRANSFER -> {
-                    if (transaction.amount >= 0) MaterialSymbols.ACCOUNT_BALANCE_WALLET to MaterialTheme.colorScheme.primary
-                    else MaterialSymbols.ACCOUNT_BALANCE to MaterialTheme.colorScheme.error
+                    if (transaction.amount >= 0) MaterialSymbols.ACCOUNT_BALANCE_WALLET to MaterialTheme.colorScheme.success
+                    else MaterialSymbols.ACCOUNT_BALANCE to MaterialTheme.colorScheme.critical
                 }
             }
             
@@ -388,13 +395,13 @@ private fun TransactionItem(
                     MainAccountTransactionType.HISA_TRANSFER -> if (transaction.amount >= 0) "+" else "-"
                 }
                 val amountColor = when (transaction.type) {
-                    MainAccountTransactionType.DEPOSIT -> MaterialTheme.colorScheme.primary
+                    MainAccountTransactionType.DEPOSIT -> MaterialTheme.colorScheme.success
                     MainAccountTransactionType.WITHDRAWAL,
                     MainAccountTransactionType.EXPENSE,
-                    MainAccountTransactionType.VAULT_CONTRIBUTION,
-                    MainAccountTransactionType.CREDIT_CARD_PAYMENT -> MaterialTheme.colorScheme.error
+                    MainAccountTransactionType.CREDIT_CARD_PAYMENT -> MaterialTheme.colorScheme.critical
+                    MainAccountTransactionType.VAULT_CONTRIBUTION -> MaterialTheme.colorScheme.warning
                     MainAccountTransactionType.ADJUSTMENT -> MaterialTheme.colorScheme.onSurface
-                    MainAccountTransactionType.HISA_TRANSFER -> if (transaction.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    MainAccountTransactionType.HISA_TRANSFER -> if (transaction.amount >= 0) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.critical
                 }
                 
                 // Amount is shown unsigned with our own sign: negative stored amounts
@@ -460,7 +467,7 @@ private fun TransactionDialog(
                 title = title,
                 subtitle = availableBalance?.let { stringResource(R.string.vault_current, it.formatCurrency()) },
                 icon = icon,
-                iconTint = if (isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                iconTint = if (isIncome) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.critical
             )
 
             SheetAmountField(

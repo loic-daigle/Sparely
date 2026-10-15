@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultAdjustmentType
+import com.example.sparely.ui.theme.critical
+import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.utils.formatCurrency
@@ -104,13 +106,13 @@ private fun HistoryItemCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             val (icon, color) = when (item) {
-                is com.example.sparely.domain.model.HistoryContribution -> MaterialSymbols.ADD to MaterialTheme.colorScheme.primary
+                is com.example.sparely.domain.model.HistoryContribution -> MaterialSymbols.ADD to MaterialTheme.colorScheme.success
                 is com.example.sparely.domain.model.HistoryAdjustment -> {
                     when (item.adjustment.type) {
-                        VaultAdjustmentType.MANUAL_DEPOSIT -> MaterialSymbols.ADD to MaterialTheme.colorScheme.primary
-                        VaultAdjustmentType.MANUAL_DEDUCTION -> MaterialSymbols.REMOVE to MaterialTheme.colorScheme.error
+                        VaultAdjustmentType.MANUAL_DEPOSIT -> MaterialSymbols.ADD to MaterialTheme.colorScheme.success
+                        VaultAdjustmentType.MANUAL_DEDUCTION -> MaterialSymbols.REMOVE to MaterialTheme.colorScheme.critical
                         VaultAdjustmentType.MANUAL_EDIT -> MaterialSymbols.EDIT to MaterialTheme.colorScheme.tertiary
-                        VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> MaterialSymbols.SYNC to MaterialTheme.colorScheme.secondary
+                        VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> MaterialSymbols.SYNC to MaterialTheme.colorScheme.success
                     }
                 }
             }
@@ -206,7 +208,7 @@ private fun HistoryItemCard(
                     text = amountText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    color = if (item.amount >= 0) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.critical
                 )
             }
         }
