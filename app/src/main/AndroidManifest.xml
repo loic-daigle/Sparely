@@ -8,6 +8,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Lists installed apps so the user can pick which payment apps' notifications to read -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -64,12 +72,13 @@
             android:name="com.example.sparely.notifications.WishlistDecisionReceiver"
             android:exported="false" />
 
-        <!-- Reads Google Wallet's tap-to-pay notifications to suggest logging the purchase. Android
-             only binds it after the user grants Notification access, and it ignores every other app. -->
+        <!-- Reads purchase notifications from the apps the user picked (Google Wallet, a bank or card
+             app, PayPal) to suggest logging them. Android only binds it after the user grants
+             Notification access, and every other app's notifications are ignored. -->
         <service
-            android:name="com.example.sparely.wallet.WalletPaymentListener"
+            android:name="com.example.sparely.payments.PaymentNotificationListener"
             android:exported="true"
-            android:label="@string/wallet_listener_label"
+            android:label="@string/payment_listener_label"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
@@ -77,7 +86,7 @@
         </service>
 
         <receiver
-            android:name="com.example.sparely.wallet.WalletPaymentReceiver"
+            android:name="com.example.sparely.payments.PaymentSuggestionReceiver"
             android:exported="false" />
 
         <!-- Where the user approves vault transfers and refunds an AI assistant prepared. Only

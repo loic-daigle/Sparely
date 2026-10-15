@@ -250,8 +250,10 @@ data class SparelySettings(
     // Use wallpaper (Material You) colors instead of Sparely's brand colors. Android 12+ only;
     // money colors (saved, goals, alerts) keep their brand colors either way.
     val dynamicColorEnabled: Boolean = false,
-    // Suggest an expense when Google Wallet reports a tap-to-pay purchase (needs Notification access).
-    val walletDetectionEnabled: Boolean = false,
+    // Suggest an expense when a payment app reports a purchase (needs Notification access).
+    val paymentDetectionEnabled: Boolean = false,
+    // Apps whose purchase notifications are read, by package name. Google Wallet until the user picks.
+    val paymentDetectionApps: Set<String> = setOf("com.google.android.apps.walletnfcrel"),
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

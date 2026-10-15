@@ -327,9 +327,15 @@ class SettingsViewModel(
         return container.localAiManager.summarize(facts, language = lang)
     }
 
-    fun updateWalletDetectionEnabled(enabled: Boolean) {
+    fun updatePaymentDetectionEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
-            preferencesRepository.updateWalletDetectionEnabled(enabled)
+            preferencesRepository.updatePaymentDetectionEnabled(enabled)
+        }
+    }
+
+    fun updatePaymentDetectionApps(packageNames: Set<String>) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updatePaymentDetectionApps(packageNames)
         }
     }
 

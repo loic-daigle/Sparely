@@ -1,5 +1,9 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.ui.graphics.asImageBitmap
+
+import androidx.core.graphics.drawable.toBitmap
+
 import androidx.compose.foundation.layout.*
 import com.example.sparely.ui.utils.toInputString
 import androidx.compose.foundation.text.KeyboardOptions
@@ -1178,9 +1182,11 @@ fun SettingsDataCard(
 
 
 @Composable
-fun SettingsWalletDetectionCard(
+fun SettingsPaymentDetectionCard(
     enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit
+    apps: Set<String>,
+    onEnabledChange: (Boolean) -> Unit,
+    onAppsChange: (Set<String>) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     fun accessGranted() = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context)
@@ -1190,6 +1196,7 @@ fun SettingsWalletDetectionCard(
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         hasAccess = accessGranted()
     }
+    var showPicker by remember { mutableStateOf(false) }
 
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1197,50 +1204,167 @@ fun SettingsWalletDetectionCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.wallet_settings_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.payment_settings_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.wallet_settings_toggle), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.payment_settings_toggle), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = stringResource(R.string.wallet_settings_desc),
+                        text = stringResource(R.string.payment_settings_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(checked = enabled, onCheckedChange = onEnabledChange)
             }
-            if (enabled && !hasAccess) {
-                Text(
-                    text = stringResource(R.string.wallet_settings_needs_access),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.critical
-                )
-                SparelyTonalButton(onClick = { openNotificationAccessSettings(context) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.wallet_settings_allow_access))
+            if (enabled) {
+                Text(stringResource(R.string.payment_settings_apps_title), style = MaterialTheme.typography.bodyMedium)
+                val installed = remember(apps) { apps.filter { isInstalled(context, it) }.sortedBy { appLabel(context, it).lowercase() } }
+                if (installed.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.payment_settings_no_apps),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    installed.forEach { pkg -> AppRow(packageName = pkg) }
                 }
-                Text(
-                    text = stringResource(R.string.wallet_settings_restricted_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else if (enabled) {
-                Text(
-                    text = stringResource(R.string.wallet_settings_privacy),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SparelyTextButton(onClick = { showPicker = true }) {
+                    Text(stringResource(R.string.payment_settings_choose_apps))
+                }
+                if (!hasAccess) {
+                    Text(
+                        text = stringResource(R.string.payment_settings_needs_access),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.critical
+                    )
+                    SparelyTonalButton(onClick = { openNotificationAccessSettings(context) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.payment_settings_allow_access))
+                    }
+                    Text(
+                        text = stringResource(R.string.payment_settings_restricted_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.payment_settings_privacy),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
+
+    if (showPicker) {
+        PaymentAppPickerDialog(
+            selected = apps,
+            onDismiss = { showPicker = false },
+            onConfirm = { chosen ->
+                onAppsChange(chosen)
+                showPicker = false
+            }
+        )
+    }
 }
 
-/** Opens Android's Notification access page for Sparely's Wallet listener (or the full list on older Android). */
+/** Installed apps the user can open, so a bank, card, Wallet or PayPal app can be picked. */
+@Composable
+private fun PaymentAppPickerDialog(
+    selected: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val allApps = remember {
+        val launcher = android.content.Intent(android.content.Intent.ACTION_MAIN)
+            .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        context.packageManager.queryIntentActivities(launcher, 0)
+            .map { it.activityInfo.packageName }
+            .distinct()
+            .filter { it != context.packageName }
+            .map { it to appLabel(context, it) }
+            .sortedBy { it.second.lowercase() }
+    }
+    var chosen by remember { mutableStateOf(selected) }
+    var query by remember { mutableStateOf("") }
+    val shown = allApps.filter { query.isBlank() || it.second.contains(query.trim(), ignoreCase = true) }
+
+    SparelyAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.payment_settings_choose_apps)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text(stringResource(R.string.payment_settings_search_apps)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(shown.size, key = { shown[it].first }) { index ->
+                        val (pkg, _) = shown[index]
+                        val isChosen = pkg in chosen
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { chosen = if (isChosen) chosen - pkg else chosen + pkg }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = isChosen, onCheckedChange = { chosen = if (it) chosen + pkg else chosen - pkg })
+                            AppRow(packageName = pkg)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            SparelyTextButton(onClick = { onConfirm(chosen) }) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = {
+            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
+}
+
+/** An app's icon and name. */
+@Composable
+private fun AppRow(packageName: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val icon = remember(packageName) {
+        try {
+            context.packageManager.getApplicationIcon(packageName).toBitmap(96, 96).asImageBitmap()
+        } catch (e: Exception) {
+            null
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (icon != null) {
+            androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(28.dp))
+        }
+        Text(remember(packageName) { appLabel(context, packageName) }, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun appLabel(context: android.content.Context, packageName: String): String =
+    com.example.sparely.payments.PaymentNotificationListener.appLabel(context, packageName)
+
+private fun isInstalled(context: android.content.Context, packageName: String): Boolean = try {
+    context.packageManager.getApplicationInfo(packageName, 0)
+    true
+} catch (e: Exception) {
+    false
+}
+
+/** Opens Android's Notification access page for Sparely's payment listener (or the full list on older Android). */
 private fun openNotificationAccessSettings(context: android.content.Context) {
-    val component = android.content.ComponentName(context, com.example.sparely.wallet.WalletPaymentListener::class.java)
+    val component = android.content.ComponentName(context, com.example.sparely.payments.PaymentNotificationListener::class.java)
     val detail = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
         android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
             .putExtra(android.provider.Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component.flattenToString())

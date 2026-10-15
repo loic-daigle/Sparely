@@ -170,7 +170,8 @@ fun SettingsScreen(
     localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
-    onWalletDetectionEnabledChange: (Boolean) -> Unit = {},
+    onPaymentDetectionEnabledChange: (Boolean) -> Unit = {},
+    onPaymentDetectionAppsChange: (Set<String>) -> Unit = {},
     headerState: SettingsHeaderState? = null,
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
@@ -558,9 +559,11 @@ fun SettingsScreen(
                             }
 
                             segment {
-                                SettingsWalletDetectionCard(
-                                    enabled = settings.walletDetectionEnabled,
-                                    onEnabledChange = onWalletDetectionEnabledChange
+                                SettingsPaymentDetectionCard(
+                                    enabled = settings.paymentDetectionEnabled,
+                                    apps = settings.paymentDetectionApps,
+                                    onEnabledChange = onPaymentDetectionEnabledChange,
+                                    onAppsChange = onPaymentDetectionAppsChange
                                 )
                             }
 

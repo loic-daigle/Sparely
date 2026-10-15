@@ -307,13 +307,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     
     private fun handleDeepLink(intent: android.content.Intent?) {
         val navigateTo = intent?.getStringExtra("navigate_to")
-        if (intent != null && navigateTo == com.example.sparely.wallet.WalletPaymentNotifier.NAVIGATE_EDIT) {
-            // "Edit" on a Google Wallet suggestion: the expense form, prefilled with the payment
-            val notifier = com.example.sparely.wallet.WalletPaymentNotifier
+        if (intent != null && navigateTo == com.example.sparely.payments.PaymentSuggestionNotifier.NAVIGATE_EDIT) {
+            // "Edit" on a payment suggestion: the expense form, prefilled with the payment
+            val notifier = com.example.sparely.payments.PaymentSuggestionNotifier
             notifier.cancel(this, intent.getIntExtra(notifier.EXTRA_NOTIFICATION_ID, 0))
             val amount = intent.getDoubleExtra(notifier.EXTRA_AMOUNT, 0.0)
             if (amount.isFinite() && amount > 0.0) {
-                viewModel.prefillWalletPurchase(amount, intent.getStringExtra(notifier.EXTRA_MERCHANT)) {
+                viewModel.prefillDetectedPayment(amount, intent.getStringExtra(notifier.EXTRA_MERCHANT)) {
                     deepLinkDestination.value = "expense" // SparelyDestination.ExpenseEntry
                 }
             }

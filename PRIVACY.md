@@ -56,15 +56,15 @@ If you turn on On-device AI in Settings and your phone supports it:
 - Your financial data is processed on the phone and is never sent to Google, to us or to anyone else
 - You can turn it off at any time in Settings
 
-### Google Wallet Payment Detection (Optional)
+**This is the ONLY external service that receives any data from the app, and it is entirely optional.**
 
-If you turn on "Detect Google Wallet payments" in Settings and grant Sparely Notification access:
-- Sparely reads only the notifications Google Wallet shows after a tap-to-pay purchase (amount and store) and ignores every other app's notifications
+### Payment Notification Detection (Optional)
+
+If you turn on "Detect payments" in Settings, choose which apps to watch (for example Google Wallet, your bank or card app, or PayPal) and grant Sparely Notification access:
+- Sparely reads only the notifications posted by the apps you chose, and only to find purchases (amount and store); every other app's notifications are ignored without being read
 - It uses them to suggest logging the purchase; nothing is recorded until you tap Add or save it yourself
 - Everything happens on your phone; notification content is never stored or sent anywhere
-- You can turn it off in Settings, or remove Notification access in Android's settings, at any time
-
-**This is the ONLY external service that receives any data from the app, and it is entirely optional.**
+- You can change the apps, turn it off in Settings, or remove Notification access in Android's settings at any time
 
 ## Data You Control
 
@@ -104,7 +104,8 @@ Sparely requests the following Android permissions:
 
 - **INTERNET:** Required for optional Brandfetch API calls to fetch store logos
 - **POST_NOTIFICATIONS:** Required to send you notifications about recurring expenses and vault transfers (optional, can be disabled)
-- **Notification access (BIND_NOTIFICATION_LISTENER_SERVICE):** Only if you turn on Google Wallet payment detection; used to read Google Wallet's payment notifications on your phone
+- **Notification access (BIND_NOTIFICATION_LISTENER_SERVICE):** Only if you turn on payment detection; used to read purchase notifications from the apps you chose, on your phone
+- **Installed apps list (queries):** Only to show which apps you can choose for payment detection
 
 ## Analytics and Tracking
 

@@ -1,4 +1,4 @@
-package com.example.sparely.wallet
+package com.example.sparely.payments
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -17,17 +17,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** The Add and Ignore buttons on a Google Wallet suggestion. Edit opens the app instead. */
-class WalletPaymentReceiver : BroadcastReceiver() {
+/** The Add and Ignore buttons on a payment suggestion. Edit opens the app instead. */
+class PaymentSuggestionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val id = intent.getIntExtra(WalletPaymentNotifier.EXTRA_NOTIFICATION_ID, 0)
-        WalletPaymentNotifier.cancel(context, id)
+        val id = intent.getIntExtra(PaymentSuggestionNotifier.EXTRA_NOTIFICATION_ID, 0)
+        PaymentSuggestionNotifier.cancel(context, id)
         if (intent.action != ACTION_ADD) return
 
-        val amount = intent.getDoubleExtra(WalletPaymentNotifier.EXTRA_AMOUNT, 0.0)
+        val amount = intent.getDoubleExtra(PaymentSuggestionNotifier.EXTRA_AMOUNT, 0.0)
         if (!amount.isFinite() || amount <= 0.0) return
-        val merchant = intent.getStringExtra(WalletPaymentNotifier.EXTRA_MERCHANT)
+        val merchant = intent.getStringExtra(PaymentSuggestionNotifier.EXTRA_MERCHANT)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -36,11 +36,11 @@ class WalletPaymentReceiver : BroadcastReceiver() {
                 val formatted = NotificationHelper.formatAmount(amount)
                 NotificationHelper.showReminder(
                     context,
-                    merchant?.let { context.getString(R.string.wallet_logged_merchant, formatted, it) }
-                        ?: context.getString(R.string.wallet_logged, formatted)
+                    merchant?.let { context.getString(R.string.payment_logged_merchant, formatted, it) }
+                        ?: context.getString(R.string.payment_logged, formatted)
                 )
             } catch (e: Exception) {
-                android.util.Log.e("WalletPaymentReceiver", "Failed to log the Wallet payment", e)
+                android.util.Log.e("PaymentSuggestionReceiver", "Failed to log the detected payment", e)
             } finally {
                 pending.finish()
             }
@@ -50,11 +50,11 @@ class WalletPaymentReceiver : BroadcastReceiver() {
     /** Same defaults as a new expense in the app; the store and category come from past purchases there. */
     private suspend fun recordExpense(context: Context, container: AppContainer, amount: Double, merchant: String?) {
         val repository = container.savingsRepository
-        val guess = WalletExpenseDefaults.guess(container, merchant)
+        val guess = PaymentExpenseDefaults.guess(container, merchant)
         val paymentMethods = repository.observePaymentMethods().first()
         val defaultMethod = paymentMethods.find { it.isDefault }
         val input = ExpenseInput(
-            description = merchant ?: context.getString(R.string.wallet_default_description),
+            description = merchant ?: context.getString(R.string.payment_default_description),
             amount = amount,
             category = guess.category,
             date = LocalDate.now(),
@@ -75,26 +75,26 @@ class WalletPaymentReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_ADD = "com.sparely.app.wallet.ADD"
-        const val ACTION_IGNORE = "com.sparely.app.wallet.IGNORE"
+        const val ACTION_ADD = "com.sparely.app.payment.ADD"
+        const val ACTION_IGNORE = "com.sparely.app.payment.IGNORE"
 
-        fun intent(context: Context, action: String, payment: WalletPayment, notificationId: Int): PendingIntent =
+        fun intent(context: Context, action: String, payment: DetectedPayment, notificationId: Int): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
                 notificationId xor action.hashCode(),
-                Intent(context, WalletPaymentReceiver::class.java).apply {
+                Intent(context, PaymentSuggestionReceiver::class.java).apply {
                     this.action = action
-                    putExtra(WalletPaymentNotifier.EXTRA_AMOUNT, payment.amount)
-                    putExtra(WalletPaymentNotifier.EXTRA_MERCHANT, payment.merchant)
-                    putExtra(WalletPaymentNotifier.EXTRA_NOTIFICATION_ID, notificationId)
+                    putExtra(PaymentSuggestionNotifier.EXTRA_AMOUNT, payment.amount)
+                    putExtra(PaymentSuggestionNotifier.EXTRA_MERCHANT, payment.merchant)
+                    putExtra(PaymentSuggestionNotifier.EXTRA_NOTIFICATION_ID, notificationId)
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
     }
 }
 
-/** Matches a Wallet store name to a saved store and reuses the category last used there. */
-object WalletExpenseDefaults {
+/** Matches a detected store name to a saved store and reuses the category last used there. */
+object PaymentExpenseDefaults {
     data class Guess(val storeId: Long?, val category: ExpenseCategory)
 
     suspend fun guess(container: AppContainer, merchant: String?): Guess {

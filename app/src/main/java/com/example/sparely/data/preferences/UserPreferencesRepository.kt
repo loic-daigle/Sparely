@@ -467,9 +467,15 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateWalletDetectionEnabled(enabled: Boolean) {
+    suspend fun updatePaymentDetectionEnabled(enabled: Boolean) {
         editSafely { prefs ->
-            prefs[PreferenceKeys.walletDetectionEnabled] = enabled
+            prefs[PreferenceKeys.paymentDetectionEnabled] = enabled
+        }
+    }
+
+    suspend fun updatePaymentDetectionApps(packageNames: Set<String>) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.paymentDetectionApps] = packageNames
         }
     }
 
@@ -639,7 +645,8 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantWriteEnabled = this[PreferenceKeys.aiAssistantWriteEnabled] ?: defaults.aiAssistantWriteEnabled
         val onDeviceAiEnabled = this[PreferenceKeys.onDeviceAiEnabled] ?: defaults.onDeviceAiEnabled
         val dynamicColorEnabled = this[PreferenceKeys.dynamicColorEnabled] ?: defaults.dynamicColorEnabled
-        val walletDetectionEnabled = this[PreferenceKeys.walletDetectionEnabled] ?: defaults.walletDetectionEnabled
+        val paymentDetectionEnabled = this[PreferenceKeys.paymentDetectionEnabled] ?: defaults.paymentDetectionEnabled
+        val paymentDetectionApps = this[PreferenceKeys.paymentDetectionApps] ?: defaults.paymentDetectionApps
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -719,7 +726,8 @@ class UserPreferencesRepository(private val context: Context) {
             aiAssistantWriteEnabled = aiAssistantWriteEnabled,
             onDeviceAiEnabled = onDeviceAiEnabled,
             dynamicColorEnabled = dynamicColorEnabled,
-            walletDetectionEnabled = walletDetectionEnabled,
+            paymentDetectionEnabled = paymentDetectionEnabled,
+            paymentDetectionApps = paymentDetectionApps,
             smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
@@ -816,7 +824,8 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantWriteEnabled = booleanPreferencesKey("ai_assistant_write_enabled")
         val onDeviceAiEnabled = booleanPreferencesKey("on_device_ai_enabled")
         val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
-        val walletDetectionEnabled = booleanPreferencesKey("wallet_detection_enabled")
+        val paymentDetectionEnabled = booleanPreferencesKey("payment_detection_enabled")
+        val paymentDetectionApps = stringSetPreferencesKey("payment_detection_apps")
         
         // Smart transfer notification threshold
         val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")

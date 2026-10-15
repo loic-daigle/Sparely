@@ -1,4 +1,4 @@
-package com.example.sparely.wallet
+package com.example.sparely.payments
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -15,23 +15,23 @@ import com.example.sparely.MainActivity
 import com.example.sparely.notifications.NotificationHelper
 import com.sparely.app.R
 
-/** "Log 12,34 $ at Tim Hortons?" with Add / Edit / Ignore, after a Google Wallet payment. */
-object WalletPaymentNotifier {
-    private const val CHANNEL_ID = "wallet_payments"
+/** "Log 12,34 $ at Tim Hortons?" with Add / Edit / Ignore, after a detected payment. */
+object PaymentSuggestionNotifier {
+    private const val CHANNEL_ID = "payment_suggestions"
 
-    const val EXTRA_AMOUNT = "wallet_amount"
-    const val EXTRA_MERCHANT = "wallet_merchant"
-    const val EXTRA_NOTIFICATION_ID = "wallet_notification_id"
+    const val EXTRA_AMOUNT = "payment_amount"
+    const val EXTRA_MERCHANT = "payment_merchant"
+    const val EXTRA_NOTIFICATION_ID = "payment_notification_id"
     /** navigate_to value MainActivity turns into a prefilled expense form. */
-    const val NAVIGATE_EDIT = "walletExpense"
+    const val NAVIGATE_EDIT = "detectedPayment"
 
-    fun suggest(context: Context, payment: WalletPayment) {
+    fun suggest(context: Context, payment: DetectedPayment, sourceApp: String) {
         if (!canNotify(context)) return
         ensureChannel(context)
         val id = notificationId(payment)
         val amount = NotificationHelper.formatAmount(payment.amount)
-        val text = payment.merchant?.let { context.getString(R.string.wallet_suggest_text_merchant, amount, it) }
-            ?: context.getString(R.string.wallet_suggest_text, amount)
+        val text = payment.merchant?.let { context.getString(R.string.payment_suggest_text_merchant, amount, it, sourceApp) }
+            ?: context.getString(R.string.payment_suggest_text, amount, sourceApp)
 
         val edit = PendingIntent.getActivity(
             context,
@@ -48,16 +48,16 @@ object WalletPaymentNotifier {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_logo)
             .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
-            .setContentTitle(context.getString(R.string.wallet_suggest_title))
+            .setContentTitle(context.getString(R.string.payment_suggest_title))
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(edit)
             .setAutoCancel(true)
-            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.wallet_action_add),
-                WalletPaymentReceiver.intent(context, WalletPaymentReceiver.ACTION_ADD, payment, id))
-            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.wallet_action_edit), edit)
-            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.wallet_action_ignore),
-                WalletPaymentReceiver.intent(context, WalletPaymentReceiver.ACTION_IGNORE, payment, id))
+            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_add),
+                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_ADD, payment, id))
+            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_edit), edit)
+            .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_ignore),
+                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_IGNORE, payment, id))
             .build()
         notify(context, id, notification)
     }
@@ -66,8 +66,8 @@ object WalletPaymentNotifier {
         NotificationManagerCompat.from(context).cancel(id)
     }
 
-    private fun notificationId(payment: WalletPayment): Int =
-        ("wallet|${payment.amount}|${payment.merchant}|${System.currentTimeMillis() / 60_000}").hashCode()
+    private fun notificationId(payment: DetectedPayment): Int =
+        ("payment|${payment.amount}|${payment.merchant}|${System.currentTimeMillis() / 60_000}").hashCode()
 
     private fun canNotify(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -84,9 +84,9 @@ object WalletPaymentNotifier {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                context.getString(R.string.wallet_channel_name),
+                context.getString(R.string.payment_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = context.getString(R.string.wallet_channel_desc) }
+            ).apply { description = context.getString(R.string.payment_channel_desc) }
         )
     }
 }
