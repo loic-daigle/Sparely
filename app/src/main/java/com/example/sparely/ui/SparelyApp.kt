@@ -1097,6 +1097,7 @@ private fun SparelyNavHost(
                 onDynamicColorEnabledChange = settingsViewModel::updateDynamicColorEnabled,
                 onPaymentDetectionEnabledChange = settingsViewModel::updatePaymentDetectionEnabled,
                 onPaymentDetectionAppsChange = settingsViewModel::updatePaymentDetectionApps,
+                onPaymentDetectionMethodChange = settingsViewModel::updatePaymentDetectionMethod,
                 headerState = settingsHeader,
                 initialSection = initialSection,
                 onExitInitialSection = { navController.popBackStack() },

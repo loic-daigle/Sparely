@@ -8,6 +8,8 @@ import com.example.sparely.AppContainer
 import com.example.sparely.SparelyApplication
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
+import com.example.sparely.domain.model.PaymentMethod
+import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.usecase.AddExpenseUseCase
 import com.example.sparely.notifications.NotificationHelper
 import com.sparely.app.R
@@ -28,11 +30,12 @@ class PaymentSuggestionReceiver : BroadcastReceiver() {
         val amount = intent.getDoubleExtra(PaymentSuggestionNotifier.EXTRA_AMOUNT, 0.0)
         if (!amount.isFinite() || amount <= 0.0) return
         val merchant = intent.getStringExtra(PaymentSuggestionNotifier.EXTRA_MERCHANT)
+        val sourcePackage = intent.getStringExtra(PaymentSuggestionNotifier.EXTRA_SOURCE_PACKAGE)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val container = (context.applicationContext as SparelyApplication).container
-                recordExpense(context, container, amount, merchant)
+                recordExpense(context, container, amount, merchant, sourcePackage)
                 val formatted = NotificationHelper.formatAmount(amount)
                 NotificationHelper.showReminder(
                     context,
@@ -47,26 +50,36 @@ class PaymentSuggestionReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Same defaults as a new expense in the app; the store and category come from past purchases there. */
-    private suspend fun recordExpense(context: Context, container: AppContainer, amount: Double, merchant: String?) {
+    /**
+     * Same defaults as a new expense in the app; the store and category come from past purchases
+     * there, and the payment method is the one set for the source app (else the default one).
+     */
+    private suspend fun recordExpense(
+        context: Context,
+        container: AppContainer,
+        amount: Double,
+        merchant: String?,
+        sourcePackage: String?
+    ) {
         val repository = container.savingsRepository
         val guess = PaymentExpenseDefaults.guess(container, merchant)
         val paymentMethods = repository.observePaymentMethods().first()
-        val defaultMethod = paymentMethods.find { it.isDefault }
+        val settings = container.preferencesRepository.getSettingsSnapshot()
+        val method = PaymentExpenseDefaults.paymentMethodFor(settings, paymentMethods, sourcePackage)
         val input = ExpenseInput(
             description = merchant ?: context.getString(R.string.payment_default_description),
             amount = amount,
             category = guess.category,
             date = LocalDate.now(),
             includesTax = false,
-            deductFromMainAccount = defaultMethod?.defaultDeductFromMainAccount ?: false,
-            paymentMethodId = defaultMethod?.id,
+            deductFromMainAccount = method?.defaultDeductFromMainAccount ?: false,
+            paymentMethodId = method?.id,
             storeId = guess.storeId
         )
         AddExpenseUseCase(repository, container.preferencesRepository)(
             input,
             AddExpenseUseCase.Context(
-                settings = container.preferencesRepository.getSettingsSnapshot(),
+                settings = settings,
                 recommendedPercentages = null,
                 paymentMethods = paymentMethods,
                 smartVaults = repository.observeSmartVaults().first()
@@ -78,7 +91,13 @@ class PaymentSuggestionReceiver : BroadcastReceiver() {
         const val ACTION_ADD = "com.sparely.app.payment.ADD"
         const val ACTION_IGNORE = "com.sparely.app.payment.IGNORE"
 
-        fun intent(context: Context, action: String, payment: DetectedPayment, notificationId: Int): PendingIntent =
+        fun intent(
+            context: Context,
+            action: String,
+            payment: DetectedPayment,
+            notificationId: Int,
+            sourcePackage: String
+        ): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
                 notificationId xor action.hashCode(),
@@ -87,6 +106,7 @@ class PaymentSuggestionReceiver : BroadcastReceiver() {
                     putExtra(PaymentSuggestionNotifier.EXTRA_AMOUNT, payment.amount)
                     putExtra(PaymentSuggestionNotifier.EXTRA_MERCHANT, payment.merchant)
                     putExtra(PaymentSuggestionNotifier.EXTRA_NOTIFICATION_ID, notificationId)
+                    putExtra(PaymentSuggestionNotifier.EXTRA_SOURCE_PACKAGE, sourcePackage)
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -105,5 +125,15 @@ object PaymentExpenseDefaults {
             (store != null && expense.storeId == store.id) || expense.description.trim().equals(merchant.trim(), ignoreCase = true)
         }
         return Guess(store?.id, previous?.category ?: ExpenseCategory.OTHER)
+    }
+
+    /** The method set for [sourcePackage] in Settings if it still exists, else the default method. */
+    fun paymentMethodFor(
+        settings: SparelySettings,
+        paymentMethods: List<PaymentMethod>,
+        sourcePackage: String?
+    ): PaymentMethod? {
+        val chosenId = sourcePackage?.let { settings.paymentDetectionMethods[it] }
+        return paymentMethods.find { it.id == chosenId } ?: paymentMethods.find { it.isDefault }
     }
 }

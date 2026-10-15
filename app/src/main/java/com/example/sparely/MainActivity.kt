@@ -297,7 +297,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             notifier.cancel(this, intent.getIntExtra(notifier.EXTRA_NOTIFICATION_ID, 0))
             val amount = intent.getDoubleExtra(notifier.EXTRA_AMOUNT, 0.0)
             if (amount.isFinite() && amount > 0.0) {
-                viewModel.prefillDetectedPayment(amount, intent.getStringExtra(notifier.EXTRA_MERCHANT)) {
+                viewModel.prefillDetectedPayment(
+                    amount,
+                    intent.getStringExtra(notifier.EXTRA_MERCHANT),
+                    intent.getStringExtra(notifier.EXTRA_SOURCE_PACKAGE)
+                ) {
                     deepLinkDestination.value = "expense" // SparelyDestination.ExpenseEntry
                 }
             }

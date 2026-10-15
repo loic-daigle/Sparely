@@ -479,6 +479,15 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    /** Payment method for purchases detected from [packageName]; null goes back to the default one. */
+    suspend fun updatePaymentDetectionMethod(packageName: String, paymentMethodId: Long?) {
+        editSafely { prefs ->
+            val current = decodePaymentDetectionMethods(prefs[PreferenceKeys.paymentDetectionMethods])
+            val updated = if (paymentMethodId == null) current - packageName else current + (packageName to paymentMethodId)
+            prefs[PreferenceKeys.paymentDetectionMethods] = updated.map { (pkg, id) -> "$pkg=$id" }.toSet()
+        }
+    }
+
     suspend fun updateDynamicColorEnabled(enabled: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.dynamicColorEnabled] = enabled
@@ -647,6 +656,8 @@ class UserPreferencesRepository(private val context: Context) {
         val dynamicColorEnabled = this[PreferenceKeys.dynamicColorEnabled] ?: defaults.dynamicColorEnabled
         val paymentDetectionEnabled = this[PreferenceKeys.paymentDetectionEnabled] ?: defaults.paymentDetectionEnabled
         val paymentDetectionApps = this[PreferenceKeys.paymentDetectionApps] ?: defaults.paymentDetectionApps
+        val paymentDetectionMethods = this[PreferenceKeys.paymentDetectionMethods]
+            ?.let(::decodePaymentDetectionMethods) ?: defaults.paymentDetectionMethods
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -728,6 +739,7 @@ class UserPreferencesRepository(private val context: Context) {
             dynamicColorEnabled = dynamicColorEnabled,
             paymentDetectionEnabled = paymentDetectionEnabled,
             paymentDetectionApps = paymentDetectionApps,
+            paymentDetectionMethods = paymentDetectionMethods,
             smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
@@ -826,6 +838,8 @@ class UserPreferencesRepository(private val context: Context) {
         val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
         val paymentDetectionEnabled = booleanPreferencesKey("payment_detection_enabled")
         val paymentDetectionApps = stringSetPreferencesKey("payment_detection_apps")
+        // "package=paymentMethodId" entries
+        val paymentDetectionMethods = stringSetPreferencesKey("payment_detection_methods")
         
         // Smart transfer notification threshold
         val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")
@@ -850,3 +864,11 @@ data class PayHistoryStats(
 ) {
     val average: Double = if (count > 0) total / count else 0.0
 }
+
+/** Reads "package=paymentMethodId" entries, skipping any that don't parse. */
+private fun decodePaymentDetectionMethods(entries: Set<String>?): Map<String, Long> =
+    entries.orEmpty().mapNotNull { entry ->
+        val pkg = entry.substringBeforeLast('=', "")
+        val id = entry.substringAfterLast('=').toLongOrNull()
+        if (pkg.isEmpty() || id == null) null else pkg to id
+    }.toMap()

@@ -339,6 +339,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updatePaymentDetectionMethod(packageName: String, paymentMethodId: Long?) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updatePaymentDetectionMethod(packageName, paymentMethodId)
+        }
+    }
+
     fun updateDynamicColorEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateDynamicColorEnabled(enabled)

@@ -2148,4 +2148,6 @@
     <string name="calculator_multiply">Multiply</string>
     <string name="calculator_divide">Divide</string>
     <string name="calculator_equals">Calculate the result</string>
+    <string name="payment_settings_method_default">Default method</string>
+    <string name="payment_settings_method_hint">Each app\'s purchases are logged with the payment method beside it.</string>
 </resources>

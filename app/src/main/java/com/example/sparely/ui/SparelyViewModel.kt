@@ -1176,10 +1176,16 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
      * store and category from past purchases there. [onReady] runs on the main thread once it's set,
      * so the form opens with the values already in place.
      */
-    fun prefillDetectedPayment(amount: Double, merchant: String?, onReady: () -> Unit) {
+    fun prefillDetectedPayment(amount: Double, merchant: String?, sourcePackage: String?, onReady: () -> Unit) {
         viewModelScope.launch(dispatcher + errorHandler) {
-            val guess = com.example.sparely.payments.PaymentExpenseDefaults.guess(container, merchant)
+            val defaults = com.example.sparely.payments.PaymentExpenseDefaults
+            val guess = defaults.guess(container, merchant)
             val settings = preferencesRepository.getSettingsSnapshot()
+            val method = defaults.paymentMethodFor(
+                settings,
+                container.savingsRepository.observePaymentMethods().first(),
+                sourcePackage
+            )
             setPrefillExpense(
                 com.example.sparely.domain.model.Expense(
                     id = 0L,
@@ -1192,7 +1198,8 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                     appliedPercentages = settings.defaultPercentages,
                     autoRecommended = false,
                     riskLevelUsed = settings.riskLevel,
-                    storeId = guess.storeId
+                    storeId = guess.storeId,
+                    paymentMethodId = method?.id
                 )
             )
             withContext(Dispatchers.Main) { onReady() }

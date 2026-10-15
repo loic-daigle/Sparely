@@ -172,6 +172,7 @@ fun SettingsScreen(
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
     onPaymentDetectionEnabledChange: (Boolean) -> Unit = {},
     onPaymentDetectionAppsChange: (Set<String>) -> Unit = {},
+    onPaymentDetectionMethodChange: (String, Long?) -> Unit = { _, _ -> },
     headerState: SettingsHeaderState? = null,
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
@@ -578,7 +579,10 @@ fun SettingsScreen(
                                     enabled = settings.paymentDetectionEnabled,
                                     apps = settings.paymentDetectionApps,
                                     onEnabledChange = onPaymentDetectionEnabledChange,
-                                    onAppsChange = onPaymentDetectionAppsChange
+                                    onAppsChange = onPaymentDetectionAppsChange,
+                                    paymentMethods = paymentMethods,
+                                    methodByApp = settings.paymentDetectionMethods,
+                                    onMethodChange = onPaymentDetectionMethodChange
                                 )
                             }
 

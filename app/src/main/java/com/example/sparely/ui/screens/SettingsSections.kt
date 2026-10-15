@@ -1186,7 +1186,10 @@ fun SettingsPaymentDetectionCard(
     enabled: Boolean,
     apps: Set<String>,
     onEnabledChange: (Boolean) -> Unit,
-    onAppsChange: (Set<String>) -> Unit
+    onAppsChange: (Set<String>) -> Unit,
+    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
+    methodByApp: Map<String, Long> = emptyMap(),
+    onMethodChange: (String, Long?) -> Unit = { _, _ -> }
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     fun accessGranted() = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context)
@@ -1222,6 +1225,13 @@ fun SettingsPaymentDetectionCard(
             }
             if (enabled) {
                 Text(stringResource(R.string.payment_settings_apps_title), style = MaterialTheme.typography.bodyMedium)
+                if (paymentMethods.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.payment_settings_method_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 val installed = remember(apps) { apps.filter { isInstalled(context, it) }.sortedBy { appLabel(context, it).lowercase() } }
                 if (installed.isEmpty()) {
                     Text(
@@ -1230,7 +1240,14 @@ fun SettingsPaymentDetectionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    installed.forEach { pkg -> AppRow(packageName = pkg) }
+                    installed.forEach { pkg ->
+                        AppRow(
+                            packageName = pkg,
+                            paymentMethods = paymentMethods,
+                            selectedMethodId = methodByApp[pkg],
+                            onMethodChange = { onMethodChange(pkg, it) }
+                        )
+                    }
                 }
                 SparelyTextButton(onClick = { showPicker = true }) {
                     Text(stringResource(R.string.payment_settings_choose_apps))
@@ -1335,7 +1352,12 @@ private fun PaymentAppPickerDialog(
 
 /** An app's icon and name. */
 @Composable
-private fun AppRow(packageName: String) {
+private fun AppRow(
+    packageName: String,
+    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod>,
+    selectedMethodId: Long?,
+    onMethodChange: (Long?) -> Unit
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val icon = remember(packageName) {
         try {
@@ -1344,11 +1366,52 @@ private fun AppRow(packageName: String) {
             null
         }
     }
+    // A method that was deleted since falls back to the default, as the detection itself does
+    val selected = paymentMethods.find { it.id == selectedMethodId }
+    var menuOpen by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (icon != null) {
             androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(28.dp))
         }
-        Text(remember(packageName) { appLabel(context, packageName) }, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            remember(packageName) { appLabel(context, packageName) },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        if (paymentMethods.isNotEmpty()) {
+            Box {
+                SparelyChip(
+                    selected = selected != null,
+                    onClick = { menuOpen = true },
+                    label = {
+                        Text(
+                            selected?.name ?: stringResource(R.string.payment_settings_method_default),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 140.dp)
+                        )
+                    }
+                )
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.payment_settings_method_default)) },
+                        onClick = {
+                            onMethodChange(null)
+                            menuOpen = false
+                        }
+                    )
+                    paymentMethods.forEach { method ->
+                        DropdownMenuItem(
+                            text = { Text(method.name) },
+                            onClick = {
+                                onMethodChange(method.id)
+                                menuOpen = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

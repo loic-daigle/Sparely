@@ -254,6 +254,9 @@ data class SparelySettings(
     val paymentDetectionEnabled: Boolean = false,
     // Apps whose purchase notifications are read, by package name. Google Wallet until the user picks.
     val paymentDetectionApps: Set<String> = setOf("com.google.android.apps.walletnfcrel"),
+    // Payment method a detected purchase is logged with, by source app package. Apps not listed
+    // (or whose method was deleted) use the default payment method.
+    val paymentDetectionMethods: Map<String, Long> = emptyMap(),
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

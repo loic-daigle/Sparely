@@ -22,10 +22,12 @@ object PaymentSuggestionNotifier {
     const val EXTRA_AMOUNT = "payment_amount"
     const val EXTRA_MERCHANT = "payment_merchant"
     const val EXTRA_NOTIFICATION_ID = "payment_notification_id"
+    /** Package of the app that reported the payment, to pick the payment method set for it. */
+    const val EXTRA_SOURCE_PACKAGE = "payment_source_package"
     /** navigate_to value MainActivity turns into a prefilled expense form. */
     const val NAVIGATE_EDIT = "detectedPayment"
 
-    fun suggest(context: Context, payment: DetectedPayment, sourceApp: String) {
+    fun suggest(context: Context, payment: DetectedPayment, sourceApp: String, sourcePackage: String) {
         if (!canNotify(context)) return
         ensureChannel(context)
         val id = notificationId(payment)
@@ -42,6 +44,7 @@ object PaymentSuggestionNotifier {
                 putExtra(EXTRA_AMOUNT, payment.amount)
                 putExtra(EXTRA_MERCHANT, payment.merchant)
                 putExtra(EXTRA_NOTIFICATION_ID, id)
+                putExtra(EXTRA_SOURCE_PACKAGE, sourcePackage)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -54,10 +57,10 @@ object PaymentSuggestionNotifier {
             .setContentIntent(edit)
             .setAutoCancel(true)
             .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_add),
-                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_ADD, payment, id))
+                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_ADD, payment, id, sourcePackage))
             .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_edit), edit)
             .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_ignore),
-                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_IGNORE, payment, id))
+                PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_IGNORE, payment, id, sourcePackage))
             .build()
         notify(context, id, notification)
     }

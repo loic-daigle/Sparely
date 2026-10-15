@@ -37,7 +37,7 @@ class PaymentNotificationListener : NotificationListenerService() {
             val appName = appLabel(appContext, source)
             val payment = PaymentNotificationParser.parse(title, text, appName) ?: return@launch
             if (!SeenPayments.isNew(appContext, payment, sbn.postTime)) return@launch
-            PaymentSuggestionNotifier.suggest(appContext, payment, appName)
+            PaymentSuggestionNotifier.suggest(appContext, payment, appName, source)
         }
     }
 
