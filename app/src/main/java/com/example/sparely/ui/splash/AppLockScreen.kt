@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -30,11 +29,10 @@ import com.sparely.app.R
 
 /**
  * Shown while biometric unlock is required. Same spruce backdrop, logo and wordmark as the splash
- * intro (in the same place, via [iconBounds]), with an unlock button that reopens the system prompt.
+ * intro, in the same place, with an unlock button that reopens the system prompt.
  */
 @Composable
 fun AppLockScreen(
-    iconBounds: Rect?,
     onUnlock: () -> Unit
 ) {
     Box(
@@ -42,7 +40,7 @@ fun AppLockScreen(
             .fillMaxSize()
             .background(Spruce)
     ) {
-        BrandBackdrop(iconBounds = iconBounds) {
+        BrandBackdrop {
             Text(
                 text = stringResource(R.string.auth_unlock_subtitle),
                 color = Muted,

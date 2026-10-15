@@ -8,7 +8,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -36,11 +35,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -67,24 +69,33 @@ private const val WORDMARK = "sparely"
 /** How long the system splash takes to fade into the intro. */
 const val SPLASH_FADE_MS = 200L
 
-// Intro timeline, measured from the moment the system splash starts fading out. Nothing moves until
-// that fade is over: the splash still shows its own copy of the logo while it fades, and a logo moving
-// underneath read as two logos crossfading.
-private const val COIN_START_MS = SPLASH_FADE_MS
+// Intro timeline, measured from the moment the system splash starts fading out. That splash is plain
+// spruce with no icon (the system scales and places its icon its own way, so a copy drawn here never
+// lined up with it), which makes its fade invisible and lets the whole logo animate here.
+private const val BAR_START_MS = 100L
+private const val BAR_STAGGER_MS = 150L
+private const val BAR_DURATION_MS = 300
+private const val COIN_START_MS = 550L
 private const val COIN_FADE_MS = 220
 private const val COIN_DROP_MS = 520
-private const val SETTLE_START_MS = 700L
-private const val LETTER_START_MS = 720L
+private const val SETTLE_START_MS = 1_000L
+private const val LETTER_START_MS = 1_020L
 private const val LETTER_STAGGER_MS = 50L
 private const val LETTER_DURATION_MS = 280
-private const val TAGLINE_START_MS = 1_100L
+private const val TAGLINE_START_MS = 1_400L
 private const val TAGLINE_DURATION_MS = 300
-private const val MIN_HOLD_MS = 1_450L
+private const val MIN_HOLD_MS = 1_750L
 private const val EXIT_DURATION_MS = 350
 
-// Measured from activity creation: the intro leaves at about 2.1s, or after MIN_HOLD_MS if the app
+// Measured from activity creation: the intro leaves at about 2.2s, or after MIN_HOLD_MS if the app
 // took longer to load.
-private const val EXIT_TARGET_MS = 2_100L
+private const val EXIT_TARGET_MS = 2_200L
+
+/** Android's overshoot interpolator (tension 2): the bars grow a little past full, then settle. */
+private val BarOvershoot = Easing { fraction ->
+    val t = fraction - 1f
+    t * t * (3f * t + 2f) + 1f
+}
 
 /** How far above its resting place the coin starts, in the icon canvas's 108 units. */
 private const val COIN_DROP_UNITS = 30f
@@ -101,8 +112,8 @@ private val CoinBounce = Easing { fraction ->
     }
 }
 
-// Icon box used when the system splash didn't report one (warm starts, the lock screen on its own).
-private val DEFAULT_ICON_SIZE = 200.dp
+// Box the mark is drawn in, centered on screen: the 108-unit adaptive icon canvas, as on the launcher.
+private val ICON_SIZE = 200.dp
 
 // If the system splash never calls its exit listener (no splash on this launch), start without it.
 private const val HANDOFF_TIMEOUT_MS = 500L
@@ -112,12 +123,10 @@ private const val HANDOFF_TIMEOUT_MS = 500L
 private const val FADE_START_TIMEOUT_MS = 1_500L
 
 /**
- * State shared between MainActivity's splash exit listener and [SplashIntro]: where the system splash
- * drew its icon, and whether it has started fading out.
+ * State shared between MainActivity's splash exit listener and [SplashIntro]: whether the system
+ * splash is leaving and has started fading out.
  */
 class SplashHandoff(val createdAtUptimeMs: Long) {
-    /** Bounds of the splash icon view in window pixels; null if the system didn't provide one. */
-    var iconBounds by mutableStateOf<Rect?>(null)
     /** The system splash called its exit listener; it may still be finishing its icon animation. */
     var exitRequested by mutableStateOf(false)
     /** The system splash started fading out over the intro. */
@@ -125,8 +134,9 @@ class SplashHandoff(val createdAtUptimeMs: Long) {
 }
 
 /**
- * Brand intro shown once per cold start, right after the system splash. It draws the same icon in the
- * same place as the splash so the handoff is invisible, writes out the wordmark and tagline, then slides
+ * Brand intro shown on each fresh launcher open, right after the system splash (plain spruce, so the
+ * handoff is invisible). It grows the bars, drops the coin, lifts the logo, writes out the wordmark
+ * and tagline, then slides
  * up to reveal the app. When the app is locked it fades instead, into [AppLockScreen], which shares the
  * same layout so the logo and wordmark stay put. A tap anywhere skips straight to the exit.
  */
@@ -142,6 +152,7 @@ fun SplashIntro(
     val fadeOut by rememberUpdatedState(locked)
     val letterCount = WORDMARK.length + 1 // plus the gold "."
 
+    val bars = remember { List(3) { Animatable(0f) } }
     val logoSettle = remember { Animatable(0f) }
     val coinDrop = remember { Animatable(0f) }
     val coinAlpha = remember { Animatable(0f) }
@@ -178,6 +189,13 @@ fun SplashIntro(
         // Always long enough for the coin, the rise and the wordmark; a slow start never cuts it short
         val holdMs = (EXIT_TARGET_MS - sinceCreate).coerceAtLeast(MIN_HOLD_MS)
 
+        // The bars grow from the bottom one after the other
+        bars.forEachIndexed { index, bar ->
+            launch {
+                delay(BAR_START_MS + index * BAR_STAGGER_MS)
+                bar.animateTo(1f, tween(BAR_DURATION_MS, easing = BarOvershoot))
+            }
+        }
         // The coin falls onto the bars from above, fading in on the way, then the whole logo rises
         launch {
             delay(COIN_START_MS)
@@ -213,8 +231,8 @@ fun SplashIntro(
             .pointerInput(Unit) { detectTapGestures { startExit() } }
     ) {
         BrandBackdrop(
-            iconBounds = handoff.iconBounds,
             settle = logoSettle.value,
+            barProgress = { bars[it].value },
             coinDrop = coinDrop.value,
             coinAlpha = coinAlpha.value,
             letterProgress = { letters[it].value }
@@ -241,16 +259,15 @@ fun SplashIntro(
 }
 
 /**
- * The logo and "sparely." wordmark laid out the way the intro leaves them: the icon drawn in the box the
- * system splash used ([iconBounds], or a centered default), lifted and scaled by [settle], with the
- * wordmark underneath. The coin is drawn apart from the bars so it can drop in from above ([coinDrop]
- * 0 → 1) while fading in ([coinAlpha]), without the circle the system splash clips its icon to.
+ * The logo and "sparely." wordmark laid out the way the intro leaves them: the mark centered on screen,
+ * lifted and scaled by [settle], with the wordmark underneath. Each bar grows from its bottom edge by
+ * [barProgress] and the coin drops in from above ([coinDrop] 0 → 1) while fading in ([coinAlpha]).
  * [below] goes under the wordmark. Shared by [SplashIntro] and [AppLockScreen].
  */
 @Composable
 internal fun BrandBackdrop(
-    iconBounds: Rect?,
     settle: Float = 1f,
+    barProgress: (Int) -> Float = { 1f },
     coinDrop: Float = 1f,
     coinAlpha: Float = 1f,
     letterProgress: (Int) -> Float = { 1f },
@@ -260,9 +277,8 @@ internal fun BrandBackdrop(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenW = with(density) { maxWidth.toPx() }
         val screenH = with(density) { maxHeight.toPx() }
-        // Same box the system splash drew its icon in; centered if it didn't report one.
-        val icon = iconBounds ?: with(density) {
-            val side = DEFAULT_ICON_SIZE.toPx()
+        val icon = with(density) {
+            val side = ICON_SIZE.toPx()
             Rect((screenW - side) / 2f, (screenH - side) / 2f, (screenW + side) / 2f, (screenH + side) / 2f)
         }
         val iconSide = with(density) { icon.width.toDp() }
@@ -280,22 +296,7 @@ internal fun BrandBackdrop(
                     translationY = -settleLift * settle
                 }
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_splash_bars),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize()
-            )
-            val coinDropPx = icon.width * COIN_DROP_UNITS / 108f
-            Image(
-                painter = painterResource(R.drawable.ic_splash_coin),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = coinAlpha
-                        translationY = -coinDropPx * (1f - coinDrop)
-                    }
-            )
+            SparelyMark(barProgress = barProgress, coinDrop = coinDrop, coinAlpha = coinAlpha)
         }
 
         // Wordmark sits just under the visible part of the icon (the inner 2/3 of its canvas).
@@ -328,6 +329,53 @@ internal fun BrandBackdrop(
             }
             Spacer(Modifier.height(4.dp))
             below()
+        }
+    }
+}
+
+// The mark in its source coordinates (as in the launcher icon): bars of width 30 standing on y = 160,
+// and the coin above the tallest one. The launcher foreground draws these at scale 0.38 on the 108-unit
+// adaptive icon canvas, centered on (100, 89.5); the same placement is used here.
+private val BAR_LEFTS = floatArrayOf(46f, 85f, 124f)
+private val BAR_TOPS = floatArrayOf(110f, 82f, 56f)
+private const val BAR_WIDTH = 30f
+private const val BAR_BOTTOM = 160f
+private const val COIN_X = 139f
+private const val COIN_Y = 34f
+private const val COIN_RADIUS = 15f
+private const val MARK_SCALE = 0.38f
+private const val MARK_CENTER_X = 100f
+private const val MARK_CENTER_Y = 89.5f
+
+/** The bars-and-coin mark drawn to fill its box, which stands for the 108-unit icon canvas. */
+@Composable
+private fun SparelyMark(barProgress: (Int) -> Float, coinDrop: Float, coinAlpha: Float) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val unit = size.width / 108f * MARK_SCALE
+        fun x(source: Float) = size.width / 2f + (source - MARK_CENTER_X) * unit
+        fun y(source: Float) = size.height / 2f + (source - MARK_CENTER_Y) * unit
+
+        BAR_LEFTS.forEachIndexed { index, left ->
+            val fullHeight = BAR_BOTTOM - BAR_TOPS[index]
+            val height = fullHeight * barProgress(index).coerceAtLeast(0f)
+            if (height <= 0f) return@forEachIndexed
+            val radius = minOf(BAR_WIDTH / 2f, height / 2f) * unit
+            drawRoundRect(
+                color = Mint,
+                topLeft = Offset(x(left), y(BAR_BOTTOM - height)),
+                size = Size(BAR_WIDTH * unit, height * unit),
+                cornerRadius = CornerRadius(radius, radius)
+            )
+        }
+
+        if (coinAlpha > 0f) {
+            val lift = COIN_DROP_UNITS / MARK_SCALE * (1f - coinDrop)
+            drawCircle(
+                color = Gold,
+                radius = COIN_RADIUS * unit,
+                center = Offset(x(COIN_X), y(COIN_Y - lift)),
+                alpha = coinAlpha.coerceIn(0f, 1f)
+            )
         }
     }
 }

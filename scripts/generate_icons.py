@@ -2,7 +2,8 @@
 """Generate Sparely's launcher icons from the "rising bars" logo definition.
 
 The notification icon and in-app logos are vector drawables (res/drawable/ic_stat_logo.xml,
-ic_sparely_logo.xml, ic_sparely_mark_mono.xml, ic_splash_icon*.xml) and are not generated here.
+ic_sparely_logo.xml, ic_sparely_mark_mono.xml) and are not generated here. The splash mark is
+drawn in code (ui/splash/SplashIntro.kt).
 
 Requires: pip install cairosvg pillow
 Run from anywhere: python3 scripts/generate_icons.py

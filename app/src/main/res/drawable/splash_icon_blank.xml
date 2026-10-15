@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The system splash shows no icon, only the spruce background: SplashIntro draws and animates the
+     logo itself. The system scales and places its splash icon its own way (and clips it to a circle),
+     so a logo here never lined up with the one the intro takes over with. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <size
+        android:width="108dp"
+        android:height="108dp" />
+</shape>

@@ -21,7 +21,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Rect
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
@@ -74,26 +73,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         if (playIntro) {
             splashScreen.setOnExitAnimationListener { provider ->
                 handoff.exitRequested = true
-                handoff.iconBounds = runCatching {
-                    val icon = provider.iconView
-                    val location = IntArray(2).also { icon.getLocationInWindow(it) }
-                    Rect(
-                        location[0].toFloat(),
-                        location[1].toFloat(),
-                        (location[0] + icon.width).toFloat(),
-                        (location[1] + icon.height).toFloat()
-                    )
-                }.getOrNull()
-                // Let the animated icon finish (Android 12+), then fade into the intro underneath.
-                // iconAnimationStartMillis is wall-clock time (0 when there's no animation). Clamp so
-                // a bad timestamp can never hold the splash longer than the animation itself.
-                val iconAnimationDuration = provider.iconAnimationDurationMillis.coerceAtLeast(0L)
-                val iconAnimationLeft = provider.iconAnimationStartMillis.takeIf { it > 0L }
-                    ?.let { it + iconAnimationDuration - System.currentTimeMillis() }
-                    ?: 0L
+                // The splash is plain spruce, the same as the intro's first frame underneath, so this
+                // fade can't be seen; the intro starts its animation as it begins.
                 provider.view.animate()
                     .alpha(0f)
-                    .setStartDelay(iconAnimationLeft.coerceIn(0L, iconAnimationDuration))
                     .setDuration(SPLASH_FADE_MS)
                     .withStartAction { handoff.started = true }
                     .withEndAction { provider.remove() }
@@ -139,7 +122,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     exit = slideOutVertically(tween(350)) { -it }
                 ) {
                     AppLockScreen(
-                        iconBounds = handoff.iconBounds,
                         onUnlock = { checkBiometricAuth() }
                     )
                 }
