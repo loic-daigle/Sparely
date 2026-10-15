@@ -387,7 +387,7 @@ class UserPreferencesRepository(private val context: Context) {
         restored[PreferenceKeys.languageCode]?.let { context.setAppLocale(it, restored[PreferenceKeys.countryCode]) }
     }
 
-countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
+    suspend fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
         editSafely { prefs ->
             prefs[PreferenceKeys.countryCode] = countryCode
             prefs[PreferenceKeys.languageCode] = languageCode
