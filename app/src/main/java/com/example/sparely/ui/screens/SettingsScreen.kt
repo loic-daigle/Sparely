@@ -190,7 +190,9 @@ fun SettingsScreen(
     savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
     onMainOverflowAccountIdChange: (Long?) -> Unit = {},
     onMinMainAccountBalanceChange: (Double) -> Unit = {},
-    onManageSavingsAccounts: () -> Unit = {}
+    onManageSavingsAccounts: () -> Unit = {},
+    initialSection: SettingsSection? = null,
+    onExitInitialSection: () -> Unit = {}
 ) {
     var brandfetchClientId by remember(settings.brandfetchClientId) { mutableStateOf(settings.brandfetchClientId ?: "") }
     var emergency by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.emergency.toFloat()) }
@@ -252,8 +254,18 @@ fun SettingsScreen(
     }
 
     // null shows the hub. Saveable so the open section survives rotation and returning from sub-screens
-    var openSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
-    BackHandler(enabled = openSection != null) { openSection = null }
+    var openSection by rememberSaveable { mutableStateOf(initialSection) }
+    // Opened straight to a section from elsewhere (the expense form's "Manage payment methods"):
+    // backing out of it returns there instead of to the settings list
+    var openedFromOutside by rememberSaveable { mutableStateOf(initialSection != null) }
+    val closeSection: () -> Unit = {
+        if (openedFromOutside) {
+            onExitInitialSection()
+        } else {
+            openSection = null
+        }
+    }
+    BackHandler(enabled = openSection != null) { closeSection() }
     val hubScrollState = rememberScrollState()
 
     // An open section takes over the app's header (its title and back arrow) instead of adding a second one
@@ -261,7 +273,7 @@ fun SettingsScreen(
     if (headerState != null) {
         DisposableEffect(headerState, sectionTitle) {
             headerState.sectionTitle = sectionTitle
-            headerState.closeSection = if (sectionTitle != null) ({ openSection = null }) else null
+            headerState.closeSection = if (sectionTitle != null) closeSection else null
             onDispose {
                 headerState.sectionTitle = null
                 headerState.closeSection = null
@@ -272,7 +284,7 @@ fun SettingsScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         val section = openSection
         if (section != null && headerState == null) {
-            SettingsSectionHeader(title = stringResource(section.titleRes), onBack = { openSection = null })
+            SettingsSectionHeader(title = stringResource(section.titleRes), onBack = closeSection)
         }
 
         Box(modifier = Modifier.weight(1f)) {
@@ -286,7 +298,10 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 when (section) {
-                    null -> SettingsHub(onOpen = { openSection = it })
+                    null -> SettingsHub(onOpen = {
+                        openedFromOutside = false
+                        openSection = it
+                    })
 
                     SettingsSection.Profile -> {
                         SettingsSegmentedColumn {

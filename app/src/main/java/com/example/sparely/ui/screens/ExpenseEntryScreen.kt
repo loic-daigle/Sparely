@@ -177,16 +177,16 @@ fun ExpenseEntryScreen(
     val isNewExpense = !isEditMode
 
     // ========== Form State ==========
-    var description by remember { mutableStateOf(prefillExpense?.description ?: "") }
-    var amountText by remember { mutableStateOf(prefillExpense?.amount?.formatCurrency("") ?: "") }
-    var category by remember { mutableStateOf(prefillExpense?.category ?: ExpenseCategory.OTHER) }
+    var description by rememberSaveable { mutableStateOf(prefillExpense?.description ?: "") }
+    var amountText by rememberSaveable { mutableStateOf(prefillExpense?.amount?.formatCurrency("") ?: "") }
+    var category by rememberSaveable { mutableStateOf(prefillExpense?.category ?: ExpenseCategory.OTHER) }
     // Not asked in the form: nothing reads them, so an edited expense just keeps what it had
     val expenseType = prefillExpense?.type ?: ExpenseType.PRODUCT
     val includeTax = prefillExpense?.includesTax ?: false
-    var deductFromMainAccount by remember { mutableStateOf(false) }
-    var deductFromVaultId by remember { mutableStateOf(prefillExpense?.deductedFromVaultId) }
+    var deductFromMainAccount by rememberSaveable { mutableStateOf(false) }
+    var deductFromVaultId by rememberSaveable { mutableStateOf(prefillExpense?.deductedFromVaultId) }
     // Editing keeps the original purchase date; new and repeated expenses default to today
-    var selectedDate by remember { mutableStateOf(if (isEditMode) prefillExpense!!.date else LocalDate.now()) }
+    var selectedDate by rememberSaveable { mutableStateOf(if (isEditMode) prefillExpense!!.date else LocalDate.now()) }
     var manualMode by remember { mutableStateOf(!settings.autoRecommendationsEnabled) }
     var emergencyPercent by remember { mutableFloatStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var investPercent by remember { mutableFloatStateOf(settings.defaultPercentages.invest.toFloat()) }
@@ -195,19 +195,19 @@ fun ExpenseEntryScreen(
     var descriptionError by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var selectedStore by remember { mutableStateOf<Store?>(prefillExpense?.storeId?.let { storeId -> stores.find { it.id == storeId } }) }
-    var searchQuery by remember { mutableStateOf(prefillExpense?.storeId?.let { storeId -> stores.find { it.id == storeId }?.name } ?: "") }
+    var searchQuery by rememberSaveable { mutableStateOf(prefillExpense?.storeId?.let { storeId -> stores.find { it.id == storeId }?.name } ?: "") }
     var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(prefillExpense?.paymentMethodId?.let { methodId -> paymentMethods.find { it.id == methodId } }) }
-    var notes by remember { mutableStateOf(prefillExpense?.notes ?: "") }
-    var orderNumber by remember { mutableStateOf(prefillExpense?.orderNumber ?: "") }
+    var notes by rememberSaveable { mutableStateOf(prefillExpense?.notes ?: "") }
+    var orderNumber by rememberSaveable { mutableStateOf(prefillExpense?.orderNumber ?: "") }
     var selectedAssetAllocations by remember { mutableStateOf(prefillAssetAllocations) }
     var assetSelectorExpanded by remember { mutableStateOf(false) }
-    var isIgnored by remember { mutableStateOf(prefillExpense?.isIgnored ?: false) }
+    var isIgnored by rememberSaveable { mutableStateOf(prefillExpense?.isIgnored ?: false) }
 
     // ========== Remembered titles ==========
     // Fields the user set themselves are never overwritten by a remembered title
-    var categoryTouched by remember { mutableStateOf(false) }
-    var storeTouched by remember { mutableStateOf(false) }
-    var paymentTouched by remember { mutableStateOf(false) }
+    var categoryTouched by rememberSaveable { mutableStateOf(false) }
+    var storeTouched by rememberSaveable { mutableStateOf(false) }
+    var paymentTouched by rememberSaveable { mutableStateOf(false) }
     var autofilledFrom by remember { mutableStateOf<KnownTitle?>(null) }
     var autofillUndo by remember { mutableStateOf<(() -> Unit)?>(null) }
 

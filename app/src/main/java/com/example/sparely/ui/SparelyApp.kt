@@ -99,6 +99,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.sparely.domain.model.VaultArchivePrompt
 import com.example.sparely.ui.components.SparelySheetHeader
 import com.example.sparely.ui.components.SparelyBottomSheet
+import com.example.sparely.ui.screens.SettingsSection
 import com.example.sparely.ui.screens.AssetManagementScreen
 import com.example.sparely.ui.screens.BudgetScreen
 import com.example.sparely.ui.screens.ChallengesScreen
@@ -970,7 +971,7 @@ private fun SparelyNavHost(
                 onDeleteStore = viewModel::deleteStore,
                 brandfetchClientId = uiState.settings.brandfetchClientId,
                 paymentMethods = uiState.paymentMethods,
-                onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
+                onManagePaymentMethods = { navController.openSettingsSection(SettingsSection.PaymentMethods) },
                 brandSearchResults = brandSearchResults,
                 onBrandSearch = viewModel::searchBrands,
                 pendingVariableBills = pendingVariableBills,
@@ -1018,7 +1019,12 @@ private fun SparelyNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(SparelyDestination.Settings.route) {
+        composable(SparelyDestination.Settings.route) { entry ->
+            // Set by openSettingsSection; read once so returning to Settings later shows the list
+            val initialSection = remember(entry) {
+                entry.savedStateHandle.remove<String>(SETTINGS_SECTION_KEY)
+                    ?.let { name -> SettingsSection.entries.find { it.name == name } }
+            }
             // Collected here, not at the app root, so download progress only recomposes Settings
             val localAiState by settingsViewModel.localAiState.collectAsStateWithLifecycle()
             val localAiPromptState by settingsViewModel.localAiPromptState.collectAsStateWithLifecycle()
@@ -1092,6 +1098,8 @@ private fun SparelyNavHost(
                 onPaymentDetectionEnabledChange = settingsViewModel::updatePaymentDetectionEnabled,
                 onPaymentDetectionAppsChange = settingsViewModel::updatePaymentDetectionApps,
                 headerState = settingsHeader,
+                initialSection = initialSection,
+                onExitInitialSection = { navController.popBackStack() },
                 onRefreshLocalAi = settingsViewModel::refreshLocalAi,
                 onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
                 onTestLocalAi = settingsViewModel::testLocalAi,
@@ -1251,7 +1259,7 @@ private fun SparelyNavHost(
                 onDeleteStore = viewModel::deleteStore,
                 brandfetchClientId = uiState.settings.brandfetchClientId,
                 paymentMethods = uiState.paymentMethods,
-                onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
+                onManagePaymentMethods = { navController.openSettingsSection(SettingsSection.PaymentMethods) },
                 brandSearchResults = brandSearchResults,
                 onBrandSearch = viewModel::searchBrands,
                 onCreateAsset = { name, category, description, price ->
@@ -1349,7 +1357,7 @@ private fun SparelyNavHost(
                 },
                 onNavigateBack = { navController.popBackStack() },
                 // Payment methods (including credit cards) are managed in Settings
-                onAddCard = { navController.navigate(SparelyDestination.Settings.route) },
+                onAddCard = { navController.openSettingsSection(SettingsSection.PaymentMethods) },
                 expenses = uiState.expenses
             )
         }
@@ -1381,6 +1389,14 @@ private fun SparelyNavHost(
             )
         }
     }
+}
+
+private const val SETTINGS_SECTION_KEY = "settings_section"
+
+/** Opens Settings straight on [section]; backing out of it returns to the screen that asked. */
+private fun androidx.navigation.NavController.openSettingsSection(section: SettingsSection) {
+    navigate(SparelyDestination.Settings.route)
+    currentBackStackEntry?.savedStateHandle?.set(SETTINGS_SECTION_KEY, section.name)
 }
 
 private enum class SparelyDestination(
