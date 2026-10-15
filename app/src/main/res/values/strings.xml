@@ -1912,4 +1912,5 @@
     <string name="usable_money_reserved_wishes">Held for wishes</string>
     <string name="usable_money_pending_transfers">Pending transfers</string>
     <string name="splash_tagline">Save the small stuff.</string>
+    <string name="lock_unlock_button">Unlock</string>
 </resources>

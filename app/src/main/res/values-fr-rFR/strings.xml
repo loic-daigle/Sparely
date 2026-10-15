@@ -932,4 +932,5 @@
     <string name="dashboard_ongoing_challenge">Défi en cours</string>
     <string name="dashboard_total_usable_money_title">Argent total utilisable</string>
     <string name="splash_tagline">Épargnez les petits montants.</string>
+    <string name="lock_unlock_button">Déverrouiller</string>
 </resources>

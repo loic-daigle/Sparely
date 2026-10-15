@@ -937,4 +937,5 @@
     <string name="income_distribute_vaults_desc">Mets de côté une partie de ce revenu pour tes coffres, selon ton taux d\'épargne.</string>
     <string name="income_pending_transfers_desc">Active si tu dois encore transférer l\'argent vers tes comptes d\'épargne toi-même. Chaque montant apparaîtra dans les transferts en attente jusqu\'à ce que tu le confirmes. Laisse désactivé si l\'argent y est déjà.</string>
     <string name="splash_tagline">Épargnez les petits montants.</string>
+    <string name="lock_unlock_button">Déverrouiller</string>
 </resources>

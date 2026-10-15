@@ -14,25 +14,26 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.SparelyTheme
 import kotlinx.coroutines.launch
 import com.example.sparely.ui.SparelyApp
 import com.example.sparely.ui.SparelyViewModel
 import com.example.sparely.ui.SparelyViewModelFactory
+import com.example.sparely.ui.splash.AppLockScreen
 import com.example.sparely.ui.splash.SPLASH_FADE_MS
 import com.example.sparely.ui.splash.SplashHandoff
 import com.example.sparely.ui.splash.SplashIntro
@@ -110,53 +111,31 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         
         handleDeepLink(intent)
         
-        if (playIntro) {
-            // Light system bar icons over the spruce splash and intro.
-            enableEdgeToEdge(
-                statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
-                navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT)
-            )
-        } else {
-            enableEdgeToEdge()
-        }
+        // Light system bar icons over the spruce splash, intro and lock screen; default once in the app.
+        applySystemBars(brandScreen = playIntro)
         setContent {
+            val locked = isAuthRequired.value && !isAuthSuccessful.value
+            val brandScreen = showIntro.value || locked
+            LaunchedEffect(brandScreen) { applySystemBars(brandScreen) }
+
             SparelyTheme {
-                if (isAuthRequired.value && !isAuthSuccessful.value) {
-                    // Show a simple lock screen or empty surface while auth prompt is active
-                    androidx.compose.material3.Surface(
-                        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                        color = androidx.compose.material3.MaterialTheme.colorScheme.background
-                    ) {
-                        androidx.compose.foundation.layout.Box(
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            androidx.compose.foundation.layout.Column(
-                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
-                            ) {
-                                MaterialSymbolIcon(
-                                    icon = MaterialSymbols.LOCK,
-                                    contentDescription = null,
-                                    modifier = androidx.compose.ui.Modifier.size(48.dp),
-                                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                                    size = 48.dp
-                                )
-                                androidx.compose.material3.Text(
-                                    "Locked",
-                                    style = androidx.compose.material3.MaterialTheme.typography.titleLarge
-                                )
-                                androidx.compose.material3.Button(onClick = { checkBiometricAuth() }) {
-                                    androidx.compose.material3.Text("Unlock")
-                                }
-                            }
-                        }
-                    }
-                } else {
+                if (!locked) {
                     SparelyApp(
                         viewModel = viewModel,
                         deepLinkDestination = deepLinkDestination.value,
                         onDeepLinkHandled = { deepLinkDestination.value = null },
                         onAuthenticateUser = { onResult -> authenticateUser(onResult) }
+                    )
+                }
+                // Same look as the splash intro; slides up to reveal the app once unlocked.
+                AnimatedVisibility(
+                    visible = locked,
+                    enter = EnterTransition.None,
+                    exit = slideOutVertically(tween(350)) { -it }
+                ) {
+                    AppLockScreen(
+                        iconBounds = handoff.iconBounds,
+                        onUnlock = { checkBiometricAuth() }
                     )
                 }
             }
@@ -165,9 +144,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 SplashIntro(
                     handoff = handoff,
                     appReady = !uiState.isLoading,
+                    locked = locked,
                     onFinished = {
                         showIntro.value = false
-                        enableEdgeToEdge()
+                        // The fingerprint prompt waits for the intro to finish.
+                        if (isAuthRequired.value && !isAuthSuccessful.value) checkBiometricAuth()
                     }
                 )
             }
@@ -203,6 +184,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     private fun checkBiometricAuth() {
+        // Asked once the intro hands over (see SplashIntro's onFinished), not on top of it.
+        if (showIntro.value) return
         val biometricManager = androidx.biometric.BiometricManager.from(this)
         val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or 
                              androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -297,6 +280,17 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     // Ideally we'd hook into onStop/onStart to reset auth if duration passed. 
     // Keeping it simple for now as requested.
     
+    private fun applySystemBars(brandScreen: Boolean) {
+        if (brandScreen) {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+                navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+            )
+        } else {
+            enableEdgeToEdge()
+        }
+    }
+
     /** True when the user turned on "Remove animations" (animator duration scale 0). */
     private fun animationsDisabled(): Boolean =
         Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f

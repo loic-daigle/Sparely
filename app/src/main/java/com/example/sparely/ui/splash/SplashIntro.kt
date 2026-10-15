@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,10 +54,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
-private val Spruce = Color(0xFF0F3D34)
-private val Gold = Color(0xFFF4CB6A)
-private val Ink = Color(0xFFEAF5F0)
-private val Muted = Color(0xFF9DBDB2)
+internal val Spruce = Color(0xFF0F3D34)
+internal val Mint = Color(0xFF8FE3C0)
+internal val Gold = Color(0xFFF4CB6A)
+internal val Ink = Color(0xFFEAF5F0)
+internal val Muted = Color(0xFF9DBDB2)
+
+private const val WORDMARK = "sparely"
 
 /** How long the system splash takes to fade into the intro. */
 const val SPLASH_FADE_MS = 200L
@@ -74,6 +78,9 @@ private const val EXIT_DURATION_MS = 350
 private const val EXIT_TARGET_MS = 1_600L
 private const val EXIT_LATEST_MS = 2_150L
 
+// Icon box used when the system splash didn't report one (warm starts, the lock screen on its own).
+private val DEFAULT_ICON_SIZE = 200.dp
+
 // If the system splash never hands over (no splash on this launch), start without it.
 private const val HANDOFF_TIMEOUT_MS = 500L
 
@@ -90,19 +97,20 @@ class SplashHandoff(val createdAtUptimeMs: Long) {
 /**
  * Brand intro shown once per cold start, right after the system splash. It draws the same icon in the
  * same place as the splash so the handoff is invisible, writes out the wordmark and tagline, then slides
- * up to reveal the app. A tap anywhere skips straight to the exit.
+ * up to reveal the app. When the app is locked it fades instead, into [AppLockScreen], which shares the
+ * same layout so the logo and wordmark stay put. A tap anywhere skips straight to the exit.
  */
 @Composable
 fun SplashIntro(
     handoff: SplashHandoff,
     appReady: Boolean,
+    locked: Boolean,
     onFinished: () -> Unit
 ) {
-    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val ready by rememberUpdatedState(appReady)
-    val wordmark = "sparely"
-    val letterCount = wordmark.length + 1 // plus the gold "."
+    val fadeOut by rememberUpdatedState(locked)
+    val letterCount = WORDMARK.length + 1 // plus the gold "."
 
     val logoSettle = remember { Animatable(0f) }
     val letters = remember { List(letterCount) { Animatable(0f) } }
@@ -110,10 +118,12 @@ fun SplashIntro(
     val progress = remember { Animatable(0f) }
     val exit = remember { Animatable(0f) }
     var exiting by remember { mutableStateOf(false) }
+    var exitByFade by remember { mutableStateOf(false) }
 
     fun startExit() {
         if (exiting) return
         exiting = true
+        exitByFade = fadeOut
         scope.launch {
             exit.animateTo(1f, tween(EXIT_DURATION_MS, easing = FastOutSlowInEasing))
             onFinished()
@@ -146,66 +156,20 @@ fun SplashIntro(
         startExit()
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { translationY = -size.height * exit.value }
+            .graphicsLayer {
+                if (exitByFade) alpha = 1f - exit.value else translationY = -size.height * exit.value
+            }
             .background(Spruce)
             .pointerInput(Unit) { detectTapGestures { startExit() } }
     ) {
-        val screenW = with(density) { maxWidth.toPx() }
-        val screenH = with(density) { maxHeight.toPx() }
-        // Same box the system splash drew its icon in; centered 160dp if it didn't report one.
-        val icon = handoff.iconBounds ?: with(density) {
-            val side = 160.dp.toPx()
-            Rect((screenW - side) / 2f, (screenH - side) / 2f, (screenW + side) / 2f, (screenH + side) / 2f)
-        }
-        val iconSide = with(density) { icon.width.toDp() }
-        val settleLift = with(density) { 48.dp.toPx() }
-
-        Image(
-            painter = painterResource(R.drawable.ic_splash_icon_static),
-            contentDescription = null,
-            modifier = Modifier
-                .offset { IntOffset(icon.left.roundToInt(), icon.top.roundToInt()) }
-                .size(iconSide)
-                .graphicsLayer {
-                    val s = 1f - 0.12f * logoSettle.value
-                    scaleX = s
-                    scaleY = s
-                    translationY = -settleLift * logoSettle.value
-                }
-        )
-
-        // Wordmark and tagline sit just under the visible part of the icon (the inner 2/3 of its canvas).
-        val textTop = icon.center.y + icon.height / 3f - settleLift * logoSettle.value
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(0, textTop.roundToInt()) },
-            horizontalAlignment = Alignment.CenterHorizontally
+        BrandBackdrop(
+            iconBounds = handoff.iconBounds,
+            settle = logoSettle.value,
+            letterProgress = { letters[it].value }
         ) {
-            Row {
-                val style = TextStyle(
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 40.sp,
-                    letterSpacing = (-0.5).sp
-                )
-                (wordmark + ".").forEachIndexed { index, char ->
-                    val t = letters[index].value
-                    Text(
-                        text = char.toString(),
-                        style = style,
-                        color = if (index == wordmark.length) Gold else Ink,
-                        modifier = Modifier.graphicsLayer {
-                            alpha = t
-                            translationY = (1f - t) * 16.dp.toPx()
-                        }
-                    )
-                }
-            }
-            Spacer(Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.splash_tagline),
                 color = Muted,
@@ -222,5 +186,77 @@ fun SplashIntro(
                 .height(2.dp)
                 .background(Gold)
         )
+    }
+}
+
+/**
+ * The logo and "sparely." wordmark laid out the way the intro leaves them: the icon drawn in the box the
+ * system splash used ([iconBounds], or a centered default), lifted and scaled by [settle], with the
+ * wordmark underneath. [below] goes under the wordmark. Shared by [SplashIntro] and [AppLockScreen].
+ */
+@Composable
+internal fun BrandBackdrop(
+    iconBounds: Rect?,
+    settle: Float = 1f,
+    letterProgress: (Int) -> Float = { 1f },
+    below: @Composable ColumnScope.() -> Unit = {}
+) {
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenW = with(density) { maxWidth.toPx() }
+        val screenH = with(density) { maxHeight.toPx() }
+        // Same box the system splash drew its icon in; centered if it didn't report one.
+        val icon = iconBounds ?: with(density) {
+            val side = DEFAULT_ICON_SIZE.toPx()
+            Rect((screenW - side) / 2f, (screenH - side) / 2f, (screenW + side) / 2f, (screenH + side) / 2f)
+        }
+        val iconSide = with(density) { icon.width.toDp() }
+        val settleLift = with(density) { 48.dp.toPx() }
+
+        Image(
+            painter = painterResource(R.drawable.ic_splash_icon_static),
+            contentDescription = null,
+            modifier = Modifier
+                .offset { IntOffset(icon.left.roundToInt(), icon.top.roundToInt()) }
+                .size(iconSide)
+                .graphicsLayer {
+                    val s = 1f - 0.12f * settle
+                    scaleX = s
+                    scaleY = s
+                    translationY = -settleLift * settle
+                }
+        )
+
+        // Wordmark sits just under the visible part of the icon (the inner 2/3 of its canvas).
+        val textTop = icon.center.y + icon.height / 3f - settleLift * settle
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(0, textTop.roundToInt()) },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row {
+                val style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 40.sp,
+                    letterSpacing = (-0.5).sp
+                )
+                (WORDMARK + ".").forEachIndexed { index, char ->
+                    val t = letterProgress(index)
+                    Text(
+                        text = char.toString(),
+                        style = style,
+                        color = if (index == WORDMARK.length) Gold else Ink,
+                        modifier = Modifier.graphicsLayer {
+                            alpha = t
+                            translationY = (1f - t) * 16.dp.toPx()
+                        }
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            below()
+        }
     }
 }
