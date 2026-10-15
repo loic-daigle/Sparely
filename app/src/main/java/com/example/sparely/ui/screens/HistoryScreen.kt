@@ -282,7 +282,10 @@ fun HistoryScreen(
             }
             item(key = "filters") {
                 // Quick period chips: tapping the active one clears it back to "All time".
-                // Everything else lives behind the filter button in the search bar
+                // Everything else lives behind the filter button in the search bar.
+                // Chips draw 32dp but reserve a 48dp touch target, which left a blank band above
+                // and below the row, so the row drops that padding and hugs the chips
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -330,11 +333,14 @@ fun HistoryScreen(
                     }
                     if (isFiltering) {
                         item {
-                            SparelyTextButton(onClick = ::clearFilters) {
-                                Text(stringResource(R.string.history_clear_filters))
-                            }
+                            SparelyChip(
+                                selected = false,
+                                onClick = ::clearFilters,
+                                label = { Text(stringResource(R.string.history_clear_filters)) }
+                            )
                         }
                     }
+                }
                 }
             }
 
