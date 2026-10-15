@@ -1354,9 +1354,10 @@ private fun PaymentAppPickerDialog(
 @Composable
 private fun AppRow(
     packageName: String,
-    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod>,
-    selectedMethodId: Long?,
-    onMethodChange: (Long?) -> Unit
+    // Left empty (as in the app picker) to show the app without its payment method choice
+    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
+    selectedMethodId: Long? = null,
+    onMethodChange: (Long?) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val icon = remember(packageName) {
