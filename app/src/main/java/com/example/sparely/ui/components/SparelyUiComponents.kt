@@ -184,7 +184,7 @@ fun SparelyButton(
                     fontWeight = FontWeight.Bold
                 )
             ) {
-                content()
+                FitLabel(modifier = Modifier.weight(1f, fill = false)) { content() }
             }
         }
     }
@@ -226,7 +226,7 @@ fun SparelyTonalButton(
                     fontWeight = FontWeight.Bold
                 )
             ) {
-                content()
+                FitLabel(modifier = Modifier.weight(1f, fill = false)) { content() }
             }
         }
     }
@@ -266,7 +266,7 @@ fun SparelyTextButton(
                     fontWeight = FontWeight.Bold
                 )
             ) {
-                content()
+                FitLabel(modifier = Modifier.weight(1f, fill = false)) { content() }
             }
         }
     }
@@ -306,9 +306,7 @@ fun SparelyOutlinedButton(
                     fontWeight = FontWeight.Bold
                 )
             ) {
-                androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f, fill = false)) {
-                    content()
-                }
+                FitLabel(modifier = Modifier.weight(1f, fill = false)) { content() }
             }
         }
     }

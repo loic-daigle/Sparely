@@ -32,7 +32,7 @@
     <!-- Idle Money Insight -->
     <string name="insights_idle_money_title">Argent qui dort</string>
     <string name="insights_idle_money_desc">Tu as %1$s de plus que ta réserve recommandée. Ça pourrait te rapporter ~%2$s/mois dans un compte épargne à haut rendement.</string>
-    <string name="insights_idle_money_transfer">Transférer à l\'épargne</string>
+    <string name="insights_idle_money_transfer">Vers l\'épargne</string>
     <string name="insights_idle_money_suggested">Transfert suggéré</string>
     <string name="insights_idle_money_projected">Pourrait rapporter ~%1$s/an à %2$s RPA</string>
     
@@ -122,13 +122,13 @@
     <!-- Settings Screen - Income & Tax -->
     <string name="settings_income_tax_title">Revenu et taxes</string>
     <string name="settings_monthly_income_label">Revenu mensuel</string>
-    <string name="settings_update_income">Mettre à jour le revenu</string>
+    <string name="settings_update_income">Modifier le revenu</string>
 
     <!-- Settings Screen - Main Account -->
     <string name="settings_main_account_title">Compte principal</string>
     <string name="settings_main_account_desc">Configure ton compte principal pour suivre ton solde et tes transactions.</string>
     <string name="settings_main_account_balance_label">Solde actuel</string>
-    <string name="settings_main_account_update_balance">Mettre à jour le solde</string>
+    <string name="settings_main_account_update_balance">Modifier le solde</string>
 
     <!-- Vault Account Details -->
     <string name="vault_account_details_title">Détails du compte</string>
@@ -142,7 +142,7 @@
     <!-- Vault Management Screen -->
     <string name="vault_management_title">Gérer tes coffres intelligents</string>
     <string name="vault_management_back">Retour</string>
-    <string name="vault_management_add">Ajouter un coffre</string>
+    <string name="vault_management_add">Nouveau coffre</string>
     <string name="vault_management_empty_title">Aucun coffre pour l’instant</string>
     <string name="vault_management_empty_desc">Crée ton premier coffre pour commencer à épargner automatiquement vers tes objectifs.</string>
     <string name="vault_edit">Modifier</string>
@@ -208,7 +208,7 @@
 
     <!-- Settings Screen - Insights -->
     <string name="settings_insights_title">Aperçus</string>
-    <string name="settings_reset_history">Réinitialiser l’historique des dépenses</string>
+    <string name="settings_reset_history">Effacer l\'historique</string>
     <string name="settings_import_confirm_title">Remplacer tes données par cette sauvegarde ?</string>
     <string name="settings_import_confirm_message">L\'importation remplace tout ce qu\'il y a dans Sparely (dépenses, coffres, budgets, moyens de paiement, magasins, souhaits et paramètres) par le contenu du fichier. Tout ce que tu as ajouté après cette sauvegarde sera perdu, et tu ne pourras pas revenir en arrière.\n\nPar précaution, exporte d\'abord une sauvegarde de tes données actuelles.</string>
 
@@ -254,14 +254,14 @@
 
     <!-- Settings Screen - Data & Privacy -->
     <string name="settings_data_privacy_title">Données et confidentialité</string>
-    <string name="settings_export_backup">Exporter une sauvegarde</string>
+    <string name="settings_export_backup">Exporter</string>
 
     <!-- Settings Screen - Profile -->
     <string name="settings_profile_basics_title">Infos de base</string>
     <string name="settings_display_name_label">Nom affiché (optionnel)</string>
     <string name="settings_birthday_label">Date de naissance : %1$s</string>
     <string name="settings_birthday_not_set">Ajoute ta date de naissance</string>
-    <string name="settings_set_birthday">Définir la date</string>
+    <string name="settings_set_birthday">Date de naissance</string>
     <string name="settings_change_birthday">Changer la date</string>
     <string name="settings_current_age">Âge actuel : %1$d</string>
     <string name="settings_active_debts">Dettes actives</string>
@@ -338,7 +338,7 @@
     <string name="settings_auto_deposit_active">Actif</string>
     <string name="settings_auto_deposit_disabled">Désactivé</string>
     <string name="settings_auto_deposit_check_time">Heure de vérification</string>
-    <string name="settings_auto_deposit_check_now">Vérifier maintenant</string>
+    <string name="settings_auto_deposit_check_now">Vérifier</string>
     <string name="settings_auto_deposit_desc">Sparely vérifie chaque jour les dépôts prévus et crée des contributions en attente.</string>
     <string name="settings_auto_deposit_enable_desc">Active pour suivre tes dépôts automatiques.</string>
     <string name="dialog_select_check_time_title">Choisir l’heure</string>
@@ -371,7 +371,7 @@
     <string name="settings_pick_date">Choisir la date</string>
     <string name="settings_auto_distribute">Distribuer automatiquement</string>
     <string name="settings_create_pending_transfers">Créer des transferts en attente</string>
-    <string name="settings_save_pay_defaults">Sauvegarder les valeurs par défaut</string>
+    <string name="settings_save_pay_defaults">Définir par défaut</string>
     <string name="settings_log_paycheck_title">Enregistrer une paie</string>
     <string name="settings_amount_received_label">Montant reçu</string>
     <string name="settings_payday">Jour de paie</string>
@@ -393,7 +393,7 @@
     <!-- Dashboard -->
     <string name="dashboard_title">Aperçu</string>
     <string name="dashboard_subtitle">Reste au courant de ton élan d\'épargne</string>
-    <string name="dashboard_log_purchase">Enregistrer un achat</string>
+    <string name="dashboard_log_purchase">Noter un achat</string>
     <string name="dashboard_history">Historique</string>
     <string name="dashboard_create_first_budget">Créer ton premier budget</string>
     <string name="dashboard_browse_challenges">Voir les défis</string>
@@ -499,11 +499,11 @@
     <string name="vault_name_placeholder">ex. : Fonds auto, Urgence, Études</string>
     <string name="vault_monthly_need">Besoin mensuel</string>
     <string name="vault_income_percent">%1$d%% de ton revenu mensuel</string>
-    <string name="vault_set_start_date">Choisir la date de début (optionnel)</string>
-    <string name="vault_clear_start_date">Effacer la date de début</string>
-    <string name="vault_set_end_date">Choisir la date de fin (optionnel)</string>
-    <string name="vault_clear_end_date">Effacer la date de fin</string>
-    <string name="vault_set_deadline">Choisir une échéance (optionnel)</string>
+    <string name="vault_set_start_date">Début (optionnel)</string>
+    <string name="vault_clear_start_date">Effacer le début</string>
+    <string name="vault_set_end_date">Fin (optionnel)</string>
+    <string name="vault_clear_end_date">Effacer la fin</string>
+    <string name="vault_set_deadline">Échéance (optionnel)</string>
     <string name="vault_never_expires">N\'expire jamais</string>
     <string name="vault_never_expires_desc">Continue d\'épargner sans date de fin, par exemple pour des projets en cours</string>
     <string name="vault_days_until_deadline">%1$d jours (%2$d mois) avant l\'échéance</string>
@@ -531,7 +531,7 @@
     <string name="vault_confirmation_after_desc">Reçois un avis quand l\'argent bouge.</string>
     <string name="vault_alert_failure">M\'avertir en cas d\'échec</string>
     <string name="vault_alert_failure_desc">On t\'avertit si un transfert est sauté ou bloqué.</string>
-    <string name="vault_delete_vault">Supprimer le coffre</string>
+    <string name="vault_delete_vault">Supprimer</string>
     <string name="vault_save_changes">Sauvegarder les modifs</string>
     <string name="vault_run_time">Heure</string>
 
@@ -707,8 +707,8 @@
     <string name="onboarding_feature_budgeting_title">Budgétisation intelligente</string>
     <string name="onboarding_feature_budgeting_desc">Fixe des budgets et reçois des alertes avant de trop dépenser.</string>
     <string name="onboarding_get_started">C\'est parti</string>
-    <string name="onboarding_import_backup">Importer une sauvegarde</string>
-    <string name="onboarding_skip_setup">Passer la configuration</string>
+    <string name="onboarding_import_backup">Importer</string>
+    <string name="onboarding_skip_setup">Passer</string>
     <string name="onboarding_reminder_title">Garde le contrôle sur tes coffres</string>
     <string name="onboarding_reminder_desc">Sparely peut t\'envoyer un rappel pour transférer l\'argent vers les coffres que tu viens de configurer. Les contributions sont comptabilisées une fois confirmées de ton côté.</string>
     <string name="onboarding_reminder_enable">Activer les rappels de transfert</string>
@@ -720,7 +720,7 @@
     <string name="onboarding_continue">Continuer</string>
     <string name="onboarding_vaults_title">Configure tes coffres intelligents</string>
     <string name="onboarding_vaults_desc">Les coffres sont les destinations financées automatiquement. On les utilise pour calculer les priorités, les bonus de taxe d\'épargne et les dépôts automatiques.</string>
-    <string name="onboarding_add_vault">Ajouter un autre coffre</string>
+    <string name="onboarding_add_vault">Ajouter un coffre</string>
     <string name="onboarding_vault_recommended">Recommandé</string>
     <string name="onboarding_vault_icon_label">Icône du coffre</string>
     <string name="onboarding_vault_name_label">Nom du coffre</string>
@@ -735,7 +735,7 @@
     <string name="onboarding_vault_manual_percent_placeholder">ex. 25</string>
     <string name="onboarding_vault_tax_boost_label">Bonus de taxe d\'épargne % (optionnel)</string>
     <string name="onboarding_vault_tax_boost_placeholder">ex. 5</string>
-    <string name="onboarding_remove_vault">Supprimer le coffre</string>
+    <string name="onboarding_remove_vault">Retirer</string>
     <string name="onboarding_name_prompt">Comment devrions-nous t\'appeler ?</string>
     <string name="onboarding_name_desc">Ça nous aide à personnaliser ton expérience</string>
     <string name="onboarding_name_placeholder">ex. Alex</string>
@@ -768,7 +768,7 @@
     <string name="onboarding_yes">Oui</string>
     <string name="onboarding_no">Non</string>
     <string name="onboarding_small_fund_suggestion">Vu ton âge, que tu habites encore chez tes parents et que tu travailles à temps partiel, on recommande un petit fonds d\'urgence de 200 $ à 300 $ pour couvrir les imprévus.</string>
-    <string name="onboarding_apply_suggestion">Appliquer la suggestion de %1$s</string>
+    <string name="onboarding_apply_suggestion">Appliquer : %1$s</string>
     <string name="onboarding_keep_value">Garder ma valeur</string>
     <string name="onboarding_emergency_fund_label">Fonds d\'urgence actuel</string>
     <string name="onboarding_emergency_fund_helper">Combien as-tu déjà d\'économisé pour les urgences ?</string>
@@ -844,7 +844,7 @@
     <string name="onboarding_subscription_placeholder">ex. Netflix</string>
     <string name="onboarding_subscription_amount_label">Coût mensuel</string>
     <string name="onboarding_welcome_for_country">Bienvenue sur Sparely %1$s</string>
-    <string name="onboarding_income_clear_birthday">Effacer la date de naissance</string>
+    <string name="onboarding_income_clear_birthday">Effacer la date</string>
     <string name="onboarding_income_age_helper_auto">L\'âge est calculé selon ta date de naissance.</string>
     <string name="onboarding_income_age_helper_manual">Entre ton âge manuellement.</string>
     <string name="onboarding_income_birthday_label">Choisir la date de naissance</string>
@@ -876,7 +876,7 @@
     <string name="credit_cards_billing_day_label">Jour de facturation</string>
     <string name="credit_cards_utilization_label">Utilisation</string>
     <string name="credit_cards_recent_payments_label">Paiements récents</string>
-    <string name="credit_cards_pay_bill_action">Payer la facture</string>
+    <string name="credit_cards_pay_bill_action">Payer</string>
     <string name="credit_cards_expand_hint">Appuyez pour les détails et actions</string>
     <string name="credit_cards_pay_dialog_title">Payer %1$s</string>
     <string name="credit_cards_current_balance_label">Solde actuel : %1$s</string>
