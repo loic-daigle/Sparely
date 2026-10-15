@@ -1636,4 +1636,10 @@
     <string name="usable_money_pending_transfers">Virements en attente</string>
     <string name="splash_tagline">Épargnez les petits montants.</string>
     <string name="lock_unlock_button">Déverrouiller</string>
+    <string name="settings_group_appearance">Apparence</string>
+    <string name="settings_hub_appearance_desc">Couleurs et style</string>
+    <string name="settings_appearance_title">Couleurs</string>
+    <string name="settings_dynamic_color_title">Utiliser les couleurs de mon fond d’écran</string>
+    <string name="settings_dynamic_color_description">Utilise les couleurs de votre fond d’écran au lieu du vert Sparely. Les couleurs des montants ne changent pas.</string>
+    <string name="settings_dynamic_color_unavailable">Nécessite Android 12 ou une version plus récente.</string>
 </resources>

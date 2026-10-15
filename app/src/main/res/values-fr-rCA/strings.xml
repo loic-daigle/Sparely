@@ -938,4 +938,10 @@
     <string name="income_pending_transfers_desc">Active si tu dois encore transférer l\'argent vers tes comptes d\'épargne toi-même. Chaque montant apparaîtra dans les transferts en attente jusqu\'à ce que tu le confirmes. Laisse désactivé si l\'argent y est déjà.</string>
     <string name="splash_tagline">Épargnez les petits montants.</string>
     <string name="lock_unlock_button">Déverrouiller</string>
+    <string name="settings_group_appearance">Apparence</string>
+    <string name="settings_hub_appearance_desc">Couleurs et style</string>
+    <string name="settings_appearance_title">Couleurs</string>
+    <string name="settings_dynamic_color_title">Utiliser les couleurs de mon fond d’écran</string>
+    <string name="settings_dynamic_color_description">Utilise les couleurs de ton fond d’écran au lieu du vert Sparely. Les couleurs des montants ne changent pas.</string>
+    <string name="settings_dynamic_color_unavailable">Nécessite Android 12 ou une version plus récente.</string>
 </resources>

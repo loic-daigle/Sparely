@@ -1913,4 +1913,10 @@
     <string name="usable_money_pending_transfers">Pending transfers</string>
     <string name="splash_tagline">Save the small stuff.</string>
     <string name="lock_unlock_button">Unlock</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_hub_appearance_desc">Colors and look</string>
+    <string name="settings_appearance_title">Colors</string>
+    <string name="settings_dynamic_color_title">Match my wallpaper colors</string>
+    <string name="settings_dynamic_color_description">Use colors from your wallpaper instead of Sparely green. Money colors stay the same.</string>
+    <string name="settings_dynamic_color_unavailable">Needs Android 12 or newer.</string>
 </resources>

@@ -882,7 +882,7 @@ private fun EnhancedVaultCard(
                             Text(
                                 text = stringResource(R.string.vault_label_on_track, projectedCompletionDate.format(dateFormatter)),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.tertiary,
+                                color = colorScheme.success,
                                 fontWeight = FontWeight.SemiBold
                             )
                         } else if (vault.targetDate != null) {

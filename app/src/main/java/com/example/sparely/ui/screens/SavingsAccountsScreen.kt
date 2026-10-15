@@ -59,6 +59,7 @@ import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.formatCurrency
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
+import com.example.sparely.ui.theme.success
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -421,7 +422,7 @@ fun SavingsAccountsScreen(
                         title = stringResource(id = R.string.savings_add_interest_title),
                         subtitle = stringResource(id = R.string.savings_add_interest_desc, account.name),
                         icon = MaterialSymbols.TRENDING_UP,
-                        iconTint = MaterialTheme.colorScheme.tertiary
+                        iconTint = MaterialTheme.colorScheme.success
                     )
                     SheetAmountField(
                         value = interestAmountText,
@@ -572,7 +573,7 @@ private fun OverallSavingsSummaryCard(
                         text = "+" + totalInterest.formatCurrency(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.success
                     )
                 }
             }
@@ -725,7 +726,7 @@ fun EnhancedSavingsAccountCard(
                                 text = "+" + account.totalInterestEarned.formatCurrency(),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = colorScheme.tertiary
+                                color = colorScheme.success
                             )
                         }
                     }

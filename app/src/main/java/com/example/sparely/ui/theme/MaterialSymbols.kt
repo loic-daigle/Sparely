@@ -82,6 +82,7 @@ object MaterialSymbols {
     val WORK = R.drawable.work_48px
     val CAKE = R.drawable.cake_48px
     val LOCK = R.drawable.lock_48px
+    val PALETTE = R.drawable.palette_48px
     val ACCOUNT_BALANCE_WALLET = R.drawable.account_balance_wallet_48px
     val FLAG = R.drawable.flag_48px
     val ATTACH_MONEY = R.drawable.attach_money_48px

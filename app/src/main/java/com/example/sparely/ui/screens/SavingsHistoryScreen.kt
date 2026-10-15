@@ -28,6 +28,7 @@ import com.example.sparely.ui.theme.MaterialSymbols
 import com.sparely.app.R
 import com.example.sparely.ui.utils.formatCurrency
 import java.time.format.DateTimeFormatter
+import com.example.sparely.ui.theme.success
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,7 +108,7 @@ fun SavingsTransactionCard(
         SavingsAccountTransactionDisplayType.WITHDRAWAL ->
             MaterialSymbols.ARROW_UPWARD to MaterialTheme.colorScheme.error
         SavingsAccountTransactionDisplayType.INTEREST ->
-            MaterialSymbols.TRENDING_UP to MaterialTheme.colorScheme.tertiary
+            MaterialSymbols.TRENDING_UP to MaterialTheme.colorScheme.success
         SavingsAccountTransactionDisplayType.TRANSFER_IN ->
             MaterialSymbols.SWAP_HORIZ to MaterialTheme.colorScheme.primary
         SavingsAccountTransactionDisplayType.TRANSFER_OUT ->

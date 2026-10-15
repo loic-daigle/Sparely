@@ -467,6 +467,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateDynamicColorEnabled(enabled: Boolean) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.dynamicColorEnabled] = enabled
+        }
+    }
+
     suspend fun updateOnDeviceAiEnabled(enabled: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.onDeviceAiEnabled] = enabled
@@ -626,6 +632,7 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantAccessEnabled = this[PreferenceKeys.aiAssistantAccessEnabled] ?: defaults.aiAssistantAccessEnabled
         val aiAssistantWriteEnabled = this[PreferenceKeys.aiAssistantWriteEnabled] ?: defaults.aiAssistantWriteEnabled
         val onDeviceAiEnabled = this[PreferenceKeys.onDeviceAiEnabled] ?: defaults.onDeviceAiEnabled
+        val dynamicColorEnabled = this[PreferenceKeys.dynamicColorEnabled] ?: defaults.dynamicColorEnabled
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -704,6 +711,7 @@ class UserPreferencesRepository(private val context: Context) {
             aiAssistantAccessEnabled = aiAssistantAccessEnabled,
             aiAssistantWriteEnabled = aiAssistantWriteEnabled,
             onDeviceAiEnabled = onDeviceAiEnabled,
+            dynamicColorEnabled = dynamicColorEnabled,
             smartTransferMinimumAmount = this.finite(PreferenceKeys.smartTransferMinimumAmount) ?: 0.0,
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
@@ -799,6 +807,7 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantAccessEnabled = booleanPreferencesKey("ai_assistant_access_enabled")
         val aiAssistantWriteEnabled = booleanPreferencesKey("ai_assistant_write_enabled")
         val onDeviceAiEnabled = booleanPreferencesKey("on_device_ai_enabled")
+        val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
         
         // Smart transfer notification threshold
         val smartTransferMinimumAmount = doublePreferencesKey("smart_transfer_minimum_amount")

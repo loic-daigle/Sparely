@@ -88,6 +88,7 @@ import com.example.sparely.ui.components.segmentedShape
 import androidx.compose.ui.graphics.Shape
 import com.example.sparely.ui.components.TotalUsableMoneyBottomSheet
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.SparelyBrandSurface
 import com.example.sparely.ui.theme.ExpressiveMotionTokens
 import com.example.sparely.ui.theme.ExpressiveShapes
 import com.example.sparely.ui.theme.MaterialSymbolIcon
@@ -571,113 +572,116 @@ private fun DashboardHeroCard(
     forecast: CashflowEngine.CashflowForecast?,
     onUsableClick: () -> Unit
 ) {
-    val spacing = MaterialTheme.spacing
-    var forecastExpanded by rememberSaveable { mutableStateOf(false) }
-    val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
+    // The dashboard's signature card: always Sparely spruce and mint, whatever the app theme.
+    SparelyBrandSurface {
+        val spacing = MaterialTheme.spacing
+        var forecastExpanded by rememberSaveable { mutableStateOf(false) }
+        val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
 
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = onContainer,
-        contentPadding = spacing.lg
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_total_saved),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = onContainer.copy(alpha = 0.75f),
-                        fontWeight = FontWeight.Medium
-                    )
-                    if (monthlyIncome > 0) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                            contentColor = MaterialTheme.colorScheme.primary
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = onContainer,
+            contentPadding = spacing.lg
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.dashboard_total_saved),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = onContainer.copy(alpha = 0.75f),
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (monthlyIncome > 0) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                contentColor = MaterialTheme.colorScheme.primary
                             ) {
-                                MaterialSymbolIcon(
-                                    icon = MaterialSymbols.TRENDING_UP,
-                                    contentDescription = null,
-                                    size = 16.dp
-                                )
-                                Text(
-                                    text = stringResource(R.string.dashboard_saving_rate, actualSavingsRate.formatPercent()),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    MaterialSymbolIcon(
+                                        icon = MaterialSymbols.TRENDING_UP,
+                                        contentDescription = null,
+                                        size = 16.dp
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.dashboard_saving_rate, actualSavingsRate.formatPercent()),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
+                    SingleLineText(
+                        text = totalBalance.formatCurrency(),
+                        style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                        // onPrimaryContainer keeps full contrast on the tinted card in every theme
+                        color = onContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                        minFontSize = 24f
+                    )
                 }
-                SingleLineText(
-                    text = totalBalance.formatCurrency(),
-                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                    // onPrimaryContainer keeps full contrast on the tinted card in every theme
-                    color = onContainer,
-                    modifier = Modifier.fillMaxWidth(),
-                    minFontSize = 24f
-                )
-            }
 
-            if (usableBalance != null || forecast != null) {
-                // Every cell always renders a caption line so the cells stay the same height without
-                // intrinsic measurement (SingleLineText is subcomposed and doesn't support it).
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs)
-                ) {
-                    if (usableBalance != null) {
-                        HeroStat(
-                            icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
-                            label = stringResource(R.string.dashboard_usable_chip),
-                            value = usableBalance.formatCurrency(),
-                            caption = stringResource(R.string.dashboard_see_breakdown),
-                            trailingIcon = MaterialSymbols.INFO,
-                            onClickLabel = stringResource(R.string.dashboard_total_usable_money_title),
-                            onClick = onUsableClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    if (forecast != null) {
-                        val hasWarning = forecast.lowBalanceWarning != null || forecast.safeToSpend < 0
-                        HeroStat(
-                            icon = if (hasWarning) MaterialSymbols.WARNING else MaterialSymbols.SECURITY,
-                            label = stringResource(R.string.dashboard_safe_to_spend),
-                            value = forecast.safeToSpend.formatCurrency(),
-                            caption = if (forecast.runwayDays < Int.MAX_VALUE) {
-                                stringResource(R.string.dashboard_runway_days, forecast.runwayDays)
-                            } else {
-                                stringResource(R.string.dashboard_runway_healthy)
-                            },
-                            valueColor = if (hasWarning) MaterialTheme.colorScheme.critical else null,
-                            trailingIcon = if (forecastExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                            onClickLabel = stringResource(
-                                if (forecastExpanded) R.string.dashboard_collapse else R.string.dashboard_expand
-                            ),
-                            onClick = { forecastExpanded = !forecastExpanded },
-                            modifier = Modifier.weight(1f)
-                        )
+                if (usableBalance != null || forecast != null) {
+                    // Every cell always renders a caption line so the cells stay the same height without
+                    // intrinsic measurement (SingleLineText is subcomposed and doesn't support it).
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.xs)
+                    ) {
+                        if (usableBalance != null) {
+                            HeroStat(
+                                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                                label = stringResource(R.string.dashboard_usable_chip),
+                                value = usableBalance.formatCurrency(),
+                                caption = stringResource(R.string.dashboard_see_breakdown),
+                                trailingIcon = MaterialSymbols.INFO,
+                                onClickLabel = stringResource(R.string.dashboard_total_usable_money_title),
+                                onClick = onUsableClick,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (forecast != null) {
+                            val hasWarning = forecast.lowBalanceWarning != null || forecast.safeToSpend < 0
+                            HeroStat(
+                                icon = if (hasWarning) MaterialSymbols.WARNING else MaterialSymbols.SECURITY,
+                                label = stringResource(R.string.dashboard_safe_to_spend),
+                                value = forecast.safeToSpend.formatCurrency(),
+                                caption = if (forecast.runwayDays < Int.MAX_VALUE) {
+                                    stringResource(R.string.dashboard_runway_days, forecast.runwayDays)
+                                } else {
+                                    stringResource(R.string.dashboard_runway_healthy)
+                                },
+                                valueColor = if (hasWarning) MaterialTheme.colorScheme.critical else null,
+                                trailingIcon = if (forecastExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
+                                onClickLabel = stringResource(
+                                    if (forecastExpanded) R.string.dashboard_collapse else R.string.dashboard_expand
+                                ),
+                                onClick = { forecastExpanded = !forecastExpanded },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
-            }
 
-            if (forecast != null) {
-                AnimatedVisibility(
-                    visible = forecastExpanded,
-                    enter = expandVertically(),
-                    exit = shrinkVertically()
-                ) {
-                    CashflowForecastList(forecast.weeklyProjections)
+                if (forecast != null) {
+                    AnimatedVisibility(
+                        visible = forecastExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        CashflowForecastList(forecast.weeklyProjections)
+                    }
                 }
             }
         }

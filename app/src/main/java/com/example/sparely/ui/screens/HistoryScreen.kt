@@ -1173,7 +1173,7 @@ private fun ModernExpenseCard(
                                 else R.string.history_card_partial_refund_badge
                             ),
                             style = MaterialTheme.typography.labelSmall,
-                            color = colorScheme.tertiary
+                            color = colorScheme.success
                         )
                     }
                 }
@@ -1205,7 +1205,7 @@ private fun ModernExpenseCard(
                                 else R.string.history_card_partial_refund_badge
                             ),
                             value = formatCurrency(expense.refundedAmount),
-                            valueColor = colorScheme.tertiary
+                            valueColor = colorScheme.success
                         )
                     }
 

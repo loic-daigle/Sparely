@@ -247,6 +247,9 @@ data class SparelySettings(
     // Turns on Sparely's own AI features, run by Gemini Nano on the phone. Off until the user opts in,
     // and only usable on phones that support the model (see LocalAiManager).
     val onDeviceAiEnabled: Boolean = false,
+    // Use wallpaper (Material You) colors instead of Sparely's brand colors. Android 12+ only;
+    // money colors (saved, goals, alerts) keep their brand colors either way.
+    val dynamicColorEnabled: Boolean = false,
     // Smart transfer notification threshold
     val smartTransferMinimumAmount: Double = 0.0,  // 0 = show all transfers
     // Auto backup settings

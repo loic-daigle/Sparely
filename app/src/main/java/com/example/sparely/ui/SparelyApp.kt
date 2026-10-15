@@ -1043,6 +1043,7 @@ private fun SparelyNavHost(
                 localAiState = localAiState,
                 localAiCanAnswerQuestions = localAiPromptState == com.example.sparely.ai.LocalAiState.Ready,
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
+                onDynamicColorEnabledChange = settingsViewModel::updateDynamicColorEnabled,
                 onRefreshLocalAi = settingsViewModel::refreshLocalAi,
                 onDownloadLocalAi = settingsViewModel::startLocalAiDownload,
                 onTestLocalAi = settingsViewModel::testLocalAi,

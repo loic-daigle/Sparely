@@ -1176,6 +1176,46 @@ fun SettingsDataCard(
 }
 
 
+@Composable
+fun SettingsAppearanceCard(
+    dynamicColorEnabled: Boolean,
+    onDynamicColorEnabledChange: (Boolean) -> Unit
+) {
+    // Wallpaper colors only exist on Android 12+.
+    val available = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = LocalSettingsCardShape.current,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.settings_appearance_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_dynamic_color_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(
+                            if (available) R.string.settings_dynamic_color_description
+                            else R.string.settings_dynamic_color_unavailable
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = available && dynamicColorEnabled,
+                    onCheckedChange = onDynamicColorEnabledChange,
+                    enabled = available
+                )
+            }
+        }
+    }
+}
+
 /** One page of the settings hub; [groupRes] decides which hub card lists it. */
 enum class SettingsSection(val titleRes: Int, val descRes: Int, val icon: Int, val groupRes: Int) {
     Profile(R.string.settings_group_profile, R.string.settings_hub_profile_desc, MaterialSymbols.PERSON, R.string.settings_hub_you),
@@ -1184,6 +1224,7 @@ enum class SettingsSection(val titleRes: Int, val descRes: Int, val icon: Int, v
     Automation(R.string.settings_group_saving_automation, R.string.settings_hub_automation_desc, MaterialSymbols.SAVINGS, R.string.settings_hub_money),
     PaymentMethods(R.string.settings_group_payment_methods, R.string.settings_hub_payment_methods_desc, MaterialSymbols.CREDIT_CARD, R.string.settings_hub_money),
     Notifications(R.string.settings_group_notifications, R.string.settings_hub_notifications_desc, MaterialSymbols.NOTIFICATIONS, R.string.settings_hub_app),
+    Appearance(R.string.settings_group_appearance, R.string.settings_hub_appearance_desc, MaterialSymbols.PALETTE, R.string.settings_hub_app),
     Security(R.string.settings_group_security, R.string.settings_hub_security_desc, MaterialSymbols.LOCK, R.string.settings_hub_app),
     OnDeviceAi(R.string.settings_group_on_device_ai, R.string.settings_hub_on_device_ai_desc, MaterialSymbols.LIGHTBULB, R.string.settings_hub_app),
     Data(R.string.settings_group_data_backup, R.string.settings_hub_data_desc, MaterialSymbols.HISTORY, R.string.settings_hub_app)

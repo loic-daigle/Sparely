@@ -117,8 +117,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             val locked = isAuthRequired.value && !isAuthSuccessful.value
             val brandScreen = showIntro.value || locked
             LaunchedEffect(brandScreen) { applySystemBars(brandScreen) }
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-            SparelyTheme {
+            // Sparely colors unless the user chose wallpaper colors in Settings > Appearance.
+            SparelyTheme(dynamicColor = uiState.settings.dynamicColorEnabled) {
                 if (!locked) {
                     SparelyApp(
                         viewModel = viewModel,
@@ -140,7 +142,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 }
             }
             if (showIntro.value) {
-                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 SplashIntro(
                     handoff = handoff,
                     appReady = !uiState.isLoading,

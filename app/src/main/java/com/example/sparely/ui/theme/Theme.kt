@@ -1,6 +1,5 @@
 package com.example.sparely.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -10,65 +9,105 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = FallbackPrimaryDark,
-    onPrimary = Color(0xFF381E72),
-    primaryContainer = FallbackPrimaryContainerDark,
-    onPrimaryContainer = FallbackPrimaryContainer,
-    secondary = FallbackSecondaryDark,
-    onSecondary = Color(0xFF332D41),
-    secondaryContainer = FallbackSecondaryContainerDark,
-    onSecondaryContainer = FallbackSecondaryContainer,
-    tertiary = FallbackTertiaryDark,
-    onTertiary = Color(0xFF492532),
-    tertiaryContainer = FallbackTertiaryContainerDark,
-    onTertiaryContainer = FallbackTertiaryContainer,
-    background = FallbackBackgroundDark,
-    onBackground = Color(0xFFE6E1E5),
-    surface = FallbackSurfaceDark,
-    onSurface = Color(0xFFE6E1E5),
-    surfaceVariant = FallbackSurfaceVariantDark,
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = FallbackOutlineDark,
-    error = ErrorRed,
-    onError = Color.White,
-    surfaceBright = SurfaceBrightDark,
-    surfaceDim = SurfaceDimDark
+private val SparelyDarkColorScheme = darkColorScheme(
+    primary = SparelyPrimaryDark,
+    onPrimary = SparelyOnPrimaryDark,
+    primaryContainer = SparelyPrimaryContainerDark,
+    onPrimaryContainer = SparelyOnPrimaryContainerDark,
+    inversePrimary = SparelyPrimary,
+    secondary = SparelySecondaryDark,
+    onSecondary = SparelyOnSecondaryDark,
+    secondaryContainer = SparelySecondaryContainerDark,
+    onSecondaryContainer = SparelyOnSecondaryContainerDark,
+    tertiary = SparelyTertiaryDark,
+    onTertiary = SparelyOnTertiaryDark,
+    tertiaryContainer = SparelyTertiaryContainerDark,
+    onTertiaryContainer = SparelyOnTertiaryContainerDark,
+    background = SparelyBackgroundDark,
+    onBackground = SparelyOnBackgroundDark,
+    surface = SparelyBackgroundDark,
+    onSurface = SparelyOnBackgroundDark,
+    surfaceVariant = SparelySurfaceVariantDark,
+    onSurfaceVariant = SparelyOnSurfaceVariantDark,
+    surfaceTint = SparelyPrimaryDark,
+    inverseSurface = SparelyInverseSurfaceDark,
+    inverseOnSurface = SparelyInverseOnSurfaceDark,
+    error = AlertDark,
+    onError = OnAlertDark,
+    errorContainer = AlertContainerDark,
+    onErrorContainer = OnAlertContainerDark,
+    outline = SparelyOutlineDark,
+    outlineVariant = SparelyOutlineVariantDark,
+    surfaceBright = SparelySurfaceBrightDark,
+    surfaceDim = SparelyBackgroundDark,
+    surfaceContainerLowest = SparelySurfaceContainerLowestDark,
+    surfaceContainerLow = SparelySurfaceContainerLowDark,
+    surfaceContainer = SparelySurfaceContainerDark,
+    surfaceContainerHigh = SparelySurfaceContainerHighDark,
+    surfaceContainerHighest = SparelySurfaceContainerHighestDark
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = FallbackPrimary,
-    onPrimary = Color.White,
-    primaryContainer = FallbackPrimaryContainer,
-    onPrimaryContainer = Color(0xFF21005D),
-    secondary = FallbackSecondary,
-    onSecondary = Color.White,
-    secondaryContainer = FallbackSecondaryContainer,
-    onSecondaryContainer = Color(0xFF1D192B),
-    tertiary = FallbackTertiary,
-    onTertiary = Color.White,
-    tertiaryContainer = FallbackTertiaryContainer,
-    onTertiaryContainer = Color(0xFF31111D),
-    background = FallbackBackground,
-    onBackground = Color(0xFF1C1B1F),
-    surface = FallbackSurface,
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = FallbackSurfaceVariant,
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = FallbackOutline,
-    error = ErrorRed,
-    onError = Color.White,
-    surfaceBright = SurfaceBright,
-    surfaceDim = SurfaceDim
+private val SparelyLightColorScheme = lightColorScheme(
+    primary = SparelyPrimary,
+    onPrimary = SparelyOnPrimary,
+    primaryContainer = SparelyPrimaryContainer,
+    onPrimaryContainer = SparelyOnPrimaryContainer,
+    inversePrimary = BrandMint,
+    secondary = SparelySecondary,
+    onSecondary = SparelyOnSecondary,
+    secondaryContainer = SparelySecondaryContainer,
+    onSecondaryContainer = SparelyOnSecondaryContainer,
+    tertiary = SparelyTertiary,
+    onTertiary = SparelyOnTertiary,
+    tertiaryContainer = SparelyTertiaryContainer,
+    onTertiaryContainer = SparelyOnTertiaryContainer,
+    background = SparelyBackground,
+    onBackground = SparelyOnBackground,
+    surface = SparelyBackground,
+    onSurface = SparelyOnBackground,
+    surfaceVariant = SparelySurfaceVariant,
+    onSurfaceVariant = SparelyOnSurfaceVariant,
+    surfaceTint = SparelyPrimary,
+    inverseSurface = SparelyInverseSurface,
+    inverseOnSurface = SparelyInverseOnSurface,
+    error = AlertLight,
+    onError = OnAlertLight,
+    errorContainer = AlertContainerLight,
+    onErrorContainer = OnAlertContainerLight,
+    outline = SparelyOutline,
+    outlineVariant = SparelyOutlineVariant,
+    surfaceBright = SparelyBackground,
+    surfaceDim = SparelySurfaceDim,
+    surfaceContainerLowest = SparelySurfaceContainerLowest,
+    surfaceContainerLow = SparelySurfaceContainerLow,
+    surfaceContainer = SparelySurfaceContainer,
+    surfaceContainerHigh = SparelySurfaceContainerHigh,
+    surfaceContainerHighest = SparelySurfaceContainerHighest
+)
+
+/**
+ * Fixed brand colors for signature surfaces like the dashboard hero card: spruce container, ink text,
+ * mint accents, in every theme (wallpaper colors included). Wrap content in [SparelyBrandSurface].
+ */
+private val SparelyBrandColorScheme = SparelyDarkColorScheme.copy(
+    primary = BrandMint,
+    primaryContainer = BrandSpruce,
+    onPrimaryContainer = BrandInk,
+    background = BrandDeepSpruce,
+    surface = BrandDeepSpruce,
+    onSurface = BrandInk,
+    onSurfaceVariant = BrandMuted
 )
 
 @Composable
 fun SparelyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Wallpaper colors (Android 12+). Off by default so the app wears Sparely's colors;
+    // Settings > Appearance turns it on.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -77,8 +116,8 @@ fun SparelyTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> SparelyDarkColorScheme
+        else -> SparelyLightColorScheme
     }
 
     CompositionLocalProvider(LocalSpacing provides SparelySpacing()) {
@@ -90,3 +129,13 @@ fun SparelyTheme(
         )
     }
 }
+
+/** Shows [content] in Sparely's fixed brand colors, whatever the app theme. */
+@Composable
+fun SparelyBrandSurface(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = SparelyBrandColorScheme, content = content)
+}
+
+/** True for dark color schemes, wallpaper-based ones included. */
+internal val androidx.compose.material3.ColorScheme.isDark: Boolean
+    get() = background.luminance() < 0.5f

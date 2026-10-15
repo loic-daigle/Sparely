@@ -323,6 +323,12 @@ class SettingsViewModel(
         return container.localAiManager.summarize(facts, language = lang)
     }
 
+    fun updateDynamicColorEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateDynamicColorEnabled(enabled)
+        }
+    }
+
     fun updateOnDeviceAiEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             // Turning AI off also forgets the answers it wrote about the user's finances.

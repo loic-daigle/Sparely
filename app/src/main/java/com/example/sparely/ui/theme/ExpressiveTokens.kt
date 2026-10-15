@@ -7,44 +7,45 @@ import androidx.compose.ui.graphics.Color
 import com.example.sparely.domain.model.ExpenseCategory
 
 /**
- * Semantic expressive color roles derived from the active Material 3 color scheme.
- * This keeps status/category colors aligned with dynamic color while preserving meaning.
+ * Money colors: saved/positive (success, Sparely mint-green), goals and caution (warning, Sparely gold)
+ * and alerts (critical, red). They are fixed brand values, chosen for light or dark, so they mean the
+ * same thing in every theme, including wallpaper colors. See Color.kt.
  */
 val ColorScheme.success: Color
-    get() = tertiary
+    get() = if (isDark) SavedDark else SavedLight
 
 val ColorScheme.onSuccess: Color
-    get() = onTertiary
+    get() = if (isDark) OnSavedDark else OnSavedLight
 
 val ColorScheme.successContainer: Color
-    get() = tertiaryContainer
+    get() = if (isDark) SavedContainerDark else SavedContainerLight
 
 val ColorScheme.onSuccessContainer: Color
-    get() = onTertiaryContainer
+    get() = if (isDark) OnSavedContainerDark else OnSavedContainerLight
 
 val ColorScheme.warning: Color
-    get() = secondary
+    get() = if (isDark) GoalDark else GoalLight
 
 val ColorScheme.onWarning: Color
-    get() = onSecondary
+    get() = if (isDark) OnGoalDark else OnGoalLight
 
 val ColorScheme.warningContainer: Color
-    get() = secondaryContainer
+    get() = if (isDark) GoalContainerDark else GoalContainerLight
 
 val ColorScheme.onWarningContainer: Color
-    get() = onSecondaryContainer
+    get() = if (isDark) OnGoalContainerDark else OnGoalContainerLight
 
 val ColorScheme.critical: Color
-    get() = error
+    get() = if (isDark) AlertDark else AlertLight
 
 val ColorScheme.onCritical: Color
-    get() = onError
+    get() = if (isDark) OnAlertDark else OnAlertLight
 
 val ColorScheme.criticalContainer: Color
-    get() = errorContainer
+    get() = if (isDark) AlertContainerDark else AlertContainerLight
 
 val ColorScheme.onCriticalContainer: Color
-    get() = onErrorContainer
+    get() = if (isDark) OnAlertContainerDark else OnAlertContainerLight
 
 fun ColorScheme.categoryColor(category: ExpenseCategory): Color {
     return when (category) {

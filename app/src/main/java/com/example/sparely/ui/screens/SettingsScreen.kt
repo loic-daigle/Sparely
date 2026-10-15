@@ -167,6 +167,7 @@ fun SettingsScreen(
     localAiState: com.example.sparely.ai.LocalAiState = com.example.sparely.ai.LocalAiState.Checking,
     localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
+    onDynamicColorEnabledChange: (Boolean) -> Unit = {},
     onRefreshLocalAi: () -> Unit = {},
     onDownloadLocalAi: () -> Unit = {},
     onTestLocalAi: suspend () -> com.example.sparely.ai.LocalAiResult = { com.example.sparely.ai.LocalAiResult.NotReady },
@@ -387,6 +388,13 @@ fun SettingsScreen(
                             currencySymbol = settings.regionalSettings.getCurrencySymbol(),
                             onUndoAssistantAction = onUndoAssistantAction,
                             onAuthenticateUser = onAuthenticateUser
+                        )
+                    }
+
+                    SettingsSection.Appearance -> {
+                        SettingsAppearanceCard(
+                            dynamicColorEnabled = settings.dynamicColorEnabled,
+                            onDynamicColorEnabledChange = onDynamicColorEnabledChange
                         )
                     }
 
