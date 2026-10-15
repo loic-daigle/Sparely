@@ -939,4 +939,9 @@
     <string name="settings_dynamic_color_title">Utiliser les couleurs de mon fond d’écran</string>
     <string name="settings_dynamic_color_description">Utilise les couleurs de votre fond d’écran au lieu du vert Sparely. Les couleurs des montants ne changent pas.</string>
     <string name="settings_dynamic_color_unavailable">Nécessite Android 12 ou une version plus récente.</string>
+    <string name="pending_bills_title">Factures à confirmer</string>
+    <string name="pending_bills_desc">Ces factures changent chaque fois. Vérifiez le montant, puis confirmez pour l’enregistrer.</string>
+    <string name="pending_bills_expected">Prévu : %1$s · en attente depuis le %2$s</string>
+    <string name="pending_bills_amount_label">Montant</string>
+    <string name="pending_bills_confirm">Confirmer</string>
 </resources>

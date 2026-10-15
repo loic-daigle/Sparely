@@ -47,6 +47,7 @@ import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringFrequency
 import com.example.sparely.domain.model.SavingsChallenge
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transformLatest
@@ -2267,6 +2268,9 @@ class SavingsRepository(
         vaults: List<com.example.sparely.domain.model.SmartVault>
     ): Unit = withMainAccountLock { database.withTransaction {
         if (!actualAmount.isValidAmount()) return@withTransaction
+        // Only bills still waiting for confirmation: confirming the same bill twice (in the app, then
+        // from its notification) must not record it twice.
+        if (pendingVariableRecurringExpenseDao.getByRecurringExpenseId(recurringExpenseId) == null) return@withTransaction
         val recurringEntity = recurringExpenseDao.getById(recurringExpenseId) ?: return@withTransaction
 
         // Update amount history in the entity
@@ -2431,32 +2435,23 @@ class SavingsRepository(
         pendingVariableRecurringExpenseDao.deleteByRecurringExpenseId(recurringExpenseId)
     } }
 
-    /*
-    // TODO: These functions need proper implementation with correct DAO methods
-    suspend fun getPendingVariableRecurringExpenses(): List<Pair<com.example.sparely.domain.model.RecurringExpense, Double>> {
-        return pendingVariableRecurringExpenseDao.getAll().mapNotNull { pending ->
-            val recurring = recurringExpenseDao.getById(pending.recurringExpenseId)
-            if (recurring != null) {
-                Pair(recurring.toDomain(), pending.predictedAmount)
-            } else {
-                null
-            }
-        }
-    }
-
-    fun observePendingVariableRecurringExpenses(): Flow<List<Pair<com.example.sparely.domain.model.RecurringExpense, Double>>> {
-        return pendingVariableRecurringExpenseDao.observeAll().map { pendingList ->
-            pendingList.mapNotNull { pending ->
-                val recurring = recurringExpenseDao.observeRecurringExpenses().first().find { it.id == pending.recurringExpenseId }
-                if (recurring != null) {
-                    Pair(recurring.toDomain(), pending.predictedAmount)
-                } else {
-                    null
+    /** Variable-amount bills waiting for the user to confirm their real amount, oldest first. */
+    fun observePendingVariableBills(): Flow<List<com.example.sparely.domain.model.PendingVariableBill>> =
+        combine(
+            pendingVariableRecurringExpenseDao.observeAll(),
+            recurringExpenseDao.observeRecurringExpenses()
+        ) { pending, recurring ->
+            val recurringById = recurring.associateBy { it.id }
+            pending.mapNotNull { row ->
+                recurringById[row.recurringExpenseId]?.let { entity ->
+                    com.example.sparely.domain.model.PendingVariableBill(
+                        recurringExpense = entity.toDomain(),
+                        predictedAmount = row.predictedAmount,
+                        waitingSince = row.createdAt
+                    )
                 }
-            }
+            }.sortedBy { it.waitingSince }
         }
-    }
-    */
 
     suspend fun getAssetCostProjection(
         assetId: Long,

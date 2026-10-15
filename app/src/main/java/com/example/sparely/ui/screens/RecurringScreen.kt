@@ -168,7 +168,10 @@ fun RecurringExpensesScreen(
     brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
     onBrandSearch: (String) -> Unit = {},
     /** Figures for the on-device AI section; it hides itself when AI is off. */
-    aiFacts: List<com.example.sparely.ai.Fact> = emptyList()
+    aiFacts: List<com.example.sparely.ai.Fact> = emptyList(),
+    pendingVariableBills: List<com.example.sparely.domain.model.PendingVariableBill> = emptyList(),
+    currencySymbol: String = "$",
+    onConfirmVariableBill: (recurringExpenseId: Long, amount: Double) -> Unit = { _, _ -> }
 ) {
     var isDialogVisible by remember { mutableStateOf(false) }
     var editingExpense by remember { mutableStateOf<RecurringExpense?>(null) }
@@ -204,6 +207,17 @@ fun RecurringExpensesScreen(
             val savedNames = recurringExpenses.map { it.description.trim().lowercase() }.toSet()
             val unsavedDetected = detectedRecurring.filter { it.description.trim().lowercase() !in savedNames }
 
+            // Bills waiting for their real amount come first: nothing else moves until they're confirmed.
+            if (pendingVariableBills.isNotEmpty()) {
+                item(key = "pending_variable_bills") {
+                    com.example.sparely.ui.components.PendingVariableBillsCard(
+                        bills = pendingVariableBills,
+                        currencySymbol = currencySymbol,
+                        onConfirm = onConfirmVariableBill,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+            }
             item(key = "overview") {
                 RecurringOverviewCard(
                     expenses = sortedExpenses,

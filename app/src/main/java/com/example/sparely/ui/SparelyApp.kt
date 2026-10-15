@@ -137,6 +137,7 @@ fun SparelyApp(
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     
     val context = LocalContext.current
@@ -165,6 +166,8 @@ fun SparelyApp(
                 "vaultDetails" -> SparelyDestination.Vaults.route  // No dedicated vault details, go to Vaults
                 "settings" -> SparelyDestination.Settings.route
                 "history" -> SparelyDestination.History.route
+                // "Edit amount" on a variable bill's notification: the Recurring page lists it to confirm
+                "variableRecurring" -> SparelyDestination.Recurring.route
                 else -> destination  // Use as-is for other routes
             }
             
@@ -724,6 +727,8 @@ private fun SparelyNavHost(
             DashboardScreen(
                 uiState = uiState,
                 pendingVaultContributions = vaultUiState.pendingVaultContributions,
+                pendingVariableBills = pendingVariableBills,
+                onConfirmVariableBill = viewModel::confirmVariableBill,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
                 onRepeatLastExpense = { expense ->
                     viewModel.setPrefillExpense(expense.copy(id = 0L))
@@ -930,7 +935,10 @@ private fun SparelyNavHost(
                 paymentMethods = uiState.paymentMethods,
                 onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
                 brandSearchResults = brandSearchResults,
-                onBrandSearch = viewModel::searchBrands
+                onBrandSearch = viewModel::searchBrands,
+                pendingVariableBills = pendingVariableBills,
+                currencySymbol = recurringSymbol,
+                onConfirmVariableBill = viewModel::confirmVariableBill
             )
         }
         composable(SparelyDestination.PurchaseCheck.route) {

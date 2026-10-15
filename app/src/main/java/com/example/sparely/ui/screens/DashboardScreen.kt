@@ -138,6 +138,8 @@ fun DashboardScreen(
     onManageAssets: () -> Unit = {},
     onConvertRecurringInsight: (DetectedRecurringTransaction) -> Unit = {},
     onTransferIdleToSavings: (amount: Double) -> Unit = {},
+    pendingVariableBills: List<com.example.sparely.domain.model.PendingVariableBill> = emptyList(),
+    onConfirmVariableBill: (recurringExpenseId: Long, amount: Double) -> Unit = { _, _ -> },
     // allow parent to hide dashboard's own FAB when a global FAB/menu is provided
     showFloatingFab: Boolean = true
 ) {
@@ -269,6 +271,17 @@ fun DashboardScreen(
                     onManageVaults = onManageVaults,
                     onViewInsights = onNavigateToInsights
                 )
+            }
+
+            // ── Variable bills waiting for their real amount ──────────────
+            if (pendingVariableBills.isNotEmpty()) {
+                item(key = "pending_variable_bills") {
+                    com.example.sparely.ui.components.PendingVariableBillsCard(
+                        bills = pendingVariableBills,
+                        currencySymbol = uiState.settings.regionalSettings.getCurrencySymbol(),
+                        onConfirm = onConfirmVariableBill
+                    )
+                }
             }
 
             // ── Needs attention ─────────────────────────────────────────

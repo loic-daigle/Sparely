@@ -1919,4 +1919,9 @@
     <string name="settings_dynamic_color_title">Match my wallpaper colors</string>
     <string name="settings_dynamic_color_description">Use colors from your wallpaper instead of Sparely green. Money colors stay the same.</string>
     <string name="settings_dynamic_color_unavailable">Needs Android 12 or newer.</string>
+    <string name="pending_bills_title">Bills to confirm</string>
+    <string name="pending_bills_desc">These bills change every time. Check the amount, then confirm to record it.</string>
+    <string name="pending_bills_expected">Expected %1$s · waiting since %2$s</string>
+    <string name="pending_bills_amount_label">Amount</string>
+    <string name="pending_bills_confirm">Confirm</string>
 </resources>

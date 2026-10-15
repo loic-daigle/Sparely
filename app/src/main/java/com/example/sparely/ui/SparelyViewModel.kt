@@ -91,6 +91,9 @@ import kotlinx.coroutines.flow.Flow
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -812,6 +815,25 @@ class SparelyViewModel(
             )
             // Processed on the due date so the schedule moves to the occurrence after it.
             recordRecurringPayment(recurringExpenseId, dueDate, input, paidRecord, onDone)
+        }
+
+        /** Variable-amount bills waiting for the user to confirm what they actually cost. */
+        val pendingVariableBills: StateFlow<List<com.example.sparely.domain.model.PendingVariableBill>> =
+            savingsRepository.observePendingVariableBills()
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+        /** Records a waiting variable bill at the amount the user confirmed, and clears its notification. */
+        fun confirmVariableBill(recurringExpenseId: Long, amount: Double) {
+            safeLaunch {
+                savingsRepository.processVariableRecurringExpenseWithAmount(
+                    recurringExpenseId = recurringExpenseId,
+                    actualAmount = amount,
+                    processDate = LocalDate.now(),
+                    settings = preferencesRepository.getSettingsSnapshot(),
+                    vaults = savingsRepository.observeSmartVaults().first()
+                )
+                com.example.sparely.notifications.NotificationHelper.dismissVariableRecurringNotification(container.context)
+            }
         }
 
         private val _recurringPaymentUndos = MutableStateFlow<Map<Long, RecurringPaymentUndo>>(emptyMap())
