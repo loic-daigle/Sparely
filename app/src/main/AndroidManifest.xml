@@ -28,9 +28,12 @@
         android:theme="@style/Theme.Sparely"
         android:name="com.example.sparely.SparelyApplication">
         
+        <!-- singleTop: notification taps (FLAG_ACTIVITY_CLEAR_TOP) reach the open app through
+             onNewIntent instead of tearing it down and starting it over -->
         <activity
             android:name="com.example.sparely.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Sparely.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -163,34 +163,6 @@ fun SparelyApp(
     val vaultUiState by vaultViewModel.uiState.collectAsStateWithLifecycle()
     val allVaults by vaultViewModel.smartVaults.collectAsStateWithLifecycle()
 
-    LaunchedEffect(deepLinkDestination) {
-        deepLinkDestination?.let { destination ->
-            // Map notification routes to valid SparelyDestination routes
-            val actualRoute = when (destination) {
-                "paycheck" -> SparelyDestination.Dashboard.createRoute()  // No dedicated paycheck screen, go to Dashboard
-                "vaultTransfers" -> SparelyDestination.VaultTransfers.route
-                "creditCards" -> {
-                    // Check if URI contains card ID parameter
-                    if (destination.contains("?cardId=")) destination else SparelyDestination.CreditCards.createRoute() 
-                }
-                "vaults" -> SparelyDestination.Vaults.route
-                "vaultDetails" -> SparelyDestination.Vaults.route  // No dedicated vault details, go to Vaults
-                "settings" -> SparelyDestination.Settings.route
-                "history" -> SparelyDestination.History.route
-                // "Edit amount" on a variable bill's notification: the Recurring page lists it to confirm
-                "variableRecurring" -> SparelyDestination.Recurring.route
-                else -> destination  // Use as-is for other routes
-            }
-            
-            // Only navigate if the route is valid
-            try {
-                navController.navigate(actualRoute)
-            } catch (e: Exception) {
-                android.util.Log.e("SparelyApp", "Failed to navigate to $actualRoute from deep link $destination", e)
-            }
-            onDeepLinkHandled()
-        }
-    }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
@@ -589,7 +561,9 @@ private fun SparelyScaffold(
                 allVaults = allVaults,
                 snackbarHostState = snackbarHostState,
                 onAuthenticateUser = onAuthenticateUser,
-                settingsHeader = settingsHeader
+                settingsHeader = settingsHeader,
+                deepLinkDestination = deepLinkDestination,
+                onDeepLinkHandled = onDeepLinkHandled
             )
         }
     }
@@ -740,7 +714,9 @@ private fun SparelyNavHost(
     allVaults: List<com.example.sparely.domain.model.SmartVault>,
     snackbarHostState: SnackbarHostState,
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit,
-    settingsHeader: com.example.sparely.ui.screens.SettingsHeaderState
+    settingsHeader: com.example.sparely.ui.screens.SettingsHeaderState,
+    deepLinkDestination: String?,
+    onDeepLinkHandled: () -> Unit
 ) {
     val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -1388,6 +1364,38 @@ private fun SparelyNavHost(
                     navController.navigate(SparelyDestination.History.createRoute(expense.id))
                 }
             )
+        }
+    }
+
+    // Here, after the NavHost, so the graph exists: run from the app root, a link that arrived while
+    // the app was still loading (every notification tap that starts it) navigated before there was a
+    // graph, failed, and was dropped, leaving the user on the home page
+    LaunchedEffect(deepLinkDestination) {
+        deepLinkDestination?.let { destination ->
+            // Map notification routes to valid SparelyDestination routes
+            val actualRoute = when (destination) {
+                "paycheck" -> SparelyDestination.Dashboard.createRoute()  // No dedicated paycheck screen, go to Dashboard
+                "vaultTransfers" -> SparelyDestination.VaultTransfers.route
+                "creditCards" -> {
+                    // Check if URI contains card ID parameter
+                    if (destination.contains("?cardId=")) destination else SparelyDestination.CreditCards.createRoute() 
+                }
+                "vaults" -> SparelyDestination.Vaults.route
+                "vaultDetails" -> SparelyDestination.Vaults.route  // No dedicated vault details, go to Vaults
+                "settings" -> SparelyDestination.Settings.route
+                "history" -> SparelyDestination.History.route
+                // "Edit amount" on a variable bill's notification: the Recurring page lists it to confirm
+                "variableRecurring" -> SparelyDestination.Recurring.route
+                else -> destination  // Use as-is for other routes
+            }
+            
+            // Only navigate if the route is valid
+            try {
+                navController.navigate(actualRoute)
+            } catch (e: Exception) {
+                android.util.Log.e("SparelyApp", "Failed to navigate to $actualRoute from deep link $destination", e)
+            }
+            onDeepLinkHandled()
         }
     }
 }

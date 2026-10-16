@@ -95,7 +95,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }
         }
         
-        handleDeepLink(intent)
+        // Only for a fresh start: after a rotation the same intent would open its page a second time
+        if (savedInstanceState == null) handleDeepLink(intent)
         
         // Light system bar icons over the spruce splash, intro and lock screen; default once in the app.
         applySystemBars(brandScreen = playIntro)
@@ -286,6 +287,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleDeepLink(intent)
     }
     
