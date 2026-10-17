@@ -216,7 +216,9 @@ fun SparelyApp(
             vaultViewModel = vaultViewModel,
             vaultUiState = vaultUiState,
             allVaults = allVaults,
-            onAuthenticateUser = onAuthenticateUser
+            onAuthenticateUser = onAuthenticateUser,
+            deepLinkDestination = deepLinkDestination,
+            onDeepLinkHandled = onDeepLinkHandled
         )
     }
 }
@@ -233,7 +235,9 @@ private fun SparelyScaffold(
     vaultViewModel: VaultViewModel,
     vaultUiState: com.example.sparely.ui.viewmodel.VaultUiState,
     allVaults: List<com.example.sparely.domain.model.SmartVault>,
-    onAuthenticateUser: ((Boolean) -> Unit) -> Unit
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit,
+    deepLinkDestination: String?,
+    onDeepLinkHandled: () -> Unit
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
