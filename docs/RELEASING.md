@@ -5,12 +5,22 @@ key never has to be on a laptop or in the repository.
 
 ## One-time setup: the release key
 
-1. Create the key (keep it forever; without it no update can install over a previous release):
+1. Create the key (keep it forever; without it no update can install over a previous release).
+   **In Android Studio:**
+   1. **Build → Generate Signed App Bundle or APK…**, pick **APK**, then **Next**.
+   2. Under *Key store path*, click **Create new…**
+   3. *Key store path*: somewhere outside the project, e.g. `Documents/sparely-release.jks`.
+      Choose a password and confirm it.
+   4. *Key*: alias `sparely`, a password (can be the same), validity `25` years or more, and at
+      least your name under *Certificate*. Click **OK**.
+   5. The key file now exists. Click **Cancel** to close the wizard: GitHub does the signing.
+
+   **Or in a terminal** (Android Studio's *Terminal* tab works):
    ```
    keytool -genkeypair -v -keystore sparely-release.jks -keyalg RSA -keysize 4096 -validity 10000 -alias sparely
    ```
 2. **Back it up offline** with its passwords (a password manager, a USB key).
-3. Turn it into text:
+3. Turn it into text (in Android Studio's *Terminal* tab, from the folder holding the key):
    - macOS: `base64 -i sparely-release.jks | pbcopy`
    - Linux: `base64 -w0 sparely-release.jks`
    - Windows (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("sparely-release.jks"))`
