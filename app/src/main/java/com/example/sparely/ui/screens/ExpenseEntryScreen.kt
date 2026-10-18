@@ -196,7 +196,8 @@ fun ExpenseEntryScreen(
     var isSaving by remember { mutableStateOf(false) }
     var selectedStore by remember { mutableStateOf<Store?>(prefillExpense?.storeId?.let { storeId -> stores.find { it.id == storeId } }) }
     var searchQuery by rememberSaveable { mutableStateOf(prefillExpense?.storeId?.let { storeId -> stores.find { it.id == storeId }?.name } ?: "") }
-    var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(prefillExpense?.paymentMethodId?.let { methodId -> paymentMethods.find { it.id == methodId } }) }
+    // Picked by the "Set initial payment method" effect below, which also sets its deduct default
+    var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
     var notes by rememberSaveable { mutableStateOf(prefillExpense?.notes ?: "") }
     var orderNumber by rememberSaveable { mutableStateOf(prefillExpense?.orderNumber ?: "") }
     var selectedAssetAllocations by remember { mutableStateOf(prefillAssetAllocations) }
@@ -248,19 +249,27 @@ fun ExpenseEntryScreen(
     }
 
     // ========== Set initial payment method ==========
+    // Only the method's id survives leaving the form (to manage payment methods, say), so it's
+    // looked up again when the form comes back
+    var savedPaymentMethodId by rememberSaveable { mutableStateOf<Long?>(null) }
+    androidx.compose.runtime.LaunchedEffect(selectedPaymentMethod) {
+        selectedPaymentMethod?.let { savedPaymentMethodId = it.id }
+    }
     androidx.compose.runtime.LaunchedEffect(paymentMethods, prefillExpense?.paymentMethodId) {
-        val prefillMethodId = prefillExpense?.paymentMethodId
-        val prefillMethod = prefillMethodId?.let { methodId -> paymentMethods.find { it.id == methodId } }
-
-        if (prefillMethod != null) {
-            selectedPaymentMethod = prefillMethod
-            deductFromMainAccount = prefillMethod.defaultDeductFromMainAccount
-        } else if (selectedPaymentMethod == null) {
-            val default = paymentMethods.find { it.isDefault }
-            if (default != null) {
-                selectedPaymentMethod = default
-                deductFromMainAccount = default.defaultDeductFromMainAccount
-            }
+        // Only while nothing is picked: a method the user chose is never replaced, even when the
+        // list changes (a method added in Settings)
+        if (selectedPaymentMethod != null) return@LaunchedEffect
+        val restored = savedPaymentMethodId?.let { methodId -> paymentMethods.find { it.id == methodId } }
+        if (restored != null) {
+            // Its deduct choice was saved along with the rest of the form
+            selectedPaymentMethod = restored
+            return@LaunchedEffect
+        }
+        val prefillMethod = prefillExpense?.paymentMethodId?.let { methodId -> paymentMethods.find { it.id == methodId } }
+        val method = prefillMethod ?: paymentMethods.find { it.isDefault }
+        if (method != null) {
+            selectedPaymentMethod = method
+            deductFromMainAccount = method.defaultDeductFromMainAccount
         }
     }
 
