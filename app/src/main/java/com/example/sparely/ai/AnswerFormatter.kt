@@ -20,10 +20,12 @@ object AnswerFormatter {
 
     fun clean(raw: String, maxChars: Int = DEFAULT_MAX_CHARS): String {
         var text = raw.replace("\r\n", "\n").trim()
+        // A label can come before other Markdown ("Summary: ## This month") or be wrapped in it
+        // ("**Answer:**"), so it's looked for both before and after the Markdown is removed
+        text = text.replace(LEADING_LABEL, "")
         text = text.replace(HEADING, "")
         text = text.replace(BULLET, "• ")
         text = text.replace(EMPHASIS, "")
-        // After the emphasis is gone, so a bold "**Answer:**" label is found too
         text = text.replace(LEADING_LABEL, "")
         text = text.replace(TRAILING_SPACES, "")
         text = text.replace(EXTRA_BLANK_LINES, "\n\n")
