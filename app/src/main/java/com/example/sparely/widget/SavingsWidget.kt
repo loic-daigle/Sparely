@@ -19,6 +19,8 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.Image
+import androidx.glance.ColorFilter
+import androidx.glance.layout.Box
 import androidx.glance.ImageProvider
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
@@ -74,9 +76,17 @@ class SavingsWidget : GlanceAppWidget() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val openAppAction = actionStartActivity(openAppIntent)
+        // The "+" opens Log purchase through the same navigate_to extra as notifications and shortcuts.
+        // Its own data URI keeps its PendingIntent apart from the open-app one.
+        val addExpenseIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data = android.net.Uri.parse("sparely://widget/add-expense")
+            putExtra("navigate_to", "expense")
+        }
+        val addExpenseAction = actionStartActivity(addExpenseIntent)
 
         provideContent {
-            SavingsWidgetContent(snapshot = snapshot, openApp = openAppAction)
+            SavingsWidgetContent(snapshot = snapshot, openApp = openAppAction, addExpense = addExpenseAction)
         }
     }
 }
@@ -347,7 +357,7 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
     reminderDays = recurringExpense.reminderDaysBefore
 )
 @Composable
-private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action) {
+private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action, addExpense: Action) {
     val ctx = androidx.glance.LocalContext.current
     val currencyFormatter = rememberCurrencyFormatter()
 
@@ -432,6 +442,21 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                         )
                     )
                 }
+            }
+            Box(
+                modifier = GlanceModifier
+                    .size(40.dp)
+                    .background(primaryColor)
+                    .cornerRadius(20.dp)
+                    .clickable(addExpense),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    provider = ImageProvider(R.drawable.add_48px),
+                    contentDescription = ctx.getString(R.string.shortcut_add_expense_long),
+                    colorFilter = ColorFilter.tint(surfaceColor),
+                    modifier = GlanceModifier.size(22.dp)
+                )
             }
         }
         

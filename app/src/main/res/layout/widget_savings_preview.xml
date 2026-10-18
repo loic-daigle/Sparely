@@ -27,6 +27,18 @@
             android:layout_marginStart="8dp"
             android:contentDescription="@string/app_name"
             android:src="@drawable/ic_sparely_wordmark" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- The widget's "+" (Log purchase) button -->
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_shortcut_expense" />
     </LinearLayout>
 
     <LinearLayout

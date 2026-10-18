@@ -30,6 +30,13 @@ wx, wy = pad + 36 * S, pad + 1 * S
 d.text((wx, wy), 'sparely', font=word, fill=INK)
 d.text((wx + d.textlength('sparely', font=word), wy), '.', font=word, fill=GOLD)
 
+# The "+" (Log purchase) button: spruce plus on a mint circle
+r = 16 * S; cx, cy = W - pad - r, pad + 14 * S
+d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=MINT)
+arm, t = 7 * S, int(1.2 * S)
+d.rounded_rectangle([cx - arm, cy - t, cx + arm, cy + t], radius=t, fill=SPRUCE)
+d.rounded_rectangle([cx - t, cy - arm, cx + t, cy + arm], radius=t, fill=SPRUCE)
+
 top = pad + 28 * S + 12 * S
 d.rounded_rectangle([pad, top, W - pad, H - pad], radius=16 * S, fill=DEEP)
 x = pad + 14 * S
