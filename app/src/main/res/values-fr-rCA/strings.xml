@@ -952,4 +952,6 @@
     <string name="insights_heatmap_subtitle">%1$d dernières semaines · tu dépenses le plus le %2$s</string>
     <string name="widget_savings_description">Ton épargne, le solde du mois et ton taux d\'épargne en un coup d\'œil</string>
     <string name="settings_haptics_description">Une légère vibration quand tu enregistres un achat ou confirmes un virement</string>
+    <string name="backup_reminder_title">Sauvegarde tes données</string>
+    <string name="backup_reminder_body">Tout ce qui est dans Sparely se trouve seulement sur ce téléphone, et aucune sauvegarde n\'est récente. Exportes-en une ou active les sauvegardes automatiques.</string>
 </resources>

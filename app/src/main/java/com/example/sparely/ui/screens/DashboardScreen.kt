@@ -140,6 +140,9 @@ fun DashboardScreen(
     onTransferIdleToSavings: (amount: Double) -> Unit = {},
     pendingVariableBills: List<com.example.sparely.domain.model.PendingVariableBill> = emptyList(),
     onConfirmVariableBill: (recurringExpenseId: Long, amount: Double) -> Unit = { _, _ -> },
+    showBackupReminder: Boolean = false,
+    onBackupNow: () -> Unit = {},
+    onSnoozeBackupReminder: () -> Unit = {},
     // allow parent to hide dashboard's own FAB when a global FAB/menu is provided
     showFloatingFab: Boolean = true
 ) {
@@ -281,6 +284,13 @@ fun DashboardScreen(
                         currencySymbol = uiState.settings.regionalSettings.getCurrencySymbol(),
                         onConfirm = onConfirmVariableBill
                     )
+                }
+            }
+
+            // ── No recent backup: everything lives only on this phone ──
+            if (showBackupReminder) {
+                item(key = "backup_reminder") {
+                    BackupReminderCard(onBackupNow = onBackupNow, onLater = onSnoozeBackupReminder)
                 }
             }
 
@@ -2545,5 +2555,39 @@ private fun ChallengesEmptyCard(onAddChallenge: () -> Unit) {
                 )
             }
         )
+    }
+}
+
+/** Nudge to export a backup (or turn on automatic ones) when none is recent. */
+@Composable
+private fun BackupReminderCard(onBackupNow: () -> Unit, onLater: () -> Unit) {
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.HISTORY,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = stringResource(R.string.backup_reminder_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Text(
+                text = stringResource(R.string.backup_reminder_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
+                SparelyTextButton(onClick = onLater) { Text(stringResource(R.string.backup_reminder_later)) }
+                SparelyButton(onClick = onBackupNow) { Text(stringResource(R.string.backup_reminder_action)) }
+            }
+        }
     }
 }

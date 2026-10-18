@@ -572,6 +572,7 @@ class SettingsViewModel(
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(json.toByteArray())
                 }
+                preferencesRepository.updateLastManualBackupTimestamp(System.currentTimeMillis())
                 _uiState.update { it.copy(isLoading = false, errorMessage = AppStrings.get(R.string.backup_export_success, "Backup exported")) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Export failed: ${e.message}") }

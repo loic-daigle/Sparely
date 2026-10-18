@@ -751,6 +751,13 @@ private fun SparelyNavHost(
                 pendingVaultContributions = vaultUiState.pendingVaultContributions,
                 pendingVariableBills = pendingVariableBills,
                 onConfirmVariableBill = viewModel::confirmVariableBill,
+                showBackupReminder = com.example.sparely.domain.logic.BackupReminder.isDue(
+                    uiState.settings,
+                    uiState.expenses.size,
+                    System.currentTimeMillis()
+                ),
+                onBackupNow = { navController.openSettingsSection(SettingsSection.Data) },
+                onSnoozeBackupReminder = viewModel::snoozeBackupReminder,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
                 onRepeatLastExpense = { expense ->
                     viewModel.setPrefillExpense(expense.copy(id = 0L))

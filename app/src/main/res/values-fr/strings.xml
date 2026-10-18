@@ -2139,4 +2139,8 @@
     <string name="widget_savings_description">Votre épargne, le solde du mois et votre taux d\'épargne en un coup d\'œil</string>
     <string name="settings_haptics_title">Vibration</string>
     <string name="settings_haptics_description">Une légère vibration quand vous enregistrez un achat ou confirmez un virement</string>
+    <string name="backup_reminder_title">Sauvegardez vos données</string>
+    <string name="backup_reminder_body">Tout ce qui est dans Sparely se trouve seulement sur ce téléphone, et aucune sauvegarde n\'est récente. Exportez-en une ou activez les sauvegardes automatiques.</string>
+    <string name="backup_reminder_action">Sauvegarder</string>
+    <string name="backup_reminder_later">Plus tard</string>
 </resources>

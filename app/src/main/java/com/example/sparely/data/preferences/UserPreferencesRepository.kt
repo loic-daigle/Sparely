@@ -531,6 +531,18 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateLastManualBackupTimestamp(timestamp: Long) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.lastManualBackupTimestamp] = timestamp
+        }
+    }
+
+    suspend fun snoozeBackupReminder(untilMs: Long) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.backupReminderSnoozedUntil] = untilMs
+        }
+    }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.onboardingCompleted] = completed
@@ -752,6 +764,8 @@ class UserPreferencesRepository(private val context: Context) {
             autoBackupEnabled = this[PreferenceKeys.autoBackupEnabled] ?: false,
             autoBackupFrequencyDays = this[PreferenceKeys.autoBackupFrequencyDays] ?: 7,
             lastAutoBackupTimestamp = this[PreferenceKeys.lastAutoBackupTimestamp],
+            lastManualBackupTimestamp = this[PreferenceKeys.lastManualBackupTimestamp],
+            backupReminderSnoozedUntil = this[PreferenceKeys.backupReminderSnoozedUntil],
             mainOverflowAccountId = this[PreferenceKeys.mainOverflowAccountId],
             minMainAccountBalance = this.finite(PreferenceKeys.minMainAccountBalance) ?: 0.0,
             autoCreateAssetThreshold = this.finite(PreferenceKeys.autoCreateAssetThreshold) ?: 0.0
@@ -857,6 +871,8 @@ class UserPreferencesRepository(private val context: Context) {
         val autoBackupEnabled = booleanPreferencesKey("auto_backup_enabled")
         val autoBackupFrequencyDays = intPreferencesKey("auto_backup_frequency_days")
         val lastAutoBackupTimestamp = longPreferencesKey("last_auto_backup_timestamp")
+        val lastManualBackupTimestamp = longPreferencesKey("last_manual_backup_timestamp")
+        val backupReminderSnoozedUntil = longPreferencesKey("backup_reminder_snoozed_until")
         
         // Overflow Account (HISA/High-Yield Savings)
         val mainOverflowAccountId = longPreferencesKey("main_overflow_account_id")

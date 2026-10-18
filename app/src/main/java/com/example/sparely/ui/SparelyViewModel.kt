@@ -1206,6 +1206,15 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         }
     }
 
+    /** "Later" on the dashboard's backup reminder. */
+    fun snoozeBackupReminder() {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.snoozeBackupReminder(
+                System.currentTimeMillis() + com.example.sparely.domain.logic.BackupReminder.SNOOZE_MS
+            )
+        }
+    }
+
     fun clearPrefillExpense() {
         _uiState.update { it.copy(prefillExpense = null, prefillAssetAllocations = emptyMap()) }
     }

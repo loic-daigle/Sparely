@@ -2169,4 +2169,8 @@
     <string name="widget_savings_description">Your savings, this month\'s balance and your savings rate at a glance</string>
     <string name="settings_haptics_title">Vibration</string>
     <string name="settings_haptics_description">A light vibration when you save a purchase or confirm a transfer</string>
+    <string name="backup_reminder_title">Back up your data</string>
+    <string name="backup_reminder_body">Everything in Sparely lives only on this phone, and there\'s no recent backup. Export one, or turn on automatic backups.</string>
+    <string name="backup_reminder_action">Back up</string>
+    <string name="backup_reminder_later">Later</string>
 </resources>

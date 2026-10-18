@@ -265,6 +265,10 @@ data class SparelySettings(
     val autoBackupEnabled: Boolean = false,
     val autoBackupFrequencyDays: Int = 7,  // Weekly by default
     val lastAutoBackupTimestamp: Long? = null,
+    // Last time the user exported a backup by hand, for the dashboard's backup reminder
+    val lastManualBackupTimestamp: Long? = null,
+    // "Later" on the backup reminder hides it until then (epoch ms)
+    val backupReminderSnoozedUntil: Long? = null,
     // Overflow account settings (HISA/High-Yield Savings)
     val mainOverflowAccountId: Long? = null,
     val minMainAccountBalance: Double = 0.0,
