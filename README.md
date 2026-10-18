@@ -1,25 +1,93 @@
-<p align="center"><img src="docs/branding/sparely-icon-512.png" width="128" alt="Sparely logo"></p>
+<p align="center"><img src="docs/branding/sparely-banner.png" alt="Sparely: save the small stuff." width="100%"></p>
 
-# Sparely
+<p align="center">
+  <a href="https://github.com/loic-daigle/Sparely/releases/latest"><img src="https://img.shields.io/github/v/release/loic-daigle/Sparely?label=download&color=0F3D34" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-8.0%2B-8FE3C0" alt="Android 8.0 or newer">
+  <img src="https://img.shields.io/badge/languages-English%20%7C%20Fran%C3%A7ais-F4CB6A" alt="English and French">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/loic-daigle/Sparely?color=9DBDB2" alt="License"></a>
+</p>
 
-**Sparely** is a modern Android personal finance and savings app built with Jetpack Compose. Track expenses, manage smart savings vaults, set budgets, and achieve your financial goals with intelligent allocation recommendations.
+**Sparely** is a personal finance and savings app for Android. Log what you spend, set money aside in
+savings vaults, keep bills and budgets in check, and decide whether a purchase fits before you make it.
+Everything stays on your phone: no account, no ads, no cloud.
 
-> 🤖 **Developed with AI**: This project was developed with the assistance of AI coding agents.
+> 🤖 **Developed with AI**: this project was developed with the help of AI coding agents.
 
+## 📥 Download
+
+1. Open the [latest release](https://github.com/loic-daigle/Sparely/releases/latest) on your phone.
+2. Under **Assets**, tap the `.apk` file to download it.
+3. Open it and allow your browser or file manager to install apps when Android asks.
+
+Needs Android 8.0 or newer. Your data lives only on your phone, so export a backup
+(Settings → Data) before uninstalling.
+
+## 📸 Screenshots
+
+<!-- The gallery shows once the images are in docs/screenshots/ (see the list there): remove this
+     comment's opening and closing lines to turn it on.
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/dashboard.png" width="240" alt="Home"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/add-expense.png" width="240" alt="Adding an expense"><br><sub>Add an expense</sub></td>
+    <td align="center"><img src="docs/screenshots/history.png" width="240" alt="Expense history"><br><sub>History</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/vaults.png" width="240" alt="Savings vaults"><br><sub>Savings vaults</sub></td>
+    <td align="center"><img src="docs/screenshots/budgets.png" width="240" alt="Budgets"><br><sub>Budgets</sub></td>
+    <td align="center"><img src="docs/screenshots/recurring.png" width="240" alt="Recurring bills"><br><sub>Recurring bills</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/afford-it.png" width="240" alt="Can I afford it?"><br><sub>Can I afford it?</sub></td>
+    <td align="center"><img src="docs/screenshots/insights.png" width="240" alt="Insights"><br><sub>Insights</sub></td>
+    <td align="center"><img src="docs/screenshots/payment-suggestion.png" width="240" alt="Purchase detected from a payment notification"><br><sub>Purchase detection</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/widget.png" width="240" alt="Home screen widget"><br><sub>Widget</sub></td>
+    <td align="center"><img src="docs/screenshots/dark.png" width="240" alt="Dark theme"><br><sub>Dark theme</sub></td>
+    <td></td>
+  </tr>
+</table>
+-->
+
+*Screenshots are coming soon.*
 
 ## ✨ Features
 
-- 📊 **Smart Savings Allocation** - AI-powered recommendations based on your financial profile
-- 💰 **Expense Tracking** - Category-based expense logging with automatic allocation
-- 🎯 **Smart Vaults** - Goal-based savings with automated deposits and progress tracking
-- 🔄 **Recurring Expenses** - Manage subscriptions and regular bills
-- 📈 **Financial Analytics** - Comprehensive insights into spending patterns and savings rate
-- 🏪 **Store/Merchant Tracking** - Track expenses by store with logo integration (via Brandfetch API)
-- 📱 **Home Screen Widget** - Quick view of your savings and spending at a glance
-- 💾 **Backup & Restore** - Export and import all your data in JSON format
-- 🎨 **Material Design 3** - Modern, beautiful UI following Material You guidelines
+**Spending**
+- 💸 **Fast expense entry**: big amount field with a calculator (`12.50+8.99`), categories, stores with logos, notes and itemized receipts
+- 🔔 **Purchase detection** (optional): when Google Wallet, your bank or card app, or PayPal reports a purchase, Sparely offers to log it with one tap, using the payment method you set for that app
+- 🧾 **History**: search, filters by period, category and store, refunds and per-store totals
+- 💳 **Payment methods and credit cards**: track card balances, limits and statement payments
 
-## 🏗️ Architecture
+**Saving**
+- 🏦 **Smart vaults**: goal-based savings with automatic deposits and progress
+- 💰 **Savings accounts**: interest, deposits and withdrawals
+- 🎯 **Smart allocation**: a share of what you spend or earn goes to your savings automatically
+
+**Planning**
+- 📅 **Recurring bills and subscriptions**, including bills whose amount changes, which you confirm each time
+- 📊 **Budgets** by category
+- 🛍️ **"Can I afford it?" and a wishlist**: a verdict for a purchase, and a cooling-off period for wishes
+- ❤️ **Financial health score** and insights into your spending patterns
+
+**Everywhere**
+- 🧠 **On-device AI** (optional, supported phones): plain-language summaries and answers that never leave the phone ([details](docs/ON_DEVICE_AI.md))
+- 🗣️ **Assistant access** (optional, Android 16+): ask Gemini about your spending or to log an expense ([details](docs/AI_ASSISTANTS.md))
+- 📱 **Home screen widget**
+- 🔒 **App lock** with fingerprint or face unlock
+- 💾 **Backups** of absolutely everything, by hand or on a schedule
+- 🇨🇦 **English and French**, with Sparely's own colors or your wallpaper's (Material You)
+
+## 🔒 Privacy
+
+Sparely has no account and no server. Everything you enter is stored only on your phone. The only
+optional network use is fetching store logos from Brandfetch, with your own key. Purchase detection
+reads only the notifications of the apps you pick, on the phone. See [PRIVACY.md](PRIVACY.md).
+
+## 🧑‍💻 For developers
+
+### 🏗️ Architecture
 
 - **UI Layer:** Jetpack Compose with Material 3
 - **Database:** Room with SQLite for local persistence
@@ -28,15 +96,15 @@
 - **State Management:** ViewModel + StateFlow
 - **Background Tasks:** WorkManager for scheduled operations
 
-## 🚀 Getting Started
+### 🚀 Building from source
 
-### Prerequisites
+#### Prerequisites
 
 - Android Studio (Hedgehog 2023.1.1 or later)
 - JDK 11 or higher
 - Android SDK (API 26+)
 
-### Setup
+#### Setup
 
 1. **Clone the repository**
    ```bash
@@ -57,7 +125,7 @@
    - Connect an Android device or start an emulator (API 26+)
    - Click the "Run" button or press `Shift + F10`
 
-### Optional: Brandfetch Integration
+#### Optional: Brandfetch integration
 
 To enable store logo fetching:
 
@@ -65,7 +133,7 @@ To enable store logo fetching:
 2. In the app: Settings → Brandfetch Client ID
 3. Enter your API key
 
-## 🛠️ Tech Stack
+### 🛠️ Tech stack
 
 | Category | Technology |
 |----------|-----------|
@@ -79,7 +147,7 @@ To enable store logo fetching:
 | Async | Coroutines + Flow |
 | Navigation | Navigation Compose |
 
-## 📦 Backup & Restore
+### 📦 Backup & restore
 
 **Export your data:**
 1. Go to Settings
@@ -93,85 +161,12 @@ To enable store logo fetching:
 
 The backup includes all expenses, vaults, budgets, stores, recurring expenses, and settings.
 
-## 🤖 AI Assistant Access (AppFunctions)
+### More docs
 
-On Android 16+ (API 36), Sparely exposes [AppFunctions](https://developer.android.com/ai/appfunctions) so on-device assistants such as Gemini can help with your money:
-
-- **Read:** spending summaries, expense search, budgets, vaults, account balances, upcoming bills and the wishlist ("How much did I spend on dining this month?").
-- **Record:** new expenses and income ("I spent 42 dollars on groceries"). Assistants cannot edit or delete existing data.
-- **Prepare:** vault deposits, vault withdrawals and refunds ("Put 200 in my trip vault"). These move no money: the assistant opens a Sparely confirmation screen, and nothing happens until you tap Confirm.
-
-Both are **off by default**, under Settings > Security:
-- "Allow AI assistants" turns on reading.
-- "Let assistants add entries" also allows recording entries and preparing transfers and refunds.
-
-If biometric unlock is on, turning either on requires authentication. Until a setting is on, the matching calls fail with an error that tells the assistant which setting to ask the user to enable.
-
-Every entry an assistant adds:
-- goes through the same code as entering it in the app, so balances, vaults and saving tax stay consistent
-- is logged and shows a notification with **Undo**; the last 10 also appear under Settings > Security with an Undo button
-- is refused if an identical one was added in the last 5 minutes, since assistants sometimes retry
-
-Every transfer or refund an assistant prepares:
-- moves money only after you confirm it on Sparely's confirmation screen, which asks for biometric unlock first if app lock is on
-- is checked again against your current balances when the screen opens and when you confirm
-- expires after 30 minutes and can only be carried out once, even if the link is opened again
-
-Code:
-- Functions and their descriptions: `appfunctions/SparelyAppFunctionServiceBase.kt` (the KDoc is what the assistant reads)
-- Read logic: `appfunctions/SparelyAssistantQueries.kt`; write logic: `appfunctions/SparelyAssistantActions.kt`
-- Undo: `domain/usecase/UndoAssistantActionUseCase.kt`
-- Transfers and refunds: `appfunctions/AssistantTransfers.kt` (validation), `AssistantTransferExecutor.kt` and `AssistantConfirmActivity.kt`
-
-**Testing:**
-- Unit tests (JVM): `./gradlew testDebugUnitTest --tests "com.example.sparely.appfunctions.*"`
-- End-to-end on an API 36+ emulator or device: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.sparely.appfunctions.SparelyAppFunctionsInstrumentedTest`
-- Check the functions are registered: `adb shell cmd app_function list-app-functions`
-
-## 🧠 On-Device AI (Gemini Nano)
-
-Sparely can write short summaries and answer questions about your money using Gemini Nano, Google's AI model that runs **entirely on your phone** through Android AICore. Your financial data never leaves the device.
-
-Where it appears:
-- **Dashboard:** "Your day at a glance" at the top of the Insights section: one or two sentences on what needs attention today, above the low balance, idle money and spending trend rows; tap it to open Insights
-- **Insights:** a summary of your month with one tip, and "Ask about your finances"
-- **Budgets:** a summary of how your budgets are doing
-- **Vaults:** how your savings goals are going, which one needs attention and what it needs per month, with questions
-- **Recurring:** what your recurring payments cost per month and per year, the biggest ones and one to review, with questions
-- **Can I afford it?:** an explanation of the verdict, and questions about the purchase ("What if I wait a month?")
-- **Wishlist item details:** whether now is a good time to buy it, and questions ("How long until I can afford it?")
-- **Financial health:** the score explained, and questions ("How do I raise my score fastest?")
-
-Sparely calculates every number; the model only puts them into words and never changes the verdict. The whole prompt (rules, facts, amounts and dates) is written in the app's language, English or French, so replies don't mix the two. The cards stay hidden until you turn the feature on.
-
-**Turning it on:** Settings > On-device AI > "Use on-device AI". That screen shows whether your phone supports it, downloads the model if needed, and has a "Test with sample numbers" button.
-
-**Supported phones:** phones where Google offers the ML Kit GenAI Prompt API (for example the Pixel 9, 9 Pro and Pixel 10 series). Sparely tries the model variants in this order and uses the first one the phone offers: stable/full, stable/fast, preview/fast. Phones with no variant just don't show the AI cards; everything else works the same.
-
-### Phones that don't officially support it (e.g. Pixel 9a)
-
-The Pixel 9a has a smaller Gemini Nano that Google doesn't expose to other apps yet: Sparely reports `Feature 636 is not available` (and 645 for the fast variant). You can still use it by enrolling the phone in Google's **AICore Developer Preview**, which offers the Gemini Nano 4 Fast preview model:
-
-1. Read [Google's AICore Developer Preview guide](https://developers.google.com/ml-kit/genai/aicore-dev-preview) and check your phone is listed.
-2. Join the [aicore-experimental Google group](https://groups.google.com/g/aicore-experimental/about) with the Google account on the phone.
-3. Become a tester of [Android AICore](https://play.google.com/apps/testing/com.google.android.aicore) (use the link in Google's guide if this one doesn't work).
-4. Update **Android AICore** from the Play Store and restart the phone.
-5. Open the AICore app, go to its model picker and download **Gemini Nano 4 Fast (preview)**. Wait for the download to finish.
-6. Close Sparely completely, reopen it and go to Settings > On-device AI. Turn on "Use on-device AI" and tap "Test with sample numbers".
-
-If it worked, Logcat (tag `GeminiNano`) shows `Using Gemini Nano preview/fast`. On the Pixel 9a the preview model runs on the CPU, so answers can take several seconds.
-
-Notes:
-- Preview models are for testing: Google may change or remove them, and only enrolled phones get them.
-- Status checks can report the model as ready while AICore is still downloading it; the test button is the real check.
-- Sparely uses `genai-prompt` `1.0.0-beta4`, the first version that runs Gemini Nano 4: on `beta2` the preview model is found but every request fails with `INFERENCE_ERROR` 200. `beta4` has a known bug where its stable/full config isn't found on most phones ([googlesamples/mlkit#1061](https://github.com/googlesamples/mlkit/issues/1061)); Sparely then tries the next variant.
-
-Code:
-- Engine and variant selection: `ai/GeminiNanoTextModel.kt`; summarizer fallback: `ai/GeminiNanoSummarizer.kt`
-- Support checks, downloads, caching and requests: `ai/LocalAiManager.kt`
-- Facts sent to the model and prompts: `ai/FinanceFacts.kt`, `ai/FinancePrompt.kt`; reply cleanup: `ai/AnswerFormatter.kt`
-- Cards used on screens: `ui/components/OnDeviceAi.kt`
-- Unit tests (JVM): `./gradlew testDebugUnitTest --tests "com.example.sparely.ai.*"`
+- [On-device AI (Gemini Nano)](docs/ON_DEVICE_AI.md): supported phones, setup on the Pixel 9a, code and tests
+- [AI assistant access (AppFunctions)](docs/AI_ASSISTANTS.md): what assistants can read and do, safeguards, code and tests
+- [Screenshots](docs/screenshots/README.md): which screenshots the README uses and how to update them
+- `scripts/generate_icons.py` and `scripts/generate_banner.py`: launcher icons and the README banner
 
 ## 🤝 Contributing
 
@@ -188,10 +183,6 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🔒 Privacy
-
-Sparely stores all data locally on your device. No data is sent to external servers (except optional Brandfetch API calls for store logos). You have full control over your financial data with export/import capabilities.
 
 ## 🐛 Known Issues
 
