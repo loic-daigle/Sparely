@@ -376,14 +376,35 @@ fun HistoryScreen(
                 itemsIndexed(dailyExpenses, key = { _, expense -> expense.id }) { index, expense ->
                     val isFirst = index == 0
                     val isLast = index == dailyExpenses.lastIndex
-                    ModernExpenseCard(
+                    val cardShape = RoundedCornerShape(
+                        topStart = if (isFirst) 24.dp else 6.dp,
+                        topEnd = if (isFirst) 24.dp else 6.dp,
+                        bottomStart = if (isLast) 24.dp else 6.dp,
+                        bottomEnd = if (isLast) 24.dp else 6.dp
+                    )
+                    // Swipe left to delete (still asks first), right to duplicate. The card always
+                    // springs back: the dialog or the expense form takes it from there
+                    val swipeState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            when (value) {
+                                SwipeToDismissBoxValue.EndToStart -> expenseToDelete = expense
+                                SwipeToDismissBoxValue.StartToEnd -> onDuplicateExpense(expense)
+                                SwipeToDismissBoxValue.Settled -> Unit
+                            }
+                            false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = swipeState,
+                        enableDismissFromStartToEnd = !isSelectionMode,
+                        enableDismissFromEndToStart = !isSelectionMode,
                         modifier = Modifier.padding(top = if (isFirst) 0.dp else 2.dp),
-                        shape = RoundedCornerShape(
-                            topStart = if (isFirst) 24.dp else 6.dp,
-                            topEnd = if (isFirst) 24.dp else 6.dp,
-                            bottomStart = if (isLast) 24.dp else 6.dp,
-                            bottomEnd = if (isLast) 24.dp else 6.dp
-                        ),
+                        backgroundContent = {
+                            ExpenseSwipeBackground(direction = swipeState.dismissDirection, shape = cardShape)
+                        }
+                    ) {
+                    ModernExpenseCard(
+                        shape = cardShape,
                         expense = expense,
                         store = stores.find { it.id == expense.storeId },
                         brandfetchClientId = brandfetchClientId,
@@ -426,6 +447,7 @@ fun HistoryScreen(
                         onRefund = { expenseToRefund = expense },
                         onDuplicate = { onDuplicateExpense(expense) }
                     )
+                    }
                 }
             }
 
@@ -1948,4 +1970,30 @@ fun BulkDeleteConfirmationDialog(
     )
 }
 
+/** What shows under an expense being swiped: duplicate on the left, delete on the right. */
+@Composable
+private fun ExpenseSwipeBackground(direction: SwipeToDismissBoxValue, shape: androidx.compose.ui.graphics.Shape) {
+    val colors = MaterialTheme.colorScheme
+    val (container, content, icon, alignment) = when (direction) {
+        SwipeToDismissBoxValue.EndToStart -> SwipeLook(colors.errorContainer, colors.onErrorContainer, MaterialSymbols.DELETE, Alignment.CenterEnd)
+        SwipeToDismissBoxValue.StartToEnd -> SwipeLook(colors.primaryContainer, colors.onPrimaryContainer, MaterialSymbols.CONTENT_COPY, Alignment.CenterStart)
+        SwipeToDismissBoxValue.Settled -> return
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(shape)
+            .background(container)
+            .padding(horizontal = 24.dp),
+        contentAlignment = alignment
+    ) {
+        MaterialSymbolIcon(icon = icon, contentDescription = null, tint = content)
+    }
+}
 
+private data class SwipeLook(
+    val container: androidx.compose.ui.graphics.Color,
+    val content: androidx.compose.ui.graphics.Color,
+    val icon: Int,
+    val alignment: Alignment
+)
