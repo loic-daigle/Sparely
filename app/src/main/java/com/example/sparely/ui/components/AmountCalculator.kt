@@ -16,6 +16,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.border
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.runtime.remember
@@ -159,5 +169,65 @@ private fun CalculatorKey(
         Box(contentAlignment = Alignment.Center) {
             Text(symbol, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+/**
+ * [SparelyTextField]'s look for an amount that accepts calculator math, with the + − × ÷ = keys
+ * under it while it has focus. The math settles into its result when the field loses focus.
+ * [onValueChange] gets the raw text; pass it through filterAmountExpressionInput.
+ */
+@Composable
+fun SparelyAmountTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: @Composable (() -> Unit)? = null,
+    prefix: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    // Off for a field too narrow for the keys (half a row): typed math still works there
+    showCalculatorKeys: Boolean = true
+) {
+    var fieldValue by rememberAmountFieldValue(value)
+    var focused by remember { mutableStateOf(false) }
+    val ringColor by animateColorAsState(
+        targetValue = when {
+            isError -> MaterialTheme.colorScheme.error
+            focused -> MaterialTheme.colorScheme.primary
+            else -> Color.Transparent
+        },
+        label = "amountFieldRing"
+    )
+    val shape = RoundedCornerShape(16.dp)
+    Column(modifier = modifier) {
+        TextField(
+            value = fieldValue,
+            onValueChange = { newValue ->
+                fieldValue = newValue
+                if (newValue.text != value) onValueChange(newValue.text)
+            },
+            label = label,
+            prefix = prefix,
+            singleLine = true,
+            enabled = enabled,
+            isError = isError,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            shape = shape,
+            colors = sparelyTextFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, ringColor, shape)
+                .onFocusChanged { state ->
+                    if (focused && !state.isFocused) settleAmountExpression(value, onValueChange)
+                    focused = state.isFocused
+                }
+        )
+        AmountCalculatorKeys(
+            value = value,
+            onValueChange = onValueChange,
+            visible = focused && enabled && showCalculatorKeys,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
     }
 }

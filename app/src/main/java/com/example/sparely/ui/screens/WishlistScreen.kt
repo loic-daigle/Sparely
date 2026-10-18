@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.background
+import com.example.sparely.ui.components.SparelyAmountTextField
 import com.example.sparely.ui.components.ExpressiveEmptyState
 import com.example.sparely.ui.components.segmentSpacing
 import com.example.sparely.ui.components.segmentedShape
@@ -59,7 +60,7 @@ import com.example.sparely.ui.theme.critical
 import com.example.sparely.ui.theme.spacing
 import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.theme.warning
-import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.utils.toSafeDouble
@@ -647,12 +648,11 @@ internal fun AddSavingsDialog(remaining: Double, onDismiss: () -> Unit, onConfir
         title = { Text(stringResource(R.string.wishlist_add_savings)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)) {
-                SparelyTextField(
+                SparelyAmountTextField(
                     value = text,
-                    onValueChange = { text = it.filterCurrencyInput() },
+                    onValueChange = { text = it.filterAmountExpressionInput() },
                     label = { Text(stringResource(R.string.wishlist_amount_label)) },
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    prefix = { Text("$") }
                 )
                 Text(
                     text = stringResource(R.string.wishlist_remaining, remaining.formatCurrency(decimals = 0)),

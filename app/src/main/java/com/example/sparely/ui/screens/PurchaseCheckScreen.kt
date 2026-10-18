@@ -48,6 +48,7 @@ import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.FindingKind
 import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.Impact
 import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.Verdict
 import com.example.sparely.domain.logic.WishPlan
+import com.example.sparely.ui.components.SparelyAmountTextField
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SegmentGap
 import com.example.sparely.ui.components.segmentedShape
@@ -63,6 +64,7 @@ import com.example.sparely.ui.theme.critical
 import com.example.sparely.ui.theme.spacing
 import com.example.sparely.ui.theme.success
 import com.example.sparely.ui.theme.warning
+import com.example.sparely.ui.utils.filterAmountExpressionInput
 import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.formatCurrency
 import com.example.sparely.ui.utils.formatPercent
@@ -128,14 +130,14 @@ fun PurchaseCheckScreen(
         item(key = "input") {
             InputCard(
                 priceText = priceText,
-                onPriceChange = { priceText = it.filterCurrencyInput() },
+                onPriceChange = { priceText = it.filterAmountExpressionInput() },
                 enabled = input != null,
                 addTax = addTax,
                 onAddTaxChange = { addTax = it },
                 taxPercentText = taxPercentText,
                 onTaxPercentChange = { taxPercentText = it.filterCurrencyInput() },
                 extrasText = extrasText,
-                onExtrasChange = { extrasText = it.filterCurrencyInput() },
+                onExtrasChange = { extrasText = it.filterAmountExpressionInput() },
                 realCost = realCost.takeIf { sticker != null && it != null && it - sticker >= 0.005 }
             )
         }
@@ -276,13 +278,12 @@ private fun InputCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            SparelyTextField(
+            SparelyAmountTextField(
                 value = priceText,
                 onValueChange = onPriceChange,
                 label = { Text(stringResource(R.string.purchase_check_price_label)) },
                 prefix = { Text("$") },
-                enabled = enabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                enabled = enabled
             )
 
             SparelyChip(
@@ -305,12 +306,12 @@ private fun InputCard(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                SparelyTextField(
+                SparelyAmountTextField(
                     value = extrasText,
                     onValueChange = onExtrasChange,
                     label = { Text(stringResource(R.string.purchase_check_extras_label), maxLines = 1) },
                     prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    showCalculatorKeys = false,
                     modifier = Modifier.weight(1f)
                 )
             }
