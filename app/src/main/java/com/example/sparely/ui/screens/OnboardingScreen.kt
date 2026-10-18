@@ -184,6 +184,10 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // The app draws edge to edge: keep the steps clear of the system bars and, above all,
+            // the keyboard, so a step's scroll area ends at the keyboard and its lower fields and
+            // Next button can be scrolled into view while typing
+            .safeDrawingPadding()
     ) {
         if (snackbarHostState != null) {
             SnackbarHost(
@@ -413,6 +417,8 @@ fun WelcomeStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Scrolls on small screens or with a large font instead of cutting off the buttons
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -2000,6 +2006,8 @@ private fun WelcomeStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Scrolls on small screens or with a large font instead of cutting off the buttons
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
