@@ -950,4 +950,5 @@
     <string name="pending_bills_amount_label">Montant</string>
     <string name="pending_bills_confirm">Confirmer</string>
     <string name="insights_heatmap_subtitle">%1$d dernières semaines · tu dépenses le plus le %2$s</string>
+    <string name="widget_savings_description">Ton épargne, le solde du mois et ton taux d\'épargne en un coup d\'œil</string>
 </resources>

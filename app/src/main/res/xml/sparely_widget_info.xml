@@ -6,5 +6,8 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="10800000"
     android:initialLayout="@layout/widget_savings_placeholder"
+    android:previewLayout="@layout/widget_savings_preview"
+    android:previewImage="@drawable/widget_savings_preview"
+    android:description="@string/widget_savings_description"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

@@ -2133,4 +2133,8 @@
     <string name="insights_heatmap_day">%1$s : %2$s</string>
     <string name="insights_heatmap_less">Moins</string>
     <string name="insights_heatmap_more">Plus</string>
+    <string name="widget_preview_total">4 812,40 $</string>
+    <string name="widget_preview_month">+318,75 $</string>
+    <string name="widget_preview_rate">24 %</string>
+    <string name="widget_savings_description">Votre épargne, le solde du mois et votre taux d\'épargne en un coup d\'œil</string>
 </resources>

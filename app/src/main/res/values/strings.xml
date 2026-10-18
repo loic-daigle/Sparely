@@ -2163,4 +2163,8 @@
     <string name="insights_heatmap_day">%1$s: %2$s</string>
     <string name="insights_heatmap_less">Less</string>
     <string name="insights_heatmap_more">More</string>
+    <string name="widget_preview_total">$4,812.40</string>
+    <string name="widget_preview_month">+$318.75</string>
+    <string name="widget_preview_rate">24%</string>
+    <string name="widget_savings_description">Your savings, this month\'s balance and your savings rate at a glance</string>
 </resources>
