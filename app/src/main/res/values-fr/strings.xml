@@ -2126,4 +2126,6 @@
     <string name="shortcut_record_income_long">Ajouter un revenu</string>
     <string name="shortcut_afford_short">Abordable?</string>
     <string name="shortcut_afford_long">Puis-je me le permettre ?</string>
+    <string name="payment_action_undo">Annuler</string>
+    <string name="payment_undone">Achat retiré</string>
 </resources>

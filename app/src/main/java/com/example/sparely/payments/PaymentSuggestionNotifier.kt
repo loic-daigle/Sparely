@@ -24,6 +24,7 @@ object PaymentSuggestionNotifier {
     const val EXTRA_NOTIFICATION_ID = "payment_notification_id"
     /** Package of the app that reported the payment, to pick the payment method set for it. */
     const val EXTRA_SOURCE_PACKAGE = "payment_source_package"
+    const val EXTRA_EXPENSE_ID = "payment_expense_id"
     /** navigate_to value MainActivity turns into a prefilled expense form. */
     const val NAVIGATE_EDIT = "detectedPayment"
 
@@ -64,6 +65,50 @@ object PaymentSuggestionNotifier {
             .build()
         notify(context, id, notification)
     }
+
+    /**
+     * "Logged 12,34 $ at Tim Hortons" after Add, with Undo for a mistaken tap. Uses the suggestion's
+     * own id, so it takes the suggestion's place in the shade.
+     */
+    fun showLogged(context: Context, id: Int, message: String, expenseId: Long) {
+        if (!canNotify(context)) return
+        ensureChannel(context)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
+            .setContentTitle(message)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(LOGGED_TIMEOUT_MS)
+            .addAction(
+                R.drawable.ic_sparely_mark_mono,
+                context.getString(R.string.payment_action_undo),
+                PaymentSuggestionReceiver.undoIntent(context, id, expenseId)
+            )
+            .build()
+        notify(context, id, notification)
+    }
+
+    /** Short confirmation once Undo removed the purchase. */
+    fun showUndone(context: Context, id: Int) {
+        if (!canNotify(context)) return
+        ensureChannel(context)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setColor(ContextCompat.getColor(context, R.color.sparely_spruce))
+            .setContentTitle(context.getString(R.string.payment_undone))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(UNDONE_TIMEOUT_MS)
+            .build()
+        notify(context, id, notification)
+    }
+
+    // Long enough to notice a mistaken Add; it then leaves the shade by itself
+    private const val LOGGED_TIMEOUT_MS = 10 * 60 * 1000L
+    private const val UNDONE_TIMEOUT_MS = 5_000L
 
     fun cancel(context: Context, id: Int) {
         NotificationManagerCompat.from(context).cancel(id)
