@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press shortcuts on the launcher icon. Each opens MainActivity with the same navigate_to
+     extra the notifications use, handled in MainActivity.handleDeepLink. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_expense"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_expense"
+        android:shortcutShortLabel="@string/shortcut_add_expense_short"
+        android:shortcutLongLabel="@string/shortcut_add_expense_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.sparely.app"
+            android:targetClass="com.example.sparely.MainActivity">
+            <extra android:name="navigate_to" android:value="expense" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="record_income"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_income"
+        android:shortcutShortLabel="@string/shortcut_record_income_short"
+        android:shortcutLongLabel="@string/shortcut_record_income_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.sparely.app"
+            android:targetClass="com.example.sparely.MainActivity">
+            <extra android:name="navigate_to" android:value="paycheck" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="can_i_afford_it"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_afford"
+        android:shortcutShortLabel="@string/shortcut_afford_short"
+        android:shortcutLongLabel="@string/shortcut_afford_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.sparely.app"
+            android:targetClass="com.example.sparely.MainActivity">
+            <extra android:name="navigate_to" android:value="purchaseCheck" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -2150,4 +2150,10 @@
     <string name="calculator_equals">Calculate the result</string>
     <string name="payment_settings_method_default">Default method</string>
     <string name="payment_settings_method_hint">Each app\'s purchases are logged with the payment method beside it.</string>
+    <string name="shortcut_add_expense_short">Purchase</string>
+    <string name="shortcut_add_expense_long">Log purchase</string>
+    <string name="shortcut_record_income_short">Income</string>
+    <string name="shortcut_record_income_long">Record income</string>
+    <string name="shortcut_afford_short">Afford it?</string>
+    <string name="shortcut_afford_long">Can I afford it?</string>
 </resources>

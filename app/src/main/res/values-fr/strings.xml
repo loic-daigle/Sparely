@@ -2120,4 +2120,10 @@
     <string name="calculator_equals">Calculer le résultat</string>
     <string name="payment_settings_method_default">Mode par défaut</string>
     <string name="payment_settings_method_hint">Les achats de chaque app sont enregistrés avec le mode de paiement à côté.</string>
+    <string name="shortcut_add_expense_short">Achat</string>
+    <string name="shortcut_add_expense_long">Enregistrer un achat</string>
+    <string name="shortcut_record_income_short">Revenu</string>
+    <string name="shortcut_record_income_long">Ajouter un revenu</string>
+    <string name="shortcut_afford_short">Abordable?</string>
+    <string name="shortcut_afford_long">Puis-je me le permettre ?</string>
 </resources>

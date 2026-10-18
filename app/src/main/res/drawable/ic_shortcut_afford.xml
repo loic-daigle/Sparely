@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut icon: the shopping_bag symbol in spruce on a mint circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <path
+        android:fillColor="@color/sparely_mint"
+        android:pathData="M480,0a480,480 0,1 1,0 960a480,480 0,1 1,0 -960z" />
+    <group
+        android:pivotX="480"
+        android:pivotY="480"
+        android:scaleX="0.6"
+        android:scaleY="0.6">
+        <path
+            android:fillColor="@color/sparely_spruce"
+            android:pathData="M240,880q-33,0 -56.5,-23.5T160,800v-480q0,-33 23.5,-56.5T240,240h80q0,-66 47,-113t113,-47q66,0 113,47t47,113h80q33,0 56.5,23.5T800,320v480q0,33 -23.5,56.5T720,880L240,880ZM400,240h160q0,-33 -23.5,-56.5T480,160q-33,0 -56.5,23.5T400,240ZM600,440q17,0 28.5,-11.5T640,400v-80h-80v80q0,17 11.5,28.5T600,440ZM360,440q17,0 28.5,-11.5T400,400v-80h-80v80q0,17 11.5,28.5T360,440Z" />
+    </group>
+</vector>
