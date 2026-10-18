@@ -173,6 +173,7 @@ fun ExpenseEntryScreen(
     knownTitles: List<KnownTitle> = emptyList()
 ) {
     val scope = rememberCoroutineScope()
+    val haptics = com.example.sparely.ui.components.LocalSparelyHaptics.current
     val isEditMode = prefillExpense?.id?.let { it > 0L } == true
     val isNewExpense = !isEditMode
 
@@ -395,6 +396,7 @@ fun ExpenseEntryScreen(
             } else {
                 null
             }
+            haptics.confirm()
             onSave(
                 ExpenseInput(
                     id = prefillExpense?.id?.takeIf { it > 0L },

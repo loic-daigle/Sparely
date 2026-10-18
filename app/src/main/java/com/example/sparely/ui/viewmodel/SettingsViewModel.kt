@@ -345,6 +345,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updateHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateHapticsEnabled(enabled)
+        }
+    }
+
     fun updateDynamicColorEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateDynamicColorEnabled(enabled)

@@ -494,6 +494,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateHapticsEnabled(enabled: Boolean) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.hapticsEnabled] = enabled
+        }
+    }
+
     suspend fun updateOnDeviceAiEnabled(enabled: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.onDeviceAiEnabled] = enabled
@@ -654,6 +660,7 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantWriteEnabled = this[PreferenceKeys.aiAssistantWriteEnabled] ?: defaults.aiAssistantWriteEnabled
         val onDeviceAiEnabled = this[PreferenceKeys.onDeviceAiEnabled] ?: defaults.onDeviceAiEnabled
         val dynamicColorEnabled = this[PreferenceKeys.dynamicColorEnabled] ?: defaults.dynamicColorEnabled
+        val hapticsEnabled = this[PreferenceKeys.hapticsEnabled] ?: defaults.hapticsEnabled
         val paymentDetectionEnabled = this[PreferenceKeys.paymentDetectionEnabled] ?: defaults.paymentDetectionEnabled
         val paymentDetectionApps = this[PreferenceKeys.paymentDetectionApps] ?: defaults.paymentDetectionApps
         val paymentDetectionMethods = this[PreferenceKeys.paymentDetectionMethods]
@@ -737,6 +744,7 @@ class UserPreferencesRepository(private val context: Context) {
             aiAssistantWriteEnabled = aiAssistantWriteEnabled,
             onDeviceAiEnabled = onDeviceAiEnabled,
             dynamicColorEnabled = dynamicColorEnabled,
+            hapticsEnabled = hapticsEnabled,
             paymentDetectionEnabled = paymentDetectionEnabled,
             paymentDetectionApps = paymentDetectionApps,
             paymentDetectionMethods = paymentDetectionMethods,
@@ -836,6 +844,7 @@ class UserPreferencesRepository(private val context: Context) {
         val aiAssistantWriteEnabled = booleanPreferencesKey("ai_assistant_write_enabled")
         val onDeviceAiEnabled = booleanPreferencesKey("on_device_ai_enabled")
         val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
+        val hapticsEnabled = booleanPreferencesKey("haptics_enabled")
         val paymentDetectionEnabled = booleanPreferencesKey("payment_detection_enabled")
         val paymentDetectionApps = stringSetPreferencesKey("payment_detection_apps")
         // "package=paymentMethodId" entries

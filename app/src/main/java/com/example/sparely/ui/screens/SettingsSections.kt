@@ -1446,7 +1446,9 @@ private fun openNotificationAccessSettings(context: android.content.Context) {
 @Composable
 fun SettingsAppearanceCard(
     dynamicColorEnabled: Boolean,
-    onDynamicColorEnabledChange: (Boolean) -> Unit
+    onDynamicColorEnabledChange: (Boolean) -> Unit,
+    hapticsEnabled: Boolean = true,
+    onHapticsEnabledChange: (Boolean) -> Unit = {}
 ) {
     // Wallpaper colors only exist on Android 12+.
     val available = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
@@ -1478,6 +1480,21 @@ fun SettingsAppearanceCard(
                     onCheckedChange = onDynamicColorEnabledChange,
                     enabled = available
                 )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_haptics_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(R.string.settings_haptics_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = hapticsEnabled, onCheckedChange = onHapticsEnabledChange)
             }
         }
     }

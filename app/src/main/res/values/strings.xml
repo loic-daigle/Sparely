@@ -2167,4 +2167,6 @@
     <string name="widget_preview_month">+$318.75</string>
     <string name="widget_preview_rate">24%</string>
     <string name="widget_savings_description">Your savings, this month\'s balance and your savings rate at a glance</string>
+    <string name="settings_haptics_title">Vibration</string>
+    <string name="settings_haptics_description">A light vibration when you save a purchase or confirm a transfer</string>
 </resources>

@@ -250,6 +250,8 @@ data class SparelySettings(
     // Use wallpaper (Material You) colors instead of Sparely's brand colors. Android 12+ only;
     // money colors (saved, goals, alerts) keep their brand colors either way.
     val dynamicColorEnabled: Boolean = false,
+    // A light vibration when money is saved or moved (saving an expense, confirming a sheet).
+    val hapticsEnabled: Boolean = true,
     // Suggest an expense when a payment app reports a purchase (needs Notification access).
     val paymentDetectionEnabled: Boolean = false,
     // Apps whose purchase notifications are read, by package name. Google Wallet until the user picks.

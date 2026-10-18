@@ -170,6 +170,7 @@ fun SettingsScreen(
     localAiCanAnswerQuestions: Boolean = false,
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
+    onHapticsEnabledChange: (Boolean) -> Unit = {},
     onPaymentDetectionEnabledChange: (Boolean) -> Unit = {},
     onPaymentDetectionAppsChange: (Set<String>) -> Unit = {},
     onPaymentDetectionMethodChange: (String, Long?) -> Unit = { _, _ -> },
@@ -428,7 +429,9 @@ fun SettingsScreen(
                     SettingsSection.Appearance -> {
                         SettingsAppearanceCard(
                             dynamicColorEnabled = settings.dynamicColorEnabled,
-                            onDynamicColorEnabledChange = onDynamicColorEnabledChange
+                            onDynamicColorEnabledChange = onDynamicColorEnabledChange,
+                            hapticsEnabled = settings.hapticsEnabled,
+                            onHapticsEnabledChange = onHapticsEnabledChange
                         )
                     }
 

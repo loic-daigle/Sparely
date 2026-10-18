@@ -394,6 +394,7 @@ fun SheetActions(
     onDismiss: (() -> Unit)? = null
 ) {
     val colors = MaterialTheme.colorScheme
+    val haptics = LocalSparelyHaptics.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -411,7 +412,10 @@ fun SheetActions(
             }
         }
         SparelyButton(
-            onClick = onConfirm,
+            onClick = {
+                haptics.confirm()
+                onConfirm()
+            },
             enabled = confirmEnabled,
             containerColor = if (destructive) colors.error else colors.primary,
             contentColor = if (destructive) colors.onError else colors.onPrimary,

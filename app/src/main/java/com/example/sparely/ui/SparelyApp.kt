@@ -552,7 +552,11 @@ private fun SparelyScaffold(
             manager.state.first { it == com.example.sparely.ai.LocalAiState.Ready }
             manager.warmup()
         }
-        androidx.compose.runtime.CompositionLocalProvider(com.example.sparely.ui.components.LocalOnDeviceAi provides onDeviceAi) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.example.sparely.ui.components.LocalOnDeviceAi provides onDeviceAi,
+            com.example.sparely.ui.components.LocalSparelyHaptics provides
+                com.example.sparely.ui.components.rememberSparelyHaptics(uiState.settings.hapticsEnabled)
+        ) {
             SparelyNavHost(
                 navController = navController,
                 innerPadding = innerPadding,
@@ -1075,6 +1079,7 @@ private fun SparelyNavHost(
                 localAiCanAnswerQuestions = localAiPromptState == com.example.sparely.ai.LocalAiState.Ready,
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
                 onDynamicColorEnabledChange = settingsViewModel::updateDynamicColorEnabled,
+                onHapticsEnabledChange = settingsViewModel::updateHapticsEnabled,
                 onPaymentDetectionEnabledChange = settingsViewModel::updatePaymentDetectionEnabled,
                 onPaymentDetectionAppsChange = settingsViewModel::updatePaymentDetectionApps,
                 onPaymentDetectionMethodChange = settingsViewModel::updatePaymentDetectionMethod,
