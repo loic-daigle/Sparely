@@ -353,9 +353,16 @@ fun ExpenseEntryScreen(
         listOf(description, initialAmount, category, selectedDate, searchQuery, notes, orderNumber,
             expenseItems.toList(), deductFromVaultId, isIgnored, manualMode)
     }
-    val hasChanges = listOf(description, amountText, category, selectedDate, searchQuery, notes, orderNumber,
+    val changedSinceOpen = listOf(description, amountText, category, selectedDate, searchQuery, notes, orderNumber,
         expenseItems.toList(), deductFromVaultId, isIgnored, manualMode) != initialSnapshot ||
         paymentTouched || selectedAssetAllocations != prefillAssetAllocations
+    // The snapshot is retaken when the form comes back from another screen (managing payment
+    // methods), with the typed input already restored, so whether it was ever changed is saved too
+    var changedBeforeLeaving by rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(changedSinceOpen) {
+        if (changedSinceOpen) changedBeforeLeaving = true
+    }
+    val hasChanges = changedSinceOpen || changedBeforeLeaving
     var showDiscardDialog by remember { mutableStateOf(false) }
     fun requestLeave() {
         if (hasChanges) showDiscardDialog = true else onCancel()
