@@ -1087,6 +1087,7 @@ private fun SparelyNavHost(
                 onOnDeviceAiEnabledChange = settingsViewModel::updateOnDeviceAiEnabled,
                 onDynamicColorEnabledChange = settingsViewModel::updateDynamicColorEnabled,
                 onHapticsEnabledChange = settingsViewModel::updateHapticsEnabled,
+                onAutoLockMinutesChange = settingsViewModel::updateAutoLockMinutes,
                 onPaymentDetectionEnabledChange = settingsViewModel::updatePaymentDetectionEnabled,
                 onPaymentDetectionAppsChange = settingsViewModel::updatePaymentDetectionApps,
                 onPaymentDetectionMethodChange = settingsViewModel::updatePaymentDetectionMethod,

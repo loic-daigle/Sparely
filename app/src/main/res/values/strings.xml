@@ -2174,4 +2174,12 @@
     <string name="backup_reminder_action">Back up</string>
     <string name="backup_reminder_later">Later</string>
     <string name="history_total_spent_matching">Spent on %1$s · %2$s</string>
+    <string name="settings_auto_lock_title">Lock again after</string>
+    <string name="settings_auto_lock_description">How long Sparely can stay in the background before asking to unlock again</string>
+    <string name="settings_auto_lock_immediately">Immediately</string>
+    <string name="settings_auto_lock_on_open">Only when opened</string>
+    <plurals name="settings_auto_lock_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
 </resources>

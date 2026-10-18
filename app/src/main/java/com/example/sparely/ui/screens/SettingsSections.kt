@@ -537,10 +537,55 @@ fun SettingsBudgetCard(
     }
 }
 
+private val AUTO_LOCK_CHOICES = listOf(0, 1, 5, 30, com.example.sparely.domain.model.AUTO_LOCK_ON_OPEN_ONLY)
+
+@Composable
+private fun autoLockLabel(minutes: Int): String = when (minutes) {
+    com.example.sparely.domain.model.AUTO_LOCK_ON_OPEN_ONLY -> stringResource(R.string.settings_auto_lock_on_open)
+    0 -> stringResource(R.string.settings_auto_lock_immediately)
+    else -> pluralStringResource(R.plurals.settings_auto_lock_minutes, minutes, minutes)
+}
+
+/** "Lock again after": how long Sparely may stay in the background before app lock asks again. */
+@Composable
+private fun AutoLockRow(minutes: Int, onChange: (Int) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_auto_lock_title), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = stringResource(R.string.settings_auto_lock_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box {
+            SparelyChip(selected = true, onClick = { menuOpen = true }, label = { Text(autoLockLabel(minutes), maxLines = 1) })
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                AUTO_LOCK_CHOICES.forEach { choice ->
+                    DropdownMenuItem(
+                        text = { Text(autoLockLabel(choice)) },
+                        onClick = {
+                            onChange(choice)
+                            menuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun SettingsSecurityCard(
     biometricEnabled: Boolean,
     onBiometricEnabledChange: (Boolean) -> Unit,
+    autoLockMinutes: Int = 1,
+    onAutoLockMinutesChange: (Int) -> Unit = {},
     aiAssistantAccessEnabled: Boolean,
     onAiAssistantAccessEnabledChange: (Boolean) -> Unit,
     aiAssistantWriteEnabled: Boolean,
@@ -587,6 +632,10 @@ fun SettingsSecurityCard(
                         }
                     }
                 )
+            }
+
+            if (biometricEnabled) {
+                AutoLockRow(minutes = autoLockMinutes, onChange = onAutoLockMinutesChange)
             }
 
             Row(

@@ -54,6 +54,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     // Auth state
     private var isAuthRequired = mutableStateOf(false)
     private var isAuthSuccessful = mutableStateOf(false)
+    // Once unlocked, the app stays composed under the lock screen when it locks again, so the
+    // screen and anything typed are still there after unlocking
+    private val unlockedOnce = mutableStateOf(false)
+    // When Sparely last left the screen while unlocked (elapsedRealtime), for the auto-lock timeout
+    private var backgroundedAtMs: Long? = null
 
     // Brand intro after the system splash; only on a cold start.
     private val showIntro = mutableStateOf(false)
@@ -108,7 +113,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
             // Sparely colors unless the user chose wallpaper colors in Settings > Appearance.
             SparelyTheme(dynamicColor = uiState.settings.dynamicColorEnabled) {
-                if (!locked) {
+                if (!locked || unlockedOnce.value) {
                     SparelyApp(
                         viewModel = viewModel,
                         deepLinkDestination = deepLinkDestination.value,
@@ -126,6 +131,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         onUnlock = { checkBiometricAuth() }
                     )
                 }
+                // Locked again over an open screen: Back leaves the app instead of moving around under the lock
+                androidx.activity.compose.BackHandler(enabled = locked) { moveTaskToBack(true) }
             }
             if (showIntro.value) {
                 SplashIntro(
@@ -161,8 +168,26 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations && isAuthRequired.value && isAuthSuccessful.value) {
+            backgroundedAtMs = SystemClock.elapsedRealtime()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
+        // Back from the background: lock again once the chosen time has passed
+        val leftAt = backgroundedAtMs
+        backgroundedAtMs = null
+        if (leftAt != null && isAuthRequired.value && isAuthSuccessful.value) {
+            val minutes = viewModel.uiState.value.settings.autoLockMinutes
+            val away = SystemClock.elapsedRealtime() - leftAt
+            if (minutes != com.example.sparely.domain.model.AUTO_LOCK_ON_OPEN_ONLY && away >= minutes * 60_000L) {
+                Log.d(TAG, "onStart: away ${away / 1000}s, locking again")
+                isAuthSuccessful.value = false
+            }
+        }
         // Re-check auth when returning to app if it's required but not successful
         if (isAuthRequired.value && !isAuthSuccessful.value) {
             Log.d(TAG, "onStart: biometric required and not successful, prompting")
@@ -184,6 +209,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             Log.w(TAG, "Biometric not available, skipping auth requirement")
             // If we can't authenticate, don't lock the user out
             isAuthSuccessful.value = true
+            unlockedOnce.value = true
             return
         }
 
@@ -199,6 +225,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     super.onAuthenticationSucceeded(result)
                     Log.d(TAG, "Authentication succeeded")
                     isAuthSuccessful.value = true
+            unlockedOnce.value = true
                 }
 
                 override fun onAuthenticationFailed() {

@@ -187,6 +187,9 @@ data class EmergencyFundGoal(
 /**
  * User-configurable settings stored in DataStore.
  */
+/** [SparelySettings.autoLockMinutes] value for "only when the app is opened". */
+const val AUTO_LOCK_ON_OPEN_ONLY = -1
+
 data class SparelySettings(
     val defaultPercentages: SavingsPercentages = SavingsPercentages(
         emergency = 0.18,
@@ -252,6 +255,9 @@ data class SparelySettings(
     val dynamicColorEnabled: Boolean = false,
     // A light vibration when money is saved or moved (saving an expense, confirming a sheet).
     val hapticsEnabled: Boolean = true,
+    // With app lock on, how long Sparely can sit in the background before it locks again:
+    // 0 locks as soon as it leaves the screen, AUTO_LOCK_ON_OPEN_ONLY only when it's opened fresh.
+    val autoLockMinutes: Int = 1,
     // Suggest an expense when a payment app reports a purchase (needs Notification access).
     val paymentDetectionEnabled: Boolean = false,
     // Apps whose purchase notifications are read, by package name. Google Wallet until the user picks.

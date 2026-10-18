@@ -171,6 +171,7 @@ fun SettingsScreen(
     onOnDeviceAiEnabledChange: (Boolean) -> Unit = {},
     onDynamicColorEnabledChange: (Boolean) -> Unit = {},
     onHapticsEnabledChange: (Boolean) -> Unit = {},
+    onAutoLockMinutesChange: (Int) -> Unit = {},
     onPaymentDetectionEnabledChange: (Boolean) -> Unit = {},
     onPaymentDetectionAppsChange: (Set<String>) -> Unit = {},
     onPaymentDetectionMethodChange: (String, Long?) -> Unit = { _, _ -> },
@@ -415,6 +416,8 @@ fun SettingsScreen(
                         SettingsSecurityCard(
                             biometricEnabled = settings.biometricEnabled,
                             onBiometricEnabledChange = onBiometricEnabledChange,
+                            autoLockMinutes = settings.autoLockMinutes,
+                            onAutoLockMinutesChange = onAutoLockMinutesChange,
                             aiAssistantAccessEnabled = settings.aiAssistantAccessEnabled,
                             onAiAssistantAccessEnabledChange = onAiAssistantAccessEnabledChange,
                             aiAssistantWriteEnabled = settings.aiAssistantWriteEnabled,

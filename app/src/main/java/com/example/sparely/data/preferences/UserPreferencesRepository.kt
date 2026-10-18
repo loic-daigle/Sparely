@@ -494,6 +494,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateAutoLockMinutes(minutes: Int) {
+        editSafely { prefs ->
+            prefs[PreferenceKeys.autoLockMinutes] = minutes
+        }
+    }
+
     suspend fun updateHapticsEnabled(enabled: Boolean) {
         editSafely { prefs ->
             prefs[PreferenceKeys.hapticsEnabled] = enabled
@@ -673,6 +679,7 @@ class UserPreferencesRepository(private val context: Context) {
         val onDeviceAiEnabled = this[PreferenceKeys.onDeviceAiEnabled] ?: defaults.onDeviceAiEnabled
         val dynamicColorEnabled = this[PreferenceKeys.dynamicColorEnabled] ?: defaults.dynamicColorEnabled
         val hapticsEnabled = this[PreferenceKeys.hapticsEnabled] ?: defaults.hapticsEnabled
+        val autoLockMinutes = this[PreferenceKeys.autoLockMinutes] ?: defaults.autoLockMinutes
         val paymentDetectionEnabled = this[PreferenceKeys.paymentDetectionEnabled] ?: defaults.paymentDetectionEnabled
         val paymentDetectionApps = this[PreferenceKeys.paymentDetectionApps] ?: defaults.paymentDetectionApps
         val paymentDetectionMethods = this[PreferenceKeys.paymentDetectionMethods]
@@ -757,6 +764,7 @@ class UserPreferencesRepository(private val context: Context) {
             onDeviceAiEnabled = onDeviceAiEnabled,
             dynamicColorEnabled = dynamicColorEnabled,
             hapticsEnabled = hapticsEnabled,
+            autoLockMinutes = autoLockMinutes,
             paymentDetectionEnabled = paymentDetectionEnabled,
             paymentDetectionApps = paymentDetectionApps,
             paymentDetectionMethods = paymentDetectionMethods,
@@ -859,6 +867,7 @@ class UserPreferencesRepository(private val context: Context) {
         val onDeviceAiEnabled = booleanPreferencesKey("on_device_ai_enabled")
         val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
         val hapticsEnabled = booleanPreferencesKey("haptics_enabled")
+        val autoLockMinutes = intPreferencesKey("auto_lock_minutes")
         val paymentDetectionEnabled = booleanPreferencesKey("payment_detection_enabled")
         val paymentDetectionApps = stringSetPreferencesKey("payment_detection_apps")
         // "package=paymentMethodId" entries

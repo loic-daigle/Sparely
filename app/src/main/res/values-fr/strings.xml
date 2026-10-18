@@ -2144,4 +2144,12 @@
     <string name="backup_reminder_action">Sauvegarder</string>
     <string name="backup_reminder_later">Plus tard</string>
     <string name="history_total_spent_matching">Dépensé pour %1$s · %2$s</string>
+    <string name="settings_auto_lock_title">Verrouiller de nouveau après</string>
+    <string name="settings_auto_lock_description">Combien de temps Sparely peut rester en arrière-plan avant de redemander le déverrouillage</string>
+    <string name="settings_auto_lock_immediately">Immédiatement</string>
+    <string name="settings_auto_lock_on_open">Seulement à l\'ouverture</string>
+    <plurals name="settings_auto_lock_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
 </resources>

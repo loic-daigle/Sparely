@@ -345,6 +345,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updateAutoLockMinutes(minutes: Int) {
+        viewModelScope.launch(dispatcher + errorHandler) {
+            preferencesRepository.updateAutoLockMinutes(minutes)
+        }
+    }
+
     fun updateHapticsEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher + errorHandler) {
             preferencesRepository.updateHapticsEnabled(enabled)

@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,15 @@ fun AppLockScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Spruce)
+            // The app can stay drawn underneath once unlocked (see MainActivity), so nothing
+            // under the lock screen may receive touches
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent().changes.forEach { it.consume() }
+                    }
+                }
+            }
     ) {
         BrandBackdrop {
             Text(
