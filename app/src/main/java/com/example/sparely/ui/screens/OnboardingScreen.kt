@@ -414,11 +414,14 @@ fun WelcomeStep(
     onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
+    // Centered when it fits; scrolls on small screens or with a large font instead of cutting
+    // off the buttons
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            // Scrolls on small screens or with a large font instead of cutting off the buttons
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
+            .heightIn(min = maxHeight)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -502,6 +505,7 @@ fun WelcomeStep(
         SparelyTextButton(onClick = onSkip) {
             Text(stringResource(R.string.onboarding_skip_setup))
         }
+    }
     }
 }
 
