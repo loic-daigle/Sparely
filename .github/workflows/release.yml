@@ -1,0 +1,99 @@
+name: Release
+
+# Push a tag like v3.0.0 to build the release APK signed with Sparely's release key and open a
+# draft GitHub release with it, using docs/releases/<tag>.md as the notes. Review the draft and
+# press Publish. Run it by hand ("Run workflow") for a dry run: it builds the release APK (debug-
+# signed if the secrets aren't set) and keeps it as an artifact, without making a release.
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions):
+#   KEYSTORE_BASE64    the release keystore file, base64-encoded
+#   KEYSTORE_PASSWORD  its password
+#   KEY_ALIAS          the key's alias
+#   KEY_PASSWORD       the key's password
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Check the tag matches versionName
+        if: github.event_name == 'push'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          name=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          if [ "$tag" != "$name" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match versionName \"$name\" in app/build.gradle.kts"
+            exit 1
+          fi
+
+      # The secrets stay in environment variables; nothing here prints them
+      - name: Set up release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+              echo "::error::The KEYSTORE_BASE64 secret isn't set, so this release can't be signed"
+              exit 1
+            fi
+            echo "::warning::No signing secrets: this dry run builds a debug-signed APK"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build the release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Name the APK after the version
+        run: |
+          name=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          cp app/build/outputs/apk/release/app-release.apk "Sparely-$name.apk"
+          echo "APK=Sparely-$name.apk" >> "$GITHUB_ENV"
+
+      - name: Keep the APK (dry run)
+        if: github.event_name != 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: ${{ env.APK }}
+
+      - name: Create a draft release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Sparely ${{ github.ref_name }}
+          body_path: docs/releases/${{ github.ref_name }}.md
+          files: ${{ env.APK }}
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f app/release.jks keystore.properties

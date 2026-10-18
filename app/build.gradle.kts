@@ -40,8 +40,10 @@ android {
         applicationId = "com.sparely.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Raise versionCode by one for every release (Android only installs an update over a lower
+        // one) and keep versionName equal to the release tag without its "v" (release.yml checks it)
+        versionCode = 3
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
