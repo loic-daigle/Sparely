@@ -949,4 +949,5 @@
     <string name="pending_bills_expected">Prévu : %1$s · en attente depuis le %2$s</string>
     <string name="pending_bills_amount_label">Montant</string>
     <string name="pending_bills_confirm">Confirmer</string>
+    <string name="insights_heatmap_subtitle">%1$d dernières semaines · tu dépenses le plus le %2$s</string>
 </resources>

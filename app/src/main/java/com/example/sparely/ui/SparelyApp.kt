@@ -1350,6 +1350,7 @@ private fun SparelyNavHost(
             }
             InsightsScreen(
                 aiFacts = aiFacts,
+                expenses = uiState.expenses,
                 cashflowForecast = uiState.cashflowForecast,
                 spendingPatterns = uiState.spendingPatterns,
                 recurringPatterns = uiState.recurringPatterns,

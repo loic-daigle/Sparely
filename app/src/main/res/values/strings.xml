@@ -2158,4 +2158,9 @@
     <string name="shortcut_afford_long">Can I afford it?</string>
     <string name="payment_action_undo">Undo</string>
     <string name="payment_undone">Purchase removed</string>
+    <string name="insights_heatmap_title">Spending by day</string>
+    <string name="insights_heatmap_subtitle">Last %1$d weeks · you spend most on %2$s</string>
+    <string name="insights_heatmap_day">%1$s: %2$s</string>
+    <string name="insights_heatmap_less">Less</string>
+    <string name="insights_heatmap_more">More</string>
 </resources>

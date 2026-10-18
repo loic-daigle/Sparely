@@ -2,6 +2,7 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,7 +69,9 @@ fun InsightsScreen(
     onNavigateBack: () -> Unit,
     onAnomalyClick: (Expense) -> Unit = {},
     /** Figures for the on-device AI summary and questions; the cards hide themselves when AI is off. */
-    aiFacts: List<com.example.sparely.ai.Fact> = emptyList()
+    aiFacts: List<com.example.sparely.ai.Fact> = emptyList(),
+    /** For the spending heatmap; it hides itself when there's nothing in its weeks. */
+    expenses: List<Expense> = emptyList()
 ) {
     // Note: This screen no longer includes its own TopAppBar to avoid duplicate headers
     // The parent navigation scaffold should provide the app bar
@@ -158,6 +161,11 @@ fun InsightsScreen(
                 }
             }
 
+            // When the money goes: a calendar of the last weeks, darker on days with more spent
+            item(key = "heatmap") {
+                SpendingHeatmapCard(expenses = expenses)
+            }
+
             // 3. Spending anomalies
             item(key = "header_anomalies") {
                 ExpressiveListHeader(
@@ -231,6 +239,115 @@ fun InsightsScreen(
                 item(key = "unique") {
                     UniqueExpensesCard(expenses = uniqueExpenses)
                 }
+            }
+        }
+    }
+}
+
+private const val HEATMAP_WEEKS = 12
+private val HEATMAP_LEVEL_ALPHAS = floatArrayOf(0.25f, 0.45f, 0.7f, 1f)
+
+/**
+ * The last [HEATMAP_WEEKS] weeks as a grid, one column per week (starting on the locale's first day)
+ * and one square per day, shaded in four steps by how much was spent compared with the biggest day.
+ * Tapping a day shows its total. Ignored expenses don't count.
+ */
+@Composable
+private fun SpendingHeatmapCard(expenses: List<Expense>) {
+    val today = remember { LocalDate.now() }
+    val locale = java.util.Locale.getDefault()
+    val firstDay = remember(locale) { java.time.temporal.WeekFields.of(locale).firstDayOfWeek }
+    val start = remember(today, firstDay) {
+        today.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDay))
+            .minusWeeks((HEATMAP_WEEKS - 1).toLong())
+    }
+    val totals = remember(expenses, start, today) {
+        expenses.filter { !it.isIgnored && !it.date.isBefore(start) && !it.date.isAfter(today) }
+            .groupBy { it.date }
+            .mapValues { (_, dayExpenses) -> dayExpenses.sumOf { it.amount } }
+            .filterValues { it > 0.0 }
+    }
+    if (totals.isEmpty()) return
+    val max = totals.values.max()
+    val busiestDay = remember(totals) {
+        totals.entries.groupBy { it.key.dayOfWeek }
+            .maxByOrNull { (_, days) -> days.sumOf { it.value } }?.key
+    }
+    var selected by remember { mutableStateOf<LocalDate?>(null) }
+    val colors = MaterialTheme.colorScheme
+
+    ExpressiveCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.insights_heatmap_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            val day = selected
+            Text(
+                text = if (day != null) {
+                    stringResource(
+                        R.string.insights_heatmap_day,
+                        day.format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)),
+                        (totals[day] ?: 0.0).formatCurrency()
+                    )
+                } else {
+                    stringResource(
+                        R.string.insights_heatmap_subtitle,
+                        HEATMAP_WEEKS,
+                        busiestDay?.getDisplayName(java.time.format.TextStyle.FULL, locale).orEmpty()
+                    )
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant
+            )
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val gap = 4.dp
+                val cell = ((maxWidth - gap * (HEATMAP_WEEKS - 1)) / HEATMAP_WEEKS).coerceAtMost(28.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    for (week in 0 until HEATMAP_WEEKS) {
+                        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                            for (dayIndex in 0 until 7) {
+                                val date = start.plusDays((week * 7 + dayIndex).toLong())
+                                if (date.isAfter(today)) {
+                                    Spacer(modifier = Modifier.size(cell))
+                                } else {
+                                    val amount = totals[date]
+                                    val fill = if (amount == null) {
+                                        colors.surfaceVariant
+                                    } else {
+                                        val level = ((amount / max) * HEATMAP_LEVEL_ALPHAS.size).toInt()
+                                            .coerceIn(0, HEATMAP_LEVEL_ALPHAS.lastIndex)
+                                        colors.primary.copy(alpha = HEATMAP_LEVEL_ALPHAS[level])
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(cell)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(fill)
+                                            .then(
+                                                if (date == selected) {
+                                                    Modifier.border(1.5.dp, colors.onSurface, RoundedCornerShape(4.dp))
+                                                } else Modifier
+                                            )
+                                            .clickable { selected = if (selected == date) null else date }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(stringResource(R.string.insights_heatmap_less), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(colors.surfaceVariant))
+                HEATMAP_LEVEL_ALPHAS.forEach { alpha ->
+                    Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(colors.primary.copy(alpha = alpha)))
+                }
+                Text(stringResource(R.string.insights_heatmap_more), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
         }
     }

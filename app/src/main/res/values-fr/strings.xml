@@ -2128,4 +2128,9 @@
     <string name="shortcut_afford_long">Puis-je me le permettre ?</string>
     <string name="payment_action_undo">Annuler</string>
     <string name="payment_undone">Achat retiré</string>
+    <string name="insights_heatmap_title">Dépenses par jour</string>
+    <string name="insights_heatmap_subtitle">%1$d dernières semaines · vous dépensez le plus le %2$s</string>
+    <string name="insights_heatmap_day">%1$s : %2$s</string>
+    <string name="insights_heatmap_less">Moins</string>
+    <string name="insights_heatmap_more">Plus</string>
 </resources>
