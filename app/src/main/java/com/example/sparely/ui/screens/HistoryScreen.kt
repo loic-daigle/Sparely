@@ -350,6 +350,8 @@ fun HistoryScreen(
                     ModernSummaryCard(
                         filteredExpenses = filteredExpenses,
                         dateFilter = dateFilter,
+                        searchQuery = searchQuery,
+                        categoryFilter = categoryFilter,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                 }
@@ -834,7 +836,9 @@ private fun HistorySearchBar(
 private fun ModernSummaryCard(
     filteredExpenses: List<Expense>,
     dateFilter: DateRangeFilter,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    searchQuery: String = "",
+    categoryFilter: ExpenseCategory? = null
 ) {
     val totalFilteredSpent = filteredExpenses.sumOf { it.amount }
     val totalFilteredReserve = filteredExpenses.sumOf { it.allocation.totalSetAside }
@@ -864,8 +868,17 @@ private fun ModernSummaryCard(
         ) {
             // Headline number first, supporting stats and chart after
             Column {
+                // Names what the total covers: the search, else the category, then the period
+                val scope = searchQuery.trim().takeIf { it.isNotEmpty() }?.let { "“$it”" }
+                    ?: categoryFilter?.displayName()
                 Text(
-                    text = stringResource(R.string.history_total_spent_period, dateFilter.displayName()),
+                    text = if (scope != null) {
+                        stringResource(R.string.history_total_spent_matching, scope, dateFilter.displayName())
+                    } else {
+                        stringResource(R.string.history_total_spent_period, dateFilter.displayName())
+                    },
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.onPrimaryContainer.copy(alpha = 0.8f)
                 )

@@ -2173,4 +2173,5 @@
     <string name="backup_reminder_body">Everything in Sparely lives only on this phone, and there\'s no recent backup. Export one, or turn on automatic backups.</string>
     <string name="backup_reminder_action">Back up</string>
     <string name="backup_reminder_later">Later</string>
+    <string name="history_total_spent_matching">Spent on %1$s · %2$s</string>
 </resources>

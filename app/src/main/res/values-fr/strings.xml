@@ -2143,4 +2143,5 @@
     <string name="backup_reminder_body">Tout ce qui est dans Sparely se trouve seulement sur ce téléphone, et aucune sauvegarde n\'est récente. Exportez-en une ou activez les sauvegardes automatiques.</string>
     <string name="backup_reminder_action">Sauvegarder</string>
     <string name="backup_reminder_later">Plus tard</string>
+    <string name="history_total_spent_matching">Dépensé pour %1$s · %2$s</string>
 </resources>
