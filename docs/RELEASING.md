@@ -38,8 +38,9 @@ Avoid `\`, `:` and `=` in the passwords; they're written to a `.properties` file
    git tag v3.1.0
    git push origin v3.1.0
    ```
-   No PC? Create the tag on github.com: **Releases → Draft a new release → Choose a tag → type
-   v3.1.0 → Create new tag**, then close that draft without publishing; the workflow makes its own.
+   No PC? Ask Claude Code to push the tag, or publish the release yourself on github.com
+   (**Releases → Draft a new release**, new tag `v3.1.0`, attach nothing): publishing creates the
+   tag, and the workflow then builds the signed APK and adds it to that release.
 4. The workflow checks the tag matches `versionName`, builds and signs `Sparely-3.1.0.apk` and opens
    a **draft** release with the notes. Look it over under Releases and press **Publish**.
 
