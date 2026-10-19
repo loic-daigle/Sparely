@@ -796,7 +796,7 @@
     <string name="onboarding_country_currency_stat">• Devise : %1$s</string>
     <string name="onboarding_country_tax_stat">• Fiscalité : ~%1$d%% d\'impôt sur le revenu</string>
     <string name="onboarding_country_savings_stat">• Objectif : %1$d mois de fonds d\'urgence</string>
-    <string name="onboarding_name_label">Votre nom (facultatif)</string>
+    <string name="onboarding_name_label">Ton nom (facultatif)</string>
 
 
     <string name="onboarding_financial_title">Votre situation actuelle</string>
@@ -954,4 +954,17 @@
     <string name="settings_haptics_description">Une légère vibration quand tu enregistres un achat ou confirmes un virement</string>
     <string name="backup_reminder_title">Sauvegarde tes données</string>
     <string name="backup_reminder_body">Tout ce qui est dans Sparely se trouve seulement sur ce téléphone, et aucune sauvegarde n\'est récente. Exportes-en une ou active les sauvegardes automatiques.</string>
+    <string name="onboarding_value_private_desc">Tout reste sur ton téléphone : aucun compte, aucune pub.</string>
+    <string name="onboarding_value_fast_desc">Achats détectés depuis tes applis de paiement, calculatrice et widget d\'accueil.</string>
+    <string name="onboarding_value_autopilot_desc">Chaque achat met un peu de côté pour tes objectifs.</string>
+    <string name="onboarding_about_title">À propos de toi</string>
+    <string name="onboarding_birthday_helper">Sert à adapter les conseils d\'épargne à ton étape de vie.</string>
+    <string name="onboarding_money_title">Ton argent</string>
+    <string name="onboarding_money_desc">Des montants approximatifs suffisent. Tu pourras les modifier en tout temps dans les paramètres.</string>
+    <string name="onboarding_money_income_helper">Sert à créer tes premiers budgets et à calculer combien mettre de côté.</string>
+    <string name="onboarding_money_main_helper">Le compte d\'où tu dépenses.</string>
+    <string name="onboarding_vault_title">Ton premier coffre</string>
+    <string name="onboarding_vault_suggestion">Environ %1$d mois de tes dépenses</string>
+    <string name="onboarding_vault_suggestion_no_income">Un premier objectif, à ajuster selon tes dépenses.</string>
+    <string name="onboarding_finish_note">Tu pourras ajouter d\'autres coffres et budgets, et peaufiner ton profil, en tout temps dans les paramètres.</string>
 </resources>

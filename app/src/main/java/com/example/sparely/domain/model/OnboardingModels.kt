@@ -45,6 +45,8 @@ data class UserProfileSetup(
     val primaryGoal: String? = null,
     val savingsAccounts: List<SavingsAccountInput> = emptyList(),
     val smartVaults: List<SmartVaultSetup> = emptyList(),
+    // False when the user turned down the first vault: then none is generated for them either
+    val createStarterVaults: Boolean = true,
     val transferReminder: TransferReminderPreference? = null,
     val educationStatus: EducationStatus = EducationStatus.OTHER,
     val employmentStatus: EmploymentStatus = EmploymentStatus.EMPLOYED,

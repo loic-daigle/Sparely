@@ -1,7 +1,13 @@
 package com.example.sparely.ui.screens
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -10,191 +16,146 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import com.example.sparely.ui.theme.ExpressiveShapes
-import com.example.sparely.ui.components.*
-import com.example.sparely.ui.utils.toSafeDatePickerMillis
-import com.example.sparely.ui.utils.filterCurrencyInput
-import com.example.sparely.ui.utils.toSafeDouble
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
-import com.example.sparely.domain.model.CountryProfiles
-
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.example.sparely.domain.logic.SavingsAdvisor
-import com.example.sparely.domain.model.*
+import com.example.sparely.AppLanguage
+import com.example.sparely.domain.model.CountryConfig
+import com.example.sparely.domain.model.CountryProfiles
+import com.example.sparely.domain.model.CurrencyPresets
+import com.example.sparely.domain.model.SmartVaultSetup
+import com.example.sparely.domain.model.UserProfileSetup
+import com.example.sparely.domain.model.RiskLevel
+import com.example.sparely.domain.model.TransferReminderPreference
+import com.example.sparely.domain.model.VaultPriority
+import com.example.sparely.domain.model.VaultType
+import com.example.sparely.ui.components.*
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.SparelyBrandSurface
+import com.example.sparely.ui.utils.filterAmountExpressionInput
+import com.example.sparely.ui.utils.toInputString
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.toSafeDouble
 import com.sparely.app.R
 import java.time.Instant
-import com.example.sparely.ui.utils.formatCurrency
-import com.example.sparely.ui.utils.formatPercent
-import com.example.sparely.ui.utils.roundToTwoDecimals
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalAnimationApi::class)
+private const val STEP_WELCOME = 0
+private const val STEP_ABOUT = 1
+private const val STEP_MONEY = 2
+private const val STEP_VAULT = 3
+/** Steps after the welcome, as the progress bar counts them. */
+private const val COUNTED_STEPS = 3
+
+/**
+ * First-run setup in four short screens: welcome (with country and language), about you, your money,
+ * and a first emergency-fund vault. Every question is optional; the rest of the profile (risk level,
+ * debts, job, housing, reminders) starts from sensible defaults and is edited later in Settings.
+ */
 @Composable
 fun OnboardingScreen(
     onComplete: (UserProfileSetup) -> Unit,
     onImportData: (android.net.Uri) -> Unit,
     onSkip: () -> Unit,
     snackbarHostState: SnackbarHostState? = null,
-    /** Country, language and currency picked on the first step; saving the language switches the app to it. */
+    /** Country, language and currency; saving the language switches the app to it. */
     onRegionChosen: (countryCode: String, languageCode: String, currencyCode: String) -> Unit = { _, _, _ -> }
 ) {
-    // Saveable state: rotating the device or the system reclaiming the app mid-setup
-    // must not throw people back to step one with everything they typed lost.
-    var currentStep by rememberSaveable { mutableIntStateOf(0) }
-    // Starts on the phone's country and language when Sparely knows them
-    var selectedCountryCode by rememberSaveable {
-        mutableStateOf(CountryProfiles.getByCode(java.util.Locale.getDefault().country)?.countryCode)
+    // Saveable state: a language switch restarts the screen, and so can rotation or the system
+    // reclaiming the app mid-setup; none of them may lose the step or what was typed
+    var step by rememberSaveable { mutableIntStateOf(STEP_WELCOME) }
+    var countryCode by rememberSaveable {
+        mutableStateOf(
+            CountryProfiles.getByCode(Locale.getDefault().country)?.countryCode
+                ?: CountryProfiles.UNITED_STATES.countryCode
+        )
     }
-    val selectedCountry = selectedCountryCode?.let { CountryProfiles.getByCode(it) }
-    var selectedLanguage by rememberSaveable {
-        mutableStateOf(com.example.sparely.AppLanguage.deviceLanguage() ?: "en")
-    }
-    var userName by rememberSaveable { mutableStateOf("") }
-
-    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let { onImportData(it) }
-    }
-    var age by rememberSaveable { mutableStateOf("30") }
+    var language by rememberSaveable { mutableStateOf(AppLanguage.deviceLanguage() ?: "en") }
+    var name by rememberSaveable { mutableStateOf("") }
     var birthday by rememberSaveable { mutableStateOf<LocalDate?>(null) }
-    var monthlyIncome by rememberSaveable { mutableStateOf("") }
-    var selectedRiskLevel by rememberSaveable { mutableStateOf(RiskLevel.BALANCED) }
-    var primaryGoal by rememberSaveable { mutableStateOf("") }
-    var hasDebts by rememberSaveable { mutableStateOf(false) }
-    var currentEmergencyFund by rememberSaveable { mutableStateOf("0") }
-    var educationStatus by rememberSaveable { mutableStateOf(EducationStatus.OTHER) }
-    var employmentStatus by rememberSaveable { mutableStateOf(EmploymentStatus.EMPLOYED) }
-    var livingSituation by rememberSaveable { mutableStateOf(LivingSituation.OTHER) }
-    var occupation by rememberSaveable { mutableStateOf("") }
-    var mainAccountBalance by rememberSaveable { mutableStateOf("") }
-    var savingsAccountBalance by rememberSaveable { mutableStateOf("") }
-    var vaultsBalanceInput by rememberSaveable { mutableStateOf("") }
-    val vaultDrafts = remember { mutableStateListOf<VaultDraft>() }
-    var nextDraftId by remember { mutableStateOf(0L) }
-    val subscriptionDrafts = remember { mutableStateListOf<SubscriptionDraft>() }
-    var nextSubscriptionId by remember { mutableStateOf(0L) }
-    var reminderEnabled by rememberSaveable { mutableStateOf(true) }
-    var reminderFrequency by rememberSaveable { mutableStateOf(7) }
-    var reminderHour by rememberSaveable { mutableStateOf(20) }
+    var income by rememberSaveable { mutableStateOf("") }
+    var mainBalance by rememberSaveable { mutableStateOf("") }
+    var savingsBalance by rememberSaveable { mutableStateOf("") }
+    var createVault by rememberSaveable { mutableStateOf(true) }
+    // Null until edited: the target then follows the suggestion as income changes
+    var vaultTarget by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val totalSteps = 8  // Increased from 7 to 8
-    val vaultsStepIndex = 6  // Shifted from 5 to 6
-    val derivedAge = birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt() }
-    val ageValue = derivedAge ?: age.toIntOrNull() ?: 30
-    val monthlyIncomeValue = monthlyIncome.toSafeDouble() ?: 0.0
-    val emergencyFundValue = currentEmergencyFund.toSafeDouble() ?: 0.0
+    val country = CountryProfiles.getByCode(countryCode) ?: CountryProfiles.UNITED_STATES
+    val incomeValue = income.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+    val suggestedTarget = emergencyFundSuggestion(incomeValue, country)
+    val emergencyName = stringResource(R.string.onboarding_vault_emergency_name)
 
-    fun allocateDraftId(): Long {
-        val id = nextDraftId
-        nextDraftId += 1
-        return id
+    fun saveRegion(newCountry: CountryConfig = country, newLanguage: String = language) {
+        onRegionChosen(newCountry.countryCode, newLanguage, newCountry.defaultCurrency)
     }
 
-    fun removeVaultAt(index: Int) {
-        if (index < 0 || index >= vaultDrafts.size) return
-        vaultDrafts.removeAt(index)
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(onImportData)
     }
 
-    fun addVaultDraft(template: VaultDraft = VaultDraft.blank()) {
-        val newDraft = template.copy(id = allocateDraftId())
-        vaultDrafts.add(newDraft)
-    }
-
-    fun updateVaultDraft(index: Int, updated: VaultDraft) {
-        if (index < 0 || index >= vaultDrafts.size) return
-        vaultDrafts[index] = updated
-    }
-
-    fun allocateSubscriptionId(): Long {
-        val id = nextSubscriptionId
-        nextSubscriptionId += 1
-        return id
-    }
-
-    fun addSubscriptionDraft() {
-        subscriptionDrafts.add(SubscriptionDraft(id = allocateSubscriptionId(), name = "", amount = ""))
-    }
-
-    fun updateSubscriptionName(id: Long, value: String) {
-        val index = subscriptionDrafts.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val draft = subscriptionDrafts[index]
-            subscriptionDrafts[index] = draft.copy(name = value)
-        }
-    }
-
-    fun updateSubscriptionAmount(id: Long, value: String) {
-        val index = subscriptionDrafts.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val draft = subscriptionDrafts[index]
-            subscriptionDrafts[index] = draft.copy(amount = value)
-        }
-    }
-
-    fun removeSubscription(id: Long) {
-        subscriptionDrafts.removeAll { it.id == id }
-    }
-
-    LaunchedEffect(
-        currentStep,
-        ageValue,
-        educationStatus,
-        employmentStatus,
-        hasDebts,
-        monthlyIncome,
-        currentEmergencyFund
-    ) {
-        if (currentStep == vaultsStepIndex && vaultDrafts.isEmpty()) {
-            val templates = recommendedVaultDrafts(
-                age = ageValue,
-                educationStatus = educationStatus,
-                employmentStatus = employmentStatus,
-                hasDebts = hasDebts,
-                monthlyIncome = monthlyIncomeValue,
-                currentEmergencyFund = emergencyFundValue
+    fun finish() {
+        val main = mainBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+        val savings = savingsBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+        val target = (vaultTarget ?: suggestedTarget.toInputString(0)).toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+        val vaults = if (createVault && target > 0.0) {
+            listOf(
+                SmartVaultSetup(
+                    name = emergencyName,
+                    targetAmount = target,
+                    priority = VaultPriority.HIGH,
+                    type = VaultType.EMERGENCY,
+                    iconName = "savings"
+                )
             )
-            templates.forEach { template ->
-                addVaultDraft(template)
-            }
+        } else {
+            emptyList()
         }
+        val age = birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).toInt().coerceAtLeast(0) }
+        onComplete(
+            UserProfileSetup(
+                name = name.trim().ifBlank { null },
+                age = age ?: 30,
+                // Left empty, income stays 0: no budgets are made up from a guessed income
+                monthlyIncome = incomeValue,
+                riskLevel = RiskLevel.BALANCED,
+                currentEmergencyFund = savings,
+                smartVaults = vaults,
+                createStarterVaults = createVault,
+                transferReminder = TransferReminderPreference(enabled = true, frequencyDays = 7, hourOfDay = 20),
+                mainAccountBalance = main,
+                savingsAccountBalance = savings,
+                birthday = birthday
+            )
+        )
     }
 
-    // System back steps backwards through onboarding instead of leaving it
-    BackHandler(enabled = currentStep > 0) { currentStep-- }
+    BackHandler(enabled = step > STEP_WELCOME) { step-- }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // The app draws edge to edge: keep the steps clear of the system bars and, above all,
-            // the keyboard, so a step's scroll area ends at the keyboard and its lower fields and
-            // Next button can be scrolled into view while typing
+            // The app draws edge to edge: keep clear of the system bars and the keyboard, so each
+            // step's scroll area ends above the keyboard and its button stays reachable
             .safeDrawingPadding()
     ) {
         if (snackbarHostState != null) {
@@ -206,1093 +167,395 @@ fun OnboardingScreen(
                     .zIndex(1f)
             )
         }
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Progress indicator (skip on country selection step)
-            if (currentStep > 0) {
-                OnboardingProgressBar(
-                    currentStep = currentStep - 1,  // Adjust for zero-indexed country step
-                    totalSteps = totalSteps - 1,
-                    onBack = { if (currentStep > 0) currentStep-- }
-                )
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (step > STEP_WELCOME) {
+                OnboardingTopBar(step = step, onBack = { step-- })
             }
-
-            // Content
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                AnimatedContent(
-                    targetState = currentStep,
-                    transitionSpec = {
-                        // Slide in the direction of travel so going back feels like going back
-                        if (targetState > initialState) {
-                            (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
-                        } else {
-                            (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
-                        }
-                    },
-                    label = "onboarding_step"
-                ) { step ->
-                    when (step) {
-                        0 -> CountrySelectionStep(
-                            selectedCountry = selectedCountry,
-                            onCountrySelected = { selectedCountryCode = it.countryCode },
-                            selectedLanguage = selectedLanguage,
-                            onLanguageSelected = { selectedLanguage = it },
-                            onNext = {
-                                selectedCountry?.let { country ->
-                                    onRegionChosen(country.countryCode, selectedLanguage, country.defaultCurrency)
-                                }
-                                currentStep = 1
-                            }
-                        )
-                        1 -> WelcomeStep(
-                            countryConfig = selectedCountry,
-                            onNext = { currentStep = 2 },
-                            onImport = { importLauncher.launch(arrayOf("*/*")) },
-                            onSkip = onSkip
-                        )
-                        2 -> NameStep(
-                            name = userName,
-                            onNameChange = { userName = it },
-                            onNext = { currentStep = 3 }
-                        )
-                        3 -> IncomeStep(
-                            income = monthlyIncome,
-                            age = age,
-                            birthday = birthday,
-                            onIncomeChange = { monthlyIncome = it },
-                            onAgeChange = {
-                                age = it
-                                if (birthday != null) {
-                                    birthday = null
-                                }
-                            },
-                            onBirthdayChange = { selected ->
-                                birthday = selected
-                                selected?.let {
-                                    val computedAge = ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt()
-                                    age = computedAge.toString()
-                                }
-                            },
-                            onNext = { currentStep = 4 }
-                        )
-                        4 -> RiskLevelStep(
-                            selectedRisk = selectedRiskLevel,
-                            onRiskSelected = { selectedRiskLevel = it },
-                            onNext = { currentStep = 5 }
-                        )
-                        5 -> FinancialSituationStep(
-                            hasDebts = hasDebts,
-                            onDebtsChange = { hasDebts = it },
-                            emergencyFund = currentEmergencyFund,
-                            onEmergencyFundChange = { currentEmergencyFund = it },
-                            educationStatus = educationStatus,
-                            onEducationStatusChange = { educationStatus = it },
-                            employmentStatus = employmentStatus,
-                            onEmploymentStatusChange = { employmentStatus = it },
-                            livingSituation = livingSituation,
-                            onLivingSituationChange = { livingSituation = it },
-                            occupation = occupation,
-                            onOccupationChange = { occupation = it },
-                            mainAccountBalance = mainAccountBalance,
-                            onMainAccountBalanceChange = { mainAccountBalance = it },
-                            savingsAccountBalance = savingsAccountBalance,
-                            onSavingsAccountBalanceChange = { savingsAccountBalance = it },
-                            vaultsBalance = vaultsBalanceInput,
-                            onVaultsBalanceChange = { vaultsBalanceInput = it },
-                            subscriptions = subscriptionDrafts,
-                            onAddSubscription = { addSubscriptionDraft() },
-                            onSubscriptionNameChange = { id, value -> updateSubscriptionName(id, value) },
-                            onSubscriptionAmountChange = { id, value -> updateSubscriptionAmount(id, value) },
-                            onRemoveSubscription = { id -> removeSubscription(id) },
-                            age = ageValue,
-                            onNext = { currentStep = 6 }
-                        )
-                        6 -> SmartVaultsStep(
-                            drafts = vaultDrafts,
-                            onDraftChange = { index, draft -> updateVaultDraft(index, draft) },
-                            onRemove = { index -> removeVaultAt(index) },
-                            onAddVault = { addVaultDraft() },
-                            onNext = { currentStep = 7 }
-                        )
-                        7 -> TransferReminderStep(
-                            reminderEnabled = reminderEnabled,
-                            onReminderEnabledChange = { reminderEnabled = it },
-                            reminderFrequency = reminderFrequency,
-                            onReminderFrequencyChange = { reminderFrequency = it },
-                            reminderHour = reminderHour,
-                            onReminderHourChange = { reminderHour = it },
-                            pendingVaults = vaultDrafts,
-                            onNext = { currentStep = 8 }
-                        )
-                        8 -> GoalStep(
-                            goal = primaryGoal,
-                            onGoalChange = { primaryGoal = it },
-                            onComplete = {
-                                val vaults = vaultDrafts.mapNotNull { draft -> draft.toSetup() }
-                                val reminderPreference = TransferReminderPreference(
-                                    enabled = reminderEnabled,
-                                    frequencyDays = reminderFrequency,
-                                    hourOfDay = reminderHour
-                                )
-                                val sanitizedOccupation = occupation.trim().ifBlank { null }
-                                val mainBalance = mainAccountBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
-                                val savingsBalance = savingsAccountBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
-                                val vaultsBalance = vaultsBalanceInput.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
-                                val subscriptions = subscriptionDrafts.mapNotNull { draft ->
-                                    val name = draft.name.trim()
-                                    val amount = draft.amount.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
-                                    if (name.isEmpty() || amount <= 0.0) {
-                                        null
-                                    } else {
-                                        OnboardingSubscription(name = name, amount = amount)
-                                    }
-                                }
-                                val profile = UserProfileSetup(
-                                    name = userName.ifBlank { null },
-                                    age = age.toIntOrNull() ?: 30,
-                                    monthlyIncome = monthlyIncome.toSafeDouble() ?: 4500.0,
-                                    riskLevel = selectedRiskLevel,
-                                    hasDebts = hasDebts,
-                                    currentEmergencyFund = currentEmergencyFund.toSafeDouble() ?: 0.0,
-                                    primaryGoal = primaryGoal.ifBlank { null },
-                                    smartVaults = vaults,
-                                    transferReminder = reminderPreference,
-                                    educationStatus = educationStatus,
-                                    employmentStatus = employmentStatus,
-                                    livingSituation = livingSituation,
-                                    occupation = sanitizedOccupation,
-                                    mainAccountBalance = mainBalance,
-                                    savingsAccountBalance = savingsBalance,
-                                    vaultsBalance = vaultsBalance,
-                                    subscriptions = subscriptions,
-                                    birthday = birthday
-                                )
-                                onComplete(profile)
-                            }
-                        )
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    // Slide in the direction of travel so going back feels like going back
+                    if (targetState > initialState) {
+                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                    } else {
+                        (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
                     }
+                },
+                modifier = Modifier.weight(1f),
+                label = "onboarding_step"
+            ) { current ->
+                when (current) {
+                    STEP_WELCOME -> WelcomeStep(
+                        country = country,
+                        language = language,
+                        onCountryChange = {
+                            countryCode = it.countryCode
+                            saveRegion(newCountry = it)
+                        },
+                        // Saved right away, so this screen switches to the language at once
+                        onLanguageChange = {
+                            language = it
+                            saveRegion(newLanguage = it)
+                        },
+                        onStart = {
+                            saveRegion()
+                            step = STEP_ABOUT
+                        },
+                        onImport = {
+                            saveRegion()
+                            importLauncher.launch(arrayOf("*/*"))
+                        },
+                        onSkip = {
+                            saveRegion()
+                            onSkip()
+                        }
+                    )
+                    STEP_ABOUT -> AboutYouStep(
+                        name = name,
+                        onNameChange = { name = it },
+                        birthday = birthday,
+                        onBirthdayChange = { birthday = it },
+                        onNext = { step = STEP_MONEY }
+                    )
+                    STEP_MONEY -> MoneyStep(
+                        currencySymbol = CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: "$",
+                        income = income,
+                        onIncomeChange = { income = it.filterAmountExpressionInput() },
+                        mainBalance = mainBalance,
+                        onMainBalanceChange = { mainBalance = it.filterAmountExpressionInput() },
+                        savingsBalance = savingsBalance,
+                        onSavingsBalanceChange = { savingsBalance = it.filterAmountExpressionInput() },
+                        onNext = { step = STEP_VAULT }
+                    )
+                    STEP_VAULT -> FirstVaultStep(
+                        currencySymbol = CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: "$",
+                        createVault = createVault,
+                        onCreateVaultChange = { createVault = it },
+                        target = vaultTarget ?: suggestedTarget.toInputString(0),
+                        onTargetChange = { vaultTarget = it.filterAmountExpressionInput() },
+                        months = country.savingsNorms.recommendedEmergencyMonths,
+                        incomeKnown = incomeValue > 0.0,
+                        onFinish = ::finish
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * About [months] of expenses, taking expenses as 70% of income and rounding to the nearest 100.
+ * Without an income it's a first goal of 1,000 to adjust later.
+ */
+private fun emergencyFundSuggestion(monthlyIncome: Double, country: CountryConfig): Double {
+    if (monthlyIncome <= 0.0) return 1_000.0
+    val months = country.savingsNorms.recommendedEmergencyMonths.coerceAtLeast(1)
+    val target = monthlyIncome * 0.7 * months
+    return ((target / 100.0).roundToInt() * 100).toDouble().coerceAtLeast(500.0)
+}
+
+/** Back arrow and "Step 2 of 3" with a progress bar, above every step after the welcome. */
 @Composable
-fun OnboardingProgressBar(
-    currentStep: Int,
-    totalSteps: Int,
-    onBack: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+private fun OnboardingTopBar(step: Int, onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.common_back))
             }
             Text(
-                text = stringResource(R.string.onboarding_step_text, currentStep, totalSteps),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.onboarding_step_text, step, COUNTED_STEPS),
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-
         LinearProgressIndicator(
-        progress = { currentStep.toFloat() / totalSteps },
-        modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp),
-        color = MaterialTheme.colorScheme.primary,
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-        )
-    }
-}
-
-@Composable
-fun WelcomeStep(
-    countryConfig: CountryConfig?,
-    onNext: () -> Unit,
-    onImport: () -> Unit,
-    onSkip: () -> Unit
-) {
-    // Centered when it fits; scrolls on small screens or with a large font instead of cutting
-    // off the buttons
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .heightIn(min = maxHeight)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_sparely_logo),
-            contentDescription = null,
-            modifier = Modifier.size(120.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_welcome_title),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_welcome_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            FeatureHighlight(
-                icon = "🎯",
-                title = stringResource(R.string.onboarding_feature_allocation_title),
-                description = stringResource(R.string.onboarding_feature_allocation_desc)
-            )
-            
-            FeatureHighlight(
-                icon = "📊",
-                title = stringResource(R.string.onboarding_feature_health_title),
-                description = stringResource(R.string.onboarding_feature_health_desc)
-            )
-            
-            FeatureHighlight(
-                icon = "🏆",
-                title = stringResource(R.string.onboarding_feature_challenges_title),
-                description = stringResource(R.string.onboarding_feature_challenges_desc)
-            )
-            
-            FeatureHighlight(
-                icon = "💡",
-                title = stringResource(R.string.onboarding_feature_budgeting_title),
-                description = stringResource(R.string.onboarding_feature_budgeting_desc)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        SparelyButton(
-            onClick = onNext,
+            progress = { step / COUNTED_STEPS.toFloat() },
             modifier = Modifier
                 .fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SparelyTonalButton(
-            onClick = onImport,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_import_backup))
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        SparelyTextButton(onClick = onSkip) {
-            Text(stringResource(R.string.onboarding_skip_setup))
-        }
-    }
+                .padding(horizontal = 16.dp)
+                .clip(CircleShape),
+            drawStopIndicator = {}
+        )
     }
 }
 
+/**
+ * Shared layout for a step: title and explanation, the step's content scrolling under them, and the
+ * main button (with an optional Skip) pinned at the bottom so it never scrolls away.
+ */
 @Composable
-fun FeatureHighlight(
-    icon: String,
+private fun StepLayout(
     title: String,
-    description: String
+    description: String,
+    primaryLabel: String,
+    onPrimary: () -> Unit,
+    onSkip: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = icon,
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(end = 16.dp)
-        )
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun TransferReminderStep(
-    reminderEnabled: Boolean,
-    onReminderEnabledChange: (Boolean) -> Unit,
-    reminderFrequency: Int,
-    onReminderFrequencyChange: (Int) -> Unit,
-    reminderHour: Int,
-    onReminderHourChange: (Int) -> Unit,
-    pendingVaults: List<VaultDraft>,
-    onNext: () -> Unit
-) {
-    val reminderOptions = listOf(3, 7, 14, 30)
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.Top
-    ) {
-        Text(
-            text = stringResource(R.string.onboarding_reminder_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = stringResource(R.string.onboarding_reminder_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(checked = reminderEnabled, onCheckedChange = onReminderEnabledChange)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(stringResource(R.string.onboarding_reminder_enable))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_reminder_frequency_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (option in reminderOptions) {
-                SparelyChip(
-                    selected = reminderFrequency == option,
-                    onClick = { onReminderFrequencyChange(option) },
-                    enabled = reminderEnabled,
-                    label = { Text(stringResource(R.string.onboarding_reminder_frequency_option, option)) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_reminder_time_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Slider(
-            value = reminderHour.toFloat(),
-            onValueChange = { value -> onReminderHourChange(value.roundToInt().coerceIn(0, 23)) },
-            valueRange = 0f..23f,
-            steps = 22,
-            enabled = reminderEnabled
-        )
-        Text(
-            text = stringResource(R.string.onboarding_reminder_time_display, reminderHour.toString().padStart(2, '0')),
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        if (pendingVaults.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.onboarding_reminder_target_vaults, pendingVaults.joinToString { it.name.ifBlank { "Vault" } }),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun SmartVaultsStep(
-        drafts: List<VaultDraft>,
-        onDraftChange: (Int, VaultDraft) -> Unit,
-        onRemove: (Int) -> Unit,
-        onAddVault: () -> Unit,
-        onNext: () -> Unit
-    ) {
-        val canProceed = drafts.isNotEmpty() && drafts.all { draft ->
-            draft.name.isNotBlank() && draft.targetAmount.toSafeDouble()?.let { it > 0.0 } == true
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Top
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(
-                text = stringResource(R.string.onboarding_vaults_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.onboarding_vaults_desc),
+                description,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            for ((index, draft) in drafts.withIndex()) {
-                SmartVaultCard(
-                    draft = draft,
-                    onDraftChange = { updated -> onDraftChange(index, updated) },
-                    onRemove = { onRemove(index) },
-                    showRemove = drafts.size > 1
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
+            content()
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            SparelyButton(onClick = onPrimary, modifier = Modifier.fillMaxWidth()) {
+                Text(primaryLabel, style = MaterialTheme.typography.titleMedium)
             }
-
-            SparelyTonalButton(onClick = onAddVault) {
-                Text(stringResource(R.string.onboarding_add_vault))
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            SparelyButton(
-                onClick = onNext,
-                enabled = canProceed,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
+            if (onSkip != null) {
+                SparelyTextButton(onClick = onSkip) { Text(stringResource(R.string.onboarding_skip_step)) }
             }
         }
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    private fun SmartVaultCard(
-        draft: VaultDraft,
-        onDraftChange: (VaultDraft) -> Unit,
-        onRemove: () -> Unit,
-        showRemove: Boolean
-    ) {
-        ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 6.dp, contentPadding = 20.dp) {
-            Column {
-                if (draft.recommended) {
-                    AssistChip(onClick = {}, enabled = false, label = { Text(stringResource(R.string.onboarding_vault_recommended)) })
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                val icons = listOf(
-                    MaterialSymbols.ACCOUNT_BALANCE_WALLET,
-                    MaterialSymbols.SAVINGS,
-                    MaterialSymbols.DIRECTIONS_CAR,
-                    MaterialSymbols.HOME,
-                    MaterialSymbols.FLIGHT,
-                    MaterialSymbols.SCHOOL,
-                    MaterialSymbols.SHOPPING_BAG,
-                    MaterialSymbols.PETS,
-                    MaterialSymbols.RESTAURANT,
-                    MaterialSymbols.COMPUTER,
-                )
-
-                Text(
-                    text = stringResource(R.string.onboarding_vault_icon_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    Modifier.fillMaxWidth().height(48.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    for (iconRes in icons) {
-                        val iconStableName = MaterialSymbols.getNameByIcon(iconRes)
-                        val isSelected = (draft.iconName == null && iconRes == MaterialSymbols.ACCOUNT_BALANCE_WALLET) || (draft.iconName == iconStableName)
-                        ExpressiveCard(
-                            onClick = { onDraftChange(draft.copy(iconName = iconStableName)) },
-                            modifier = Modifier.size(36.dp),
-                            shape = ExpressiveShapes.medium,
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                            contentPadding = 0.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                MaterialSymbolIcon(
-                                    icon = iconRes,
-                                    contentDescription = null,
-                                    size = 20.dp,
-                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SparelyTextField(
-                    value = draft.name,
-                    onValueChange = { onDraftChange(draft.copy(name = it)) },
-                    label = { Text(stringResource(R.string.onboarding_vault_name_label)) },
-                    leadingIcon = { 
-                        val displayIcon = MaterialSymbols.getIconByName(draft.iconName) ?: MaterialSymbols.ACCOUNT_BALANCE_WALLET
-                        MaterialSymbolIcon(icon = displayIcon, contentDescription = null) 
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SparelyTextField(
-                        value = draft.targetAmount,
-                        onValueChange = { onDraftChange(draft.copy(targetAmount = it.filterCurrencyInput())) },
-                        label = { Text(stringResource(R.string.onboarding_vault_target_label)) },
-                        modifier = Modifier.weight(1f),
-                        leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null) }
-                    )
-                    SparelyTextField(
-                        value = draft.currentBalance,
-                        onValueChange = { onDraftChange(draft.copy(currentBalance = it.filterCurrencyInput())) },
-                        label = { Text(stringResource(R.string.onboarding_vault_balance_label)) },
-                        modifier = Modifier.weight(1f),
-                        leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null) }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = stringResource(R.string.onboarding_vault_priority_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (priority in VaultPriority.entries) {
-                        SparelyChip(
-                            selected = draft.priority == priority,
-                            onClick = { onDraftChange(draft.copy(priority = priority)) },
-                            label = { Text(priority.displayName()) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = stringResource(R.string.onboarding_vault_focus_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Show only core vault types during onboarding to keep choices simple
-                    val allowedTypes = listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT)
-                    for (type in allowedTypes) {
-                        SparelyChip(
-                            selected = draft.type == type,
-                            onClick = { onDraftChange(draft.copy(type = type)) },
-                            label = { Text(type.displayName()) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = stringResource(R.string.onboarding_vault_allocation_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SparelyChip(
-                        selected = draft.allocationMode == VaultAllocationMode.DYNAMIC_AUTO,
-                        onClick = {
-                            onDraftChange(draft.copy(allocationMode = VaultAllocationMode.DYNAMIC_AUTO, manualPercent = ""))
-                        },
-                        label = { Text(stringResource(R.string.onboarding_vault_allocation_dynamic)) }
-                    )
-                    SparelyChip(
-                        selected = draft.allocationMode == VaultAllocationMode.MANUAL,
-                        onClick = {
-                            onDraftChange(draft.copy(allocationMode = VaultAllocationMode.MANUAL))
-                        },
-                        label = { Text(stringResource(R.string.onboarding_vault_allocation_manual)) }
-                    )
-                }
-
-                if (draft.allocationMode == VaultAllocationMode.MANUAL) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SparelyTextField(
-                        value = draft.manualPercent,
-                        onValueChange = { onDraftChange(draft.copy(manualPercent = it.filterCurrencyInput())) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        label = { Text(stringResource(R.string.onboarding_vault_manual_percent_label)) },
-                        placeholder = { Text(stringResource(R.string.onboarding_vault_manual_percent_placeholder)) },
-                        trailingIcon = { Text("%") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SparelyTextField(
-                    value = draft.savingTaxRate,
-                    onValueChange = { onDraftChange(draft.copy(savingTaxRate = it.filterCurrencyInput())) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    label = { Text(stringResource(R.string.onboarding_vault_tax_boost_label)) },
-                    placeholder = { Text(stringResource(R.string.onboarding_vault_tax_boost_placeholder)) },
-                    trailingIcon = { Text("%") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                if (showRemove) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SparelyTextButton(onClick = onRemove) {
-                        Text(stringResource(R.string.onboarding_remove_vault))
-                    }
-                }
-            }
-        }
-    }
-
-    private data class VaultDraft(
-        val id: Long,
-        val name: String,
-        val targetAmount: String,
-        val currentBalance: String,
-        val priority: VaultPriority,
-        val type: VaultType,
-        val allocationMode: VaultAllocationMode,
-        val manualPercent: String,
-        val savingTaxRate: String,
-        val recommended: Boolean,
-        val iconName: String? = null
-    ) {
-        companion object {
-            fun blank(): VaultDraft = VaultDraft(
-                id = -1,
-                name = "New vault",
-                targetAmount = "2000",
-                currentBalance = "0",
-                priority = VaultPriority.MEDIUM,
-                type = VaultType.SHORT_TERM,
-                allocationMode = VaultAllocationMode.DYNAMIC_AUTO,
-                manualPercent = "",
-                savingTaxRate = "",
-                recommended = false,
-                iconName = "account_balance_wallet"
-            )
-        }
-
-        fun toSetup(): SmartVaultSetup? {
-            val trimmedName = name.trim()
-            if (trimmedName.isEmpty()) return null
-            val target = targetAmount.toSafeDouble()?.coerceAtLeast(0.0) ?: return null
-            if (target <= 0.0) return null
-            val balance = currentBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
-            val manualShare = if (allocationMode == VaultAllocationMode.MANUAL) {
-                manualPercent.toSafeDouble()?.div(100.0)?.coerceIn(0.0, 1.0)
-            } else {
-                null
-            }
-            val taxOverride = savingTaxRate.toSafeDouble()?.div(100.0)?.coerceIn(0.0, 1.0)
-            return SmartVaultSetup(
-                name = trimmedName,
-                targetAmount = target,
-                currentBalance = balance,
-                priority = priority,
-                type = type,
-                allocationMode = allocationMode,
-                manualAllocationPercent = manualShare,
-                savingTaxRateOverride = taxOverride,
-                iconName = iconName
-            )
-        }
-    }
-
-    private fun recommendedVaultDrafts(
-        age: Int,
-        educationStatus: EducationStatus,
-        employmentStatus: EmploymentStatus,
-        hasDebts: Boolean,
-        monthlyIncome: Double,
-        currentEmergencyFund: Double
-    ): List<VaultDraft> {
-        val setups = SavingsAdvisor.recommendedVaults(
-            age = age,
-            educationStatus = educationStatus,
-            employmentStatus = employmentStatus,
-            hasDebts = hasDebts,
-            emergencyFund = currentEmergencyFund,
-            monthlyIncome = monthlyIncome
-        )
-        return setups.map { it.toDraft(recommended = true) }
-    }
-
-    private data class SubscriptionDraft(
-        val id: Long,
-        val name: String,
-        val amount: String
-    )
-
-    private fun SmartVaultSetup.toDraft(recommended: Boolean): VaultDraft = VaultDraft(
-        id = -1,
-        name = name,
-        targetAmount = targetAmount.toInputText(defaultWhenZero = ""),
-        currentBalance = currentBalance.toInputText(defaultWhenZero = "0"),
-        priority = priority,
-        type = type,
-        allocationMode = allocationMode,
-        manualPercent = manualAllocationPercent?.let { (it * 100).toPercentageInput() } ?: "",
-        savingTaxRate = savingTaxRateOverride?.let { (it * 100).toPercentageInput() } ?: "",
-        recommended = recommended,
-        iconName = iconName
-    )
-
-@Composable
-private fun EducationStatus.displayName(): String = when (this) {
-    EducationStatus.HIGH_SCHOOL -> stringResource(R.string.edu_high_school)
-    EducationStatus.UNIVERSITY -> stringResource(R.string.edu_university)
-    EducationStatus.GRADUATED -> stringResource(R.string.edu_graduated)
-    EducationStatus.OTHER -> stringResource(R.string.edu_other)
-}
-
-@Composable
-private fun EmploymentStatus.displayName(): String = when (this) {
-    EmploymentStatus.STUDENT -> stringResource(R.string.emp_student)
-    EmploymentStatus.PART_TIME -> stringResource(R.string.emp_part_time)
-    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> stringResource(R.string.emp_employed)
-    EmploymentStatus.SELF_EMPLOYED -> stringResource(R.string.emp_self_employed)
-    EmploymentStatus.UNEMPLOYED -> stringResource(R.string.emp_unemployed)
-    EmploymentStatus.RETIRED -> stringResource(R.string.emp_retired)
-}
-
-@Composable
-private fun LivingSituation.displayName(): String = when (this) {
-    LivingSituation.WITH_PARENTS -> stringResource(R.string.living_with_parents)
-    LivingSituation.RENTING -> stringResource(R.string.living_renting)
-    LivingSituation.HOMEOWNER -> stringResource(R.string.living_homeowner)
-    LivingSituation.OTHER -> stringResource(R.string.living_other)
-}
-
-
-
-
-private fun Double.toInputText(defaultWhenZero: String = ""): String {
-    if (this <= 0.0) return defaultWhenZero
-    val displayValue = if (this > -0.005 && this <= 0.0) 0.0 else this
-    return if (displayValue % 1.0 == 0.0) {
-        displayValue.toInt().toString()
-    } else {
-        displayValue.formatCurrency("", 2)
-    }
-}
-
-private fun Double.toPercentageInput(): String {
-    val displayValue = if (this > -0.00005 && this <= 0.0) 0.0 else this
-    return if (displayValue % 1.0 == 0.0) {
-        displayValue.toInt().toString()
-    } else {
-        displayValue.formatPercent(1).removeSuffix("%")
     }
 }
 
 @Composable
-fun NameStep(
-    name: String,
-    onNameChange: (String) -> Unit,
-    onNext: () -> Unit
+private fun WelcomeStep(
+    country: CountryConfig,
+    language: String,
+    onCountryChange: (CountryConfig) -> Unit,
+    onLanguageChange: (String) -> Unit,
+    onStart: () -> Unit,
+    onImport: () -> Unit,
+    onSkip: () -> Unit
 ) {
+    var showCountryPicker by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "👋",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.5f
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_name_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_name_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        SparelyTextField(
-            value = name,
-            onValueChange = onNameChange,
-            label = { Text(stringResource(R.string.onboarding_name_label)) },
-            placeholder = { Text(stringResource(R.string.onboarding_name_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.PERSON, contentDescription = null)
+        // The brand card: same spruce, logo and wordmark as the splash screen
+        SparelyBrandSurface {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_sparely_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(72.dp)
+                    )
+                    Image(
+                        painter = painterResource(R.drawable.ic_sparely_wordmark),
+                        contentDescription = stringResource(R.string.app_name),
+                        modifier = Modifier.width(150.dp).height(38.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.splash_tagline),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            ValueRow(MaterialSymbols.LOCK, R.string.onboarding_value_private_title, R.string.onboarding_value_private_desc)
+            ValueRow(MaterialSymbols.PAYMENTS, R.string.onboarding_value_fast_title, R.string.onboarding_value_fast_desc)
+            ValueRow(MaterialSymbols.SAVINGS, R.string.onboarding_value_autopilot_title, R.string.onboarding_value_autopilot_desc)
+        }
+
+        // Country and language, both changeable later in Settings > Region
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showCountryPicker = true }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MaterialSymbolIcon(icon = MaterialSymbols.PUBLIC, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.onboarding_region_country), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "${countryDisplayName(country)} · ${country.defaultCurrency}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    MaterialSymbolIcon(icon = MaterialSymbols.ARROW_DROP_DOWN, contentDescription = null)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.settings_language_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    listOf("en" to "English", "fr" to "Français").forEach { (code, label) ->
+                        SparelyChip(selected = language == code, onClick = { onLanguageChange(code) }, label = { Text(label) })
+                    }
+                }
+            }
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SparelyButton(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
+            }
+            SparelyTonalButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.onboarding_import_backup))
+            }
+            SparelyTextButton(onClick = onSkip) { Text(stringResource(R.string.onboarding_skip_setup)) }
+        }
+    }
+
+    if (showCountryPicker) {
+        SparelyAlertDialog(
+            onDismissRequest = { showCountryPicker = false },
+            title = { Text(stringResource(R.string.dialog_select_country_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    CountryProfiles.ALL_COUNTRIES
+                        .sortedBy { countryDisplayName(it) }
+                        .forEach { option ->
+                            val selected = option.countryCode == country.countryCode
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onCountryChange(option)
+                                        showCountryPicker = false
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    countryDisplayName(option),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(option.defaultCurrency, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (selected) {
+                                    Spacer(Modifier.width(8.dp))
+                                    MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                SparelyTextButton(onClick = { showCountryPicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onNext,
+    }
+}
+
+/** The country's name in the app's current language ("Canada", "Allemagne"). */
+private fun countryDisplayName(country: CountryConfig): String =
+    Locale("", country.countryCode).getDisplayCountry(Locale.getDefault()).ifBlank { country.countryName }
+
+@Composable
+private fun ValueRow(icon: Int, titleRes: Int, descRes: Int) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
         ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
+            MaterialSymbolIcon(icon = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, size = 22.dp)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(titleRes), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(descRes), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IncomeStep(
-    income: String,
-    age: String,
+private fun AboutYouStep(
+    name: String,
+    onNameChange: (String) -> Unit,
     birthday: LocalDate?,
-    onIncomeChange: (String) -> Unit,
-    onAgeChange: (String) -> Unit,
     onBirthdayChange: (LocalDate?) -> Unit,
     onNext: () -> Unit
 ) {
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    val computedAge = remember(birthday) {
-        birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt() }
-    }
     var showBirthdayPicker by remember { mutableStateOf(false) }
-    val birthdayLabel = birthday?.format(dateFormatter) ?: stringResource(R.string.onboarding_income_birthday_label)
-    val isAgeValid = (birthday != null && computedAge != null) || age.toIntOrNull() != null
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+    StepLayout(
+        title = stringResource(R.string.onboarding_about_title),
+        description = stringResource(R.string.onboarding_about_desc),
+        primaryLabel = stringResource(R.string.onboarding_continue),
+        onPrimary = onNext,
+        onSkip = onNext
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "💵",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.5f
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_income_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_personalize_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
         SparelyTextField(
-            value = income,
-            onValueChange = { onIncomeChange(it.filterCurrencyInput()) },
-            label = { Text(stringResource(R.string.onboarding_income_label)) },
-            placeholder = { Text(stringResource(R.string.onboarding_income_placeholder)) },
-            prefix = { Text("$") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null)
-            }
+            value = name,
+            onValueChange = onNameChange,
+            label = { Text(stringResource(R.string.onboarding_name_label)) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
         )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SparelyTonalButton(
-            onClick = { showBirthdayPicker = true },
-            modifier = Modifier.fillMaxWidth(),
-            icon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null)
-            }
-        ) {
-            Text(birthdayLabel)
-        }
-
-        if (birthday != null && computedAge != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.onboarding_income_age_milestone_desc, computedAge ?: 0),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
-            )
-            SparelyTextButton(
-                onClick = { onBirthdayChange(null) },
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text(stringResource(R.string.onboarding_income_clear_birthday))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val ageHelper = if (birthday != null) {
-            stringResource(R.string.onboarding_income_age_helper_auto)
-        } else {
-            stringResource(R.string.onboarding_income_age_helper_manual)
-        }
-
-        SparelyTextField(
-            value = age,
-            onValueChange = onAgeChange,
-            label = { Text(stringResource(R.string.onboarding_income_age_label)) },
-            placeholder = { Text(stringResource(R.string.onboarding_income_age_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = birthday == null,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.CAKE, contentDescription = null)
-            },
-            supportingText = { Text(ageHelper) }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.LOCK,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SparelyTonalButton(onClick = { showBirthdayPicker = true }, modifier = Modifier.fillMaxWidth()) {
+                MaterialSymbolIcon(icon = MaterialSymbols.CAKE, contentDescription = null, size = 18.dp)
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.onboarding_income_privacy_notice),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    birthday?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
+                        ?: stringResource(R.string.onboarding_birthday_button)
                 )
             }
-        }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth(),
-            enabled = income.toSafeDouble() != null && isAgeValid
-        ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.onboarding_birthday_helper),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 
     if (showBirthdayPicker) {
-        val initialMillis = birthday.toSafeDatePickerMillis()
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
-        LaunchedEffect(initialMillis) {
-            if (initialMillis != null && datePickerState.selectedDateMillis != initialMillis) {
-                datePickerState.selectedDateMillis = initialMillis
-            }
-        }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = birthday.toSafeDatePickerMillis())
         DatePickerDialog(
             onDismissRequest = { showBirthdayPicker = false },
             confirmButton = {
                 SparelyTextButton(onClick = {
-                    val selectedMillis = datePickerState.selectedDateMillis
-                    val selectedDate = selectedMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                    onBirthdayChange(selectedDate)
+                    onBirthdayChange(
+                        datePickerState.selectedDateMillis?.let {
+                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                        }
+                    )
                     showBirthdayPicker = false
-                }) {
-                    Text(stringResource(R.string.common_save))
-                }
+                }) { Text(stringResource(R.string.common_save)) }
             },
             dismissButton = {
-                SparelyTextButton(onClick = { showBirthdayPicker = false }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
+                SparelyTextButton(onClick = { showBirthdayPicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -1301,841 +564,104 @@ fun IncomeStep(
 }
 
 @Composable
-fun RiskLevelStep(
-    selectedRisk: RiskLevel,
-    onRiskSelected: (RiskLevel) -> Unit,
+private fun MoneyStep(
+    currencySymbol: String,
+    income: String,
+    onIncomeChange: (String) -> Unit,
+    mainBalance: String,
+    onMainBalanceChange: (String) -> Unit,
+    savingsBalance: String,
+    onSavingsBalanceChange: (String) -> Unit,
     onNext: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+    StepLayout(
+        title = stringResource(R.string.onboarding_money_title),
+        description = stringResource(R.string.onboarding_money_desc),
+        primaryLabel = stringResource(R.string.onboarding_continue),
+        onPrimary = onNext,
+        onSkip = onNext
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "📈",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.5f
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_risk_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_risk_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        RiskLevelOption(
-            icon = "🛡️",
-            title = stringResource(R.string.onboarding_risk_conservative_title),
-            description = stringResource(R.string.onboarding_risk_conservative_desc),
-            isSelected = selectedRisk == RiskLevel.CONSERVATIVE,
-            onClick = { onRiskSelected(RiskLevel.CONSERVATIVE) }
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        RiskLevelOption(
-            icon = "⚖️",
-            title = stringResource(R.string.onboarding_risk_balanced_title),
-            description = stringResource(R.string.onboarding_risk_balanced_desc),
-            isSelected = selectedRisk == RiskLevel.BALANCED,
-            onClick = { onRiskSelected(RiskLevel.BALANCED) }
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        RiskLevelOption(
-            icon = "🚀",
-            title = stringResource(R.string.onboarding_risk_aggressive_title),
-            description = stringResource(R.string.onboarding_risk_aggressive_desc),
-            isSelected = selectedRisk == RiskLevel.AGGRESSIVE,
-            onClick = { onRiskSelected(RiskLevel.AGGRESSIVE) }
-        )
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
-        }
+        MoneyField(income, onIncomeChange, R.string.onboarding_money_income_label, R.string.onboarding_money_income_helper, currencySymbol)
+        MoneyField(mainBalance, onMainBalanceChange, R.string.onboarding_main_balance_label, R.string.onboarding_money_main_helper, currencySymbol)
+        MoneyField(savingsBalance, onSavingsBalanceChange, R.string.onboarding_savings_balance_label, R.string.onboarding_money_savings_helper, currencySymbol)
     }
 }
 
 @Composable
-fun RiskLevelOption(
-    icon: String,
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    ExpressiveCard(
-        onClick = onClick,
-        containerColor = if (isSelected) 
-            MaterialTheme.colorScheme.primaryContainer 
-        else 
-            MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = icon,
-                style = MaterialTheme.typography.headlineLarge
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (isSelected) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.CHECK_CIRCLE,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FinancialSituationStep(
-    hasDebts: Boolean,
-    onDebtsChange: (Boolean) -> Unit,
-    emergencyFund: String,
-    onEmergencyFundChange: (String) -> Unit,
-    educationStatus: EducationStatus,
-    onEducationStatusChange: (EducationStatus) -> Unit,
-    employmentStatus: EmploymentStatus,
-    onEmploymentStatusChange: (EmploymentStatus) -> Unit,
-    livingSituation: LivingSituation,
-    onLivingSituationChange: (LivingSituation) -> Unit,
-    occupation: String,
-    onOccupationChange: (String) -> Unit,
-    mainAccountBalance: String,
-    onMainAccountBalanceChange: (String) -> Unit,
-    savingsAccountBalance: String,
-    onSavingsAccountBalanceChange: (String) -> Unit,
-    vaultsBalance: String,
-    onVaultsBalanceChange: (String) -> Unit,
-    subscriptions: List<SubscriptionDraft>,
-    onAddSubscription: () -> Unit,
-    onSubscriptionNameChange: (Long, String) -> Unit,
-    onSubscriptionAmountChange: (Long, String) -> Unit,
-    onRemoveSubscription: (Long) -> Unit,
-    age: Int,
-    onNext: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
+private fun MoneyField(value: String, onValueChange: (String) -> Unit, labelRes: Int, helperRes: Int, currencySymbol: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SparelyAmountTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(stringResource(labelRes)) },
+            prefix = { Text(currencySymbol) }
+        )
         Text(
-            text = "💼",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.5f
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_financial_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_financial_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Education Status (only show if age < 30)
-        if (age < 30) {
-            Text(
-                text = stringResource(R.string.onboarding_financial_education_label),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (status in EducationStatus.entries) {
-                    SparelyChip(
-                        selected = educationStatus == status,
-                        onClick = { onEducationStatusChange(status) },
-                        label = { Text(status.displayName()) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        // Employment Status
-        Text(
-            text = stringResource(R.string.onboarding_financial_employment_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (status in EmploymentStatus.entries) {
-                SparelyChip(
-                    selected = employmentStatus == status,
-                    onClick = { onEmploymentStatusChange(status) },
-                    label = { Text(status.displayName()) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_living_situation_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (option in LivingSituation.entries) {
-                SparelyChip(
-                    selected = livingSituation == option,
-                    onClick = { onLivingSituationChange(option) },
-                    label = { Text(option.displayName()) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SparelyTextField(
-            value = occupation,
-            onValueChange = onOccupationChange,
-            label = { Text(stringResource(R.string.onboarding_occupation_label)) },
-            placeholder = { Text(stringResource(R.string.onboarding_occupation_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.WORK, contentDescription = null)
-            }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_financial_debts_label),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth()
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SparelyChip(
-                selected = !hasDebts,
-                onClick = { onDebtsChange(false) },
-                label = { Text(stringResource(R.string.common_no)) },
-                modifier = Modifier.weight(1f),
-                leadingIcon = if (!hasDebts) {
-                    { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
-                } else null
-            )
-            SparelyChip(
-                selected = hasDebts,
-                onClick = { onDebtsChange(true) },
-                label = { Text(stringResource(R.string.common_yes)) },
-                modifier = Modifier.weight(1f),
-                leadingIcon = if (hasDebts) {
-                    { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
-                } else null
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        // Tailored suggestion for young part-time users still living with parents
-        val showSmallFundSuggestion = age <= 18 && livingSituation == LivingSituation.WITH_PARENTS && employmentStatus == EmploymentStatus.PART_TIME
-        if (showSmallFundSuggestion) {
-            ExpressiveCard(
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.onboarding_small_fund_suggestion),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SparelyTonalButton(onClick = { onEmergencyFundChange("250") }) {
-                            Text(stringResource(R.string.onboarding_apply_suggestion, "250"))
-                        }
-                        SparelyTextButton(onClick = { /* user can still input their own value */ }) {
-                            Text(stringResource(R.string.onboarding_keep_value))
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        SparelyTextField(
-            value = emergencyFund,
-            onValueChange = { onEmergencyFundChange(it.filterCurrencyInput()) },
-            label = { Text(stringResource(R.string.onboarding_emergency_fund_label)) },
-            placeholder = { Text("0") },
-            prefix = { Text(stringResource(R.string.currency_symbol)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET, contentDescription = null)
-            },
-            supportingText = {
-                Text(stringResource(R.string.onboarding_emergency_fund_helper))
-            }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_balances_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.onboarding_balances_desc),
+            stringResource(helperRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.padding(start = 4.dp)
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SparelyTextField(
-            value = mainAccountBalance,
-            onValueChange = { onMainAccountBalanceChange(it.filterCurrencyInput()) },
-            label = { Text(stringResource(R.string.onboarding_main_balance_label)) },
-            placeholder = { Text("0") },
-            prefix = { Text(stringResource(R.string.currency_symbol)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE, contentDescription = null)
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SparelyTextField(
-            value = savingsAccountBalance,
-            onValueChange = { onSavingsAccountBalanceChange(it.filterCurrencyInput()) },
-            label = { Text(stringResource(R.string.onboarding_savings_balance_label)) },
-            placeholder = { Text("0") },
-            prefix = { Text(stringResource(R.string.currency_symbol)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS, contentDescription = null)
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SparelyTextField(
-            value = vaultsBalance,
-            onValueChange = { onVaultsBalanceChange(it.filterCurrencyInput()) },
-            label = { Text(stringResource(R.string.onboarding_vaults_balance_label)) },
-            placeholder = { Text("0") },
-            prefix = { Text(stringResource(R.string.currency_symbol)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.LOCK, contentDescription = null)
-            }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_subscriptions_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.onboarding_subscriptions_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (subscriptions.isEmpty()) {
-            Text(
-                text = stringResource(R.string.onboarding_no_subscriptions),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth()
-            )
-        } else {
-            for ((index, draft) in subscriptions.withIndex()) {
-                ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 4.dp, contentPadding = 16.dp) {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.onboarding_subscription_item_title, index + 1),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Medium
-                            )
-                            IconButton(onClick = { onRemoveSubscription(draft.id) }) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = stringResource(R.string.onboarding_remove_subscription))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SparelyTextField(
-                            value = draft.name,
-                            onValueChange = { onSubscriptionNameChange(draft.id, it) },
-                            label = { Text(stringResource(R.string.common_name)) },
-                            placeholder = { Text(stringResource(R.string.onboarding_subscription_placeholder)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SparelyTextField(
-                            value = draft.amount,
-                            onValueChange = { onSubscriptionAmountChange(draft.id, it.filterCurrencyInput()) },
-                            label = { Text(stringResource(R.string.onboarding_subscription_amount_label)) },
-                            placeholder = { Text("0") },
-                            prefix = { Text(stringResource(R.string.currency_symbol)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            leadingIcon = {
-                                MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null)
-                            }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-
-        SparelyTonalButton(
-            onClick = onAddSubscription,
-            modifier = Modifier.fillMaxWidth(),
-            icon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
-            }
-        ) {
-            Text(stringResource(R.string.onboarding_add_subscription))
-        }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
-        }
     }
 }
 
 @Composable
-fun GoalStep(
-    goal: String,
-    onGoalChange: (String) -> Unit,
-    onComplete: () -> Unit
+private fun FirstVaultStep(
+    currencySymbol: String,
+    createVault: Boolean,
+    onCreateVaultChange: (Boolean) -> Unit,
+    target: String,
+    onTargetChange: (String) -> Unit,
+    months: Int,
+    incomeKnown: Boolean,
+    onFinish: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+    StepLayout(
+        title = stringResource(R.string.onboarding_vault_title),
+        description = stringResource(R.string.onboarding_vault_desc),
+        primaryLabel = stringResource(R.string.onboarding_finish),
+        onPrimary = onFinish
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "🎯",
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.5f
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_goal_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_goal_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        SparelyTextField(
-            value = goal,
-            onValueChange = onGoalChange,
-            label = { Text(stringResource(R.string.onboarding_goal_label)) },
-            placeholder = { Text(stringResource(R.string.onboarding_goal_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null)
-            },
-            supportingText = {
-                Text(stringResource(R.string.onboarding_goal_helper))
-            }
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        val accentColor = MaterialTheme.colorScheme.primary
-        val accentContainer = MaterialTheme.colorScheme.primaryContainer
-        ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = accentContainer
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.CHECK_CIRCLE,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MaterialSymbolIcon(icon = MaterialSymbols.HEALTH_AND_SAFETY, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
                     Text(
-                        text = stringResource(R.string.onboarding_all_set_title),
+                        stringResource(R.string.onboarding_vault_create),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = accentColor
+                        modifier = Modifier.weight(1f)
                     )
+                    Switch(checked = createVault, onCheckedChange = onCreateVaultChange)
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.onboarding_all_set_desc),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onComplete,
-            modifier = Modifier
-                .fillMaxWidth(),
-            containerColor = accentColor,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            icon = {
-                MaterialSymbolIcon(icon = MaterialSymbols.ROCKET_LAUNCH, contentDescription = null)
-            }
-        ) {
-            Text(stringResource(R.string.onboarding_start_saving), style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun CountrySelectionStep(
-    selectedCountry: CountryConfig?,
-    onCountrySelected: (CountryConfig) -> Unit,
-    selectedLanguage: String,
-    onLanguageSelected: (String) -> Unit,
-    onNext: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        MaterialSymbolIcon(icon = MaterialSymbols.PUBLIC,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_country_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_country_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Country selection cards
-        for (country in CountryProfiles.ALL_COUNTRIES) {
-            val isSelected = selectedCountry?.countryCode == country.countryCode
-            ExpressiveCard(
-                onClick = { onCountrySelected(country) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                containerColor = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                },
-                contentPadding = 16.dp
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = country.countryName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = CurrencyPresets.getByCode(country.defaultCurrency)?.let { "${it.code} (${it.symbol})" }
-                                ?: country.defaultCurrency,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    
-                    if (isSelected) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
-                            contentDescription = stringResource(R.string.common_selected),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Every country can use either language; the app switches to it on Continue
-        Text(
-            text = stringResource(R.string.settings_language_label),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("en" to "English", "fr" to "Français").forEach { (code, name) ->
-                SparelyChip(
-                    selected = selectedLanguage == code,
-                    onClick = { onLanguageSelected(code) },
-                    label = { Text(name) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth(),
-            enabled = selectedCountry != null
-        ) {
-            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun WelcomeStep(
-    countryConfig: CountryConfig?,
-    onNext: () -> Unit,
-    onSkip: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            // Scrolls on small screens or with a large font instead of cutting off the buttons
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_sparely_logo),
-            contentDescription = null,
-            modifier = Modifier.size(120.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = stringResource(R.string.onboarding_welcome_title),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = buildString {
-                append(stringResource(R.string.onboarding_welcome_simple))
-                countryConfig?.let {
-                    append(" ")
-                    append(stringResource(R.string.onboarding_welcome_for_country, it.countryName))
-                }
-            },
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // Show country-specific welcome message
-        countryConfig?.let { config ->
-            ExpressiveCard(
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.onboarding_country_customized_note),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                if (createVault) {
+                    SparelyAmountTextField(
+                        value = target,
+                        onValueChange = onTargetChange,
+                        label = { Text(stringResource(R.string.onboarding_vault_target_label)) },
+                        prefix = { Text(currencySymbol) }
                     )
                     Text(
-                        text = stringResource(R.string.onboarding_country_currency_stat, CurrencyPresets.getByCode(config.defaultCurrency)?.name ?: config.defaultCurrency),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_country_tax_stat, (config.taxConfig.incomeTaxRate * 100).toInt()),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_country_savings_stat, config.savingsNorms.recommendedEmergencyMonths),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = if (incomeKnown) {
+                            stringResource(R.string.onboarding_vault_suggestion, months)
+                        } else {
+                            stringResource(R.string.onboarding_vault_suggestion_no_income)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        SparelyButton(
-            onClick = onNext,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        SparelyTextButton(onClick = onSkip) {
-            Text(stringResource(R.string.onboarding_skip_setup))
-        }
+        Text(
+            stringResource(R.string.onboarding_finish_note),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

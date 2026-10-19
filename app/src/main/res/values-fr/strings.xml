@@ -2152,4 +2152,30 @@
         <item quantity="one">%d minute</item>
         <item quantity="other">%d minutes</item>
     </plurals>
+    <string name="onboarding_value_private_title">Privé, par conception</string>
+    <string name="onboarding_value_private_desc">Tout reste sur votre téléphone : aucun compte, aucune pub.</string>
+    <string name="onboarding_value_fast_title">Saisie en quelques secondes</string>
+    <string name="onboarding_value_fast_desc">Achats détectés depuis vos applis de paiement, calculatrice et widget d\'accueil.</string>
+    <string name="onboarding_value_autopilot_title">Épargne en pilote automatique</string>
+    <string name="onboarding_value_autopilot_desc">Chaque achat met un peu de côté pour vos objectifs.</string>
+    <string name="onboarding_region_country">Pays</string>
+    <string name="onboarding_skip_step">Passer</string>
+    <string name="onboarding_about_title">À propos de vous</string>
+    <string name="onboarding_about_desc">Les deux sont facultatifs et restent sur ce téléphone.</string>
+    <string name="onboarding_birthday_button">Date de naissance (facultatif)</string>
+    <string name="onboarding_birthday_helper">Sert à adapter les conseils d\'épargne à votre étape de vie.</string>
+    <string name="onboarding_money_title">Votre argent</string>
+    <string name="onboarding_money_desc">Des montants approximatifs suffisent. Vous pourrez les modifier en tout temps dans les paramètres.</string>
+    <string name="onboarding_money_income_label">Revenu mensuel, après impôt</string>
+    <string name="onboarding_money_income_helper">Sert à créer vos premiers budgets et à calculer combien mettre de côté.</string>
+    <string name="onboarding_money_main_helper">Le compte d\'où vous dépensez.</string>
+    <string name="onboarding_money_savings_helper">L\'argent déjà mis de côté.</string>
+    <string name="onboarding_vault_title">Votre premier coffre</string>
+    <string name="onboarding_vault_desc">Un coffre, c\'est de l\'argent mis de côté pour un but précis. Le fonds d\'urgence passe en premier : il couvre les imprévus, comme une réparation ou une perte d\'emploi.</string>
+    <string name="onboarding_vault_create">Créer un fonds d\'urgence</string>
+    <string name="onboarding_vault_emergency_name">Fonds d\'urgence</string>
+    <string name="onboarding_vault_suggestion">Environ %1$d mois de vos dépenses</string>
+    <string name="onboarding_vault_suggestion_no_income">Un premier objectif, à ajuster selon vos dépenses.</string>
+    <string name="onboarding_finish">Commencer avec Sparely</string>
+    <string name="onboarding_finish_note">Vous pourrez ajouter d\'autres coffres et budgets, et peaufiner votre profil, en tout temps dans les paramètres.</string>
 </resources>

@@ -2182,4 +2182,30 @@
         <item quantity="one">%d minute</item>
         <item quantity="other">%d minutes</item>
     </plurals>
+    <string name="onboarding_value_private_title">Private by design</string>
+    <string name="onboarding_value_private_desc">Everything stays on your phone: no account, no ads.</string>
+    <string name="onboarding_value_fast_title">Log in seconds</string>
+    <string name="onboarding_value_fast_desc">Purchases detected from your payment apps, a calculator and a home screen widget.</string>
+    <string name="onboarding_value_autopilot_title">Savings on autopilot</string>
+    <string name="onboarding_value_autopilot_desc">Each purchase sets a little aside for your goals.</string>
+    <string name="onboarding_region_country">Country</string>
+    <string name="onboarding_skip_step">Skip</string>
+    <string name="onboarding_about_title">About you</string>
+    <string name="onboarding_about_desc">Both are optional and stay on this phone.</string>
+    <string name="onboarding_birthday_button">Date of birth (optional)</string>
+    <string name="onboarding_birthday_helper">Used to tailor savings advice to your stage of life.</string>
+    <string name="onboarding_money_title">Your money</string>
+    <string name="onboarding_money_desc">Rough numbers are fine. You can change them anytime in Settings.</string>
+    <string name="onboarding_money_income_label">Monthly income, after tax</string>
+    <string name="onboarding_money_income_helper">Sets your starter budgets and how much to set aside.</string>
+    <string name="onboarding_money_main_helper">The account you spend from.</string>
+    <string name="onboarding_money_savings_helper">Money already set aside.</string>
+    <string name="onboarding_vault_title">Your first vault</string>
+    <string name="onboarding_vault_desc">A vault is money set aside for one purpose. An emergency fund comes first: it covers surprises like a repair or a lost job.</string>
+    <string name="onboarding_vault_create">Create an emergency fund</string>
+    <string name="onboarding_vault_emergency_name">Emergency fund</string>
+    <string name="onboarding_vault_suggestion">About %1$d months of your expenses</string>
+    <string name="onboarding_vault_suggestion_no_income">A first goal to adjust once you know your expenses.</string>
+    <string name="onboarding_finish">Start using Sparely</string>
+    <string name="onboarding_finish_note">You can add more vaults and budgets, and fine-tune your profile, anytime in Settings.</string>
 </resources>

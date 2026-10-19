@@ -1790,6 +1790,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
             
             val resolvedVaultSetups = when {
                 profile.smartVaults.isNotEmpty() -> profile.smartVaults
+                !profile.createStarterVaults -> emptyList()
                 profile.savingsAccounts.isNotEmpty() -> profile.savingsAccounts.map { it.toSmartVaultSetup(profile.monthlyIncome) }
                 shouldAutoGenerateBudgets -> {
                     // Use OnboardingHelper to generate vaults
