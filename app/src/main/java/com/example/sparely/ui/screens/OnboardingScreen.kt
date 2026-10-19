@@ -59,13 +59,21 @@ fun OnboardingScreen(
     onComplete: (UserProfileSetup) -> Unit,
     onImportData: (android.net.Uri) -> Unit,
     onSkip: () -> Unit,
-    snackbarHostState: SnackbarHostState? = null
+    snackbarHostState: SnackbarHostState? = null,
+    /** Country, language and currency picked on the first step; saving the language switches the app to it. */
+    onRegionChosen: (countryCode: String, languageCode: String, currencyCode: String) -> Unit = { _, _, _ -> }
 ) {
     // Saveable state: rotating the device or the system reclaiming the app mid-setup
     // must not throw people back to step one with everything they typed lost.
     var currentStep by rememberSaveable { mutableIntStateOf(0) }
-    var selectedCountryCode by rememberSaveable { mutableStateOf<String?>(null) }
+    // Starts on the phone's country and language when Sparely knows them
+    var selectedCountryCode by rememberSaveable {
+        mutableStateOf(CountryProfiles.getByCode(java.util.Locale.getDefault().country)?.countryCode)
+    }
     val selectedCountry = selectedCountryCode?.let { CountryProfiles.getByCode(it) }
+    var selectedLanguage by rememberSaveable {
+        mutableStateOf(com.example.sparely.AppLanguage.deviceLanguage() ?: "en")
+    }
     var userName by rememberSaveable { mutableStateOf("") }
 
     val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -232,7 +240,14 @@ fun OnboardingScreen(
                         0 -> CountrySelectionStep(
                             selectedCountry = selectedCountry,
                             onCountrySelected = { selectedCountryCode = it.countryCode },
-                            onNext = { currentStep = 1 }
+                            selectedLanguage = selectedLanguage,
+                            onLanguageSelected = { selectedLanguage = it },
+                            onNext = {
+                                selectedCountry?.let { country ->
+                                    onRegionChosen(country.countryCode, selectedLanguage, country.defaultCurrency)
+                                }
+                                currentStep = 1
+                            }
                         )
                         1 -> WelcomeStep(
                             countryConfig = selectedCountry,
@@ -1906,6 +1921,8 @@ fun GoalStep(
 private fun CountrySelectionStep(
     selectedCountry: CountryConfig?,
     onCountrySelected: (CountryConfig) -> Unit,
+    selectedLanguage: String,
+    onLanguageSelected: (String) -> Unit,
     onNext: () -> Unit
 ) {
     Column(
@@ -1972,7 +1989,8 @@ private fun CountrySelectionStep(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${country.languageName} • ${MaterialTheme.colorScheme.onSurfaceVariant.let { if (isSelected) stringResource(R.string.common_selected) else CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency }}",
+                            text = CurrencyPresets.getByCode(country.defaultCurrency)?.let { "${it.code} (${it.symbol})" }
+                                ?: country.defaultCurrency,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1988,6 +2006,29 @@ private fun CountrySelectionStep(
             }
         }
         
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Every country can use either language; the app switches to it on Continue
+        Text(
+            text = stringResource(R.string.settings_language_label),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("en" to "English", "fr" to "Français").forEach { (code, name) ->
+                SparelyChip(
+                    selected = selectedLanguage == code,
+                    onClick = { onLanguageSelected(code) },
+                    label = { Text(name) }
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
         
         SparelyButton(

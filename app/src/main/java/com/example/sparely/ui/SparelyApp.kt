@@ -203,7 +203,10 @@ fun SparelyApp(
                 }
             },
             onSkip = viewModel::skipOnboarding,
-            snackbarHostState = snackbarHostState
+            snackbarHostState = snackbarHostState,
+            onRegionChosen = { country, language, currency ->
+                settingsViewModel.updateRegionalSettings(country, language, currency, null)
+            }
         )
     } else {
         SparelyScaffold(

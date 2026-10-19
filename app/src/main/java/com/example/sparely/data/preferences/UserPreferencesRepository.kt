@@ -25,7 +25,6 @@ import com.example.sparely.domain.model.SmartAllocationMode
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.VaultAllocationMode
-import com.example.sparely.setAppLocale
 import com.example.sparely.domain.model.CountryProfiles
 import com.example.sparely.domain.model.BackupPreference
 import com.example.sparely.domain.model.ExpenseHistoryRetention
@@ -383,8 +382,7 @@ class UserPreferencesRepository(private val context: Context) {
             }
             prefs[PreferenceKeys.onboardingCompleted] = true
         }
-        val restored = context.dataStore.data.first()
-        restored[PreferenceKeys.languageCode]?.let { context.setAppLocale(it, restored[PreferenceKeys.countryCode]) }
+        // The restored language takes effect through MainActivity, which follows appLanguageTag
     }
 
     suspend fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
@@ -404,11 +402,7 @@ class UserPreferencesRepository(private val context: Context) {
                 prefs.remove(PreferenceKeys.customIncomeTaxRate)
             }
         }
-    // Apply the new locale immediately using language + country so the
-    // system prefers region-specific qualifiers (e.g. values-fr-rCA) and
-    // falls back to the base language if the regionized resources are
-    // missing.
-    context.setAppLocale(languageCode, countryCode)
+        // MainActivity switches the app to the new language (see SparelySettings.appLanguageTag)
     }
 
     suspend fun updateBrandfetchClientId(clientId: String?) {
@@ -663,6 +657,10 @@ class UserPreferencesRepository(private val context: Context) {
         
         val countryCode = this[PreferenceKeys.countryCode] ?: defaults.regionalSettings.countryCode
         val languageCode = this[PreferenceKeys.languageCode] ?: defaults.regionalSettings.languageCode
+        // Only once the user picked a language; until then the app follows the phone's
+        val appLanguageTag = this[PreferenceKeys.languageCode]?.let { language ->
+            com.example.sparely.AppLanguage.tag(language, this[PreferenceKeys.countryCode])
+        }
         val currencyCode = this[PreferenceKeys.currencyCode] ?: defaults.regionalSettings.currencyCode
         val customIncomeTaxRate = this.finite(PreferenceKeys.customIncomeTaxRate)
         val brandfetchClientId = this[PreferenceKeys.brandfetchClientId]
@@ -742,6 +740,7 @@ class UserPreferencesRepository(private val context: Context) {
             vaultAllocationMode = vaultAllocationMode,
             dynamicSavingTaxEnabled = dynamicSavingTaxEnabled,
             lastComputedSavingTaxRate = lastComputedSavingTaxRate,
+            appLanguageTag = appLanguageTag,
             regionalSettings = RegionalSettings(
                 countryCode = countryCode,
                 languageCode = languageCode,

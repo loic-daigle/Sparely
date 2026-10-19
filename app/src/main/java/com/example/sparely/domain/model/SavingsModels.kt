@@ -232,6 +232,8 @@ data class SparelySettings(
     val dynamicSavingTaxEnabled: Boolean = true,
     val lastComputedSavingTaxRate: Double? = null,
     val regionalSettings: RegionalSettings = RegionalSettings(),
+    // Language tag ("fr-CA") the user chose for the app, or null to follow the phone's language
+    val appLanguageTag: String? = null,
     val brandfetchClientId: String? = null,
     val expenseHistoryRetention: ExpenseHistoryRetention = ExpenseHistoryRetention.INDEFINITELY,
     // Credit card reminder settings

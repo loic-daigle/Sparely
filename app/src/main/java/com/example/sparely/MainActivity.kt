@@ -29,6 +29,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.sparely.ui.theme.SparelyTheme
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.example.sparely.ui.SparelyApp
 import com.example.sparely.ui.SparelyViewModel
 import com.example.sparely.ui.SparelyViewModelFactory
@@ -148,6 +150,16 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }
         }
         
+        // The language picked in Settings or onboarding: switching it restarts this screen in it
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState
+                    .map { state -> if (state.isLoading) null else state.settings.appLanguageTag }
+                    .distinctUntilChanged()
+                    .collect { tag -> if (tag != null) AppLanguage.apply(this@MainActivity, tag) }
+            }
+        }
+
         // Initial check
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -309,7 +321,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
+        // Before Android 13, the language picked in Sparely (see AppLanguage); a no-op after
+        super.attachBaseContext(AppLanguage.wrap(newBase))
     }
     
     override fun onNewIntent(intent: android.content.Intent) {

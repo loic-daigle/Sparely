@@ -1662,20 +1662,8 @@ private fun RegionalSettingsCard(
         com.example.sparely.domain.model.CountryProfiles.BRAZIL
     )
     
-    // Available languages for the selected country
-    val availableLanguages = when (regionalSettings.countryCode) {
-        "CA" -> listOf("en" to "English", "fr" to "Français")
-        "BE" -> listOf("en" to "English", "fr" to "Français", "nl" to "Nederlands")
-        "CH" -> listOf("en" to "English", "fr" to "Français", "de" to "Deutsch", "it" to "Italiano")
-        else -> listOf(
-            "en" to "English",
-            "es" to "Español",
-            "fr" to "Français",
-            "de" to "Deutsch",
-            "pt" to "Português",
-            "ja" to "日本語"
-        )
-    }
+    // The languages the app is translated into, in every country (any other would show English)
+    val availableLanguages = listOf("en" to "English", "fr" to "Français")
     
     // Available currencies
     val availableCurrencies = listOf("USD", "CAD", "GBP", "EUR", "JPY", "AUD", "INR", "MXN", "BRL")
@@ -1850,9 +1838,14 @@ private fun RegionalSettingsCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+                                    // A new country keeps the language already in use
+                                    val language = regionalSettings.languageCode
+                                        .takeIf { it in com.example.sparely.AppLanguage.SUPPORTED }
+                                        ?: country.languageCode.takeIf { it in com.example.sparely.AppLanguage.SUPPORTED }
+                                        ?: "en"
                                     onRegionalSettingsChange(
                                         country.countryCode,
-                                        country.languageCode,
+                                        language,
                                         country.defaultCurrency,
                                         regionalSettings.customIncomeTaxRate
                                     )
@@ -1870,7 +1863,7 @@ private fun RegionalSettingsCard(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "${country.defaultCurrency} • ${country.languageName}",
+                                    text = country.defaultCurrency,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
