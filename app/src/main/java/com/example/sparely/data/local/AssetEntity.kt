@@ -15,5 +15,7 @@ data class AssetEntity(
     val createdAt: LocalDateTime,
     val archived: Boolean = false,
     val metadata: String? = null, // JSON for asset-specific data
-    val creatorExpenseId: Long? = null // ID of the expense that created this asset
+    val creatorExpenseId: Long? = null, // ID of the expense that created this asset
+    val kind: String = "ASSET", // ASSET (ongoing cost) or PROJECT (has an end)
+    val completedAt: LocalDateTime? = null // When a project was marked done
 )

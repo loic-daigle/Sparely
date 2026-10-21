@@ -1372,21 +1372,21 @@
     <string name="expense_entry_description_placeholder">C\'était pour quoi ?</string>
     <string name="expense_entry_save_with_amount">%1$s · %2$s</string>
     <plurals name="expense_entry_assets_linked">
-        <item quantity="one">%d bien lié</item>
-        <item quantity="many">%d biens liés</item>
-        <item quantity="other">%d biens liés</item>
+        <item quantity="one">%d lien</item>
+        <item quantity="many">%d liens</item>
+        <item quantity="other">%d liens</item>
     </plurals>
     <plurals name="expense_entry_items_count">
         <item quantity="one">%1$d article · %2$s</item>
         <item quantity="many">%1$d articles · %2$s</item>
         <item quantity="other">%1$d articles · %2$s</item>
     </plurals>
-    <string name="expense_entry_link_assets_title">Lier à des biens</string>
-    <string name="expense_entry_no_assets_linked">Aucun bien lié à cette dépense</string>
+    <string name="expense_entry_link_assets_title">Projets et biens</string>
+    <string name="expense_entry_no_assets_linked">Ne fait partie d\'aucun projet ni bien</string>
     <string name="expense_entry_remove_asset">Retirer le bien</string>
     <string name="expense_entry_asset_allocation">Répartition</string>
-    <string name="expense_entry_add_asset">Ajouter un bien</string>
-    <string name="expense_entry_create_asset">Nouveau bien</string>
+    <string name="expense_entry_add_asset">Lier</string>
+    <string name="expense_entry_create_asset">Nouveau</string>
     <string name="expense_entry_link_asset_dialog_title">Lier un bien à la dépense</string>
     <string name="expense_entry_exclude_predictions_title">Exclure des prévisions</string>
     <string name="expense_entry_exclude_predictions_desc">Activez ceci pour les achats rares et importants (comme une voiture) afin de ne pas fausser vos prévisions et recommandations.</string>
@@ -1649,8 +1649,8 @@
     <string name="pending_bills_confirm">Confirmer</string>
 
     <!-- Previously untranslated strings -->
-    <string name="assets_title">Actifs</string>
-    <string name="assets_tab">Actifs</string>
+    <string name="assets_title">Projets et biens</string>
+    <string name="assets_tab">Projets</string>
     <string name="insights_idle_money_subtitle">Faites travailler votre surplus</string>
     <string name="insights_idle_money_transfer_action">Transférer</string>
     <string name="insights_idle_money_target">Cible : %1$s</string>
@@ -1905,9 +1905,9 @@
     <string name="vault_archive_prompt_question">Archiver ce coffre maintenant qu\'il est presque vide ?</string>
     <string name="vault_archive_prompt_confirm">Archiver</string>
     <string name="vault_archive_prompt_keep">Garder actif</string>
-    <string name="assets_add">Ajouter un actif</string>
-    <string name="assets_empty_title_short">Aucun actif pour l\'instant</string>
-    <string name="assets_empty_desc_short">Suivez ce que coûte vraiment une auto, une maison ou un loisir en y liant des dépenses.</string>
+    <string name="assets_add">Ajouter</string>
+    <string name="assets_empty_title_short">Rien de suivi pour l\'instant</string>
+    <string name="assets_empty_desc_short">Suivez ce que coûte vraiment un projet, une auto ou un loisir en y liant des dépenses.</string>
     <string name="assets_total_spending">Dépenses totales</string>
     <string name="assets_delete_title">Supprimer l\'actif ?</string>
     <string name="assets_delete_message">Supprimer %1$s ? Cette action est irréversible.</string>
@@ -1964,10 +1964,10 @@
     <string name="refund_total_amount">Montant total remboursé</string>
     <string name="refund_qty">Qté : %1$d</string>
     <string name="form_type">Type</string>
-    <string name="asset_selector_title">Lier un actif</string>
-    <string name="asset_selector_search">Rechercher des actifs...</string>
-    <string name="asset_selector_all_linked">Tous les actifs sont déjà liés</string>
-    <string name="asset_selector_no_match">Aucun actif ne correspond</string>
+    <string name="asset_selector_title">Lier à un projet ou un bien</string>
+    <string name="asset_selector_search">Rechercher…</string>
+    <string name="asset_selector_all_linked">Tout est déjà lié</string>
+    <string name="asset_selector_no_match">Aucun résultat</string>
     <string name="asset_selector_total">Total : %1$s</string>
     <string name="usable_money_reserved_min">Réservé (solde min.)</string>
     <string name="usable_money_net">Net utilisable</string>
@@ -2178,4 +2178,36 @@
     <string name="onboarding_vault_suggestion_no_income">Un premier objectif, à ajuster selon vos dépenses.</string>
     <string name="onboarding_finish">Commencer avec Sparely</string>
     <string name="onboarding_finish_note">Vous pourrez ajouter d\'autres coffres et budgets, et peaufiner votre profil, en tout temps dans les paramètres.</string>
+    <string name="projects_section_active">Projets</string>
+    <string name="projects_section_assets">Biens</string>
+    <string name="projects_section_finished">Terminés</string>
+    <string name="projects_working_on">En cours</string>
+    <string name="projects_mark_done">Marquer terminé</string>
+    <string name="projects_reopen">Rouvrir</string>
+    <string name="projects_done_on">Terminé le %1$s</string>
+    <string name="projects_kind_label">Type</string>
+    <string name="projects_kind_project">Projet</string>
+    <string name="projects_kind_asset">Bien</string>
+    <string name="projects_kind_project_desc">A une fin, comme un montage, un voyage ou des rénos</string>
+    <string name="projects_kind_asset_desc">Coûte tant qu\'on l\'a, comme une auto</string>
+    <string name="projects_budget">Budget</string>
+    <string name="projects_budget_optional">Budget (facultatif)</string>
+    <string name="projects_new">Nouveau projet</string>
+    <string name="projects_edit">Modifier le projet</string>
+    <string name="projects_name">Nom du projet</string>
+    <string name="projects_working_on_hint">Les nouvelles dépenses y sont liées d\'office</string>
+    <string name="projects_entry_working_on">Liée à %1$s, le projet en cours</string>
+    <string name="projects_spent">Dépensé</string>
+    <string name="projects_left">Reste</string>
+    <string name="projects_over">Dépassement</string>
+    <plurals name="projects_count">
+        <item quantity="one">%d projet</item>
+        <item quantity="many">%d projets</item>
+        <item quantity="other">%d projets</item>
+    </plurals>
+    <plurals name="projects_assets_count">
+        <item quantity="one">%d bien</item>
+        <item quantity="many">%d biens</item>
+        <item quantity="other">%d biens</item>
+    </plurals>
 </resources>

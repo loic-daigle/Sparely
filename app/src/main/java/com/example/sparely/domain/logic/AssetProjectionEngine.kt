@@ -143,7 +143,7 @@ object AssetProjectionEngine {
             YearMonth.from(expense.date)
         }.mapValues { (_, expenses) ->
             expenses.sumOf { (expense, percentage) ->
-                expense.amount * percentage
+                (expense.amount - expense.refundedAmount).coerceAtLeast(0.0) * percentage
             }
         }
 

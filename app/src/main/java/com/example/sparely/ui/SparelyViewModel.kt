@@ -2033,6 +2033,28 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
     fun deleteAsset(assetId: Long) {
         viewModelScope.launch(errorHandler) {
             savingsRepository.deleteAsset(assetId)
+            if (preferencesRepository.getSettingsSnapshot().workingOnProjectId == assetId) {
+                preferencesRepository.updateWorkingOnProject(null)
+            }
+        }
+    }
+
+    /** Pins a project so new expenses start linked to it; null unpins. */
+    fun setWorkingOnProject(assetId: Long?) {
+        viewModelScope.launch(errorHandler) {
+            preferencesRepository.updateWorkingOnProject(assetId)
+        }
+    }
+
+    /** Marks a project done (its total is final) or reopens it. A done project stops being pinned. */
+    fun setProjectDone(asset: com.example.sparely.domain.model.Asset, done: Boolean) {
+        viewModelScope.launch(errorHandler) {
+            savingsRepository.upsertAsset(
+                asset.copy(completedAt = if (done) java.time.LocalDateTime.now() else null)
+            )
+            if (done && preferencesRepository.getSettingsSnapshot().workingOnProjectId == asset.id) {
+                preferencesRepository.updateWorkingOnProject(null)
+            }
         }
     }
 

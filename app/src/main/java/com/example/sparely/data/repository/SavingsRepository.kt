@@ -273,7 +273,9 @@ class SavingsRepository(
         assetDao.insertAsset(asset.toEntity())
 
     fun observeActiveAssets(): Flow<List<com.example.sparely.domain.model.Asset>> =
-        assetDao.observeActiveAssets().transformLatest { entities ->
+        // Totals depend on the linked expenses too (new links, edits, refunds), not just the assets table
+        assetDao.observeActiveAssets().combine(assetExpenseLinkDao.observeLinkedExpenseChanges()) { entities, _ -> entities }
+            .transformLatest { entities ->
             val assetsWithSpending = entities.map { entity ->
                 val totalSpending = assetExpenseLinkDao.getTotalSpendingForAsset(entity.id)
                 entity.toDomain().copy(totalSpending = totalSpending)

@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
-const val SPARELY_DATABASE_VERSION = 49
+const val SPARELY_DATABASE_VERSION = 50
 
 @Database(
     entities = [
@@ -1287,7 +1287,8 @@ abstract class SparelyDatabase : RoomDatabase() {
             MIGRATION_45_46,
             MIGRATION_46_47,
             MIGRATION_47_48,
-            MIGRATION_48_49
+            MIGRATION_48_49,
+            MIGRATION_49_50
             )
         }
 
@@ -1302,6 +1303,16 @@ abstract class SparelyDatabase : RoomDatabase() {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // NOTICE savings accounts remember when the user asked for their money (epoch day)
                 db.execSQL("ALTER TABLE savings_accounts ADD COLUMN noticeRequestedDate INTEGER")
+            }
+        }
+
+        val MIGRATION_49_50 = object : androidx.room.migration.Migration(49, 50) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Assets can be projects, which end: a kind, and when the project was marked done
+                db.execSQL("ALTER TABLE assets ADD COLUMN kind TEXT NOT NULL DEFAULT 'ASSET'")
+                db.execSQL("ALTER TABLE assets ADD COLUMN completedAt INTEGER")
+                // The categories people use for things they finish start out as projects
+                db.execSQL("UPDATE assets SET kind = 'PROJECT' WHERE category IN ('HOBBY', 'VACATION', 'EDUCATION')")
             }
         }
 

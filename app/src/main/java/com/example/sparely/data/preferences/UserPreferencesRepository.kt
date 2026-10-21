@@ -537,6 +537,14 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    /** The project new expenses start linked to, or none. */
+    suspend fun updateWorkingOnProject(assetId: Long?) {
+        editSafely { prefs ->
+            if (assetId == null) prefs.remove(PreferenceKeys.workingOnProjectId)
+            else prefs[PreferenceKeys.workingOnProjectId] = assetId
+        }
+    }
+
     suspend fun snoozeBackupReminder(untilMs: Long) {
         editSafely { prefs ->
             prefs[PreferenceKeys.backupReminderSnoozedUntil] = untilMs
@@ -773,6 +781,7 @@ class UserPreferencesRepository(private val context: Context) {
             lastAutoBackupTimestamp = this[PreferenceKeys.lastAutoBackupTimestamp],
             lastManualBackupTimestamp = this[PreferenceKeys.lastManualBackupTimestamp],
             backupReminderSnoozedUntil = this[PreferenceKeys.backupReminderSnoozedUntil],
+            workingOnProjectId = this[PreferenceKeys.workingOnProjectId],
             mainOverflowAccountId = this[PreferenceKeys.mainOverflowAccountId],
             minMainAccountBalance = this.finite(PreferenceKeys.minMainAccountBalance) ?: 0.0,
             autoCreateAssetThreshold = this.finite(PreferenceKeys.autoCreateAssetThreshold) ?: 0.0
@@ -881,6 +890,7 @@ class UserPreferencesRepository(private val context: Context) {
         val lastAutoBackupTimestamp = longPreferencesKey("last_auto_backup_timestamp")
         val lastManualBackupTimestamp = longPreferencesKey("last_manual_backup_timestamp")
         val backupReminderSnoozedUntil = longPreferencesKey("backup_reminder_snoozed_until")
+        val workingOnProjectId = longPreferencesKey("working_on_project_id")
         
         // Overflow Account (HISA/High-Yield Savings)
         val mainOverflowAccountId = longPreferencesKey("main_overflow_account_id")

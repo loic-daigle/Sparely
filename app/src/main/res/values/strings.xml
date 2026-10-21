@@ -12,8 +12,8 @@
     <string name="recurring_title">Recurring</string>
     <string name="health_title">Health</string>
     <string name="insights_title">Insights</string>
-    <string name="assets_title">Assets</string>
-    <string name="assets_tab">Assets</string>
+    <string name="assets_title">Projects &amp; assets</string>
+    <string name="assets_tab">Projects</string>
     
     <!-- Insight Hub Screen -->
     <string name="insights_projected_balance">Projected Month End</string>
@@ -1651,19 +1651,19 @@
     <string name="expense_entry_description_placeholder">What was it for?</string>
     <string name="expense_entry_save_with_amount">%1$s · %2$s</string>
     <plurals name="expense_entry_assets_linked">
-        <item quantity="one">%d asset linked</item>
-        <item quantity="other">%d assets linked</item>
+        <item quantity="one">%d linked</item>
+        <item quantity="other">%d linked</item>
     </plurals>
     <plurals name="expense_entry_items_count">
         <item quantity="one">%1$d item · %2$s</item>
         <item quantity="other">%1$d items · %2$s</item>
     </plurals>
-    <string name="expense_entry_link_assets_title">Link to assets</string>
-    <string name="expense_entry_no_assets_linked">No assets linked to this expense</string>
+    <string name="expense_entry_link_assets_title">Projects &amp; assets</string>
+    <string name="expense_entry_no_assets_linked">Not part of a project or asset</string>
     <string name="expense_entry_remove_asset">Remove asset</string>
     <string name="expense_entry_asset_allocation">Allocation</string>
-    <string name="expense_entry_add_asset">Add asset</string>
-    <string name="expense_entry_create_asset">New asset</string>
+    <string name="expense_entry_add_asset">Link</string>
+    <string name="expense_entry_create_asset">New</string>
     <string name="expense_entry_link_asset_dialog_title">Link asset to expense</string>
     <string name="expense_entry_exclude_predictions_title">Exclude from predictions</string>
     <string name="expense_entry_exclude_predictions_desc">Turn this on for rare, large purchases (like a car) so they don\'t skew your predictions and recommendations.</string>
@@ -1935,9 +1935,9 @@
     <string name="vault_archive_prompt_question">Archive this vault now that it\'s nearly empty?</string>
     <string name="vault_archive_prompt_confirm">Archive vault</string>
     <string name="vault_archive_prompt_keep">Keep active</string>
-    <string name="assets_add">Add asset</string>
-    <string name="assets_empty_title_short">No assets yet</string>
-    <string name="assets_empty_desc_short">Track what a car, home or hobby really costs by linking expenses to it.</string>
+    <string name="assets_add">Add</string>
+    <string name="assets_empty_title_short">Nothing tracked yet</string>
+    <string name="assets_empty_desc_short">Track what a project, a car or a hobby really costs by linking expenses to it.</string>
     <string name="assets_total_spending">Total spending</string>
     <string name="assets_delete_title">Delete asset?</string>
     <string name="assets_delete_message">Delete %1$s? This can\'t be undone.</string>
@@ -1994,10 +1994,10 @@
     <string name="refund_total_amount">Total refund amount</string>
     <string name="refund_qty">Qty: %1$d</string>
     <string name="form_type">Type</string>
-    <string name="asset_selector_title">Link asset</string>
-    <string name="asset_selector_search">Search assets...</string>
-    <string name="asset_selector_all_linked">All assets are already linked</string>
-    <string name="asset_selector_no_match">No assets match your search</string>
+    <string name="asset_selector_title">Link to a project or asset</string>
+    <string name="asset_selector_search">Search…</string>
+    <string name="asset_selector_all_linked">Everything is already linked</string>
+    <string name="asset_selector_no_match">Nothing matches your search</string>
     <string name="asset_selector_total">Total: %1$s</string>
     <string name="usable_money_reserved_min">Reserved (min. balance)</string>
     <string name="usable_money_net">Net usable</string>
@@ -2208,4 +2208,34 @@
     <string name="onboarding_vault_suggestion_no_income">A first goal to adjust once you know your expenses.</string>
     <string name="onboarding_finish">Start using Sparely</string>
     <string name="onboarding_finish_note">You can add more vaults and budgets, and fine-tune your profile, anytime in Settings.</string>
+    <string name="projects_section_active">Projects</string>
+    <string name="projects_section_assets">Assets</string>
+    <string name="projects_section_finished">Finished</string>
+    <string name="projects_working_on">Working on</string>
+    <string name="projects_mark_done">Mark done</string>
+    <string name="projects_reopen">Reopen</string>
+    <string name="projects_done_on">Done %1$s</string>
+    <string name="projects_kind_label">Type</string>
+    <string name="projects_kind_project">Project</string>
+    <string name="projects_kind_asset">Asset</string>
+    <string name="projects_kind_project_desc">Has an end, like a build, a trip or a renovation</string>
+    <string name="projects_kind_asset_desc">Costs money for as long as you have it, like a car</string>
+    <string name="projects_budget">Budget</string>
+    <string name="projects_budget_optional">Budget (optional)</string>
+    <string name="projects_new">New project</string>
+    <string name="projects_edit">Edit project</string>
+    <string name="projects_name">Project name</string>
+    <string name="projects_working_on_hint">New expenses start linked to it</string>
+    <string name="projects_entry_working_on">Linked to %1$s, the project you\'re working on</string>
+    <string name="projects_spent">Spent</string>
+    <string name="projects_left">Left</string>
+    <string name="projects_over">Over</string>
+    <plurals name="projects_count">
+        <item quantity="one">%d project</item>
+        <item quantity="other">%d projects</item>
+    </plurals>
+    <plurals name="projects_assets_count">
+        <item quantity="one">%d asset</item>
+        <item quantity="other">%d assets</item>
+    </plurals>
 </resources>

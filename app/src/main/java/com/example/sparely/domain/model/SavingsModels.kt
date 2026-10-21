@@ -277,6 +277,8 @@ data class SparelySettings(
     val lastManualBackupTimestamp: Long? = null,
     // "Later" on the backup reminder hides it until then (epoch ms)
     val backupReminderSnoozedUntil: Long? = null,
+    // The project ("Working on") new expenses start linked to
+    val workingOnProjectId: Long? = null,
     // Overflow account settings (HISA/High-Yield Savings)
     val mainOverflowAccountId: Long? = null,
     val minMainAccountBalance: Double = 0.0,

@@ -448,7 +448,12 @@ class BackupRepository(
             paymentMethods = parsed.paymentMethods.clean(),
             creditCardPayments = parsed.creditCardPayments.clean(),
             expenseItems = parsed.expenseItems.clean(),
-            assets = parsed.assets.clean(),
+            // Backups from before projects have no kind
+            assets = parsed.assets.clean().map {
+                if ((it.kind as com.example.sparely.domain.model.AssetKind?) == null) {
+                    it.copy(kind = com.example.sparely.domain.model.AssetKind.ASSET)
+                } else it
+            },
             assetExpenseLinks = parsed.assetExpenseLinks.clean(),
             wishlists = wishlists,
             wishlistSavings = wishlistSavings,

@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import com.sparely.app.R
 import com.example.sparely.domain.model.Asset
 import com.example.sparely.domain.model.AssetCategory
+import com.example.sparely.domain.model.AssetKind
+import com.example.sparely.domain.model.defaultKind
+import androidx.compose.ui.res.pluralStringResource
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SparelyBottomSheet
 import com.example.sparely.ui.components.SparelyButton
@@ -63,7 +66,10 @@ fun AssetManagementScreen(
     onLoadAllExpenses: suspend () -> List<com.example.sparely.domain.model.Expense> = { emptyList() },
     onLinkCreatorExpense: (assetId: Long, expenseId: Long) -> Unit = { _, _ -> },
     onUnlinkCreatorExpense: (assetId: Long) -> Unit = { },
-    onLoadAssetCostProjection: suspend (Long) -> com.example.sparely.domain.model.AssetCostProjection? = { null }
+    onLoadAssetCostProjection: suspend (Long) -> com.example.sparely.domain.model.AssetCostProjection? = { null },
+    workingOnProjectId: Long? = null,
+    onSetWorkingOn: (assetId: Long?) -> Unit = {},
+    onSetProjectDone: (asset: Asset, done: Boolean) -> Unit = { _, _ -> }
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var assetToEdit by remember { mutableStateOf<Asset?>(null) }
@@ -82,6 +88,10 @@ fun AssetManagementScreen(
     }
 
     val totalSpending = remember(assets) { assets.sumOf { it.totalSpending } }
+    // Projects under way first, then what's owned, then finished projects with their final totals
+    val activeProjects = remember(assets) { assets.filter { it.isProject && !it.isDone } }
+    val ownedAssets = remember(assets) { assets.filter { !it.isProject } }
+    val finishedProjects = remember(assets) { assets.filter { it.isDone }.sortedByDescending { it.completedAt } }
 
     // Load linked expenses and projections when asset details are requested
     LaunchedEffect(selectedAssetForDetails) {
@@ -175,7 +185,14 @@ fun AssetManagementScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                "${assets.size} assets",
+                                listOfNotNull(
+                                    (activeProjects.size + finishedProjects.size).takeIf { it > 0 }?.let {
+                                        pluralStringResource(R.plurals.projects_count, it, it)
+                                    },
+                                    ownedAssets.size.takeIf { it > 0 }?.let {
+                                        pluralStringResource(R.plurals.projects_assets_count, it, it)
+                                    }
+                                ).joinToString(" · "),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
@@ -183,22 +200,39 @@ fun AssetManagementScreen(
                     }
                 }
 
-                // Assets as one segmented block: rounded ends, thin gaps
-                itemsIndexed(assets) { index, asset ->
-                    AssetCard(
-                        asset = asset,
-                        currencyFormatter = currencyFormatter,
-                        projection = assetProjections[asset.id],
-                        onViewDetails = {
-                            selectedAssetForDetails = asset
-                            isLoadingDetails = true
-                        },
-                        onEdit = { assetToEdit = it },
-                        onDelete = { assetToDelete = it },
-                        shape = segmentedShape(index, assets.size, outer = 28.dp),
-                        modifier = Modifier.segmentSpacing(index)
-                    )
+                // Each section is one segmented block: rounded ends, thin gaps
+                fun section(titleRes: Int, list: List<Asset>) {
+                    if (list.isEmpty()) return
+                    item(key = "header_$titleRes") {
+                        SheetSectionLabel(
+                            stringResource(titleRes),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                    itemsIndexed(list, key = { _, asset -> asset.id }) { index, asset ->
+                        AssetCard(
+                            asset = asset,
+                            currencyFormatter = currencyFormatter,
+                            projection = assetProjections[asset.id].takeUnless { asset.isDone },
+                            onViewDetails = {
+                                selectedAssetForDetails = asset
+                                isLoadingDetails = true
+                            },
+                            onEdit = { assetToEdit = it },
+                            onDelete = { assetToDelete = it },
+                            isWorkingOn = asset.id == workingOnProjectId,
+                            onToggleWorkingOn = {
+                                onSetWorkingOn(if (asset.id == workingOnProjectId) null else asset.id)
+                            },
+                            onSetDone = { done -> onSetProjectDone(asset, done) },
+                            shape = segmentedShape(index, list.size, outer = 28.dp),
+                            modifier = Modifier.segmentSpacing(index)
+                        )
+                    }
                 }
+                section(R.string.projects_section_active, activeProjects)
+                section(R.string.projects_section_assets, ownedAssets)
+                section(R.string.projects_section_finished, finishedProjects)
             }
         }
     }
@@ -281,6 +315,9 @@ private fun AssetCard(
     onViewDetails: (Asset) -> Unit,
     onEdit: (Asset) -> Unit,
     onDelete: (Asset) -> Unit,
+    isWorkingOn: Boolean = false,
+    onToggleWorkingOn: () -> Unit = {},
+    onSetDone: (Boolean) -> Unit = {},
     shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
     modifier: Modifier = Modifier
 ) {
@@ -309,7 +346,11 @@ private fun AssetCard(
                     contentAlignment = Alignment.Center
                 ) {
                     MaterialSymbolIcon(
-                        icon = MaterialSymbols.SHOPPING_BAG,
+                        icon = when {
+                            asset.isDone -> MaterialSymbols.CHECK_CIRCLE
+                            asset.isProject -> MaterialSymbols.FLAG
+                            else -> MaterialSymbols.SHOPPING_BAG
+                        },
                         contentDescription = null,
                         size = 22.dp,
                         tint = colors.onPrimaryContainer
@@ -324,7 +365,14 @@ private fun AssetCard(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
-                        asset.category.displayName(),
+                        asset.completedAt?.takeIf { asset.isDone }?.let { doneAt ->
+                            stringResource(
+                                R.string.projects_done_on,
+                                doneAt.toLocalDate().format(
+                                    java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+                                )
+                            )
+                        } ?: asset.category.displayName(),
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant
                     )
@@ -396,7 +444,7 @@ private fun AssetCard(
                 )
                 if (asset.assetPrice > 0) {
                     AssetStat(
-                        label = stringResource(R.string.assets_cost),
+                        label = stringResource(if (asset.isProject) R.string.projects_budget else R.string.assets_cost),
                         value = currencyFormatter.format(asset.assetPrice),
                         valueColor = if (asset.totalSpending > asset.assetPrice) colors.error else colors.primary,
                         modifier = Modifier.weight(1f)
@@ -422,6 +470,50 @@ private fun AssetCard(
                         value = currencyFormatter.format(projection.totalProjected12Months),
                         valueColor = if (projection.costVsAssetPrice?.isOverBudget == true) colors.error else colors.primary,
                         modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // A project can be pinned as the one being worked on, and marked done when it's finished
+            if (asset.isProject) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!asset.isDone) {
+                        SparelyChip(
+                            selected = isWorkingOn,
+                            onClick = onToggleWorkingOn,
+                            label = { Text(stringResource(R.string.projects_working_on)) },
+                            leadingIcon = if (isWorkingOn) {
+                                { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 18.dp) }
+                            } else null
+                        )
+                        Spacer(Modifier.weight(1f))
+                        SparelyTextButton(
+                            onClick = { onSetDone(true) },
+                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE, contentDescription = null, size = 18.dp) }
+                        ) {
+                            Text(stringResource(R.string.projects_mark_done))
+                        }
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                        SparelyTextButton(
+                            onClick = { onSetDone(false) },
+                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.UNDO, contentDescription = null, size = 18.dp) }
+                        ) {
+                            Text(stringResource(R.string.projects_reopen))
+                        }
+                    }
+                }
+                if (isWorkingOn && !asset.isDone) {
+                    Text(
+                        stringResource(R.string.projects_working_on_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant
                     )
                 }
             }
@@ -476,6 +568,10 @@ private fun AssetBottomSheet(
         mutableStateOf(if ((asset?.assetPrice ?: 0.0) > 0) asset?.assetPrice?.formatCurrency("") ?: "" else "")
     }
     var selectedCategory by remember(isOpen, asset) { mutableStateOf(asset?.category ?: AssetCategory.OTHER) }
+    var selectedKind by remember(isOpen, asset) { mutableStateOf(asset?.kind ?: AssetKind.PROJECT) }
+    // A new one follows its category's usual kind until the user picks a kind themselves
+    var kindTouched by remember(isOpen, asset) { mutableStateOf(asset != null) }
+    val isProject = selectedKind == AssetKind.PROJECT
     var categoryExpanded by remember { mutableStateOf(false) }
     var showCreatorExpenseDialog by remember { mutableStateOf(false) }
     var availableExpenses by remember { mutableStateOf<List<com.example.sparely.domain.model.Expense>>(emptyList()) }
@@ -495,15 +591,41 @@ private fun AssetBottomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SparelySheetHeader(
-                title = if (asset == null) stringResource(R.string.assets_new) else stringResource(R.string.assets_edit),
-                icon = MaterialSymbols.SHOPPING_BAG
+                title = stringResource(
+                    when {
+                        asset == null && isProject -> R.string.projects_new
+                        asset == null -> R.string.assets_new
+                        isProject -> R.string.projects_edit
+                        else -> R.string.assets_edit
+                    }
+                ),
+                icon = if (isProject) MaterialSymbols.FLAG else MaterialSymbols.SHOPPING_BAG
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SheetSectionLabel(stringResource(R.string.projects_kind_label))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SparelyChip(
+                        selected = isProject,
+                        onClick = { selectedKind = AssetKind.PROJECT; kindTouched = true },
+                        label = { Text(stringResource(R.string.projects_kind_project)) }
+                    )
+                    SparelyChip(
+                        selected = !isProject,
+                        onClick = { selectedKind = AssetKind.ASSET; kindTouched = true },
+                        label = { Text(stringResource(R.string.projects_kind_asset)) }
+                    )
+                }
+                Text(
+                    stringResource(if (isProject) R.string.projects_kind_project_desc else R.string.projects_kind_asset_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 SparelyTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.assets_name)) },
+                    label = { Text(stringResource(if (isProject) R.string.projects_name else R.string.assets_name)) },
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Next
@@ -520,7 +642,10 @@ private fun AssetBottomSheet(
                     AssetCategory.entries.forEach { category ->
                         SparelyChip(
                             selected = category == selectedCategory,
-                            onClick = { selectedCategory = category },
+                            onClick = {
+                                selectedCategory = category
+                                if (!kindTouched) selectedKind = category.defaultKind()
+                            },
                             label = { Text(category.displayName()) }
                         )
                     }
@@ -529,7 +654,7 @@ private fun AssetBottomSheet(
                 SparelyTextField(
                     value = assetPriceText,
                     onValueChange = { assetPriceText = it.filterCurrencyInput() },
-                    label = { Text(stringResource(R.string.assets_cost_optional)) },
+                    label = { Text(stringResource(if (isProject) R.string.projects_budget_optional else R.string.assets_cost_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                     prefix = { Text(stringResource(R.string.currency_prefix)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
@@ -669,7 +794,10 @@ private fun AssetBottomSheet(
                             createdAt = asset?.createdAt ?: LocalDateTime.now(),
                             archived = asset?.archived ?: false,
                             totalSpending = asset?.totalSpending ?: 0.0,
-                            creatorExpenseId = asset?.creatorExpenseId
+                            creatorExpenseId = asset?.creatorExpenseId,
+                            kind = selectedKind,
+                            // Only a project can be done
+                            completedAt = asset?.completedAt?.takeIf { isProject }
                         )
                         onSave(newAsset)
                     }
@@ -794,7 +922,7 @@ private fun AssetDetailsBottomSheet(
                                         )
                                     }
                                     Text(
-                                        currencyFormatter.format(expense.amount * percentage),
+                                        currencyFormatter.format((expense.amount - expense.refundedAmount).coerceAtLeast(0.0) * percentage),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.primary

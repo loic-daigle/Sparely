@@ -170,7 +170,8 @@ fun ExpenseEntryScreen(
     onCreateAsset: (name: String, category: com.example.sparely.domain.model.AssetCategory, description: String?, price: Double) -> Unit = { _, _, _, _ -> },
     prefillExpense: com.example.sparely.domain.model.Expense? = null,
     prefillAssetAllocations: Map<Long, Double> = emptyMap(),
-    knownTitles: List<KnownTitle> = emptyList()
+    knownTitles: List<KnownTitle> = emptyList(),
+    workingOnProjectId: Long? = null
 ) {
     val scope = rememberCoroutineScope()
     val haptics = com.example.sparely.ui.components.LocalSparelyHaptics.current
@@ -201,7 +202,13 @@ fun ExpenseEntryScreen(
     var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
     var notes by rememberSaveable { mutableStateOf(prefillExpense?.notes ?: "") }
     var orderNumber by rememberSaveable { mutableStateOf(prefillExpense?.orderNumber ?: "") }
-    var selectedAssetAllocations by remember { mutableStateOf(prefillAssetAllocations) }
+    // A new expense starts linked to the project being worked on; it can be removed like any link
+    val workingOnProject = assets.find { it.id == workingOnProjectId && it.isProject && !it.isDone }
+        ?.takeIf { isNewExpense && prefillAssetAllocations.isEmpty() }
+    val openingAllocations = remember(prefillAssetAllocations) {
+        workingOnProject?.let { mapOf(it.id to 1.0) } ?: prefillAssetAllocations
+    }
+    var selectedAssetAllocations by remember { mutableStateOf(openingAllocations) }
     var assetSelectorExpanded by remember { mutableStateOf(false) }
     var isIgnored by rememberSaveable { mutableStateOf(prefillExpense?.isIgnored ?: false) }
 
@@ -355,7 +362,7 @@ fun ExpenseEntryScreen(
     }
     val changedSinceOpen = listOf(description, amountText, category, selectedDate, searchQuery, notes, orderNumber,
         expenseItems.toList(), deductFromVaultId, isIgnored, manualMode) != initialSnapshot ||
-        paymentTouched || selectedAssetAllocations != prefillAssetAllocations
+        paymentTouched || selectedAssetAllocations != openingAllocations
     // The snapshot is retaken when the form comes back from another screen (managing payment
     // methods), with the typed input already restored, so whether it was ever changed is saved too
     var changedBeforeLeaving by rememberSaveable { mutableStateOf(false) }
@@ -458,8 +465,10 @@ fun ExpenseEntryScreen(
     val allocationSummary = listOfNotNull(
         stringResource(if (manualMode) R.string.expense_entry_manual_allocation_title else R.string.expense_entry_auto_allocation_title),
         vaults.find { it.id == deductFromVaultId }?.name,
-        selectedAssetAllocations.size.takeIf { it > 0 }?.let {
-            pluralStringResource(R.plurals.expense_entry_assets_linked, it, it)
+        when (selectedAssetAllocations.size) {
+            0 -> null
+            1 -> assets.find { it.id == selectedAssetAllocations.keys.first() }?.name
+            else -> pluralStringResource(R.plurals.expense_entry_assets_linked, selectedAssetAllocations.size, selectedAssetAllocations.size)
         }
     ).joinToString(" · ")
     val detailsSummary = listOfNotNull(
@@ -622,7 +631,8 @@ fun ExpenseEntryScreen(
                 icon = MaterialSymbols.PIE_CHART,
                 title = stringResource(R.string.expense_entry_section_allocations),
                 summary = allocationSummary,
-                initiallyExpanded = manualMode || deductFromVaultId != null || selectedAssetAllocations.isNotEmpty()
+                initiallyExpanded = manualMode || deductFromVaultId != null ||
+                    selectedAssetAllocations.keys.any { it != workingOnProject?.id }
             ) {
                 ToggleRow(
                     title = stringResource(R.string.expense_entry_auto_allocation_title),
@@ -727,6 +737,13 @@ fun ExpenseEntryScreen(
                         } else {
                             selectedAssetAllocations.forEach { (assetId, percentage) ->
                                 assets.find { it.id == assetId }?.let { selectedAsset ->
+                                    if (selectedAsset.id == workingOnProject?.id) {
+                                        Text(
+                                            text = stringResource(R.string.projects_entry_working_on, selectedAsset.name),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                     LinkedAssetRow(
                                         asset = selectedAsset,
                                         percentage = percentage,
@@ -749,7 +766,7 @@ fun ExpenseEntryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (selectedAssetAllocations.size < assets.size) {
+                            if (assets.any { !it.isDone && it.id !in selectedAssetAllocations }) {
                                 SparelyTonalButton(
                                     onClick = { assetSelectorExpanded = true },
                                     modifier = Modifier.weight(1f),
@@ -933,7 +950,8 @@ fun ExpenseEntryScreen(
         AssetSelectionDialog(
             isOpen = assetSelectorExpanded,
             selectedAssetIds = selectedAssetAllocations.keys,
-            assets = assets,
+            // Finished projects aren't offered for new spending
+            assets = assets.filter { !it.isDone },
             onAssetSelected = { asset ->
                 selectedAssetAllocations = selectedAssetAllocations.toMutableMap().apply {
                     put(asset.id, 1.0)

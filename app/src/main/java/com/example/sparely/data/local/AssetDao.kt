@@ -5,15 +5,17 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
 @Dao
 interface AssetDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took its expense links with it
+    @Upsert
     suspend fun insertAsset(asset: AssetEntity): Long
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertAssets(assets: List<AssetEntity>)
 
     @Delete
@@ -64,8 +66,13 @@ interface AssetExpenseLinkDao {
     @Query("DELETE FROM asset_expense_links WHERE assetId = :assetId AND expenseId = :expenseId")
     suspend fun deleteLink(assetId: Long, expenseId: Long)
 
-    @Query("SELECT IFNULL(SUM(CASE WHEN e.amount > 0 THEN e.amount * (l.percentageAllocated / 100.0) ELSE 0 END), 0.0) FROM asset_expense_links l JOIN expenses e ON l.expenseId = e.id WHERE l.assetId = :assetId")
+    // What was really spent: refunds come off each expense before its share is counted
+    @Query("SELECT IFNULL(SUM(CASE WHEN e.amount - e.refundedAmount > 0 THEN (e.amount - e.refundedAmount) * (l.percentageAllocated / 100.0) ELSE 0 END), 0.0) FROM asset_expense_links l JOIN expenses e ON l.expenseId = e.id WHERE l.assetId = :assetId")
     suspend fun getTotalSpendingForAsset(assetId: Long): Double
+
+    /** Emits whenever links or expenses change, so asset totals can be recomputed (the value itself is unused). */
+    @Query("SELECT COUNT(*) FROM asset_expense_links l JOIN expenses e ON l.expenseId = e.id")
+    fun observeLinkedExpenseChanges(): Flow<Int>
 
     @Query("DELETE FROM asset_expense_links WHERE expenseId = :expenseId")
     suspend fun deleteLinksForExpense(expenseId: Long)

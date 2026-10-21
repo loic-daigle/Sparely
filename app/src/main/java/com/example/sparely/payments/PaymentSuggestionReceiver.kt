@@ -103,7 +103,12 @@ class PaymentSuggestionReceiver : BroadcastReceiver() {
             includesTax = false,
             deductFromMainAccount = method?.defaultDeductFromMainAccount ?: false,
             paymentMethodId = method?.id,
-            storeId = guess.storeId
+            storeId = guess.storeId,
+            // Logged straight from the notification, it's linked to the project being worked on like the form does
+            assetAllocations = settings.workingOnProjectId
+                ?.takeIf { id -> repository.getActiveAssets().any { it.id == id && it.isProject && !it.isDone } }
+                ?.let { mapOf(it to 1.0) }
+                ?: emptyMap()
         )
         return AddExpenseUseCase(repository, container.preferencesRepository)(
             input,

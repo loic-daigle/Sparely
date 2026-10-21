@@ -1167,7 +1167,10 @@ private fun SparelyNavHost(
                     uiState.assets.find { it.id == assetId }?.let { asset ->
                         viewModel.updateAsset(asset.copy(creatorExpenseId = null))
                     }
-                }
+                },
+                workingOnProjectId = uiState.settings.workingOnProjectId,
+                onSetWorkingOn = viewModel::setWorkingOnProject,
+                onSetProjectDone = viewModel::setProjectDone
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {
@@ -1270,7 +1273,8 @@ private fun SparelyNavHost(
                 },
                 prefillExpense = uiState.prefillExpense,
                 prefillAssetAllocations = uiState.prefillAssetAllocations,
-                knownTitles = uiState.knownTitles
+                knownTitles = uiState.knownTitles,
+                workingOnProjectId = uiState.settings.workingOnProjectId
             )
             }
         }

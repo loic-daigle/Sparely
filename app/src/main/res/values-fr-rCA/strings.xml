@@ -967,4 +967,5 @@
     <string name="onboarding_vault_suggestion">Environ %1$d mois de tes dépenses</string>
     <string name="onboarding_vault_suggestion_no_income">Un premier objectif, à ajuster selon tes dépenses.</string>
     <string name="onboarding_finish_note">Tu pourras ajouter d\'autres coffres et budgets, et peaufiner ton profil, en tout temps dans les paramètres.</string>
+    <string name="assets_empty_desc_short">Suis ce que coûte vraiment un projet, une auto ou un loisir en y liant des dépenses.</string>
 </resources>

@@ -650,7 +650,10 @@ fun AssetEntity.toDomain(): com.example.sparely.domain.model.Asset =
         archived = archived,
         assetPrice = assetPrice,
         totalSpending = 0.0,
-        creatorExpenseId = creatorExpenseId
+        creatorExpenseId = creatorExpenseId,
+        kind = com.example.sparely.domain.model.AssetKind.entries.firstOrNull { it.name == kind }
+            ?: com.example.sparely.domain.model.AssetKind.ASSET,
+        completedAt = completedAt
     )
 
 fun com.example.sparely.domain.model.Asset.toEntity(): AssetEntity =
@@ -663,7 +666,9 @@ fun com.example.sparely.domain.model.Asset.toEntity(): AssetEntity =
         createdAt = createdAt,
         archived = archived,
         assetPrice = assetPrice,
-        creatorExpenseId = creatorExpenseId
+        creatorExpenseId = creatorExpenseId,
+        kind = kind.name,
+        completedAt = completedAt
     )
 
 fun AssetExpenseLinkEntity.toDomain(): com.example.sparely.domain.model.AssetExpenseLink =
