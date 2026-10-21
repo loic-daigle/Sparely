@@ -1262,15 +1262,7 @@ private fun SparelyNavHost(
                 onManagePaymentMethods = { navController.openSettingsSection(SettingsSection.PaymentMethods) },
                 brandSearchResults = brandSearchResults,
                 onBrandSearch = viewModel::searchBrands,
-                onCreateAsset = { name, category, description, price ->
-                    viewModel.createAssetFromExpense(
-                        name = name,
-                        category = category,
-                        description = description,
-                        assetPrice = price,
-                        creatorExpenseId = 0L // Will be linked after expense is created
-                    )
-                },
+                onCreateAsset = viewModel::createAsset,
                 prefillExpense = uiState.prefillExpense,
                 prefillAssetAllocations = uiState.prefillAssetAllocations,
                 knownTitles = uiState.knownTitles,

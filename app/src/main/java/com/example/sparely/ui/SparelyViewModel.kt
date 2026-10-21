@@ -2058,23 +2058,9 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         }
     }
 
-    fun createAssetFromExpense(
-        name: String,
-        category: com.example.sparely.domain.model.AssetCategory,
-        description: String?,
-        assetPrice: Double,
-        creatorExpenseId: Long
-    ) {
-        viewModelScope.launch(errorHandler) {
-            savingsRepository.createAssetFromExpense(
-                name = name,
-                category = category,
-                description = description,
-                assetPrice = assetPrice,
-                creatorExpenseId = creatorExpenseId
-            )
-        }
-    }
+    /** Creates a project or asset from the expense form and returns its id, or null if it failed. */
+    suspend fun createAsset(asset: com.example.sparely.domain.model.Asset): Long? =
+        runCatching { savingsRepository.upsertAsset(asset) }.getOrNull()
 
     fun linkCreatorExpenseToAsset(assetId: Long, expenseId: Long, updateAssetPrice: Boolean = true) {
         viewModelScope.launch(errorHandler) {

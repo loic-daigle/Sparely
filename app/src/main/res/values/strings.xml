@@ -1664,7 +1664,7 @@
     <string name="expense_entry_asset_allocation">Allocation</string>
     <string name="expense_entry_add_asset">Link</string>
     <string name="expense_entry_create_asset">New</string>
-    <string name="expense_entry_link_asset_dialog_title">Link asset to expense</string>
+    <string name="expense_entry_link_asset_dialog_title">Link to a project or asset</string>
     <string name="expense_entry_exclude_predictions_title">Exclude from predictions</string>
     <string name="expense_entry_exclude_predictions_desc">Turn this on for rare, large purchases (like a car) so they don\'t skew your predictions and recommendations.</string>
     <string name="history_card_selected">Selected</string>
@@ -2025,7 +2025,7 @@
     <string name="asset_create_price">Asset price from this expense: %1$s</string>
     <string name="asset_name_placeholder">e.g., MacBook Pro</string>
     <string name="asset_notes_placeholder">Notes about this asset</string>
-    <string name="asset_create_confirm">Create asset</string>
+    <string name="asset_create_confirm">Create</string>
     <string name="refund_title">Refund expense</string>
     <string name="refund_subtitle">%1$s · Max refundable %2$s</string>
     <string name="refund_items_title">Items refunded</string>
@@ -2238,4 +2238,10 @@
         <item quantity="one">%d asset</item>
         <item quantity="other">%d assets</item>
     </plurals>
+    <string name="projects_create_new">New project or asset</string>
+    <string name="projects_selector_spent_of">Spent %1$s of %2$s</string>
+    <string name="projects_purchase_toggle">This expense is the purchase</string>
+    <string name="projects_purchase_toggle_desc">Its amount, %1$s, becomes the asset\'s cost</string>
+    <string name="projects_create_linked_note">This expense will be linked to it</string>
+    <string name="projects_project_name_placeholder">e.g., ESP32 weather station</string>
 </resources>

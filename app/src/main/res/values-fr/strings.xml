@@ -1387,7 +1387,7 @@
     <string name="expense_entry_asset_allocation">Répartition</string>
     <string name="expense_entry_add_asset">Lier</string>
     <string name="expense_entry_create_asset">Nouveau</string>
-    <string name="expense_entry_link_asset_dialog_title">Lier un bien à la dépense</string>
+    <string name="expense_entry_link_asset_dialog_title">Lier à un projet ou un bien</string>
     <string name="expense_entry_exclude_predictions_title">Exclure des prévisions</string>
     <string name="expense_entry_exclude_predictions_desc">Activez ceci pour les achats rares et importants (comme une voiture) afin de ne pas fausser vos prévisions et recommandations.</string>
     <string name="history_card_selected">Sélectionné</string>
@@ -1995,7 +1995,7 @@
     <string name="asset_create_price">Prix de l\'actif selon cette dépense : %1$s</string>
     <string name="asset_name_placeholder">ex. : MacBook Pro</string>
     <string name="asset_notes_placeholder">Notes sur cet actif</string>
-    <string name="asset_create_confirm">Créer l\'actif</string>
+    <string name="asset_create_confirm">Créer</string>
     <string name="refund_title">Rembourser la dépense</string>
     <string name="refund_subtitle">%1$s · Remboursable max. %2$s</string>
     <string name="refund_items_title">Articles remboursés</string>
@@ -2210,4 +2210,10 @@
         <item quantity="many">%d biens</item>
         <item quantity="other">%d biens</item>
     </plurals>
+    <string name="projects_create_new">Nouveau projet ou bien</string>
+    <string name="projects_selector_spent_of">%1$s dépensés sur %2$s</string>
+    <string name="projects_purchase_toggle">Cette dépense est l\'achat</string>
+    <string name="projects_purchase_toggle_desc">Son montant, %1$s, devient le coût du bien</string>
+    <string name="projects_create_linked_note">Cette dépense y sera liée</string>
+    <string name="projects_project_name_placeholder">p. ex. Station météo ESP32</string>
 </resources>

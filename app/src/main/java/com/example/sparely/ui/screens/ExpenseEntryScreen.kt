@@ -100,6 +100,7 @@ import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.logic.KnownTitle
 import com.example.sparely.domain.logic.TitleSuggestionEngine
 import com.example.sparely.domain.model.Asset
+import com.example.sparely.domain.model.defaultKind
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
 import com.example.sparely.domain.model.ExpenseType
@@ -116,6 +117,7 @@ import com.example.sparely.ui.components.SheetActions
 import com.example.sparely.ui.components.SheetSectionLabel
 import com.example.sparely.ui.components.AmountCalculatorKeys
 import com.example.sparely.ui.components.AssetSelectionDialog
+import com.example.sparely.ui.components.SparelyAmountTextField
 import com.example.sparely.ui.components.rememberAmountFieldValue
 import com.example.sparely.ui.components.settleAmountExpression
 import com.example.sparely.ui.components.ExpressiveCard
@@ -167,7 +169,8 @@ fun ExpenseEntryScreen(
     brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
     onBrandSearch: (String) -> Unit = {},
     onLinkAssetToExpense: (assetId: Long, percentageAllocated: Double) -> Unit = { _, _ -> },
-    onCreateAsset: (name: String, category: com.example.sparely.domain.model.AssetCategory, description: String?, price: Double) -> Unit = { _, _, _, _ -> },
+    // Creates the project or asset and returns its id, so this expense can be linked to it
+    onCreateAsset: suspend (Asset) -> Long? = { null },
     prefillExpense: com.example.sparely.domain.model.Expense? = null,
     prefillAssetAllocations: Map<Long, Double> = emptyMap(),
     knownTitles: List<KnownTitle> = emptyList(),
@@ -230,9 +233,6 @@ fun ExpenseEntryScreen(
 
     // Asset creation state
     var showCreateAssetDialog by remember { mutableStateOf(false) }
-    var assetCreationName by remember { mutableStateOf("") }
-    var assetCreationCategory by remember { mutableStateOf(com.example.sparely.domain.model.AssetCategory.OTHER) }
-    var assetCreationDescription by remember { mutableStateOf("") }
 
     // Line Items State
     val expenseItems = remember {
@@ -718,8 +718,8 @@ fun ExpenseEntryScreen(
                     }
                 }
 
-                // Asset Linking
-                if (assets.isNotEmpty()) {
+                // Projects & assets: shown even before any exist, so the first one can be made here
+                run {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -776,13 +776,8 @@ fun ExpenseEntryScreen(
                                 }
                             }
                             SparelyTonalButton(
-                                onClick = {
-                                    // Pre-fill with current expense data
-                                    assetCreationName = description.takeIf { it.isNotBlank() } ?: ""
-                                    assetCreationDescription = ""
-                                    assetCreationCategory = com.example.sparely.domain.model.AssetCategory.OTHER
-                                    showCreateAssetDialog = true
-                                },
+                                onClick = { showCreateAssetDialog = true },
+                                icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 18.dp) },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(stringResource(R.string.expense_entry_create_asset), maxLines = 1)
@@ -958,20 +953,25 @@ fun ExpenseEntryScreen(
                 }
             },
             onDismiss = { assetSelectorExpanded = false },
-            title = stringResource(R.string.expense_entry_link_asset_dialog_title)
+            title = stringResource(R.string.expense_entry_link_asset_dialog_title),
+            workingOnProjectId = workingOnProjectId,
+            onCreateNew = { showCreateAssetDialog = true }
         )
     }
 
     if (showCreateAssetDialog) {
         AssetCreationDialog(
             isOpen = showCreateAssetDialog,
-            initialName = assetCreationName,
-            initialCategory = assetCreationCategory,
-            initialDescription = assetCreationDescription,
-            assetPrice = amountText.toSafeDoubleOrZero(),
-            onConfirm = { name, category, description ->
-                onCreateAsset(name, category, description, amountText.toSafeDoubleOrZero())
+            expenseTitle = description,
+            expenseAmount = amountText.toSafeDoubleOrZero(),
+            onConfirm = { newAsset ->
                 showCreateAssetDialog = false
+                scope.launch {
+                    // Linked at 100 % like a picked one; saving the expense stores the link
+                    onCreateAsset(newAsset)?.takeIf { it > 0 }?.let { id ->
+                        selectedAssetAllocations = selectedAssetAllocations + (id to 1.0)
+                    }
+                }
             },
             onDismiss = { showCreateAssetDialog = false }
         )
@@ -1345,7 +1345,11 @@ private fun LinkedAssetRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(asset.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "${asset.category.displayName()} · ${stringResource(R.string.expense_entry_asset_allocation)} ${percentage.formatPercent(0)}",
+                        listOf(
+                            stringResource(if (asset.isProject) R.string.projects_kind_project else R.string.projects_kind_asset),
+                            asset.category.displayName(),
+                            "${stringResource(R.string.expense_entry_asset_allocation)} ${percentage.formatPercent(0)}"
+                        ).joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1410,19 +1414,32 @@ private fun ToggleRow(
     }
 }
 
+/**
+ * Makes a project or asset from the expense form; the expense is then linked to it. A new asset can
+ * take this expense as its purchase (its cost), a project an optional budget.
+ */
 @Composable
 private fun AssetCreationDialog(
     isOpen: Boolean,
-    initialName: String,
-    initialCategory: com.example.sparely.domain.model.AssetCategory,
-    initialDescription: String,
-    assetPrice: Double,
-    onConfirm: (name: String, category: com.example.sparely.domain.model.AssetCategory, description: String) -> Unit,
+    expenseTitle: String,
+    expenseAmount: Double,
+    onConfirm: (Asset) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var name by remember { mutableStateOf(initialName) }
-    var category by remember { mutableStateOf(initialCategory) }
-    var description by remember { mutableStateOf(initialDescription) }
+    var kind by remember { mutableStateOf(com.example.sparely.domain.model.AssetKind.PROJECT) }
+    var kindTouched by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(com.example.sparely.domain.model.AssetCategory.HOBBY) }
+    var description by remember { mutableStateOf("") }
+    var budgetText by remember { mutableStateOf("") }
+    var isPurchase by remember { mutableStateOf(true) }
+    val isProject = kind == com.example.sparely.domain.model.AssetKind.PROJECT
+
+    fun chooseKind(newKind: com.example.sparely.domain.model.AssetKind) {
+        kind = newKind
+        // Buying a thing usually names it after the purchase
+        if (newKind == com.example.sparely.domain.model.AssetKind.ASSET && name.isBlank()) name = expenseTitle.trim()
+    }
 
     SparelyBottomSheet(
         isOpen = isOpen,
@@ -1436,18 +1453,38 @@ private fun AssetCreationDialog(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // The price comes from this expense, so it's context rather than a field
             SparelySheetHeader(
-                title = stringResource(R.string.asset_create_title),
-                subtitle = stringResource(R.string.asset_create_price, assetPrice.formatCurrency()),
-                icon = MaterialSymbols.SHOPPING_BAG
+                title = stringResource(if (isProject) R.string.projects_new else R.string.assets_new),
+                subtitle = stringResource(R.string.projects_create_linked_note),
+                icon = if (isProject) MaterialSymbols.FLAG else MaterialSymbols.SHOPPING_BAG
+            )
+
+            SheetSectionLabel(stringResource(R.string.projects_kind_label))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SparelyChip(
+                    selected = isProject,
+                    onClick = { kindTouched = true; chooseKind(com.example.sparely.domain.model.AssetKind.PROJECT) },
+                    label = { Text(stringResource(R.string.projects_kind_project)) }
+                )
+                SparelyChip(
+                    selected = !isProject,
+                    onClick = { kindTouched = true; chooseKind(com.example.sparely.domain.model.AssetKind.ASSET) },
+                    label = { Text(stringResource(R.string.projects_kind_asset)) }
+                )
+            }
+            Text(
+                stringResource(if (isProject) R.string.projects_kind_project_desc else R.string.projects_kind_asset_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             SparelyTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(stringResource(R.string.assets_name)) },
-                placeholder = { Text(stringResource(R.string.asset_name_placeholder)) },
+                label = { Text(stringResource(if (isProject) R.string.projects_name else R.string.assets_name)) },
+                placeholder = {
+                    Text(stringResource(if (isProject) R.string.projects_project_name_placeholder else R.string.asset_name_placeholder))
+                },
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
@@ -1463,10 +1500,30 @@ private fun AssetCreationDialog(
                 com.example.sparely.domain.model.AssetCategory.entries.forEach { cat ->
                     SparelyChip(
                         selected = cat == category,
-                        onClick = { category = cat },
+                        onClick = {
+                            category = cat
+                            if (!kindTouched) chooseKind(cat.defaultKind())
+                        },
                         label = { Text(cat.displayName()) }
                     )
                 }
+            }
+
+            if (isProject) {
+                SparelyAmountTextField(
+                    value = budgetText,
+                    onValueChange = { budgetText = it },
+                    label = { Text(stringResource(R.string.projects_budget_optional)) },
+                    prefix = { Text(stringResource(R.string.currency_prefix)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else if (expenseAmount > 0) {
+                ToggleRow(
+                    title = stringResource(R.string.projects_purchase_toggle),
+                    description = stringResource(R.string.projects_purchase_toggle_desc, expenseAmount.formatCurrency()),
+                    checked = isPurchase,
+                    onCheckedChange = { isPurchase = it }
+                )
             }
 
             SparelyTextField(
@@ -1484,7 +1541,17 @@ private fun AssetCreationDialog(
                 confirmLabel = stringResource(R.string.asset_create_confirm),
                 onConfirm = {
                     if (name.isNotBlank()) {
-                        onConfirm(name, category, description.takeIf { it.isNotBlank() } ?: "")
+                        onConfirm(
+                            Asset(
+                                name = name.trim(),
+                                description = description.trim().ifBlank { null },
+                                category = category,
+                                kind = kind,
+                                assetPrice = if (isProject) budgetText.toSafeDoubleOrZero()
+                                    else if (isPurchase) expenseAmount else 0.0,
+                                createdAt = java.time.LocalDateTime.now()
+                            )
+                        )
                     }
                 },
                 confirmEnabled = name.isNotBlank(),
