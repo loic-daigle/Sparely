@@ -109,6 +109,50 @@ fun RecurringExpense.nextOccurrenceAfter(date: LocalDate): LocalDate =
     frequency.nextOccurrenceAfter(startDate, date)
 
 /**
+ * The date this recurring expense is next due, on or after [today], or null once it's past its end
+ * date. Every screen uses this so they agree with each other and with the scheduler, which charges
+ * on [RecurringExpense.nextRunAt].
+ */
+fun RecurringExpense.nextDueDate(today: LocalDate = LocalDate.now()): LocalDate? {
+    // The scheduler's own next run date is the source of truth when it is still upcoming.
+    nextRunAt?.toLocalDate()?.takeIf { !it.isBefore(today) }?.let { scheduled ->
+        return endDate?.let { end -> scheduled.takeIf { !it.isAfter(end) } } ?: scheduled
+    }
+    val baseDate = lastProcessedDate ?: startDate.minusDays(1)
+    var nextDue = nextOccurrenceAfter(baseDate)
+    // Jump straight to the first occurrence on or after today (no iteration cap that could
+    // drop long-running daily/weekly schedules).
+    if (nextDue.isBefore(today)) {
+        nextDue = nextOccurrenceAfter(today.minusDays(1))
+    }
+    endDate?.let { end -> if (nextDue.isAfter(end)) return null }
+    return nextDue
+}
+
+/** Whether [nextRunAt] is a date the schedule (start date and frequency) actually lands on. */
+fun RecurringExpense.isNextRunOnSchedule(): Boolean {
+    val scheduled = nextRunAt?.toLocalDate() ?: return true
+    return nextOccurrenceAfter(scheduled.minusDays(1)) == scheduled
+}
+
+/**
+ * The next run date after the schedule changed (new start date or frequency): the first date of
+ * the new schedule that is not in the past and not in the period already handled, so changing the
+ * day of a bill neither skips this period's charge nor charges a period twice.
+ */
+fun RecurringExpense.rescheduledRunDate(today: LocalDate = LocalDate.now()): LocalDate {
+    val handled = lastProcessedDate
+    val earliest = if (handled == null) {
+        // Like a new recurring expense: one starting today or earlier begins at its next date,
+        // so a bill already entered by hand today isn't charged again
+        if (startDate.isAfter(today)) startDate else today.plusDays(1)
+    } else {
+        maxOf(today, handled.plusDays((frequency.daysInterval / 2).toLong()))
+    }
+    return nextOccurrenceAfter(earliest.minusDays(1))
+}
+
+/**
  * Input for creating recurring expense.
  */
 data class RecurringExpenseInput(

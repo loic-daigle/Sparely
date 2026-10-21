@@ -1,6 +1,8 @@
 package com.example.sparely.data.repository
 
 import com.example.sparely.domain.model.nextOccurrenceAfter
+import com.example.sparely.domain.model.rescheduledRunDate
+import com.example.sparely.domain.model.isNextRunOnSchedule
 import androidx.room.withTransaction
 import com.example.sparely.data.local.AchievementDao
 import com.example.sparely.data.local.BudgetDao
@@ -955,7 +957,15 @@ class SavingsRepository(
         }
 
     suspend fun upsertRecurringExpense(expense: RecurringExpense) {
-        val toPersist = if (expense.nextRunAt == null) {
+        val stored = if (expense.id != 0L) recurringExpenseDao.getById(expense.id)?.toDomain() else null
+        // An edit carries the old next run over; when the start date or frequency changed, that
+        // run is on the old schedule, so the bill would still be charged on the old day
+        val scheduleChanged = stored != null && expense.nextRunAt != null && expense.nextRunAt == stored.nextRunAt &&
+            (stored.startDate != expense.startDate || stored.frequency != expense.frequency)
+        val toPersist = if (scheduleChanged) {
+            val time = expense.nextRunAt?.toLocalTime() ?: java.time.LocalTime.of(9, 0)
+            expense.copy(nextRunAt = expense.rescheduledRunDate().atTime(time))
+        } else if (expense.nextRunAt == null) {
             // First time or update without nextRunAt: calculate the first run date.
             // If startDate is today or in the past, advance to the next occurrence
             // instead of firing immediately - otherwise a recurring expense created
@@ -975,6 +985,22 @@ class SavingsRepository(
         recurringExpenseDao.upsert(toPersist.toEntity())
         // A paused bill is no longer waiting to be paid.
         if (!toPersist.isActive && toPersist.id != 0L) removeFrozenForPending("RECURRING_PAYMENT", toPersist.id)
+    }
+
+    /**
+     * Moves next runs that aren't on their schedule back onto it. Edits before the fix in
+     * [upsertRecurringExpense] kept the old day after the start date or frequency changed.
+     */
+    suspend fun repairRecurringSchedules() {
+        recurringExpenseDao.getAll().forEach { entity ->
+            val expense = entity.toDomain()
+            if (expense.isActive && !expense.isNextRunOnSchedule()) {
+                val time = expense.nextRunAt?.toLocalTime() ?: java.time.LocalTime.of(9, 0)
+                recurringExpenseDao.upsert(
+                    entity.copy(nextRunAt = expense.rescheduledRunDate().atTime(time))
+                )
+            }
+        }
     }
 
     suspend fun deleteRecurringExpense(id: Long) {

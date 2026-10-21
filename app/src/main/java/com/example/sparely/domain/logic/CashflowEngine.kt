@@ -1,6 +1,6 @@
 package com.example.sparely.domain.logic
 
-import com.example.sparely.domain.model.nextOccurrenceAfter
+import com.example.sparely.domain.model.nextDueDate
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.Necessity
 import com.example.sparely.domain.model.PayScheduleSettings
@@ -255,7 +255,7 @@ object CashflowEngine {
         val window = 30 // Look ahead 30 days
 
         for (expense in recurring.filter { it.isActive }) {
-            val nextDue = calculateNextDueDate(expense, today) ?: continue
+            val nextDue = expense.nextDueDate(today) ?: continue
             val daysUntil = ChronoUnit.DAYS.between(today, nextDue).toInt()
 
             if (daysUntil in 0..window) {
@@ -275,21 +275,6 @@ object CashflowEngine {
         return obligations.sortedBy { it.daysUntilDue }
     }
 
-    private fun calculateNextDueDate(expense: RecurringExpense, today: LocalDate): LocalDate? {
-        // The scheduler's own next run date is the source of truth when it is still upcoming.
-        expense.nextRunAt?.toLocalDate()?.takeIf { !it.isBefore(today) }?.let { scheduled ->
-            return expense.endDate?.let { end -> scheduled.takeIf { !it.isAfter(end) } } ?: scheduled
-        }
-        val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
-        var nextDue = expense.nextOccurrenceAfter(baseDate)
-        // Jump straight to the first occurrence on or after today (no iteration cap that could
-        // drop long-running daily/weekly schedules).
-        if (nextDue.isBefore(today)) {
-            nextDue = expense.nextOccurrenceAfter(today.minusDays(1))
-        }
-        expense.endDate?.let { end -> if (nextDue.isAfter(end)) return null }
-        return nextDue
-    }
 
 
     private fun calculateExpectedIncome(

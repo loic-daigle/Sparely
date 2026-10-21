@@ -1,6 +1,6 @@
 package com.example.sparely.ui.screens
 
-import com.example.sparely.domain.model.nextOccurrenceAfter
+import com.example.sparely.domain.model.nextDueDate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
@@ -1694,36 +1694,9 @@ private fun getMaxDaysBefore(frequency: RecurringFrequency): Int {
     }
 }
 
-private fun calculateNextDue(expense: RecurringExpense, today: LocalDate = LocalDate.now()): LocalDate? {
-    if (!expense.isActive) return null
-
-    if (expense.lastProcessedDate == null) {
-        // Never been processed - check if start date is still in the future
-        if (!expense.startDate.isBefore(today)) {
-            // Start date hasn't passed yet, so that's the next due date
-            return expense.startDate
-        }
-
-        // Start date is in the past, so calculate next occurrence from start date
-        var nextDue = expense.startDate
-        while (nextDue.isBefore(today)) {
-            nextDue = expense.nextOccurrenceAfter(nextDue)
-        }
-        expense.endDate?.let { if (nextDue.isAfter(it)) return null }
-        return nextDue
-    }
-
-    // Already been processed at least once, calculate next from last processed date
-    var nextDue = expense.nextOccurrenceAfter(expense.lastProcessedDate)
-
-    // If next due is in the past, keep advancing until we reach a future date
-    while (nextDue.isBefore(today)) {
-        nextDue = expense.nextOccurrenceAfter(nextDue)
-    }
-
-    expense.endDate?.let { if (nextDue.isAfter(it)) return null }
-    return nextDue
-}
+/** Shared with the home screen and the scheduler, so every screen shows the same due date. */
+private fun calculateNextDue(expense: RecurringExpense, today: LocalDate = LocalDate.now()): LocalDate? =
+    if (!expense.isActive) null else expense.nextDueDate(today)
 
 
 
