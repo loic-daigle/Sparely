@@ -1224,7 +1224,7 @@ private fun SparelyNavHost(
                             isIgnored = input.isIgnored
                         )
                         updatedExpense?.let {
-                            viewModel.updateExpenseWithAssets(it, input.assetAllocations)
+                            viewModel.updateExpenseWithAssets(it, input.assetAllocations, input.deductFromMainAccount)
                         }
                     } else {
                         // Creating new expense
@@ -1265,6 +1265,7 @@ private fun SparelyNavHost(
                 onCreateAsset = viewModel::createAsset,
                 prefillExpense = uiState.prefillExpense,
                 prefillAssetAllocations = uiState.prefillAssetAllocations,
+                loadPaidFromMainAccount = viewModel::isPaidFromMainAccount,
                 knownTitles = uiState.knownTitles,
                 workingOnProjectId = uiState.settings.workingOnProjectId
             )

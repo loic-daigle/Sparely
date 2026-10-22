@@ -173,6 +173,8 @@ fun ExpenseEntryScreen(
     onCreateAsset: suspend (Asset) -> Long? = { null },
     prefillExpense: com.example.sparely.domain.model.Expense? = null,
     prefillAssetAllocations: Map<Long, Double> = emptyMap(),
+    // For an edited expense: whether the main account paid for it
+    loadPaidFromMainAccount: suspend (expenseId: Long) -> Boolean = { false },
     knownTitles: List<KnownTitle> = emptyList(),
     workingOnProjectId: Long? = null
 ) {
@@ -277,7 +279,9 @@ fun ExpenseEntryScreen(
         val method = prefillMethod ?: paymentMethods.find { it.isDefault }
         if (method != null) {
             selectedPaymentMethod = method
-            deductFromMainAccount = method.defaultDeductFromMainAccount
+            // An edited expense shows how it was actually paid, not the method's default
+            deductFromMainAccount = if (isEditMode) loadPaidFromMainAccount(prefillExpense!!.id)
+                else method.defaultDeductFromMainAccount
         }
     }
 
@@ -586,10 +590,14 @@ fun ExpenseEntryScreen(
                     paymentMethods = paymentMethods,
                     selectedMethod = selectedPaymentMethod,
                     onMethodSelected = { method ->
+                        val previous = selectedPaymentMethod
                         selectedPaymentMethod = method
                         paymentTouched = true
                         method?.let {
-                            deductFromMainAccount = it.defaultDeductFromMainAccount
+                            // Editing between two debit-type methods keeps how it was paid, so an
+                            // expense isn't taken from the main account a second time
+                            val keepsHowItWasPaid = isEditMode && !it.isCreditCard && previous != null && !previous.isCreditCard
+                            if (!keepsHowItWasPaid) deductFromMainAccount = it.defaultDeductFromMainAccount
                         }
                     },
                     onManageMethods = onManagePaymentMethods,

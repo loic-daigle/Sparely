@@ -1219,6 +1219,10 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         _uiState.update { it.copy(prefillExpense = null, prefillAssetAllocations = emptyMap()) }
     }
 
+    /** Whether the main account paid for this expense, so the edit form's deduct switch shows it. */
+    suspend fun isPaidFromMainAccount(expenseId: Long): Boolean =
+        savingsRepository.findExpenseById(expenseId)?.let { savingsRepository.getMainAccountDebitForExpense(it) > 0.0 } ?: false
+
     suspend fun getAssetAllocationsForExpense(expenseId: Long): Map<Long, Double> {
         return try {
             savingsRepository.getLinksForExpense(expenseId)
@@ -1297,7 +1301,11 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
         }
     }
 
-    fun updateExpenseWithAssets(expense: Expense, assetAllocations: Map<Long, Double>) {
+    /**
+     * Saves an edited expense and moves the money its edit changed. [deductFromMainAccount] is the
+     * form's choice for an expense not paid from a vault; null keeps how it was paid.
+     */
+    fun updateExpenseWithAssets(expense: Expense, assetAllocations: Map<Long, Double>, deductFromMainAccount: Boolean? = null) {
         if (!expense.amount.isFinite() || expense.amount <= 0.0) {
             _uiState.update { it.copy(errorMessage = AppStrings.get(R.string.error_invalid_amount, "Please enter a valid amount")) }
             return
@@ -1311,16 +1319,42 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
             val diff = newAmount - oldAmount
             // Only expenses that were actually paid from the main account move its balance when
             // their amount is edited (vault-paid or non-deducted expenses used to as well).
-            val paidFromMainAccount = savingsRepository.getMainAccountDebitForExpense(oldEntity) > 0.0
+            val oldMainDebit = savingsRepository.getMainAccountDebitForExpense(oldEntity)
+            val paidFromMainAccount = oldMainDebit > 0.0
+
+            // Changing how it was paid (debit to credit card or back, or the deduct switch) moves
+            // what the main account paid. Vault-paid expenses keep the amount-only handling below.
+            val newMethod = expense.paymentMethodId?.let { savingsRepository.getPaymentMethodById(it) }
+            val vaultPaid = oldEntity.deductedFromVaultId != null || expense.deductedFromVaultId != null
+            val paidFromMainAfter = if (vaultPaid) paidFromMainAccount
+                else newMethod?.isCreditCard != true && (deductFromMainAccount ?: paidFromMainAccount)
+            if (!vaultPaid && paidFromMainAfter != paidFromMainAccount) {
+                val currentBalance = savingsRepository.getLatestMainAccountBalance()
+                // What the main account paid comes back; or the expense, net of refunds, is paid now
+                val change = if (paidFromMainAccount) -oldMainDebit
+                    else (newAmount - expense.refundedAmount).coerceAtLeast(0.0)
+                val newBalance = currentBalance - change
+                savingsRepository.insertMainAccountTransaction(
+                    com.example.sparely.domain.model.MainAccountTransaction(
+                        type = if (change > 0) com.example.sparely.data.local.MainAccountTransactionType.EXPENSE
+                            else com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                        amount = abs(change),
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = (if (change > 0) "Now paid from main account: ${expense.description}"
+                            else "No longer paid from main account: ${expense.description}").take(100),
+                        relatedExpenseId = expense.id
+                    )
+                )
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
 
             if (abs(diff) > 0.001) {
                 // Amount changed, adjust balances
-                val paymentMethodId = expense.paymentMethodId // Assuming payment method didn't change for now, or use new one
-                val paymentMethod = if (paymentMethodId != null) {
-                     savingsRepository.getPaymentMethodById(paymentMethodId)
-                } else null
+                val paymentMethod = newMethod
                 
-                val effectiveMainBalance = if (paymentMethod?.isCreditCard == true || !paidFromMainAccount) {
+                // A switch of how it's paid above already settled the main account at the new amount
+                val effectiveMainBalance = if (paymentMethod?.isCreditCard == true || !paidFromMainAccount || !paidFromMainAfter) {
                     // Credit card: If amount increased (diff > 0), add to CC debt.
                     // If decreased (diff < 0), reduce CC debt. HANDLED BY REPOSITORY.
                     // Not paid from the main account: nothing to adjust there.
