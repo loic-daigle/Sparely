@@ -36,9 +36,57 @@ class PaymentNotificationListener : NotificationListenerService() {
             val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()
             val appName = appLabel(appContext, source)
             val payment = PaymentNotificationParser.parse(title, text, appName) ?: return@launch
-            if (!SeenPayments.isNew(appContext, payment, sbn.postTime)) return@launch
-            PaymentSuggestionNotifier.suggest(appContext, payment, appName, source)
+            handle(appContext, payment, appName, source, sbn.postTime, settings.paymentDetectionMethods.keys)
         }
+    }
+
+    /**
+     * Suggests [payment], or, when it's a second notification for a purchase already suggested,
+     * fills in what the first one lacked: the store's name, or the amount the card was charged
+     * (from an app with a payment method set, usually the bank's) instead of the store's.
+     */
+    private fun handle(
+        context: Context,
+        payment: DetectedPayment,
+        appName: String,
+        source: String,
+        postTime: Long,
+        cardApps: Set<String>
+    ) {
+        synchronized(SeenPayments) { suggestOrMerge(context, payment, appName, source, postTime, cardApps) }
+    }
+
+    private fun suggestOrMerge(
+        context: Context,
+        payment: DetectedPayment,
+        appName: String,
+        source: String,
+        postTime: Long,
+        cardApps: Set<String>
+    ) {
+        val earlier = PaymentDedupe.findSame(payment, source, postTime, SeenPayments.recent(context, postTime))
+        if (earlier == null) {
+            val id = PaymentSuggestionNotifier.suggest(context, payment, appName, source) ?: return
+            SeenPayments.remember(context, SeenPayment(payment.amount, payment.merchant, source, postTime, id))
+            return
+        }
+        val useNewAmount = source in cardApps && earlier.sourcePackage !in cardApps
+        val merged = DetectedPayment(
+            amount = if (useNewAmount) payment.amount else earlier.amount,
+            merchant = earlier.merchant ?: payment.merchant
+        )
+        val changed = merged.amount != earlier.amount || merged.merchant != earlier.merchant
+        // Only a suggestion still waiting in the shade is updated; one already added or ignored stays done
+        if (!changed || !PaymentSuggestionNotifier.isShowing(context, earlier.notificationId)) return
+        val mergedSource = if (useNewAmount) source else earlier.sourcePackage
+        PaymentSuggestionNotifier.suggest(
+            context, merged, appLabel(context, mergedSource), mergedSource, existingId = earlier.notificationId
+        )
+        SeenPayments.remember(
+            context,
+            SeenPayment(merged.amount, merged.merchant, mergedSource, earlier.postTime, earlier.notificationId),
+            replacing = earlier
+        )
     }
 
     override fun onDestroy() {
@@ -59,23 +107,47 @@ class PaymentNotificationListener : NotificationListenerService() {
 }
 
 /**
- * One purchase can produce several notifications: Wallet updating its own, or Wallet and the card's
- * bank app both announcing the same tap. The same amount within a few minutes is suggested once.
+ * Payments suggested in the last day, so a second notification for the same purchase (see
+ * [PaymentDedupe]) doesn't make a second suggestion.
  */
 internal object SeenPayments {
     private const val PREFS = "payment_notifications_seen"
-    private const val WINDOW_MS = 10 * 60 * 1000L
+    private const val KEY = "recent"
     private const val KEEP_MS = 24 * 60 * 60 * 1000L
 
     @Synchronized
-    fun isNew(context: Context, payment: DetectedPayment, postTime: Long): Boolean {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val key = "%.2f".format(java.util.Locale.US, payment.amount)
-        val last = prefs.getLong(key, Long.MIN_VALUE)
-        if (last != Long.MIN_VALUE && kotlin.math.abs(postTime - last) < WINDOW_MS) return false
-        val editor = prefs.edit()
-        prefs.all.forEach { (k, v) -> if (v is Long && postTime - v > KEEP_MS) editor.remove(k) }
-        editor.putLong(key, postTime).apply()
-        return true
+    fun recent(context: Context, now: Long): List<SeenPayment> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) ?: return emptyList()
+        return runCatching {
+            val array = org.json.JSONArray(raw)
+            (0 until array.length()).map { i ->
+                val o = array.getJSONObject(i)
+                SeenPayment(
+                    amount = o.getDouble("amount"),
+                    merchant = o.optString("merchant").takeIf { it.isNotEmpty() },
+                    sourcePackage = o.getString("source"),
+                    postTime = o.getLong("time"),
+                    notificationId = o.getInt("id")
+                )
+            }.filter { now - it.postTime < KEEP_MS }
+        }.getOrDefault(emptyList())
+    }
+
+    /** Records [payment] as suggested; replaces [replacing] when it updates that suggestion. */
+    @Synchronized
+    fun remember(context: Context, payment: SeenPayment, replacing: SeenPayment? = null) {
+        val kept = recent(context, payment.postTime).filter { it != replacing } + payment
+        val array = org.json.JSONArray()
+        kept.forEach {
+            array.put(
+                org.json.JSONObject()
+                    .put("amount", it.amount)
+                    .put("merchant", it.merchant ?: "")
+                    .put("source", it.sourcePackage)
+                    .put("time", it.postTime)
+                    .put("id", it.notificationId)
+            )
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
     }
 }

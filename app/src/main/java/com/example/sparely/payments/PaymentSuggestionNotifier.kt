@@ -28,10 +28,14 @@ object PaymentSuggestionNotifier {
     /** navigate_to value MainActivity turns into a prefilled expense form. */
     const val NAVIGATE_EDIT = "detectedPayment"
 
-    fun suggest(context: Context, payment: DetectedPayment, sourceApp: String, sourcePackage: String) {
-        if (!canNotify(context)) return
+    /**
+     * Shows the suggestion and returns its notification id, or null when notifications are off.
+     * Passing [existingId] updates that suggestion in place (a second notification for the same purchase).
+     */
+    fun suggest(context: Context, payment: DetectedPayment, sourceApp: String, sourcePackage: String, existingId: Int? = null): Int? {
+        if (!canNotify(context)) return null
         ensureChannel(context)
-        val id = notificationId(payment)
+        val id = existingId ?: notificationId(payment)
         val amount = NotificationHelper.formatAmount(payment.amount)
         val text = payment.merchant?.let { context.getString(R.string.payment_suggest_text_merchant, amount, it, sourceApp) }
             ?: context.getString(R.string.payment_suggest_text, amount, sourceApp)
@@ -62,9 +66,17 @@ object PaymentSuggestionNotifier {
             .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_edit), edit)
             .addAction(R.drawable.ic_sparely_mark_mono, context.getString(R.string.payment_action_ignore),
                 PaymentSuggestionReceiver.intent(context, PaymentSuggestionReceiver.ACTION_IGNORE, payment, id, sourcePackage))
+            .setOnlyAlertOnce(true)
             .build()
         notify(context, id, notification)
+        return id
     }
+
+    /** Whether the suggestion [id] is still in the notification shade (not added, ignored or dismissed). */
+    fun isShowing(context: Context, id: Int): Boolean =
+        runCatching {
+            context.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == id }
+        }.getOrDefault(false)
 
     /**
      * "Logged 12,34 $ at Tim Hortons" after Add, with Undo for a mistaken tap. Uses the suggestion's
