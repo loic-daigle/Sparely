@@ -79,4 +79,33 @@ class PaymentNotificationParserTest {
         assertEquals(1234.0, p.parseNumber("1,234")!!, 0.001)
         assertEquals(4.5, p.parseNumber("4,5")!!, 0.001)
     }
+
+    @Test
+    fun shoppingAppOrders() {
+        assertEquals(
+            DetectedPayment(98.0, "Allbirds"),
+            p.parse("Order confirmed", "Your order from Allbirds for \$98.00 is confirmed.", "Shop")
+        )
+        assertEquals(
+            DetectedPayment(45.5, "Allbirds"),
+            p.parse("Commande confirmée", "Votre commande chez Allbirds de 45,50 \$ est confirmée", "Shop")
+        )
+        assertEquals(
+            DetectedPayment(98.0, "Allbirds"),
+            p.parse("Thanks for shopping with Shop Pay", "Your \$98.00 order from Allbirds is confirmed", "Shop")
+        )
+    }
+
+    @Test
+    fun shoppingAppNoise() {
+        // Deliveries, promotions, rewards and installment reminders aren't new purchases
+        assertNull(p.parse("Allbirds", "Your \$98.00 order has shipped", "Shop"))
+        assertNull(p.parse("Allbirds", "Votre commande de 98,00 \$ a été livrée", "Shop"))
+        assertNull(p.parse("Allbirds", "Get \$10 off your next order", "Shop"))
+        assertNull(p.parse("Allbirds", "Free shipping on orders over \$50", "Shop"))
+        assertNull(p.parse("Price drop", "Tree Runners are now \$80", "Shop"))
+        assertNull(p.parse("Shop", "You earned \$1.20 in Shop Cash", "Shop"))
+        assertNull(p.parse("Shop Pay", "Your installment of \$24.50 is due tomorrow", "Shop"))
+        assertNull(p.parse("Allbirds", "Sale: 20% off everything, from \$40", "Shop"))
+    }
 }

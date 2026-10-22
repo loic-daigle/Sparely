@@ -25,6 +25,11 @@ object PaymentNotificationParser {
         """(?<!\p{L})(?:at|chez|à|au|aux|to)\s+(.+?)(?:\s+(?:(?:with|avec|using|par|on|sur|from|for|pour|de votre|with your)\b|(?:le|on|du)\s+\d)|[.\n•,;]|$)""",
         RegexOption.IGNORE_CASE
     )
+    // Shopping apps (Shop, Amazon, ...): "Your order from Allbirds", "Votre commande chez Allbirds"
+    private val ORDER_FROM = Regex(
+        """(?<!\p{L})(?:order|purchase|commande|achat)\s+(?:from|at|chez|auprès de|de(?!\s*\d))\s+(.+?)(?:\s+(?:(?:with|avec|using|par|on|sur|for|pour|is|has|was|est|a été)\b|(?:le|on|du|de|of)\s+\d)|[.\n•,;!]|$)""",
+        RegexOption.IGNORE_CASE
+    )
     private val STORE_NUMBER = Regex("""\s*#\s*\d+$""")
 
     // Not a purchase: refunds, declines, card setup, payments received, deposits, transfers, statements, due dates.
@@ -32,13 +37,21 @@ object PaymentNotificationParser {
         "refund|rembours|declin|refus|failed|échou|echou|added to wallet|ajoutée? à|ready to use|prête à|verify|vérifi|" +
             "received|reçu|deposit|dépôt|statement|relevé|e-?transfer|virement|balance is|solde est|available credit is|" +
             "crédit disponible est|payment due|paiement dû|due date|échéance|minimum payment|paiement minimum|" +
-            "transferred to your bank|transféré vers votre|money request|demande d'argent",
+            "transferred to your bank|transféré vers votre|money request|demande d'argent|" +
+            // Shopping apps: deliveries, promotions, rewards and installment reminders carry
+            // amounts too, but aren't a new purchase (the order itself was already suggested)
+            "shipped|expédiée?|out for delivery|en cours de livraison|delivered|livrée?\\b|tracking|suivi de colis|" +
+            "\\boff\\b|rabais|de réduction|\\bsale\\b|soldes|price drop|baisse de prix|\\bdeals?\\b|aubaine|" +
+            "earned|gagné|shop cash|cash ?back|remise en argent|reward|récompense|free shipping|livraison gratuite|" +
+            "orders over|commandes de plus de|coupon|promo|installment|versement|is due|est dû|back in stock|" +
+            "de retour en stock|wishlist|liste de souhaits",
         RegexOption.IGNORE_CASE
     )
 
     // A title like "Purchase alert" or "Alerte d'achat" is about the notification, not a store.
     private val GENERIC_TITLE = Regex(
-        "purchase|transaction|alert|alerte|achat|payment|paiement|card|carte|spend|dépense|charge|débit|debit|notification|wallet|google pay|gpay",
+        "purchase|transaction|alert|alerte|achat|payment|paiement|card|carte|spend|dépense|charge|débit|debit|notification|wallet|google pay|gpay|" +
+            "order|commande|confirm|thank|merci|shop pay|receipt",
         RegexOption.IGNORE_CASE
     )
 
@@ -79,7 +92,8 @@ object PaymentNotificationParser {
             !title.equals(appName, ignoreCase = true) &&
             !GENERIC_TITLE.containsMatchIn(title) &&
             AMOUNT_BEFORE.find(title) == null && AMOUNT_AFTER.find(title) == null
-        val raw = if (titleIsStore) title else MERCHANT_AFTER.find(all)?.groupValues?.get(1)
+        val raw = if (titleIsStore) title
+            else (ORDER_FROM.find(all) ?: MERCHANT_AFTER.find(all))?.groupValues?.get(1)
         return raw?.trim()?.trimEnd('.', ',')?.replace(STORE_NUMBER, "")?.trim()?.takeIf { it.isNotEmpty() }
     }
 }
