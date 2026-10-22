@@ -159,6 +159,8 @@ fun RecurringExpensesScreen(
     onPayEarly: (recurringExpenseId: Long, dueDate: LocalDate, amountPaid: Double, paidDate: LocalDate, notes: String?) -> Unit = { _, _, _, _, _ -> },
     // Payments marked in this session that can still be taken back, keyed by recurring expense id
     recurringPaymentUndos: Map<Long, RecurringPaymentUndo> = emptyMap(),
+    // Bills that came due and wait to be paid (their amount is frozen)
+    awaitingPaymentIds: Set<Long> = emptySet(),
     onUndoPayment: (Long) -> Unit = {},
     onCreateStore: suspend (StoreInput) -> Store? = { null },
     onEditStore: (Store) -> Unit = {},
@@ -279,7 +281,8 @@ fun RecurringExpensesScreen(
                         ?.let { { onUndoPayment(expense.id) } },
                     isAlreadyPaid = recurringPaidRecords.any { 
                         it.recurringExpenseId == expense.id && it.dueDate == calculateNextDue(expense)
-                    }
+                    },
+                    isAwaitingPayment = expense.id in awaitingPaymentIds
                 )
             }
             if (sortedExpenses.isEmpty()) {
@@ -626,6 +629,7 @@ private fun RecurringExpenseRow(
     onPayEarly: () -> Unit,
     onUndoPayment: (() -> Unit)? = null,
     isAlreadyPaid: Boolean = false,
+    isAwaitingPayment: Boolean = false,
     shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.medium,
     modifier: Modifier = Modifier
 ) {
@@ -737,6 +741,7 @@ private fun RecurringExpenseRow(
                 ) {
                     val (statusIcon, statusColor, statusText) = when {
                         !expense.isActive -> Triple(MaterialSymbols.BLOCK, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.recurring_paused))
+                        isAwaitingPayment -> Triple(MaterialSymbols.WARNING, MaterialTheme.colorScheme.error, stringResource(R.string.recurring_awaiting_payment))
                         isAlreadyPaid -> Triple(MaterialSymbols.CHECK_CIRCLE, MaterialTheme.colorScheme.primary, stringResource(R.string.recurring_paid))
                         daysUntil != null && daysUntil <= expense.reminderDaysBefore -> Triple(MaterialSymbols.WARNING, MaterialTheme.colorScheme.error, stringResource(R.string.recurring_due_soon))
                         else -> Triple(MaterialSymbols.SCHEDULE, MaterialTheme.colorScheme.primary, stringResource(R.string.recurring_active))
@@ -751,7 +756,7 @@ private fun RecurringExpenseRow(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = when {
-                            isAlreadyPaid || nextDue == null || daysUntil == null -> statusText
+                            isAlreadyPaid || isAwaitingPayment || nextDue == null || daysUntil == null -> statusText
                             // Date plus countdown ("Due Mar 3 · in 2d") so urgency is readable at a glance
                             else -> stringResource(R.string.recurring_due_date, nextDue.format(formatter)) +
                                 " · " + formatCountdown(daysUntil)
@@ -827,9 +832,10 @@ private fun RecurringExpenseRow(
 
             val maxDaysBefore = getMaxDaysBefore(expense.frequency)
             val canPayEarly = daysUntil != null && daysUntil >= 0 && daysUntil <= maxDaysBefore
-            val isDueSoon = daysUntil != null && daysUntil <= 5
+            // A bill that already came due can always be marked paid, whatever the next date is
+            val isDueSoon = isAwaitingPayment || (daysUntil != null && daysUntil <= 5)
 
-            if (!isAlreadyPaid && expense.isActive) {
+            if ((!isAlreadyPaid || isAwaitingPayment) && expense.isActive) {
                 if (isDueSoon) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(

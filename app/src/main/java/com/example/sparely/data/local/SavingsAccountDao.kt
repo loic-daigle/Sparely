@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -20,7 +21,8 @@ interface SavingsAccountDao {
     @Query("SELECT * FROM savings_accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): SavingsAccountEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsert(account: SavingsAccountEntity): Long
 
     @Query("DELETE FROM savings_accounts WHERE id = :id")

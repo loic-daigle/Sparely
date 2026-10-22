@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -20,7 +21,8 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE date BETWEEN :from AND :to ORDER BY date DESC, id DESC")
     suspend fun getExpensesBetween(from: LocalDate, to: LocalDate): List<ExpenseEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsertExpense(entity: ExpenseEntity): Long
 
     @Delete

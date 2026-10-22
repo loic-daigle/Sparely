@@ -5,6 +5,7 @@ import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Relation
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -15,7 +16,8 @@ interface ChallengeDao {
     @Query("SELECT * FROM savings_challenges ORDER BY startDate DESC")
     fun observeChallenges(): Flow<List<SavingsChallengeWithMilestones>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsertChallenge(entity: SavingsChallengeEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

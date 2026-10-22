@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -17,7 +18,8 @@ interface PaymentMethodDao {
     @Query("SELECT * FROM payment_methods WHERE id = :id")
     suspend fun getPaymentMethodById(id: Long): PaymentMethodEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun insertPaymentMethod(paymentMethod: PaymentMethodEntity): Long
 
     @Update

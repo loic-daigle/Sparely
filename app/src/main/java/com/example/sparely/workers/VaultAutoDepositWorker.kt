@@ -59,6 +59,8 @@ class VaultAutoDepositWorker(
                 try {
 
                 val vault = savingsRepository.getSmartVaultById(schedule.vaultId)
+                // An archived vault is done: its schedule stops moving money into it
+                if (vault == null || vault.archived) return@forEach
                 val amount = computeTransferAmount(schedule, savingsRepository, vault)
                 if (amount <= 0.0) return@forEach
 

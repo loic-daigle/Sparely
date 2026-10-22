@@ -4,13 +4,15 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
 @Dao
 interface MainAccountDao {
     @androidx.room.Transaction
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun insertTransaction(transaction: MainAccountTransactionEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

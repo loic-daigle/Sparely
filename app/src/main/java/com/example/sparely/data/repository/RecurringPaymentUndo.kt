@@ -17,5 +17,7 @@ data class RecurringPaymentUndo(
     val scheduledNextRunAt: LocalDateTime?,
     val releasedFrozenFunds: List<FrozenFundEntity>,
     val expenseId: Long?,
-    val paidRecordId: Long?
+    val paidRecordId: Long?,
+    // A variable bill's "confirm the amount" entry the payment settled
+    val clearedPendingVariable: com.example.sparely.data.local.PendingVariableRecurringExpenseEntity? = null
 )

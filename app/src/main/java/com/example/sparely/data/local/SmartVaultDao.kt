@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -24,13 +25,15 @@ interface SmartVaultDao {
     @Query("SELECT * FROM smart_vaults WHERE id = :id")
     suspend fun getVaultById(id: Long): SmartVaultEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsertVault(entity: SmartVaultEntity): Long
 
     @Query("DELETE FROM smart_vaults")
     suspend fun clearAllVaults()
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsertContribution(entity: VaultContributionEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

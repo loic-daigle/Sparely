@@ -677,13 +677,20 @@ class SavingsRepository(
                 creditMainAccount = true
             )
         }
+        // Its pending transfers go with it (cascade), so release what they froze, and give back
+        // any that already left the main account, as cancelling them one by one would
+        smartVaultDao.getContributionsForVault(id).filter { !it.reconciled }.forEach { pending ->
+            refundDebitedPendingContribution(pending.id)
+            removeFrozenForPending("VAULT_CONTRIBUTION", pending.id)
+        }
         smartVaultDao.deleteVault(id)
     } }
 
     suspend fun logVaultContribution(contribution: VaultContribution): Long = withMainAccountLock { database.withTransaction {
         require(contribution.amount.isFinite()) { "Contribution amount must be a finite number" }
         val entity = contribution.toEntity()
-        val id = smartVaultDao.upsertContribution(entity)
+        // An upsert that updates an existing row returns -1, not its id
+        val id = smartVaultDao.upsertContribution(entity).takeIf { it > 0 } ?: entity.id
         if (contribution.reconciled) {
             val contributionWithId = contribution.copy(id = id)
             if (contribution.isHisaTransfer) {
@@ -962,7 +969,11 @@ class SavingsRepository(
         // run is on the old schedule, so the bill would still be charged on the old day
         val scheduleChanged = stored != null && expense.nextRunAt != null && expense.nextRunAt == stored.nextRunAt &&
             (stored.startDate != expense.startDate || stored.frequency != expense.frequency)
-        val toPersist = if (scheduleChanged) {
+        // Resuming a paused bill: the dates it missed while paused aren't charged now, it picks
+        // up at its next date (the one the screens show)
+        val resumedPastRun = stored != null && !stored.isActive && expense.isActive &&
+            expense.nextRunAt?.toLocalDate()?.isBefore(LocalDate.now()) == true
+        val toPersist = if (scheduleChanged || resumedPastRun) {
             val time = expense.nextRunAt?.toLocalTime() ?: java.time.LocalTime.of(9, 0)
             expense.copy(nextRunAt = expense.rescheduledRunDate().atTime(time))
         } else if (expense.nextRunAt == null) {
@@ -1033,9 +1044,20 @@ class SavingsRepository(
     ): RecurringPaymentUndo? = database.withTransaction {
         val before = recurringExpenseDao.getById(recurringExpenseId) ?: return@withTransaction null
         val frozen = frozenFundDao.findForPending("RECURRING_PAYMENT", recurringExpenseId)
+        // Paying a variable bill by hand settles the amount it was waiting to have confirmed;
+        // confirming that afterwards would log it a second time
+        val pendingVariable = pendingVariableRecurringExpenseDao.getByRecurringExpenseId(recurringExpenseId)
+        pendingVariable?.let { pendingVariableRecurringExpenseDao.delete(it.id) }
         val paidRecordId = paidRecord?.let { recurringExpensePaidDao.insertPaid(it.copy(expenseId = expenseId)) }
         frozenFundDao.deleteForPending("RECURRING_PAYMENT", recurringExpenseId)
-        updateRecurringExpenseProcessed(recurringExpenseId, processedDate)
+        if (frozen.isNotEmpty()) {
+            // Paying a bill that already came due: the worker froze it and moved the schedule on
+            // then, so this settles that occurrence and leaves the next one where it is (advancing
+            // again would skip a period)
+            recurringExpenseDao.update(before.copy(lastProcessedDate = processedDate))
+        } else {
+            updateRecurringExpenseProcessed(recurringExpenseId, processedDate)
+        }
         RecurringPaymentUndo(
             recurringExpenseId = recurringExpenseId,
             previousNextRunAt = before.nextRunAt,
@@ -1043,7 +1065,8 @@ class SavingsRepository(
             scheduledNextRunAt = recurringExpenseDao.getById(recurringExpenseId)?.nextRunAt,
             releasedFrozenFunds = frozen,
             expenseId = expenseId,
-            paidRecordId = paidRecordId
+            paidRecordId = paidRecordId,
+            clearedPendingVariable = pendingVariable
         )
     }
 
@@ -1065,6 +1088,7 @@ class SavingsRepository(
             )
         )
         if (current.isActive) undo.releasedFrozenFunds.forEach { frozenFundDao.insert(it) }
+        undo.clearedPendingVariable?.let { pendingVariableRecurringExpenseDao.insert(it) }
     }
 
     private fun computeNextRunForRecurring(expense: RecurringExpense, lastRun: LocalDate): java.time.LocalDateTime {
@@ -1347,7 +1371,7 @@ class SavingsRepository(
      * Processes a refund end-to-end: updates the expense's refunded amount (which drives the
      * credit card balance down via [processExpenseResult], allowing it to go negative if the
      * card was already paid off), records the audit-trail entry, credits the main account when
-     * the expense wasn't paid by a credit card, and clears any pending tax contributions.
+     * it paid for the expense (directly or through a vault, not a credit card), and clears any pending tax contributions.
      *
      * Returns the actual amount refunded (clamped to what's left to refund), or null if there
      * was nothing to refund (expense not found, or already fully refunded).
@@ -1373,6 +1397,9 @@ class SavingsRepository(
             if (actualRefund <= 0.0) return@withTransaction null
 
             val newTotalRefunded = expense.refundedAmount + actualRefund
+            // Read before the refund is recorded: only money that came out of the main account
+            // (directly, or through a vault, whose refunds go to the main account) goes back to it
+            val mainAccountPaid = expense.deductedFromVaultId != null || getMainAccountDebitForExpense(expense) > 0.0
 
             flagExpenseAsRefunded(expenseId, actualRefund, newTotalRefunded)
 
@@ -1385,7 +1412,9 @@ class SavingsRepository(
             )
 
             val paymentMethod = expense.paymentMethodId?.let { paymentMethodDao.getPaymentMethodById(it) }
-            if (paymentMethod?.isCreditCard != true) {
+            // A card refund lowers the card's balance (processExpenseResult); cash the app never took
+            // from the main account isn't put back into it either
+            if (paymentMethod?.isCreditCard != true && mainAccountPaid) {
                 val currentBalance = getLatestMainAccountBalance()
                 val newBalance = currentBalance + actualRefund
                 val transaction = com.example.sparely.domain.model.MainAccountTransaction(

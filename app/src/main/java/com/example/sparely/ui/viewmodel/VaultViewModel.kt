@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 import com.example.sparely.domain.model.VaultHistoryItem
 import com.example.sparely.domain.model.HistoryContribution
@@ -77,9 +78,21 @@ class VaultViewModel(
         }
     }
 
+    // Orders a save's balance override before its settings, so the settings keep the new balance
+    private val vaultWriteLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Saves the vault's settings. Its balance stays what it is now: the editor holds the balance it
+     * opened with, and a deposit that landed meanwhile would be undone (a balance typed in the
+     * editor is set through the balance override, with its history entry).
+     */
     fun updateSmartVault(vault: SmartVault) {
         viewModelScope.launch(errorHandler) {
-            savingsRepository.upsertSmartVault(vault)
+            // After a balance override sent with the same save, which holds the lock first
+            vaultWriteLock.withLock {
+                val current = savingsRepository.getSmartVaultById(vault.id)
+                savingsRepository.upsertSmartVault(current?.let { vault.copy(currentBalance = it.currentBalance) } ?: vault)
+            }
         }
     }
 
@@ -116,7 +129,7 @@ class VaultViewModel(
     fun overrideVaultBalance(vaultId: Long, balance: Double, reason: String?) {
         if (vaultId == 0L || balance < 0.0) return
         viewModelScope.launch(errorHandler) {
-            savingsRepository.overrideVaultBalance(vaultId, balance, reason)
+            vaultWriteLock.withLock { savingsRepository.overrideVaultBalance(vaultId, balance, reason) }
             refreshVaultHistory(vaultId)
         }
     }

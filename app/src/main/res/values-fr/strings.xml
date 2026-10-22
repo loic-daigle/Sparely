@@ -2216,4 +2216,5 @@
     <string name="projects_purchase_toggle_desc">Son montant, %1$s, devient le coût du bien</string>
     <string name="projects_create_linked_note">Cette dépense y sera liée</string>
     <string name="projects_project_name_placeholder">p. ex. Station météo ESP32</string>
+    <string name="recurring_awaiting_payment">Échu, pas encore payé</string>
 </resources>

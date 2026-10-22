@@ -238,6 +238,7 @@ class SparelyViewModel(
         val assets: List<Asset> = emptyList(),
         val wishlists: List<com.example.sparely.domain.model.Wishlist> = emptyList(),
         val frozenFundsTotal: Double = 0.0,
+        val awaitingPaymentRecurringIds: Set<Long> = emptySet(),
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
         val challenges: List<SavingsChallenge> = emptyList(),
@@ -301,7 +302,11 @@ class SparelyViewModel(
                     feed.copy(wishlists = wishlists)
                 }
                 .combine(savingsRepository.observeFrozenFunds()) { feed: AggregatedFeeds, frozen: List<com.example.sparely.data.local.FrozenFundEntity> ->
-                    feed.copy(frozenFundsTotal = frozen.sumOf { it.amount })
+                    feed.copy(
+                        frozenFundsTotal = frozen.sumOf { it.amount },
+                        // Bills that came due and wait for the user to pay them
+                        awaitingPaymentRecurringIds = frozen.filter { it.pendingType == "RECURRING_PAYMENT" }.map { it.pendingId }.toSet()
+                    )
                 }
                 .combine(savingsRepository.observeRecurringExpenses()) { feed: AggregatedFeeds, recurring: List<RecurringExpense> ->
                     feed.copy(recurring = recurring)
@@ -610,6 +615,7 @@ class SparelyViewModel(
                         smartVaults = sortedVaults,
                         savingsAccounts = feed.savingsAccounts,
                         assets = feed.assets,
+                        awaitingPaymentRecurringIds = feed.awaitingPaymentRecurringIds,
                         wishlists = feed.wishlists,
                         wishlistReserved = wishlistReserved,
                         totalVaultBalance = totalVaultBalance,
@@ -855,6 +861,9 @@ class SparelyViewModel(
                 safeLaunch {
                     val undo = savingsRepository.markRecurringPaid(recurringExpenseId, processedDate, expenseId, paidRecord)
                         ?: return@safeLaunch
+                    if (undo.clearedPendingVariable != null) {
+                        com.example.sparely.notifications.NotificationHelper.dismissVariableRecurringNotification(container.context)
+                    }
                     _recurringPaymentUndos.update { it + (recurringExpenseId to undo) }
                     withContext(Dispatchers.Main) { onDone() }
                 }

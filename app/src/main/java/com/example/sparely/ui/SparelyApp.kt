@@ -956,6 +956,7 @@ private fun SparelyNavHost(
                     viewModel.payRecurringExpenseEarly(id, dueDate, amountPaid, paidDate, notes) { offerRecurringPaymentUndo(id) }
                 },
                 recurringPaymentUndos = recurringPaymentUndos,
+                awaitingPaymentIds = uiState.awaitingPaymentRecurringIds,
                 onUndoPayment = undoRecurringPayment,
                 onCreateStore = { input ->
                     val storeId = viewModel.addStore(input).await()

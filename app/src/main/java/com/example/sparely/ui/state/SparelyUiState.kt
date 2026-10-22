@@ -18,6 +18,8 @@ data class SparelyUiState(
     val smartVaults: List<SmartVault> = emptyList(),
     val savingsAccounts: List<com.example.sparely.domain.model.SavingsAccount> = emptyList(),
     val assets: List<Asset> = emptyList(),
+    // Recurring bills that came due and whose amount is frozen until the user pays them
+    val awaitingPaymentRecurringIds: Set<Long> = emptySet(),
     val wishlists: List<Wishlist> = emptyList(),
     /** Money held back for wishes: in the bank, but subtracted from what is available to spend. */
     val wishlistReserved: Double = 0.0,

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -11,7 +12,8 @@ interface RecurringExpenseDao {
     @Query("SELECT * FROM recurring_expenses ORDER BY startDate DESC")
     fun observeRecurringExpenses(): Flow<List<RecurringExpenseEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun upsert(entity: RecurringExpenseEntity)
 
     @Query("DELETE FROM recurring_expenses WHERE id = :id")

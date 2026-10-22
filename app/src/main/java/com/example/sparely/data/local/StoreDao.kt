@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -22,7 +23,8 @@ interface StoreDao {
     @Query("SELECT id, name, iconName, createdAt, websiteUrl FROM stores WHERE name = :name LIMIT 1")
     suspend fun getStoreByName(name: String): StoreEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Upsert, not REPLACE: REPLACE deletes the row first, and the cascade took what is attached to it
+    @Upsert
     suspend fun insertStore(store: StoreEntity): Long
 
     @Update
