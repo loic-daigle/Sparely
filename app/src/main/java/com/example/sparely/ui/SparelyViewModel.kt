@@ -238,6 +238,7 @@ class SparelyViewModel(
         val assets: List<Asset> = emptyList(),
         val wishlists: List<com.example.sparely.domain.model.Wishlist> = emptyList(),
         val frozenFundsTotal: Double = 0.0,
+        val frozenBillsTotal: Double = 0.0,
         val awaitingPaymentRecurringIds: Set<Long> = emptySet(),
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
@@ -250,6 +251,8 @@ class SparelyViewModel(
     )
 
     init {
+        // Clears frozen amounts left behind by older versions before they're shown
+        viewModelScope.launch(dispatcher + errorHandler) { savingsRepository.syncFrozenFunds() }
         // Initial load for paged expenses
         loadMoreExpenses()
 
@@ -304,6 +307,7 @@ class SparelyViewModel(
                 .combine(savingsRepository.observeFrozenFunds()) { feed: AggregatedFeeds, frozen: List<com.example.sparely.data.local.FrozenFundEntity> ->
                     feed.copy(
                         frozenFundsTotal = frozen.sumOf { it.amount },
+                        frozenBillsTotal = frozen.filter { it.pendingType == "RECURRING_PAYMENT" }.sumOf { it.amount },
                         // Bills that came due and wait for the user to pay them
                         awaitingPaymentRecurringIds = frozen.filter { it.pendingType == "RECURRING_PAYMENT" }.map { it.pendingId }.toSet()
                     )
@@ -465,10 +469,13 @@ class SparelyViewModel(
                     val wishlistReserved = com.example.sparely.domain.logic.WishPlan.totalReserved(feed.wishlists)
                     // What can really be spent: everything liquid, minus the main-account minimum, money held
                     // for wishes, and money already promised to pending transfers.
-                    val pendingTransfersTotal = feed.frozenFundsTotal.coerceAtLeast(0.0)
+                    // Frozen money is pending vault transfers plus bills that came due, shown apart so
+                    // the transfers match the pending transfers page
+                    val billsDueTotal = feed.frozenBillsTotal.coerceAtLeast(0.0)
+                    val pendingTransfersTotal = (feed.frozenFundsTotal - billsDueTotal).coerceAtLeast(0.0)
                     // Card balances will be paid from this money, as "Safe to spend" counts them
                     val creditCardOwed = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) }
-                    val netUsableMoney = (totalUsableMoney - feed.settings.minMainAccountBalance - wishlistReserved - pendingTransfersTotal - creditCardOwed)
+                    val netUsableMoney = (totalUsableMoney - feed.settings.minMainAccountBalance - wishlistReserved - pendingTransfersTotal - billsDueTotal - creditCardOwed)
                         .coerceAtLeast(0.0)
                     val forecastInput = CashflowEngine.ForecastInput(
                         currentBalance = feed.settings.mainAccountBalance,
@@ -515,7 +522,7 @@ class SparelyViewModel(
                         monthlyIncome = feed.settings.monthlyIncome,
                         mainOverflowAccountId = feed.settings.mainOverflowAccountId,
                         // Card balances, money held for wishes and pending transfers aren't idle.
-                        committedMoney = forecastInput.creditCardBalance + wishlistReserved + pendingTransfersTotal,
+                        committedMoney = forecastInput.creditCardBalance + wishlistReserved + pendingTransfersTotal + billsDueTotal,
                         upcomingBills30Days = cashflowForecast.essentialObligations30Days + cashflowForecast.discretionaryObligations30Days
                     )
                     val uniqueExpenses = SmartInsightEngine.detectUniqueExpenses(
@@ -625,6 +632,7 @@ class SparelyViewModel(
                         totalUsableMoney = totalUsableMoney,
                         netUsableMoney = netUsableMoney,
                         pendingTransfersTotal = pendingTransfersTotal,
+                        billsDueTotal = billsDueTotal,
                         creditCardOwed = creditCardOwed,
                         lockedSavingsBalance = lockedSavingsBalance,
                         emergencyFundGoal = emergencyGoal,

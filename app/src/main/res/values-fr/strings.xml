@@ -2218,4 +2218,5 @@
     <string name="projects_project_name_placeholder">p. ex. Station météo ESP32</string>
     <string name="recurring_awaiting_payment">Échu, pas encore payé</string>
     <string name="usable_money_credit_cards">Dû sur les cartes de crédit</string>
+    <string name="usable_money_bills_due">Factures échues à payer</string>
 </resources>

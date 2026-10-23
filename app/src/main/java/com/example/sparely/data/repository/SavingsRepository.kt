@@ -787,6 +787,36 @@ class SavingsRepository(
     }
 
     /**
+     * Makes the frozen amounts match what they hold money for, so "pending transfers" taken off the
+     * spendable money is the pending transfers page's total: one row per pending vault transfer, of
+     * its amount (none for an old one already taken from the main account), and one per bill that
+     * came due and is still active. Rows left behind (a vault edit used to delete its pending
+     * transfers, a paused or deleted bill, a transfer approved elsewhere) are removed.
+     */
+    suspend fun syncFrozenFunds() = database.withTransaction {
+        val frozen = frozenFundDao.getAll()
+        val pending = smartVaultDao.getPendingContributions()
+            .filter { it.amount > 0.0 && mainAccountDao.countTransactionsForContribution(it.id) == 0 }
+            .associateBy { it.id }
+        val transferRows = frozen.filter { it.pendingType == "VAULT_CONTRIBUTION" }.groupBy { it.pendingId }
+        transferRows.forEach { (contributionId, rows) ->
+            val contribution = pending[contributionId]
+            val matches = contribution != null && rows.size == 1 &&
+                kotlin.math.abs(rows.single().amount - contribution.amount) < 0.005
+            if (!matches) {
+                rows.forEach { frozenFundDao.deleteById(it.id) }
+                contribution?.let { insertFrozenFund("VAULT_CONTRIBUTION", it.id, it.amount, it.note) }
+            }
+        }
+        pending.values.filter { it.id !in transferRows }.forEach {
+            insertFrozenFund("VAULT_CONTRIBUTION", it.id, it.amount, it.note)
+        }
+        frozen.filter { it.pendingType == "RECURRING_PAYMENT" }.forEach { row ->
+            if (recurringExpenseDao.getById(row.pendingId)?.isActive != true) frozenFundDao.deleteById(row.id)
+        }
+    }
+
+    /**
      * Older versions debited the main account as soon as a saving-tax transfer was created. If a
      * pending transfer like that is cancelled, give the money back. Must run before it is deleted.
      */

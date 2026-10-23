@@ -88,6 +88,8 @@ data class SparelyUiState(
     /** [totalUsableMoney] minus the minimum balance, wish reserves and pending transfers: what is safe to spend. */
     val netUsableMoney: Double = 0.0,
     val pendingTransfersTotal: Double = 0.0,
+    // Recurring bills that came due and are frozen until paid
+    val billsDueTotal: Double = 0.0,
     // Sum of what the credit cards owe (a card in credit counts as 0), taken off the usable money
     val creditCardOwed: Double = 0.0,
     /** Savings-account money that exists but can't be withdrawn today (locked term, notice period, minimum balance). */

@@ -134,6 +134,7 @@ class VaultAutoDepositWorker(
     ) {
         val now = LocalDateTime.now()
         repository.repairRecurringSchedules()
+        repository.syncFrozenFunds()
         val recurringEntities = database.recurringExpenseDao().getAll()
         val dueRecurring = recurringEntities.mapNotNull { entityRow ->
             if (!entityRow.isActive) return@mapNotNull null

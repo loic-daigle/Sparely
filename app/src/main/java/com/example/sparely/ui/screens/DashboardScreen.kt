@@ -176,6 +176,7 @@ fun DashboardScreen(
             minMainBalance = uiState.settings.minMainAccountBalance,
             wishlistReserved = uiState.wishlistReserved,
             pendingTransfers = uiState.pendingTransfersTotal,
+            billsDue = uiState.billsDueTotal,
             creditCardOwed = uiState.creditCardOwed,
             netUsable = uiState.netUsableMoney,
             hisaAccounts = uiState.savingsAccounts.filter { !it.archived },

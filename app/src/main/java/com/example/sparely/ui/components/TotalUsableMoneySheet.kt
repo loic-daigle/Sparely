@@ -26,6 +26,7 @@ fun TotalUsableMoneyBottomSheet(
     minMainBalance: Double,
     wishlistReserved: Double,
     pendingTransfers: Double,
+    billsDue: Double = 0.0,
     creditCardOwed: Double = 0.0,
     netUsable: Double,
     hisaAccounts: List<SavingsAccount>,
@@ -130,6 +131,9 @@ fun TotalUsableMoneyBottomSheet(
             }
             if (pendingTransfers > 0.005) {
                 ReservedRow(stringResource(R.string.usable_money_pending_transfers), pendingTransfers)
+            }
+            if (billsDue > 0.005) {
+                ReservedRow(stringResource(R.string.usable_money_bills_due), billsDue)
             }
             if (creditCardOwed > 0.005) {
                 ReservedRow(stringResource(R.string.usable_money_credit_cards), creditCardOwed)

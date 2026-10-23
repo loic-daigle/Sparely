@@ -28,6 +28,9 @@ interface FrozenFundDao {
     @Query("DELETE FROM frozen_funds WHERE pendingType = :type AND pendingId = :pendingId")
     suspend fun deleteForPending(type: String, pendingId: Long)
 
+    @Query("SELECT * FROM frozen_funds")
+    suspend fun getAll(): List<FrozenFundEntity>
+
     @Query("SELECT IFNULL(SUM(amount), 0.0) FROM frozen_funds")
     suspend fun totalFrozen(): Double
 
