@@ -55,6 +55,7 @@ import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.components.segmentSpacing
 import com.example.sparely.ui.components.segmentedShape
 import com.example.sparely.ui.theme.ExpressiveShapes
+import com.example.sparely.ui.theme.pill
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.critical
