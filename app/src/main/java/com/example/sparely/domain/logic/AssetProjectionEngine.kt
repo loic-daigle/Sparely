@@ -1,5 +1,7 @@
 package com.example.sparely.domain.logic
 
+import com.example.sparely.domain.model.perMonth
+
 import com.example.sparely.domain.model.Asset
 import com.example.sparely.domain.model.AssetCostProjection
 import com.example.sparely.domain.model.CostVsTargetPrice
@@ -107,14 +109,7 @@ object AssetProjectionEngine {
         linkedRecurringExpenses.forEach { (recurring, percentage) ->
             val today = LocalDate.now()
             val currentMonth = YearMonth.from(today)
-            val occurrencesPerMonth = when (recurring.frequency) {
-                RecurringFrequency.DAILY -> 30.0 / recurring.frequency.daysInterval
-                RecurringFrequency.WEEKLY -> 30.0 / recurring.frequency.daysInterval
-                RecurringFrequency.BIWEEKLY -> 30.0 / recurring.frequency.daysInterval
-                RecurringFrequency.MONTHLY -> 1.0
-                RecurringFrequency.QUARTERLY -> 1.0 / 3.0
-                RecurringFrequency.YEARLY -> 1.0 / 12.0
-            }
+            val occurrencesPerMonth = recurring.frequency.perMonth
 
             val monthlyAmount = recurring.predictNextAmount() * percentage * occurrencesPerMonth
 

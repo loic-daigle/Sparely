@@ -81,7 +81,7 @@ class VaultAutoDepositWorker(
                     executedCount += 1
                     executedTotal += amount
 
-                    val nextRun = computeNextRun(schedule, today)
+                    val nextRun = nextRegularRun(schedule, today)
                     savingsRepository.recordScheduleExecution(schedule.id, schedule.vaultId, amount, now, nextRun)
 
                     if (schedule.notifyAfter) {
@@ -93,6 +93,12 @@ class VaultAutoDepositWorker(
                         )
                     }
                 } else {
+                    // Not enough money available: try again tomorrow (it used to retry, and notify,
+                    // every hour), until the next regular date, when this one is given up
+                    val regularNext = nextRegularRun(schedule, today)
+                    val retry = today.plusDays(1).atTime(schedule.nextRunAt?.toLocalTime() ?: LocalTime.of(9, 0))
+                    val nextAttempt = if (regularNext == null || retry.isBefore(regularNext)) retry else regularNext
+                    savingsRepository.rescheduleVaultSchedule(schedule.id, schedule.vaultId, nextAttempt)
                     if (schedule.notifyOnFailure) {
                         NotificationHelper.showVaultScheduleNotificationFailure(
                             context = applicationContext,
@@ -268,6 +274,19 @@ class VaultAutoDepositWorker(
         }
     }
 
+    /**
+     * The schedule's next date after [today], counted from the date it was due rather than the day
+     * it ran, so a transfer made late (after a retry, or a phone that was off) doesn't move the
+     * schedule off its days.
+     */
+    private fun nextRegularRun(schedule: VaultSchedule, today: LocalDate): LocalDateTime? {
+        var next = computeNextRun(schedule, schedule.nextRunAt?.toLocalDate()?.takeIf { !it.isAfter(today) } ?: today)
+        while (next != null && !next.toLocalDate().isAfter(today)) {
+            next = computeNextRun(schedule, next.toLocalDate())
+        }
+        return next
+    }
+
     private fun computeNextRun(schedule: VaultSchedule, runDate: LocalDate): LocalDateTime? {
         val time = schedule.nextRunAt?.toLocalTime() ?: LocalTime.of(9, 0)
         return when (schedule.type) {
@@ -292,8 +311,10 @@ class VaultAutoDepositWorker(
                 val interval = schedule.weekInterval?.takeIf { it > 0 } ?: 1
                 val desired = schedule.dayOfWeek ?: runDate.dayOfWeek.value
                 val desiredDow = DayOfWeek.of(((desired - 1) % 7) + 1)
+                // The scheduled weekday in the week [interval] weeks on, even when this run was a few
+                // days late (nextOrSame skipped a week then)
                 val nextBase = runDate.plusWeeks(interval.toLong())
-                val nextDate = nextBase.with(TemporalAdjusters.nextOrSame(desiredDow))
+                val nextDate = nextBase.with(TemporalAdjusters.previousOrSame(desiredDow))
                 nextDate.atTime(time)
             }
             VaultScheduleType.DAILY -> {

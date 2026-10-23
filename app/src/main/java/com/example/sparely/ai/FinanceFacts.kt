@@ -1,5 +1,7 @@
 package com.example.sparely.ai
 
+import com.example.sparely.domain.model.perMonth
+
 import com.example.sparely.domain.logic.PurchaseAffordabilityEngine
 import com.example.sparely.domain.logic.PurchaseAffordabilityEngine.FindingKind
 import com.example.sparely.domain.model.ExpenseCategory
@@ -321,14 +323,8 @@ object FinanceFacts {
     private const val MAX_RECURRING_FACTS = 3
 
     /** What a recurring payment costs per month, from its frequency. */
-    internal fun monthlyCost(expense: com.example.sparely.domain.model.RecurringExpense): Double = when (expense.frequency) {
-        com.example.sparely.domain.model.RecurringFrequency.DAILY -> expense.amount * 365 / 12
-        com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> expense.amount * 52 / 12
-        com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> expense.amount * 26 / 12
-        com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> expense.amount
-        com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> expense.amount / 3
-        com.example.sparely.domain.model.RecurringFrequency.YEARLY -> expense.amount / 12
-    }
+    internal fun monthlyCost(expense: com.example.sparely.domain.model.RecurringExpense): Double =
+        expense.amount * expense.frequency.perMonth
 
     // Names the user typed, kept on one line so they can't break the prompt's layout.
     private fun oneLineName(text: String): String = text.replace(Regex("\\s+"), " ").trim()

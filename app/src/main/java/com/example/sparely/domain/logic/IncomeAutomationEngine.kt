@@ -1,5 +1,7 @@
 package com.example.sparely.domain.logic
 
+import com.example.sparely.domain.model.perMonth
+
 import com.example.sparely.domain.model.AnalyticsSnapshot
 import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.PayScheduleSettings
@@ -111,16 +113,7 @@ object IncomeAutomationEngine {
     private fun deriveMonthlyExpense(analytics: AnalyticsSnapshot, recurringExpenses: List<RecurringExpense>): Double {
         val analyticsAverage = analytics.averageMonthlyExpense.takeIf { it > 0.0 }
         val recurringTotal = recurringExpenses.filter { it.isActive }
-            .sumOf { expense ->
-                when (expense.frequency) {
-                    com.example.sparely.domain.model.RecurringFrequency.DAILY -> expense.amount * 30
-                    com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> expense.amount * 4.33
-                    com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> expense.amount * 2.17
-                    com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> expense.amount
-                    com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> expense.amount / 3.0
-                    com.example.sparely.domain.model.RecurringFrequency.YEARLY -> expense.amount / 12.0
-                }
-            }
+            .sumOf { expense -> expense.amount * expense.frequency.perMonth }
         return when {
             analyticsAverage != null -> max(analyticsAverage, recurringTotal)
             recurringTotal > 0.0 -> recurringTotal

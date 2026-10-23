@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import com.example.sparely.domain.model.nextDueDate
+import com.example.sparely.domain.model.perMonth
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
@@ -467,7 +468,7 @@ private fun RecurringOverviewCard(
     val autoLogActive = activeExpenses.filter { it.executeAutomatically }
     val savedMonthly = activeExpenses.sumOf { expense ->
         val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
-        amount * monthlyFactor(expense.frequency)
+        amount * expense.frequency.perMonth
     }
     // Detected-but-unsaved patterns still cost money every month, so they count toward the total
     val detectedMonthly = detected.sumOf { detectedMonthlyAmount(it) }
@@ -1677,16 +1678,6 @@ private fun DetectedRecurringCard(
             }
         }
     }
-}
-
-/** How many times per month a payment of this frequency occurs, for monthly-equivalent totals. */
-private fun monthlyFactor(frequency: RecurringFrequency): Double = when (frequency) {
-    RecurringFrequency.DAILY -> 365.0 / 12.0
-    RecurringFrequency.WEEKLY -> 52.0 / 12.0
-    RecurringFrequency.BIWEEKLY -> 26.0 / 12.0
-    RecurringFrequency.MONTHLY -> 1.0
-    RecurringFrequency.QUARTERLY -> 1.0 / 3.0
-    RecurringFrequency.YEARLY -> 1.0 / 12.0
 }
 
 private fun getMaxDaysBefore(frequency: RecurringFrequency): Int {

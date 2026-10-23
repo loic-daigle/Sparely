@@ -104,6 +104,19 @@ fun RecurringFrequency.nextOccurrenceAfter(anchor: LocalDate, date: LocalDate): 
     return candidate
 }
 
+/**
+ * How many times per month a payment of this frequency occurs on average (a year has 52 weeks,
+ * 365 days). Every monthly-equivalent figure uses it, so screens and suggestions agree.
+ */
+val RecurringFrequency.perMonth: Double get() = when (this) {
+    RecurringFrequency.DAILY -> 365.0 / 12.0
+    RecurringFrequency.WEEKLY -> 52.0 / 12.0
+    RecurringFrequency.BIWEEKLY -> 26.0 / 12.0
+    RecurringFrequency.MONTHLY -> 1.0
+    RecurringFrequency.QUARTERLY -> 1.0 / 3.0
+    RecurringFrequency.YEARLY -> 1.0 / 12.0
+}
+
 /** Next scheduled date for this recurring expense strictly after [date], anchored on its start date. */
 fun RecurringExpense.nextOccurrenceAfter(date: LocalDate): LocalDate =
     frequency.nextOccurrenceAfter(startDate, date)

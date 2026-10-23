@@ -812,7 +812,14 @@ class SavingsRepository(
             insertFrozenFund("VAULT_CONTRIBUTION", it.id, it.amount, it.note)
         }
         frozen.filter { it.pendingType == "RECURRING_PAYMENT" }.forEach { row ->
-            if (recurringExpenseDao.getById(row.pendingId)?.isActive != true) frozenFundDao.deleteById(row.id)
+            val bill = recurringExpenseDao.getById(row.pendingId)
+            if (bill?.isActive != true) {
+                frozenFundDao.deleteById(row.id)
+            } else if (kotlin.math.abs(row.amount - bill.amount) > 0.005) {
+                // A bill whose amount was edited after it came due holds its new amount
+                frozenFundDao.deleteById(row.id)
+                insertFrozenFund("RECURRING_PAYMENT", bill.id, bill.amount, row.description)
+            }
         }
     }
 
@@ -1018,6 +1025,13 @@ class SavingsRepository(
         recurringExpenseDao.upsert(toPersist.toEntity())
         // A paused bill is no longer waiting to be paid.
         if (!toPersist.isActive && toPersist.id != 0L) removeFrozenForPending("RECURRING_PAYMENT", toPersist.id)
+        // One waiting to be paid holds its new amount when the amount is edited
+        if (toPersist.isActive && stored != null && kotlin.math.abs(stored.amount - toPersist.amount) > 0.005) {
+            frozenFundDao.findForPending("RECURRING_PAYMENT", toPersist.id).firstOrNull()?.let { held ->
+                frozenFundDao.deleteForPending("RECURRING_PAYMENT", toPersist.id)
+                insertFrozenFund("RECURRING_PAYMENT", toPersist.id, toPersist.amount, held.description)
+            }
+        }
     }
 
     /**
@@ -1565,6 +1579,12 @@ class SavingsRepository(
         val entity = smartVaultDao.getVaultById(vaultId) ?: return null
         val schedules = smartVaultDao.getSchedulesForVault(vaultId).map { it.toDomain() }
         return entity.toDomain(schedules)
+    }
+
+    /** Moves a schedule's next run without running it (a transfer that couldn't be made, retried later). */
+    suspend fun rescheduleVaultSchedule(scheduleId: Long, vaultId: Long, nextRunAt: LocalDateTime) {
+        val scheduleEntity = smartVaultDao.getSchedulesForVault(vaultId).firstOrNull { it.id == scheduleId } ?: return
+        smartVaultDao.updateSchedule(scheduleEntity.copy(nextRunAt = nextRunAt, updatedAt = Instant.now()))
     }
 
     suspend fun recordScheduleExecution(
