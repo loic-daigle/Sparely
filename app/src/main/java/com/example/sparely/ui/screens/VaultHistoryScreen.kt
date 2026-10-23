@@ -73,9 +73,13 @@ fun VaultHistoryScreen(
     var showAdjust by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
+    // The app's frame already pads for the system bars, so this screen's own bar and content
+    // don't add them again (they left a gap above the title and below the list)
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(vault?.name ?: vaultName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 navigationIcon = {

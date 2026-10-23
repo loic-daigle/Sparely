@@ -1,5 +1,7 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.foundation.layout.WindowInsets
+
 import androidx.compose.animation.AnimatedVisibility
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.filterAmountExpressionInput
@@ -110,7 +112,8 @@ fun CreditCardsScreen(
     var payingCard by remember { mutableStateOf<PaymentMethod?>(null) }
     
     // Using global SparelyTopBar for navigation - no local topBar needed
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
+    // The app's frame already pads for the system bars; padding again left a gap
+    Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0), containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         if (creditCards.isEmpty()) {
             Box(
                 modifier = Modifier

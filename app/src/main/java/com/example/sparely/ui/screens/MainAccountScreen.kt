@@ -99,6 +99,8 @@ fun MainAccountScreen(
     }
 
     Scaffold(
+        // The app's frame already pads for the system bars; padding again left a gap
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
