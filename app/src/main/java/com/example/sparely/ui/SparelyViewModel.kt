@@ -1358,12 +1358,71 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                 preferencesRepository.updateMainAccountBalance(newBalance)
             }
 
+            // A vault-paid expense whose vault or amount changed is paid again: what it took comes
+            // back (as deleting it would), then the vault, and the main account for any overflow,
+            // pay it the new way. Without this the vault never moved, and a later delete paid
+            // the wrong vault back.
+            val vaultRepaid = vaultPaid &&
+                (oldEntity.deductedFromVaultId != expense.deductedFromVaultId || abs(diff) > 0.001)
+            if (vaultRepaid) {
+                val label = expense.description.take(80)
+                val reversal = savingsRepository.computeExpenseReversal(oldEntity)
+                reversal.vaultId?.takeIf { reversal.vaultCredit > 0.0 }?.let { vaultId ->
+                    savingsRepository.getSmartVaultById(vaultId)?.let { vault ->
+                        savingsRepository.recordVaultBalanceAdjustment(
+                            vaultId = vaultId,
+                            previousBalance = vault.currentBalance,
+                            newBalance = vault.currentBalance + reversal.vaultCredit,
+                            type = VaultAdjustmentType.MANUAL_DEPOSIT,
+                            reason = "Expense edited: $label",
+                            relatedExpenseId = expense.id
+                        )
+                    }
+                }
+                // Refunds already went to the main account, so only what's left is paid again
+                var toPay = (newAmount - expense.refundedAmount).coerceAtLeast(0.0)
+                expense.deductedFromVaultId?.let { savingsRepository.getSmartVaultById(it) }?.let { vault ->
+                    val fromVault = toPay.coerceAtMost(vault.currentBalance.coerceAtLeast(0.0))
+                    if (fromVault > 0.0) {
+                        savingsRepository.recordVaultBalanceAdjustment(
+                            vaultId = vault.id,
+                            previousBalance = vault.currentBalance,
+                            newBalance = vault.currentBalance - fromVault,
+                            type = VaultAdjustmentType.MANUAL_DEDUCTION,
+                            reason = "Expense: $label",
+                            relatedExpenseId = expense.id
+                        )
+                        toPay -= fromVault
+                    }
+                }
+                // The main account pays what the vault couldn't, when it covered the overflow before
+                // (or the switch says so), and gets back what it paid before
+                val overflowFromMain = newMethod?.isCreditCard != true && (deductFromMainAccount ?: paidFromMainAccount)
+                val mainChange = (if (overflowFromMain) toPay else 0.0) - reversal.mainAccountCredit
+                if (abs(mainChange) > 0.001) {
+                    val newBalance = savingsRepository.getLatestMainAccountBalance() - mainChange
+                    savingsRepository.insertMainAccountTransaction(
+                        com.example.sparely.domain.model.MainAccountTransaction(
+                            type = if (mainChange > 0) com.example.sparely.data.local.MainAccountTransactionType.EXPENSE
+                                else com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                            amount = abs(mainChange),
+                            balanceAfter = newBalance,
+                            timestamp = java.time.LocalDateTime.now(),
+                            description = "Expense edited: $label".take(100),
+                            relatedExpenseId = expense.id
+                        )
+                    )
+                    preferencesRepository.updateMainAccountBalance(newBalance)
+                }
+            }
+
             if (abs(diff) > 0.001) {
                 // Amount changed, adjust balances
                 val paymentMethod = newMethod
                 
-                // A switch of how it's paid above already settled the main account at the new amount
-                val effectiveMainBalance = if (paymentMethod?.isCreditCard == true || !paidFromMainAccount || !paidFromMainAfter) {
+                // A switch of how it's paid above already settled the main account at the new amount,
+                // and a vault-paid one was paid again in full
+                val effectiveMainBalance = if (paymentMethod?.isCreditCard == true || !paidFromMainAccount || !paidFromMainAfter || vaultRepaid) {
                     // Credit card: If amount increased (diff > 0), add to CC debt.
                     // If decreased (diff < 0), reduce CC debt. HANDLED BY REPOSITORY.
                     // Not paid from the main account: nothing to adjust there.
@@ -1411,11 +1470,19 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                     )
                 )
                 
-                if (savingTaxPlans.isNotEmpty()) {
-                    val contributions = savingTaxPlans.map { plan ->
+                // Tax already transferred for this expense counts: only what the new amount adds is due
+                val alreadyTransferred = savingsRepository.getContributionsForExpense(expense.id)
+                    .filter { it.reconciled && it.source == VaultContributionSource.SAVING_TAX }
+                    .groupBy { it.vaultId }
+                    .mapValues { (_, paid) -> paid.sumOf { it.amount } }
+                val duePlans = savingTaxPlans
+                    .map { plan -> plan to (plan.amount - (alreadyTransferred[plan.vaultId] ?: 0.0)) }
+                    .filter { (_, due) -> due > 0.005 }
+                if (duePlans.isNotEmpty()) {
+                    val contributions = duePlans.map { (plan, due) ->
                         VaultContribution(
                             vaultId = plan.vaultId,
-                            amount = plan.amount,
+                            amount = due,
                             date = expense.date,
                             source = VaultContributionSource.SAVING_TAX,
                             note = "Saving tax (adjusted) from ${expense.description}".take(120),
@@ -1425,15 +1492,6 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
                     val contributionIds = savingsRepository.logVaultContributions(contributions)
                     // Like every pending vault transfer: frozen now, deducted when marked transferred.
                     savingsRepository.freezePendingContributions(contributions, contributionIds)
-                    
-                    // Note: We are NOT automatically deducting the new tax from main account here to avoid double whammy if user already paid old tax?
-                    // Actually, if we deleted pending tax, we assume it wasn't paid.
-                    // If it WAS paid, we might have an issue. 
-                    // Current design: 'deletePendingContributionsForExpense' only deletes UNRECONCILED ones.
-                    // So if we add new ones here, they will be pending. 
-                    // The user will see them in "Pending Transfers" and can approve them.
-                    // We do NOT auto-deduct the tax difference from Main Account in this update flow to keep it safe.
-                    // The user will approve the new tax transfer separately.
                 }
             }
 

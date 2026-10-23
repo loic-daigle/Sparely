@@ -44,7 +44,10 @@ class DeleteExpenseUseCase(
                         previousBalance = sourceVault.currentBalance,
                         newBalance = sourceVault.currentBalance + reversal.vaultCredit,
                         type = VaultAdjustmentType.MANUAL_DEPOSIT,
-                        reason = "Reversal of deleted expense: ${expenseEntity.description.take(80)}"
+                        reason = "Reversal of deleted expense: ${expenseEntity.description.take(80)}",
+                        // Linked like the deduction it reverses, so what the expense took nets to
+                        // zero: restoring it (undo) and deleting it again returns it once, not twice
+                        relatedExpenseId = expenseEntity.id
                     )
                     restoredToVault = reversal.vaultCredit
                 } else {

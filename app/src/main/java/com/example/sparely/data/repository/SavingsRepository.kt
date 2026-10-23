@@ -165,8 +165,32 @@ class SavingsRepository(
             val contributions = smartVaultDao.getContributionsForExpense(entity.id)
             contributions.forEach { contribution ->
                 if (contribution.reconciled && contribution.vaultId != null) {
-                    // Reverse the vault balance for reconciled contributions
-                    smartVaultDao.incrementVaultBalance(contribution.vaultId, -contribution.amount, null)
+                    // Saving tax already transferred: it goes back from the vault to the main
+                    // account it came from (it used to leave the vault and never come back)
+                    val vault = smartVaultDao.getVaultById(contribution.vaultId)
+                    if (vault != null) {
+                        val taken = contribution.amount.coerceAtMost(vault.currentBalance.coerceAtLeast(0.0))
+                        recordVaultBalanceAdjustment(
+                            vaultId = vault.id,
+                            previousBalance = vault.currentBalance,
+                            newBalance = vault.currentBalance - taken,
+                            type = VaultAdjustmentType.MANUAL_DEDUCTION,
+                            reason = "Saving tax of deleted expense: ${entity.description.take(80)}"
+                        )
+                        if (taken > 0.0 && mainAccountDao.countTransactionsForContribution(contribution.id) > 0) {
+                            val newBalance = getLatestMainAccountBalance() + taken
+                            insertMainAccountTransaction(
+                                com.example.sparely.domain.model.MainAccountTransaction(
+                                    type = MainAccountTransactionType.DEPOSIT,
+                                    amount = taken,
+                                    balanceAfter = newBalance,
+                                    timestamp = LocalDateTime.now(),
+                                    description = "Saving tax back from deleted expense: ${entity.description}".take(100)
+                                )
+                            )
+                            preferencesRepository.updateMainAccountBalance(newBalance)
+                        }
+                    }
                 } else {
                     // Remove frozen funds for pending contributions
                     removeFrozenForPending("VAULT_CONTRIBUTION", contribution.id)
@@ -201,9 +225,12 @@ class SavingsRepository(
         }
     }
 
+    /**
+     * Prunes old history. Card balances stay as they are: they're what is owed now, and those old
+     * purchases were long paid (the card payments are kept), so taking them off would push the
+     * balance below zero. The main account isn't touched either.
+     */
     suspend fun deleteExpensesBefore(date: LocalDate): Int = database.withTransaction {
-        val expenses = expenseDao.getExpensesBetween(LocalDate.MIN, date.minusDays(1))
-        batchCorrectBalances(expenses, reverse = true)
         expenseDao.deleteExpensesBefore(date)
     }
 
@@ -478,44 +505,9 @@ class SavingsRepository(
     suspend fun getTotalSavingsForWishlist(wishlistId: Long): Double =
         wishlistSavingsDao.getTotalSavingsForWishlist(wishlistId)
 
+    /** Clears expense history; like pruning it, balances (cards, main account) are left as they are. */
     suspend fun clearExpenses() = database.withTransaction {
-        // Fetch all expenses to reverse impacts
-        val expenses = expenseDao.getExpensesBetween(LocalDate.MIN, LocalDate.MAX)
-        batchCorrectBalances(expenses, reverse = true)
         expenseDao.clearAll()
-    }
-
-    private suspend fun batchCorrectBalances(expenses: List<ExpenseEntity>, reverse: Boolean) {
-        if (expenses.isEmpty()) return
-        
-        // 1. Identify all payment methods involved
-        val methodIds = expenses.mapNotNull { it.paymentMethodId }.distinct()
-        if (methodIds.isEmpty()) return
-        
-        // 2. Fetch credit cards among them
-        // We can't query by list easily without a new DAO method, so we fetch all payment methods and filter.
-        // Or iterate. Since method types are few (usually < 10), fetching all is cheap.
-        val allMethods = paymentMethodDao.getAllPaymentMethods().first() // Flow -> List
-        val creditCardMap = allMethods.filter { it.isCreditCard }.associateBy { it.id }
-        
-        // 3. Aggregate impacts
-        val impactMap = mutableMapOf<Long, Double>()
-        
-        expenses.forEach { expense ->
-            val methodId = expense.paymentMethodId
-            if (methodId != null && creditCardMap.containsKey(methodId)) {
-                val impact = expense.amount - expense.refundedAmount
-                val delta = if (reverse) -impact else impact
-                impactMap[methodId] = (impactMap[methodId] ?: 0.0) + delta
-            }
-        }
-        
-        // 4. Apply updates
-        impactMap.forEach { (methodId, delta) ->
-            if (delta != 0.0) {
-                paymentMethodDao.addToBalance(methodId, delta)
-            }
-        }
     }
 
     fun observeTransfers(): Flow<List<SavingsTransferEntity>> = transferDao.observeTransfers()
