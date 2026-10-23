@@ -1,5 +1,7 @@
 package com.example.sparely.domain.model
 
+import com.example.sparely.AppStrings
+import com.sparely.app.R
 import java.time.LocalDateTime
 
 data class Asset(
@@ -51,13 +53,13 @@ fun AssetCategory.defaultKind(): AssetKind = when (this) {
 }
 
 fun AssetCategory.displayName(): String = when (this) {
-    AssetCategory.CAR -> "Car"
-    AssetCategory.HOUSE -> "House"
-    AssetCategory.ROOM -> "Room"
-    AssetCategory.VACATION -> "Vacation"
-    AssetCategory.HOBBY -> "Hobby"
-    AssetCategory.EDUCATION -> "Education"
-    AssetCategory.HEALTH -> "Health"
-    AssetCategory.OTHER -> "Other"
-    AssetCategory.CUSTOM -> "Custom"
+    AssetCategory.CAR -> AppStrings.get(R.string.asset_category_car, "Car")
+    AssetCategory.HOUSE -> AppStrings.get(R.string.asset_category_house, "House")
+    AssetCategory.ROOM -> AppStrings.get(R.string.asset_category_room, "Room")
+    AssetCategory.VACATION -> AppStrings.get(R.string.asset_category_vacation, "Vacation")
+    AssetCategory.HOBBY -> AppStrings.get(R.string.asset_category_hobby, "Hobby")
+    AssetCategory.EDUCATION -> AppStrings.get(R.string.asset_category_education, "Education")
+    AssetCategory.HEALTH -> AppStrings.get(R.string.asset_category_health, "Health")
+    AssetCategory.OTHER -> AppStrings.get(R.string.asset_category_other, "Other")
+    AssetCategory.CUSTOM -> AppStrings.get(R.string.asset_category_custom, "Custom")
 }

@@ -2316,4 +2316,25 @@
         <item quantity="one">In %d day</item>
         <item quantity="other">In %d days</item>
     </plurals>
+    <string name="assets_hero_label">Spent on your projects and assets</string>
+    <string name="assets_hero_working_on">Working on %1$s</string>
+    <string name="assets_of_amount">of %1$s</string>
+    <string name="assets_over_by">%1$s over</string>
+    <string name="assets_this_month">This month</string>
+    <string name="assets_per_month">A month</string>
+    <string name="assets_next_12_months">Next 12 months</string>
+    <string name="assets_bought_with">The purchase · %1$s</string>
+    <string name="assets_share_of">%1$s of %2$s</string>
+    <string name="assets_refunded">%1$s refunded</string>
+    <string name="assets_delete_project">Delete project</string>
+    <string name="assets_delete_asset">Delete asset</string>
+    <string name="asset_category_car">Car</string>
+    <string name="asset_category_house">House</string>
+    <string name="asset_category_room">Room</string>
+    <string name="asset_category_vacation">Vacation</string>
+    <string name="asset_category_hobby">Hobby</string>
+    <string name="asset_category_education">Education</string>
+    <string name="asset_category_health">Health</string>
+    <string name="asset_category_other">Other</string>
+    <string name="asset_category_custom">Custom</string>
 </resources>

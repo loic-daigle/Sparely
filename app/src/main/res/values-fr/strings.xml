@@ -2291,4 +2291,25 @@
         <item quantity="many">Dans %d jours</item>
         <item quantity="other">Dans %d jours</item>
     </plurals>
+    <string name="assets_hero_label">Dépensé dans vos projets et biens</string>
+    <string name="assets_hero_working_on">En cours : %1$s</string>
+    <string name="assets_of_amount">sur %1$s</string>
+    <string name="assets_over_by">Dépassé de %1$s</string>
+    <string name="assets_this_month">Ce mois-ci</string>
+    <string name="assets_per_month">Par mois</string>
+    <string name="assets_next_12_months">12 prochains mois</string>
+    <string name="assets_bought_with">L\'achat · %1$s</string>
+    <string name="assets_share_of">%1$s de %2$s</string>
+    <string name="assets_refunded">%1$s remboursé</string>
+    <string name="assets_delete_project">Supprimer le projet</string>
+    <string name="assets_delete_asset">Supprimer le bien</string>
+    <string name="asset_category_car">Auto</string>
+    <string name="asset_category_house">Maison</string>
+    <string name="asset_category_room">Pièce</string>
+    <string name="asset_category_vacation">Voyage</string>
+    <string name="asset_category_hobby">Loisir</string>
+    <string name="asset_category_education">Études</string>
+    <string name="asset_category_health">Santé</string>
+    <string name="asset_category_other">Autre</string>
+    <string name="asset_category_custom">Personnalisé</string>
 </resources>

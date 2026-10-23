@@ -975,4 +975,5 @@
     <string name="vault_ed_aim">Ce que tu vises</string>
     <string name="vault_ed_auto_desc">Déplacé de ton compte principal</string>
     <string name="vault_detail_adjust_desc">Mets-le à ce que le compte contient vraiment; c\'est noté dans l\'historique</string>
+    <string name="assets_hero_label">Dépensé dans tes projets et biens</string>
 </resources>
