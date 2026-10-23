@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.sparely.ui.screens
 
 import androidx.compose.animation.animateContentSize
