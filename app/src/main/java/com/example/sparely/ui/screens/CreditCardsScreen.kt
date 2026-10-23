@@ -135,7 +135,8 @@ fun CreditCardsScreen(
                 )
             }
         } else {
-            val totalDebt = creditCards.sumOf { it.currentBalance }
+            // What is owed: a card in credit (after a refund) doesn't pay off another card's balance
+            val totalDebt = creditCards.sumOf { it.currentBalance.coerceAtLeast(0.0) }
             val totalLimit = creditCards.mapNotNull { it.creditLimit }.sum()
             val overallUtilization = if (totalLimit > 0) (totalDebt / totalLimit).coerceIn(0.0, 1.0) else 0.0
             

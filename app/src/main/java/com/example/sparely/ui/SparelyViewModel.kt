@@ -466,14 +466,16 @@ class SparelyViewModel(
                     // What can really be spent: everything liquid, minus the main-account minimum, money held
                     // for wishes, and money already promised to pending transfers.
                     val pendingTransfersTotal = feed.frozenFundsTotal.coerceAtLeast(0.0)
-                    val netUsableMoney = (totalUsableMoney - feed.settings.minMainAccountBalance - wishlistReserved - pendingTransfersTotal)
+                    // Card balances will be paid from this money, as "Safe to spend" counts them
+                    val creditCardOwed = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) }
+                    val netUsableMoney = (totalUsableMoney - feed.settings.minMainAccountBalance - wishlistReserved - pendingTransfersTotal - creditCardOwed)
                         .coerceAtLeast(0.0)
                     val forecastInput = CashflowEngine.ForecastInput(
                         currentBalance = feed.settings.mainAccountBalance,
                         totalHisaBalance = totalHisaBalance,
                         minMainAccountBalance = feed.settings.minMainAccountBalance,
                         earmarkedMoney = wishlistReserved,
-                        creditCardBalance = feed.paymentMethods.filter { it.isCreditCard }.sumOf { it.currentBalance.coerceAtLeast(0.0) },
+                        creditCardBalance = creditCardOwed,
                         pendingTransfers = feed.frozenFundsTotal.coerceAtLeast(0.0),
                         recentExpenses = predictionExpenses,
                         recurringExpenses = feed.recurring,
@@ -623,6 +625,7 @@ class SparelyViewModel(
                         totalUsableMoney = totalUsableMoney,
                         netUsableMoney = netUsableMoney,
                         pendingTransfersTotal = pendingTransfersTotal,
+                        creditCardOwed = creditCardOwed,
                         lockedSavingsBalance = lockedSavingsBalance,
                         emergencyFundGoal = emergencyGoal,
                         onboardingCompleted = onboardingCompleted,

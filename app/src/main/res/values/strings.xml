@@ -2245,4 +2245,5 @@
     <string name="projects_create_linked_note">This expense will be linked to it</string>
     <string name="projects_project_name_placeholder">e.g., ESP32 weather station</string>
     <string name="recurring_awaiting_payment">Due, not paid yet</string>
+    <string name="usable_money_credit_cards">Owed on credit cards</string>
 </resources>

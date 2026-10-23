@@ -26,6 +26,7 @@ fun TotalUsableMoneyBottomSheet(
     minMainBalance: Double,
     wishlistReserved: Double,
     pendingTransfers: Double,
+    creditCardOwed: Double = 0.0,
     netUsable: Double,
     hisaAccounts: List<SavingsAccount>,
     onNavigateToMainAccount: () -> Unit,
@@ -129,6 +130,9 @@ fun TotalUsableMoneyBottomSheet(
             }
             if (pendingTransfers > 0.005) {
                 ReservedRow(stringResource(R.string.usable_money_pending_transfers), pendingTransfers)
+            }
+            if (creditCardOwed > 0.005) {
+                ReservedRow(stringResource(R.string.usable_money_credit_cards), creditCardOwed)
             }
 
             HorizontalDivider()

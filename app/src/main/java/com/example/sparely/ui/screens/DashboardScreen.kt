@@ -176,6 +176,7 @@ fun DashboardScreen(
             minMainBalance = uiState.settings.minMainAccountBalance,
             wishlistReserved = uiState.wishlistReserved,
             pendingTransfers = uiState.pendingTransfersTotal,
+            creditCardOwed = uiState.creditCardOwed,
             netUsable = uiState.netUsableMoney,
             hisaAccounts = uiState.savingsAccounts.filter { !it.archived },
             onNavigateToMainAccount = onNavigateToMainAccount,
@@ -1892,7 +1893,8 @@ private fun CreditCardSummaryCard(
     onClick: () -> Unit
 ) {
     val spacing = MaterialTheme.spacing
-    val totalBalance = creditCards.sumOf { it.currentBalance }
+    // What is owed: a card in credit (after a refund) doesn't pay off another card's balance
+    val totalBalance = creditCards.sumOf { it.currentBalance.coerceAtLeast(0.0) }
     val totalLimit = creditCards.sumOf { it.creditLimit ?: 0.0 }
     val overallUtilization = if (totalLimit > 0) totalBalance / totalLimit else 0.0
     

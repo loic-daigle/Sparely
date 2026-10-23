@@ -869,7 +869,8 @@ private fun SparelyNavHost(
                 aiFacts = vaultAiFacts,
                 vaults = allVaults,
                 monthlyIncome = uiState.settings.monthlyIncome,
-                recentMonthlyExpenses = uiState.analytics.totalSpent,
+                // A month of spending, not everything ever logged
+                recentMonthlyExpenses = uiState.analytics.averageMonthlyExpense,
                 savingsRate = uiState.smartSavingSummary?.actualSavingsRate ?: 0.0,
                 onAddVault = vaultViewModel::addSmartVault,
                 onUpdateVault = vaultViewModel::updateSmartVault,

@@ -2,7 +2,6 @@ package com.example.sparely.widget
 
 import com.example.sparely.domain.model.displayName
 
-import com.example.sparely.domain.model.nextOccurrenceAfter
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -250,7 +249,7 @@ private class SavingsWidgetDataRepository(private val context: Context) {
                 }
                 val upcomingRecurring = recurringDao.getAll()
                     .map { it.toDomain() }
-                    .let { computeUpcomingRecurring(it, now) }
+                    .let { com.example.sparely.domain.logic.UpcomingRecurringCalculator.compute(it, now) }
                     .firstOrNull()
                     ?.toWidgetSummary()
 
@@ -320,33 +319,6 @@ private fun BudgetOverrunPrompt.toWidgetSummary(): BudgetPromptSummary = BudgetP
     suggestionLimit = suggestion?.suggestedLimit,
     suggestionConfidence = suggestion?.confidence
 )
-
-private fun computeUpcomingRecurring(
-    recurring: List<RecurringExpense>,
-    today: LocalDate = LocalDate.now(),
-    windowDays: Int = 30
-): List<UpcomingRecurringExpense> {
-    return recurring
-        .filter { it.isActive }
-        .mapNotNull { expense ->
-            val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
-            var nextDue = expense.nextOccurrenceAfter(baseDate)
-            
-            // Advance until we reach a future date
-            while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
-                nextDue = expense.nextOccurrenceAfter(nextDue)
-            }
-            
-            expense.endDate?.let { end ->
-                if (nextDue.isAfter(end)) return@mapNotNull null
-            }
-            val daysUntil = ChronoUnit.DAYS.between(today, nextDue).toInt()
-            if (daysUntil < 0 || daysUntil > windowDays) return@mapNotNull null
-            UpcomingRecurringExpense(expense, nextDue, daysUntil)
-        }
-        .sortedBy { it.dueDate }
-}
-
 
 private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = NextRecurringSummary(
     description = recurringExpense.description,

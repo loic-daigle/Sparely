@@ -109,7 +109,7 @@ class SparelyAssistantQueriesTest {
     // --- Spending summary ---
 
     @Test
-    fun spendingSummary_defaultsToMonthToDate_netOfRefunds_excludingIgnored() = runBlocking {
+    fun spendingSummary_defaultsToMonthToDate_netOfRefunds_includingExcludedFromPredictions() = runBlocking {
         data.expenses = listOf(
             expense(LocalDate.of(2026, 2, 28), 999.0), // last month
             expense(LocalDate.of(2026, 3, 1), 100.0, ExpenseCategory.GROCERIES),
@@ -123,10 +123,12 @@ class SparelyAssistantQueriesTest {
         assertEquals("2026-03-01", summary.startDate)
         assertEquals("2026-03-15", summary.endDate)
         assertEquals("CAD", summary.currencyCode)
-        assertEquals(130.0, summary.totalSpent, 0.001)
-        assertEquals(2, summary.expenseCount)
-        assertEquals(listOf("GROCERIES", "DINING"), summary.categories.map { it.category })
-        assertEquals(30.0, summary.categories[1].totalSpent, 0.001)
+        // Like the budget and History screens: refunds come off, and an expense kept out of
+        // predictions (a rare big purchase) was still spent
+        assertEquals(630.0, summary.totalSpent, 0.001)
+        assertEquals(3, summary.expenseCount)
+        assertEquals(listOf("TRAVEL", "GROCERIES", "DINING"), summary.categories.map { it.category })
+        assertEquals(30.0, summary.categories[2].totalSpent, 0.001)
     }
 
     @Test

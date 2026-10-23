@@ -3,6 +3,7 @@ package com.example.sparely.appfunctions
 import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.domain.logic.UpcomingRecurringCalculator
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.netAmount
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.predictNextAmount
 import com.example.sparely.ui.utils.roundToTwoDecimals
@@ -30,13 +31,13 @@ class SparelyAssistantQueries(
         val end = parseDate("endDate", endDate) ?: now
         requireOrdered(start, end)
 
-        val expenses = dataSource.expenses().filter { it.countsTowardSpending() && it.date in start..end }
+        val expenses = dataSource.expenses().filter { it.date in start..end }
         val categories = expenses
             .groupBy { it.category }
             .map { (category, list) ->
                 CategorySpending(
                     category = category.name,
-                    totalSpent = list.sumOf { it.netAmount() }.roundToTwoDecimals(),
+                    totalSpent = list.sumOf { it.netAmount }.roundToTwoDecimals(),
                     expenseCount = list.size
                 )
             }
@@ -47,7 +48,7 @@ class SparelyAssistantQueries(
             startDate = start.toString(),
             endDate = end.toString(),
             currencyCode = currencyCode,
-            totalSpent = expenses.sumOf { it.netAmount() }.roundToTwoDecimals(),
+            totalSpent = expenses.sumOf { it.netAmount }.roundToTwoDecimals(),
             expenseCount = expenses.size,
             categories = categories
         )
@@ -230,10 +231,6 @@ class SparelyAssistantQueries(
                 "Unknown category \"$trimmed\". Use one of: ${ExpenseCategory.entries.joinToString { it.name }}"
             )
     }
-
-    private fun Expense.countsTowardSpending(): Boolean = !isIgnored
-
-    private fun Expense.netAmount(): Double = (amount - refundedAmount).coerceAtLeast(0.0)
 
     private fun Expense.matches(text: String): Boolean =
         description.contains(text, ignoreCase = true) ||

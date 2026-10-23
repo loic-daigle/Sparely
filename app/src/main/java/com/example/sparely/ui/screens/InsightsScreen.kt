@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.logic.CashflowEngine
 import com.example.sparely.domain.logic.SmartInsightEngine
 import com.example.sparely.domain.logic.SpendingPatternEngine
+import com.example.sparely.domain.model.netAmount
 import com.example.sparely.domain.model.displayName
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.ui.theme.MaterialSymbols
@@ -262,9 +263,9 @@ private fun SpendingHeatmapCard(expenses: List<Expense>) {
             .minusWeeks((HEATMAP_WEEKS - 1).toLong())
     }
     val totals = remember(expenses, start, today) {
-        expenses.filter { !it.isIgnored && !it.date.isBefore(start) && !it.date.isAfter(today) }
+        expenses.filter { !it.date.isBefore(start) && !it.date.isAfter(today) }
             .groupBy { it.date }
-            .mapValues { (_, dayExpenses) -> dayExpenses.sumOf { it.amount } }
+            .mapValues { (_, dayExpenses) -> dayExpenses.sumOf { it.netAmount } }
             .filterValues { it > 0.0 }
     }
     if (totals.isEmpty()) return

@@ -35,6 +35,12 @@ data class Expense(
 }
 
 /**
+ * What the expense really cost: its amount less what was refunded. Every spending total uses this,
+ * and counts expenses excluded from predictions too (that switch only keeps them out of forecasts).
+ */
+val Expense.netAmount: Double get() = (amount - refundedAmount).coerceAtLeast(0.0)
+
+/**
  * User input payload when creating a new expense entry.
  */
 data class ExpenseInput(

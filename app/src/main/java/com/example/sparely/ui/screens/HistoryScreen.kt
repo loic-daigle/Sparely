@@ -362,7 +362,7 @@ fun HistoryScreen(
                 item(key = "store_stats") {
                     StoreAnalyticsCard(
                         storeStats = storeStats,
-                        totalSpent = filteredExpenses.sumOf { it.amount },
+                        totalSpent = filteredExpenses.sumOf { it.netAmount },
                         onStoreClick = onStoreSelected,
                         brandfetchClientId = brandfetchClientId,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -840,7 +840,7 @@ private fun ModernSummaryCard(
     searchQuery: String = "",
     categoryFilter: ExpenseCategory? = null
 ) {
-    val totalFilteredSpent = filteredExpenses.sumOf { it.amount }
+    val totalFilteredSpent = filteredExpenses.sumOf { it.netAmount }
     val totalFilteredReserve = filteredExpenses.sumOf { it.allocation.totalSetAside }
     val savingsRate = if (totalFilteredSpent > 0) totalFilteredReserve / totalFilteredSpent else 0.0
 

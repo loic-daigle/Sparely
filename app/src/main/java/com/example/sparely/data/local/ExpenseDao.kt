@@ -34,7 +34,8 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY date DESC, id DESC LIMIT 1")
     suspend fun getMostRecentExpense(): ExpenseEntity?
 
-    @Query("SELECT IFNULL(SUM(amount), 0.0) FROM expenses WHERE date BETWEEN :from AND :to")
+    // Net of refunds, like every spending total (Expense.netAmount)
+    @Query("SELECT IFNULL(SUM(MAX(amount - refundedAmount, 0.0)), 0.0) FROM expenses WHERE date BETWEEN :from AND :to")
     suspend fun getTotalSpentBetween(from: LocalDate, to: LocalDate): Double
 
     @Query("DELETE FROM expenses")

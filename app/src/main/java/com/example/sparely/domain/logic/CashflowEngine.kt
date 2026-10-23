@@ -433,7 +433,8 @@ object CashflowEngine {
 
             // Calculate obligations for this week
             val weekObligations = upcomingObligations
-                .filter { it.dueDate in weekStart..weekEnd }
+                // weekEnd is the next week's first day: a bill due then belongs to that week only
+                .filter { !it.dueDate.isBefore(weekStart) && it.dueDate.isBefore(weekEnd) }
                 .sumOf { it.amount }
 
             val payThisWeek = if (payDates.isNotEmpty()) {

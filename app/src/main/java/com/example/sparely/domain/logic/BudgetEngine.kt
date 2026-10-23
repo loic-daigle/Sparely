@@ -1,6 +1,7 @@
 package com.example.sparely.domain.logic
 
 import android.content.Context
+import com.example.sparely.domain.model.netAmount
 import com.example.sparely.domain.model.AlertMessage
 import com.example.sparely.domain.model.AlertType
 import com.example.sparely.domain.model.BudgetHealthStatus
@@ -57,7 +58,7 @@ object BudgetEngine {
             YearMonth.from(expense.date) == yearMonth
         }
 
-        val spent = categoryExpenses.sumOf { it.amount }.roundToTwoDecimals()
+        val spent = categoryExpenses.sumOf { it.netAmount }.roundToTwoDecimals()
         val remaining = (categoryBudget.monthlyLimit - spent).coerceAtLeast(0.0).roundToTwoDecimals()
         val percentageUsed = if (categoryBudget.monthlyLimit > 0) {
             (spent / categoryBudget.monthlyLimit).coerceIn(0.0, 2.0)
