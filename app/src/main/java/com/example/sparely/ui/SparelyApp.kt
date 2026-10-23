@@ -888,7 +888,12 @@ private fun SparelyNavHost(
                 },
                 onBalanceOverride = { vaultId, newBalance, reason ->
                     vaultViewModel.overrideVaultBalance(vaultId, newBalance, reason)
-                }
+                },
+                pendingByVault = vaultUiState.pendingVaultContributions
+                    .filter { it.vaultId != null }
+                    .groupBy { it.vaultId!! }
+                    .mapValues { (_, list) -> list.sumOf { it.amount } },
+                onOpenTransfers = { navController.navigate(SparelyDestination.VaultTransfers.route) }
             )
 
         }
@@ -1319,17 +1324,30 @@ private fun SparelyNavHost(
         composable(SparelyDestination.VaultHistory.route) { backStackEntry ->
             val vaultId = backStackEntry.arguments?.getString("vaultId")?.toLongOrNull() ?: 0L
             
-            LaunchedEffect(vaultId) {
+            val vault = allVaults.find { it.id == vaultId }
+            // Reloaded when the balance moves (a deposit, withdrawal or adjustment made here)
+            LaunchedEffect(vaultId, vault?.currentBalance) {
                 vaultViewModel.loadVaultHistory(vaultId)
             }
-            
-            val vault = allVaults.find { it.id == vaultId }
             val historyItems = vaultUiState.vaultHistory[vaultId] ?: emptyList()
-            
+
             VaultHistoryScreen(
                 vaultName = vault?.name ?: stringResource(R.string.vault_fallback_name),
                 historyItems = historyItems,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                vault = vault,
+                existingVaults = allVaults,
+                monthlyIncome = uiState.settings.monthlyIncome,
+                pending = vaultUiState.pendingVaultContributions.filter { it.vaultId == vaultId }.sumOf { it.amount },
+                onDeposit = { amount, reason, adjustMain -> vaultViewModel.depositToVault(vaultId, amount, reason, adjustMain) },
+                onWithdraw = { amount, reason, creditMain -> vaultViewModel.deductFromVault(vaultId, amount, reason, creditMain) },
+                onUpdateVault = vaultViewModel::updateSmartVault,
+                onDeleteVault = {
+                    vaultViewModel.deleteSmartVault(vaultId)
+                    navController.popBackStack()
+                },
+                onBalanceOverride = { newBalance, reason -> vaultViewModel.overrideVaultBalance(vaultId, newBalance, reason) },
+                onOpenTransfers = { navController.navigate(SparelyDestination.VaultTransfers.route) }
             )
         }
         composable(SparelyDestination.MainAccount.route) {
