@@ -2247,4 +2247,9 @@
     <string name="recurring_awaiting_payment">Due, not paid yet</string>
     <string name="usable_money_credit_cards">Owed on credit cards</string>
     <string name="usable_money_bills_due">Bills due, not paid yet</string>
+    <string name="usable_money_out_of">Out of %1$s in your accounts</string>
+    <string name="usable_money_accounts">Accounts</string>
+    <string name="usable_money_set_aside">Set aside</string>
+    <string name="usable_money_apy">%1$s APY</string>
+    <string name="usable_money_locked_desc">Locked terms and notice periods, not counted</string>
 </resources>

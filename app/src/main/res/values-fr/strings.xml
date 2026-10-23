@@ -2219,4 +2219,9 @@
     <string name="recurring_awaiting_payment">Échu, pas encore payé</string>
     <string name="usable_money_credit_cards">Dû sur les cartes de crédit</string>
     <string name="usable_money_bills_due">Factures échues à payer</string>
+    <string name="usable_money_out_of">Sur %1$s dans vos comptes</string>
+    <string name="usable_money_accounts">Comptes</string>
+    <string name="usable_money_set_aside">Mis de côté</string>
+    <string name="usable_money_apy">Rendement %1$s</string>
+    <string name="usable_money_locked_desc">Termes bloqués et préavis, non comptés</string>
 </resources>
