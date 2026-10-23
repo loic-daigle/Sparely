@@ -969,4 +969,6 @@
     <string name="onboarding_finish_note">Tu pourras ajouter d\'autres coffres et budgets, et peaufiner ton profil, en tout temps dans les paramètres.</string>
     <string name="assets_empty_desc_short">Suis ce que coûte vraiment un projet, une auto ou un loisir en y liant des dépenses.</string>
     <string name="usable_money_out_of">Sur %1$s dans tes comptes</string>
+    <string name="vault_transfers_hero_label">À transférer de ton compte principal</string>
+    <string name="vault_transfers_guide">Guide-moi, un virement à la fois</string>
 </resources>

@@ -1274,16 +1274,46 @@ private fun SparelyNavHost(
             }
         }
         composable(SparelyDestination.VaultTransfers.route) {
+            // Marking transfers done or cancelling them is held back while its undo is offered: the
+            // transfers leave the list at once and the money only moves if the undo isn't used
+            var transfersOnHold by remember { mutableStateOf(emptySet<Long>()) }
+            val pending = vaultUiState.pendingVaultContributions
+            val withUndo: (List<Long>, String, () -> Unit) -> Unit = { ids, message, commit ->
+                transfersOnHold = transfersOnHold + ids
+                scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = context.getString(R.string.vault_transfers_undo),
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) transfersOnHold = transfersOnHold - ids.toSet() else commit()
+                }
+            }
             VaultTransfersScreen(
                 vaults = allVaults,
                 savingsAccounts = uiState.savingsAccounts,
-                pendingContributions = vaultUiState.pendingVaultContributions,
-                onApproveContribution = vaultViewModel::approvePendingVaultContribution,
-                onApproveGroup = vaultViewModel::approvePendingVaultContributions,
-                onCancelContribution = vaultViewModel::cancelPendingVaultContribution,
+                pendingContributions = pending.filter { it.id !in transfersOnHold },
+                onApproveGroup = { ids ->
+                    val total = pending.filter { it.id in ids }.sumOf { it.amount }
+                    withUndo(ids, context.getString(R.string.vault_transfers_marked_done, total.formatCurrency())) {
+                        vaultViewModel.approvePendingVaultContributions(ids)
+                    }
+                },
+                onCancelContribution = { id ->
+                    val amount = pending.find { it.id == id }?.amount ?: 0.0
+                    withUndo(listOf(id), context.getString(R.string.vault_transfers_cancelled_msg, amount.formatCurrency())) {
+                        vaultViewModel.cancelPendingVaultContribution(id)
+                    }
+                },
                 onUpdateContributionAmount = vaultViewModel::updatePendingVaultContributionAmount,
                 onStartNotificationWorkflow = vaultViewModel::startVaultTransferNotificationWorkflow,
-                onNavigateBack = { navController.popBackStack() }
+                onCopied = { amount ->
+                    scope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(context.getString(R.string.vault_transfers_copied, amount))
+                    }
+                }
             )
         }
         composable(SparelyDestination.VaultHistory.route) { backStackEntry ->

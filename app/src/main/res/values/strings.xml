@@ -2252,4 +2252,22 @@
     <string name="usable_money_set_aside">Set aside</string>
     <string name="usable_money_apy">%1$s APY</string>
     <string name="usable_money_locked_desc">Locked terms and notice periods, not counted</string>
+    <string name="vault_transfers_hero_label">To transfer from your main account</string>
+    <string name="vault_transfers_hero_count">%1$s to %2$s</string>
+    <string name="vault_transfers_all_done">I\'ve transferred everything</string>
+    <string name="vault_transfers_guide">Guide me, one transfer at a time</string>
+    <string name="vault_transfers_by_account">By account</string>
+    <string name="vault_transfers_copy">Copy amount</string>
+    <string name="vault_transfers_copied">%1$s copied</string>
+    <string name="vault_transfers_marked_done">%1$s marked as transferred</string>
+    <string name="vault_transfers_cancelled_msg">%1$s transfer cancelled</string>
+    <string name="vault_transfers_undo">Undo</string>
+    <plurals name="vault_transfers_n_transfers">
+        <item quantity="one">%d transfer</item>
+        <item quantity="other">%d transfers</item>
+    </plurals>
+    <plurals name="vault_transfers_n_accounts">
+        <item quantity="one">%d account</item>
+        <item quantity="other">%d accounts</item>
+    </plurals>
 </resources>

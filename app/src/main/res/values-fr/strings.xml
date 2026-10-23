@@ -2224,4 +2224,24 @@
     <string name="usable_money_set_aside">Mis de côté</string>
     <string name="usable_money_apy">Rendement %1$s</string>
     <string name="usable_money_locked_desc">Termes bloqués et préavis, non comptés</string>
+    <string name="vault_transfers_hero_label">À transférer de votre compte principal</string>
+    <string name="vault_transfers_hero_count">%1$s vers %2$s</string>
+    <string name="vault_transfers_all_done">J\'ai tout transféré</string>
+    <string name="vault_transfers_guide">Guidez-moi, un virement à la fois</string>
+    <string name="vault_transfers_by_account">Par compte</string>
+    <string name="vault_transfers_copy">Copier le montant</string>
+    <string name="vault_transfers_copied">%1$s copié</string>
+    <string name="vault_transfers_marked_done">%1$s marqué comme transféré</string>
+    <string name="vault_transfers_cancelled_msg">Virement de %1$s annulé</string>
+    <string name="vault_transfers_undo">Annuler</string>
+    <plurals name="vault_transfers_n_transfers">
+        <item quantity="one">%d virement</item>
+        <item quantity="many">%d virements</item>
+        <item quantity="other">%d virements</item>
+    </plurals>
+    <plurals name="vault_transfers_n_accounts">
+        <item quantity="one">%d compte</item>
+        <item quantity="many">%d comptes</item>
+        <item quantity="other">%d comptes</item>
+    </plurals>
 </resources>

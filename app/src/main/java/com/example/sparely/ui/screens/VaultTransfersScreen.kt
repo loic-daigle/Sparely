@@ -1,35 +1,20 @@
 package com.example.sparely.ui.screens
 
-import com.example.sparely.ui.utils.filterCurrencyInput
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import com.example.sparely.ui.utils.toSafeDouble
-import com.example.sparely.ui.utils.toInputString
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import com.example.sparely.ui.components.ExpressiveEmptyState
-import com.example.sparely.ui.components.ExpressiveListHeader
-import com.example.sparely.ui.components.segmentSpacing
-import com.example.sparely.ui.components.segmentedShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,88 +22,159 @@ import com.example.sparely.domain.model.SavingsAccount
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.ExpressiveEmptyState
+import com.example.sparely.ui.components.ExpressiveListHeader
 import com.example.sparely.ui.components.SparelyAlertDialog
+import com.example.sparely.ui.components.SparelyAmountTextField
+import com.example.sparely.ui.components.SparelyBottomSheet
 import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelySheetHeader
 import com.example.sparely.ui.components.SparelyTextButton
-import com.example.sparely.ui.components.SparelyTonalButton
-import com.sparely.app.R
-import com.example.sparely.ui.theme.ExpressiveShapes
-import com.example.sparely.ui.components.SparelyTextField
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.segmentedShape
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.utils.formatCurrency
-import androidx.compose.material3.FilledTonalIconButton
+import com.example.sparely.ui.utils.toInputString
+import com.example.sparely.ui.utils.toSafeDouble
+import com.sparely.app.R
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
-
+/**
+ * The transfers waiting to be made in the bank: the total with one button for all of them, then a
+ * row per destination account with its bank account, a copy button for the amount and a done
+ * button. A row opens to its transfers: swipe one right when it's made, left to cancel it, or tap it
+ * to change its amount. Every action comes with an undo (the caller holds it back while the undo is
+ * offered), so nothing asks for confirmation first.
+ */
 @Composable
 fun VaultTransfersScreen(
     vaults: List<SmartVault>,
     savingsAccounts: List<SavingsAccount> = emptyList(),
     pendingContributions: List<VaultContribution>,
-    onApproveContribution: (Long) -> Unit,
-    onApproveGroup: (List<Long>) -> Unit = { ids -> ids.forEach(onApproveContribution) },
+    onApproveGroup: (List<Long>) -> Unit,
     onCancelContribution: (Long) -> Unit = {},
     onUpdateContributionAmount: (Long, Double) -> Unit = { _, _ -> },
     onStartNotificationWorkflow: () -> Unit = {},
-    onNavigateBack: () -> Unit
+    onCopied: (String) -> Unit = {}
 ) {
-    // Removed local TopAppBar - using global SparelyTopBar instead
-    // Group by destination: a vault, or a savings account for HISA transfers. Grouping by vault
-    // alone merged transfers to different savings accounts (all have no vault) into one card.
+    // Group by destination: a vault, or a savings account for HISA transfers
     val groups = remember(pendingContributions) {
-        pendingContributions.groupBy { TransferDestination(it.vaultId, if (it.vaultId == null) it.savingsAccountId else null) }
+        pendingContributions
+            .groupBy { TransferDestination(it.vaultId, if (it.vaultId == null) it.savingsAccountId else null) }
+            .entries.sortedByDescending { (_, list) -> list.sumOf { it.amount } }
+    }
+    var expanded by remember { mutableStateOf(emptySet<TransferDestination>()) }
+    var editing by remember { mutableStateOf<VaultContribution?>(null) }
+    var showHowItWorks by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+
+    if (pendingContributions.isEmpty()) {
+        // Nothing to do: the explanation is the page
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            ExpressiveEmptyState(
+                icon = MaterialSymbols.CHECK_CIRCLE,
+                title = stringResource(R.string.vault_transfers_empty_title),
+                description = stringResource(R.string.vault_transfers_empty_desc)
+            )
+            HowItWorks()
+        }
+        return
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
     ) {
-        if (pendingContributions.isEmpty()) {
-            item(key = "empty") {
-                EmptyStateCard()
-            }
-        } else {
-            item(key = "summary") {
-                SummaryCard(groups, vaults, savingsAccounts)
-            }
-
-            item(key = "workflow") {
-                NotificationWorkflowButton(onStartWorkflow = onStartNotificationWorkflow)
-            }
-
-            item(key = "header_pending") {
-                ExpressiveListHeader(
-                    title = stringResource(R.string.vault_transfers_pending_title),
-                    icon = MaterialSymbols.SWAP_HORIZ,
-                    trailing = groups.size.toString()
+        item(key = "hero") {
+            TransfersHero(
+                total = pendingContributions.sumOf { it.amount },
+                transferCount = pendingContributions.size,
+                accountCount = groups.size,
+                onAllDone = { onApproveGroup(pendingContributions.map { it.id }) },
+                onGuide = onStartNotificationWorkflow,
+                onHowItWorks = { showHowItWorks = true }
+            )
+        }
+        item(key = "header") {
+            ExpressiveListHeader(
+                title = stringResource(R.string.vault_transfers_by_account),
+                icon = MaterialSymbols.SWAP_HORIZ,
+                trailing = groups.size.toString()
+            )
+        }
+        groups.forEachIndexed { index, (destination, transfers) ->
+            val isOpen = destination in expanded
+            item(key = "dest_${destination.vaultId}_${destination.savingsAccountId}") {
+                val total = transfers.sumOf { it.amount }
+                DestinationRow(
+                    name = destinationName(destination, vaults, savingsAccounts),
+                    account = destinationAccount(destination, vaults, savingsAccounts),
+                    sources = transfers.map { it.source }.distinct().map { sourceLabel(it) },
+                    transferCount = transfers.size,
+                    total = total,
+                    isSavingsAccount = destination.savingsAccountId != null,
+                    expanded = isOpen,
+                    // Rows stack as one block; an open row joins its transfers below it
+                    shape = segmentedShape(index, groups.size, outer = 24.dp).let { base ->
+                        if (isOpen) segmentedTop(index) else base
+                    },
+                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 2.dp),
+                    onToggle = { expanded = if (isOpen) expanded - destination else expanded + destination },
+                    onCopy = {
+                        clipboard.setText(AnnotatedString(total.toInputString()))
+                        onCopied(total.formatCurrency())
+                    },
+                    onDone = { onApproveGroup(transfers.map { it.id }) }
                 )
             }
-
-            // Destinations as one segmented block: rounded ends, thin gaps
-            val groupEntries = groups.entries.toList()
-            itemsIndexed(groupEntries, key = { _, entry -> "${entry.key.vaultId}_${entry.key.savingsAccountId}" }) { index, (destination, contributionsForGroup) ->
-                val vault = vaults.find { it.id == destination.vaultId }
-                val displayName = destinationName(destination, vaults, savingsAccounts)
-                AggregatedPendingContributionCard(
-                    vault = vault,
-                    displayName = displayName,
-                    isHisaTransfer = destination.savingsAccountId != null,
-                    contributions = contributionsForGroup,
-                    onApproveAll = { ids -> onApproveGroup(ids) },
-                    onApproveIndividual = onApproveContribution,
-                    onCancelIndividual = onCancelContribution,
-                    onUpdateAmount = onUpdateContributionAmount,
-                    shape = segmentedShape(index, groupEntries.size, outer = 28.dp),
-                    modifier = Modifier.segmentSpacing(index)
-                )
+            if (isOpen) {
+                val sorted = transfers.sortedByDescending { it.date }
+                items(sorted, key = { "t_${it.id}" }) { transfer ->
+                    val isLastOfGroup = transfer == sorted.last()
+                    TransferRow(
+                        transfer = transfer,
+                        shape = if (isLastOfGroup && index == groups.size - 1) {
+                            RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+                        } else RoundedCornerShape(6.dp),
+                        onDone = { onApproveGroup(listOf(transfer.id)) },
+                        onCancel = { onCancelContribution(transfer.id) },
+                        onClick = { editing = transfer }
+                    )
+                }
             }
         }
+    }
 
-        item(key = "instructions") {
-            InstructionsCard()
-        }
+    editing?.let { transfer ->
+        EditTransferSheet(
+            transfer = transfer,
+            destination = destinationName(TransferDestination(transfer.vaultId, if (transfer.vaultId == null) transfer.savingsAccountId else null), vaults, savingsAccounts),
+            onDismiss = { editing = null },
+            onSave = { amount ->
+                onUpdateContributionAmount(transfer.id, amount)
+                editing = null
+            },
+            onCancelTransfer = {
+                onCancelContribution(transfer.id)
+                editing = null
+            }
+        )
+    }
+
+    if (showHowItWorks) {
+        SparelyAlertDialog(
+            onDismissRequest = { showHowItWorks = false },
+            title = { Text(stringResource(R.string.vault_transfers_how_it_works)) },
+            text = { HowItWorksSteps() },
+            confirmButton = {
+                SparelyTextButton(onClick = { showHowItWorks = false }) { Text(stringResource(R.string.action_close_short)) }
+            }
+        )
     }
 }
 
@@ -135,499 +191,374 @@ private fun destinationName(
         ?: savingsAccounts.find { it.id == destination.savingsAccountId }?.name
         ?: stringResource(R.string.vault_transfers_unknown_vault)
 
-@Composable
-private fun EmptyStateCard() {
-    ExpressiveEmptyState(
-        icon = MaterialSymbols.CHECK_CIRCLE,
-        title = stringResource(R.string.vault_transfers_empty_title),
-        description = stringResource(R.string.vault_transfers_empty_desc)
-    )
-}
-
-@Composable
-private fun SummaryCard(
-    groups: Map<TransferDestination, List<VaultContribution>>,
+/** The real account the money goes to, as far as it's known: "Tangerine •••4821". */
+private fun destinationAccount(
+    destination: TransferDestination,
     vaults: List<SmartVault>,
-    savingsAccounts: List<SavingsAccount> = emptyList()
-) {
-    val totalPending = groups.values.sumOf { list -> list.sumOf { it.amount } }
-    val vaultBreakdown = groups
-        .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
-        .entries.sortedByDescending { it.value }
-    
-    ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        containerColor = MaterialTheme.colorScheme.primary, // Hero style
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = ExpressiveShapes.large
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.vault_transfers_ready),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                )
-                Text(
-                    text = totalPending.formatCurrency(),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
-            
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                vaultBreakdown.take(4).forEach { (destination, amount) ->
-                    val entryName = destinationName(destination, vaults, savingsAccounts)
-                    run {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = entryName,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = amount.formatCurrency(),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                if (vaultBreakdown.size > 4) {
-                    Text(
-                        text = stringResource(R.string.vault_transfers_more_vaults, vaultBreakdown.size - 4),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
+    savingsAccounts: List<SavingsAccount>
+): String? {
+    fun lastDigits(number: String?) = number?.filter { it.isLetterOrDigit() }?.takeLast(4)?.takeIf { it.isNotEmpty() }?.let { "•••$it" }
+    val vault = vaults.find { it.id == destination.vaultId }
+    val account = savingsAccounts.find { it.id == destination.savingsAccountId }
+    val parts = when {
+        vault != null -> listOf(vault.accountType?.displayName, lastDigits(vault.accountNumber))
+        account != null -> listOf(account.institution, lastDigits(account.accountNumber))
+        else -> emptyList()
     }
+    return parts.filterNotNull().filter { it.isNotBlank() }.joinToString(" ").takeIf { it.isNotEmpty() }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AggregatedPendingContributionCard(
-    vault: SmartVault?,
-    displayName: String = vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
-    isHisaTransfer: Boolean = false,
-    contributions: List<VaultContribution>,
-    onApproveAll: (List<Long>) -> Unit,
-    onApproveIndividual: (Long) -> Unit,
-    onCancelIndividual: (Long) -> Unit = {},
-    onUpdateAmount: (Long, Double) -> Unit = { _, _ -> },
-    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
-    modifier: Modifier = Modifier
+private fun sourceLabel(source: VaultContributionSource): String = stringResource(
+    when (source) {
+        VaultContributionSource.SAVING_TAX -> R.string.vault_transfers_source_saving_tax
+        VaultContributionSource.INCOME -> R.string.vault_transfers_source_income
+        VaultContributionSource.AUTO_DEPOSIT -> R.string.vault_transfers_source_auto_deposit
+        VaultContributionSource.MANUAL -> R.string.vault_transfers_source_manual
+        VaultContributionSource.TRANSFER -> R.string.vault_transfers_source_transfer
+        VaultContributionSource.INTEREST -> R.string.vault_transfers_source_interest
+    }
+)
+
+/** Top corners of a segmented row that has its transfers open below it. */
+private fun segmentedTop(index: Int) =
+    RoundedCornerShape(topStart = if (index == 0) 24.dp else 6.dp, topEnd = if (index == 0) 24.dp else 6.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+
+@Composable
+private fun TransfersHero(
+    total: Double,
+    transferCount: Int,
+    accountCount: Int,
+    onAllDone: () -> Unit,
+    onGuide: () -> Unit,
+    onHowItWorks: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var showConfirmAll by remember { mutableStateOf(false) }
-    var editingContributionId by remember { mutableStateOf<Long?>(null) }
-    // Cancelling removes a pending transfer, so it asks first (it sat next to Approve)
-    var cancellingContributionId by remember { mutableStateOf<Long?>(null) }
-    
-    if (editingContributionId != null) {
-        val contribution = contributions.find { it.id == editingContributionId }
-        if (contribution != null) {
-            EditAmountDialog(
-                initialAmount = contribution.amount,
-                onDismiss = { editingContributionId = null },
-                onConfirm = { newAmount ->
-                    onUpdateAmount(contribution.id, newAmount)
-                    editingContributionId = null
-                }
-            )
-        }
-    }
-
-    val totalAmount = contributions.sumOf { it.amount }
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
-    val sources = contributions.groupBy { it.source }
-
+    val colors = MaterialTheme.colorScheme
     ExpressiveCard(
-        modifier = modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = shape
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = colors.primaryContainer,
+        contentPadding = 20.dp
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                 Row(
-                     modifier = Modifier.weight(1f),
-                     horizontalArrangement = Arrangement.spacedBy(16.dp)
-                 ) {
-                     // Vault Icon / Placeholder
-                     Surface(
-                         shape = ExpressiveShapes.small,
-                         color = MaterialTheme.colorScheme.primaryContainer,
-                         modifier = Modifier.size(44.dp)
-                     ) {
-                         Box(contentAlignment = Alignment.Center) {
-                             MaterialSymbolIcon(
-                                 icon = if (isHisaTransfer) MaterialSymbols.ACCOUNT_BALANCE else MaterialSymbols.SAVINGS,
-                                 contentDescription = null,
-                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                 size = 22.dp
-                             )
-                         }
-                     }
-                     Column {
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stringResource(R.string.vault_transfers_pending_count, contributions.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                 }
-                Text(
-                    text = totalAmount.formatCurrency(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val sortedSources = sources.entries.sortedByDescending { it.value.sumOf(VaultContribution::amount) }
-                for ((source, entries) in sortedSources) {
-                    val sourceTotal = entries.sumOf { it.amount }
-                    val sourceLabel = when (source) {
-                        VaultContributionSource.SAVING_TAX -> stringResource(R.string.vault_transfers_source_saving_tax)
-                        VaultContributionSource.INCOME -> stringResource(R.string.vault_transfers_source_income)
-                        VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_transfers_source_auto_deposit)
-                        VaultContributionSource.MANUAL -> stringResource(R.string.vault_transfers_source_manual)
-                        VaultContributionSource.TRANSFER -> stringResource(R.string.vault_transfers_source_transfer)
-                        VaultContributionSource.INTEREST -> stringResource(R.string.vault_transfers_source_interest)
-                    }
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = CircleShape
-                    ) {
-                        Text(
-                            text = "$sourceLabel: ${sourceTotal.formatCurrency()}",
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SparelyButton(
-                    onClick = { showConfirmAll = true },
-                    modifier = Modifier.weight(1f),
-                    icon = {
-                        MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE, contentDescription = null, size = 18.dp)
-                    }
-                ) {
-                    Text(stringResource(R.string.vault_transfers_transfer_all))
-                }
-                SparelyTonalButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (expanded) stringResource(R.string.vault_transfers_hide_details) else stringResource(R.string.vault_transfers_view_details))
-                }
-            }
-
-            if (expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(ExpressiveShapes.medium)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val sortedContributions = contributions.sortedByDescending { it.date }
-                    for (contribution in sortedContributions) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                             Column(modifier = Modifier.weight(1f)) {
-                                 Text(
-                                     text = contribution.date.format(formatter),
-                                     style = MaterialTheme.typography.bodyMedium,
-                                     fontWeight = FontWeight.SemiBold
-                                 )
-                                  Text(
-                                    text = when (contribution.source) {
-                                            VaultContributionSource.SAVING_TAX -> stringResource(R.string.vault_transfers_source_saving_tax)
-                                            else -> stringResource(R.string.vault_transfers_contribution)
-                                        } + (contribution.note?.let { " • $it" } ?: ""),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                 )
-                             }
-                             Text(
-                                 text = contribution.amount.formatCurrency(),
-                                 style = MaterialTheme.typography.bodyMedium,
-                                 fontWeight = FontWeight.Bold
-                             )
-                             // Full 48dp targets; cancel (destructive) is separated from approve and confirms first
-                             IconButton(onClick = { editingContributionId = contribution.id }) {
-                                 MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = stringResource(R.string.vault_transfers_edit_amount), size = 20.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                             }
-                             IconButton(onClick = { cancellingContributionId = contribution.id }) {
-                                 MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = stringResource(R.string.vault_transfers_cancel_transfer), size = 20.dp, tint = MaterialTheme.colorScheme.error)
-                             }
-                             FilledTonalIconButton(onClick = { onApproveIndividual(contribution.id) }) {
-                                 MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = stringResource(R.string.vault_transfers_mark_transferred), size = 20.dp)
-                             }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    cancellingContributionId?.let { id ->
-        val contribution = contributions.find { it.id == id }
-        if (contribution == null) {
-            cancellingContributionId = null
-        } else {
-            SparelyAlertDialog(
-                onDismissRequest = { cancellingContributionId = null },
-                title = { Text(stringResource(R.string.vault_transfers_cancel_confirm_title)) },
-                text = {
+        Column {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.vault_transfers_hero_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        total.formatCurrency(),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onPrimaryContainer
+                    )
                     Text(
                         stringResource(
-                            R.string.vault_transfers_cancel_confirm_desc,
-                            contribution.amount.formatCurrency(),
-                            displayName
-                        )
+                            R.string.vault_transfers_hero_count,
+                            pluralStringResource(R.plurals.vault_transfers_n_transfers, transferCount, transferCount),
+                            pluralStringResource(R.plurals.vault_transfers_n_accounts, accountCount, accountCount)
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onPrimaryContainer.copy(alpha = 0.8f)
                     )
-                },
-                confirmButton = {
-                    SparelyButton(
-                        onClick = {
-                            onCancelIndividual(id)
-                            cancellingContributionId = null
-                        },
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ) {
-                        Text(stringResource(R.string.vault_transfers_cancel_transfer))
-                    }
-                },
-                dismissButton = {
-                    SparelyTextButton(onClick = { cancellingContributionId = null }) {
-                        Text(stringResource(R.string.vault_transfers_keep_transfer))
-                    }
                 }
-            )
-        }
-    }
-
-    if (showConfirmAll) {
-        SparelyAlertDialog(
-            onDismissRequest = { showConfirmAll = false },
-            title = { Text(stringResource(R.string.vault_transfers_confirm_title)) },
-            text = {
-                Text(stringResource(
-                    R.string.vault_transfers_confirm_desc,
-                    totalAmount.formatCurrency(),
-                    displayName,
-                    contributions.size
-                ))
-            },
-            confirmButton = {
-                SparelyButton(
-                    onClick = {
-                        onApproveAll(contributions.map { it.id })
-                        showConfirmAll = false
-                    }
-                ) {
-                    Text(stringResource(R.string.vault_transfers_yes_transferred))
-                }
-            },
-            dismissButton = {
-                SparelyTextButton(onClick = { showConfirmAll = false }) {
-                    Text(stringResource(R.string.action_cancel))
+                IconButton(onClick = onHowItWorks) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.INFO,
+                        contentDescription = stringResource(R.string.vault_transfers_how_it_works),
+                        size = 22.dp,
+                        tint = colors.onPrimaryContainer
+                    )
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun InstructionsCard() {
-    ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = ExpressiveShapes.large
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            SparelyButton(
+                onClick = onAllDone,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 20.dp) }
             ) {
-                Surface(
-                   shape = ExpressiveShapes.small,
-                   color = MaterialTheme.colorScheme.tertiaryContainer,
-                   modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.INFO,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            size = 20.dp
-                        )
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.vault_transfers_how_it_works),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(stringResource(R.string.vault_transfers_all_done))
             }
-            
-            InstructionStep(
-                number = "1",
-                text = stringResource(R.string.vault_transfers_step1)
-            )
-            InstructionStep(
-                number = "2",
-                text = stringResource(R.string.vault_transfers_step2)
-            )
-            InstructionStep(
-                number = "3",
-                text = stringResource(R.string.vault_transfers_step3)
-            )
+            SparelyTextButton(
+                onClick = onGuide,
+                modifier = Modifier.fillMaxWidth(),
+                icon = { MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null, size = 18.dp) }
+            ) {
+                Text(stringResource(R.string.vault_transfers_guide))
+            }
         }
     }
 }
 
 @Composable
-private fun InstructionStep(number: String, text: String) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = number,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.tertiary
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
-    ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 4.dp),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        shape = ExpressiveShapes.large,
-        // Whole card is the tap target (was an inner row inset by padding)
-        onClick = onStartWorkflow
+private fun DestinationRow(
+    name: String,
+    account: String?,
+    sources: List<String>,
+    transferCount: Int,
+    total: Double,
+    isSavingsAccount: Boolean,
+    expanded: Boolean,
+    shape: androidx.compose.ui.graphics.Shape,
+    modifier: Modifier = Modifier,
+    onToggle: () -> Unit,
+    onCopy: () -> Unit,
+    onDone: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onToggle,
+        modifier = modifier.fillMaxWidth().animateContentSize(),
+        shape = shape,
+        color = colors.surfaceContainer
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-             horizontalArrangement = Arrangement.SpaceBetween,
-             verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                    text = stringResource(R.string.vault_transfers_smart_workflow),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                 Text(
-                    text = stringResource(R.string.vault_transfers_workflow_guide),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(colors.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(
+                    icon = if (isSavingsAccount) MaterialSymbols.ACCOUNT_BALANCE else MaterialSymbols.SAVINGS,
+                    contentDescription = null,
+                    size = 22.dp,
+                    tint = colors.primary
                 )
             }
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.ARROW_FORWARD,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    listOfNotNull(account, sources.joinToString(", ").takeIf { it.isNotEmpty() }).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    pluralStringResource(R.plurals.vault_transfers_n_transfers, transferCount, transferCount) +
+                        if (expanded) " ▴" else " ▾",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant
+                )
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    total.formatCurrency(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilledTonalIconButton(onClick = onCopy, modifier = Modifier.size(40.dp)) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.CONTENT_COPY,
+                            contentDescription = stringResource(R.string.vault_transfers_copy),
+                            size = 18.dp
+                        )
+                    }
+                    FilledIconButton(onClick = onDone, modifier = Modifier.size(40.dp)) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.CHECK,
+                            contentDescription = stringResource(R.string.vault_transfers_mark_transferred),
+                            size = 18.dp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One transfer under its open account: swipe right when made, left to cancel; tap to change it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferRow(
+    transfer: VaultContribution,
+    shape: androidx.compose.ui.graphics.Shape,
+    onDone: () -> Unit,
+    onCancel: () -> Unit,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val dateFormat = remember {
+        DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"))
+    }
+    val swipe = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> onDone()
+                SwipeToDismissBoxValue.EndToStart -> onCancel()
+                SwipeToDismissBoxValue.Settled -> Unit
+            }
+            // The row leaves through the list (it's held back while the undo is offered)
+            false
+        }
+    )
+    SwipeToDismissBox(
+        state = swipe,
+        modifier = Modifier.padding(top = 2.dp),
+        backgroundContent = {
+            val style = when (swipe.dismissDirection) {
+                SwipeToDismissBoxValue.StartToEnd -> SwipeStyle(colors.primary, colors.onPrimary, MaterialSymbols.CHECK, Alignment.CenterStart)
+                SwipeToDismissBoxValue.EndToStart -> SwipeStyle(colors.errorContainer, colors.onErrorContainer, MaterialSymbols.CLOSE, Alignment.CenterEnd)
+                SwipeToDismissBoxValue.Settled -> null
+            }
+            if (style != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .background(style.container)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = style.alignment
+                ) {
+                    MaterialSymbolIcon(icon = style.icon, contentDescription = null, tint = style.content)
+                }
+            }
+        }
+    ) {
+        Surface(onClick = onClick, shape = shape, color = colors.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(start = 72.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        transfer.date.format(dateFormat),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        listOfNotNull(sourceLabel(transfer.source), transfer.note?.takeIf { it.isNotBlank() }).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    transfer.amount.formatCurrency(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.EDIT,
+                    contentDescription = stringResource(R.string.vault_transfers_edit_amount),
+                    size = 18.dp,
+                    tint = colors.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+private data class SwipeStyle(
+    val container: androidx.compose.ui.graphics.Color,
+    val content: androidx.compose.ui.graphics.Color,
+    val icon: Int,
+    val alignment: Alignment
+)
+
+/** Change a transfer's amount (with the calculator keys), or cancel it. */
+@Composable
+private fun EditTransferSheet(
+    transfer: VaultContribution,
+    destination: String,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit,
+    onCancelTransfer: () -> Unit
+) {
+    var amountText by remember(transfer.id) { mutableStateOf(transfer.amount.toInputString()) }
+    val parsed = amountText.toSafeDouble()
+    val isValid = parsed != null && parsed > 0
+    val dateFormat = remember {
+        DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"))
+    }
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SparelySheetHeader(
+                title = stringResource(R.string.vault_transfers_edit_amount),
+                subtitle = listOfNotNull(destination, transfer.note?.takeIf { it.isNotBlank() }, transfer.date.format(dateFormat)).joinToString(" · "),
+                icon = MaterialSymbols.EDIT
+            )
+            SparelyAmountTextField(
+                value = amountText,
+                onValueChange = { amountText = it },
+                label = { Text(stringResource(R.string.vault_amount_label)) },
+                isError = !isValid,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedButton(
+                onClick = onCancelTransfer,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null, size = 18.dp, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.vault_transfers_cancel_transfer))
+            }
+            SheetActions(
+                confirmLabel = stringResource(R.string.action_save),
+                onConfirm = { parsed?.takeIf { it > 0 }?.let(onSave) },
+                confirmEnabled = isValid,
+                dismissLabel = stringResource(R.string.action_close_short),
+                onDismiss = onDismiss
             )
         }
     }
 }
 
 @Composable
-private fun EditAmountDialog(
-    initialAmount: Double,
-    onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit
-) {
-    var amountText by remember { mutableStateOf(initialAmount.toInputString()) }
-    val parsed = amountText.toSafeDouble()
-    val isValid = parsed != null && parsed > 0
-
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.vault_transfers_edit_amount)) },
-        text = {
-            SparelyTextField(
-                value = amountText,
-                onValueChange = { amountText = it.filterCurrencyInput() },
-                label = { Text(stringResource(R.string.vault_amount_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                isError = !isValid,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+private fun HowItWorks() {
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                stringResource(R.string.vault_transfers_how_it_works),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
-        },
-        confirmButton = {
-            SparelyTextButton(
-                onClick = { parsed?.takeIf { it > 0 }?.let(onConfirm) },
-                enabled = isValid
-            ) {
-                Text(stringResource(R.string.action_save))
-            }
-        },
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
+            HowItWorksSteps()
         }
-    )
+    }
+}
+
+@Composable
+private fun HowItWorksSteps() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOf(R.string.vault_transfers_step1, R.string.vault_transfers_step2, R.string.vault_transfers_step3)
+            .forEachIndexed { i, step ->
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "${i + 1}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Text(stringResource(step), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+    }
 }
