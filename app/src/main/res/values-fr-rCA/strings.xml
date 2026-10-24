@@ -990,4 +990,5 @@
     <string name="dash_patterns_desc">Sparely les a repérés dans tes dépenses. Ajoute-les pour les voir venir.</string>
     <string name="sav_hero_label">Épargné dans tes comptes</string>
     <string name="rec_d_when_you_confirm">Quand tu le marques payé</string>
+    <string name="bud_pill_over_income">Plus que ton revenu</string>
 </resources>

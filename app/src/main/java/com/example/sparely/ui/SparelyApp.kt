@@ -1,6 +1,7 @@
 package com.example.sparely.ui
 
 import androidx.compose.ui.unit.sp
+import com.example.sparely.domain.model.displayName
 
 import androidx.compose.ui.text.style.TextOverflow
 
@@ -290,6 +291,11 @@ private fun SparelyScaffold(
                     scrollBehavior = topBarScrollBehavior,
                     titleOverride = when {
                         isEditingExpense -> stringResource(R.string.expense_entry_edit_title)
+                        // A budget's page is titled with its category
+                        currentDestination?.route == SparelyDestination.BudgetDetail.route ->
+                            navBackStackEntry?.arguments?.getString("category")
+                                ?.let { name -> com.example.sparely.domain.model.ExpenseCategory.entries.find { it.name == name } }
+                                ?.displayName()
                         inSettingsSection -> settingsHeader.sectionTitle
                         else -> null
                     },
@@ -908,8 +914,22 @@ private fun SparelyNavHost(
                 onAddBudget = viewModel::addBudget,
                 onUpdateBudget = viewModel::updateBudget,
                 onDeleteBudget = viewModel::deleteBudget,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onOpenBudget = { category -> navController.navigate(SparelyDestination.BudgetDetail.createRoute(category.name)) }
             )
+        }
+        composable(SparelyDestination.BudgetDetail.route) { entry ->
+            val category = entry.arguments?.getString("category")
+                ?.let { name -> com.example.sparely.domain.model.ExpenseCategory.entries.find { it.name == name } }
+            if (category != null) {
+                com.example.sparely.ui.screens.BudgetDetailScreen(
+                    uiState = uiState,
+                    category = category,
+                    onUpdateBudget = viewModel::updateBudget,
+                    onDeleteBudget = viewModel::deleteBudget,
+                    onDeleted = { navController.popBackStack() }
+                )
+            }
         }
         composable(SparelyDestination.Challenges.route) {
             ChallengesScreen(
@@ -1491,6 +1511,7 @@ private enum class SparelyDestination(
     History("history?highlightExpenseId={highlightExpenseId}", null, MaterialSymbols.BAR_CHART, R.string.history_title),
     Vaults("vaults", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.vaults_title),
     Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, R.string.budgets_title),
+    BudgetDetail("budgets/{category}", null, MaterialSymbols.PIE_CHART, R.string.budgets_title),
     Challenges("challenges", null, MaterialSymbols.TROPHY, R.string.challenges_title),
     Recurring("recurring", null, MaterialSymbols.SCHEDULE, R.string.recurring_title),
     Health("health", null, MaterialSymbols.FAVORITE, R.string.health_title),

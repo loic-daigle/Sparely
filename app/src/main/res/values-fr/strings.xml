@@ -2464,4 +2464,53 @@
         <item quantity="many">%d jours avant</item>
         <item quantity="other">%d jours avant</item>
     </plurals>
+    <string name="bud_hero_left">Reste en %1$s</string>
+    <string name="bud_hero_over">Dépassé en %1$s</string>
+    <string name="bud_pace_line">%1$s dépensé, %2$s du mois passé</string>
+    <string name="bud_verdict_ahead">en avance sur le rythme</string>
+    <string name="bud_verdict_on_pace">dans le rythme</string>
+    <string name="bud_verdict_over">budget dépassé</string>
+    <string name="bud_pill_over_income">Plus que votre revenu</string>
+    <string name="bud_group_over">Dépassés</string>
+    <string name="bud_group_watch">Attention</string>
+    <string name="bud_group_ok">Ça va</string>
+    <string name="bud_group_unbudgeted">Sans budget</string>
+    <string name="bud_group_suggestions">Suggestions</string>
+    <string name="bud_left_per_day">Reste %1$s · ≈ %2$s/jour</string>
+    <string name="bud_projected">Prévu %1$s au %2$s</string>
+    <string name="bud_six_months">6 mois</string>
+    <string name="bud_create">Créer</string>
+    <string name="bud_suggest_change">Suggéré : %1$s au lieu de %2$s</string>
+    <string name="bud_suggest_new">Suggéré : %1$s · pas encore de budget</string>
+    <string name="bud_apply">Appliquer</string>
+    <string name="bud_d_missing">Ce budget n\'existe plus.</string>
+    <string name="bud_tile_projected">Fin du mois</string>
+    <string name="bud_tile_average">Moyenne 3 mois</string>
+    <string name="bud_tile_suggested">Suggéré</string>
+    <string name="bud_change_limit">Changer la limite</string>
+    <string name="bud_set_amount">Mettre %1$s</string>
+    <string name="bud_d_history">6 derniers mois</string>
+    <string name="bud_d_no_expenses">Rien de dépensé ici ce mois-ci.</string>
+    <string name="bud_d_limit_line">Ligne pointillée : la limite de %1$s</string>
+    <string name="bud_delete">Supprimer le budget</string>
+    <plurals name="bud_per_day">
+        <item quantity="one">≈ %1$s/jour · %2$d jour</item>
+        <item quantity="many">≈ %1$s/jour · %2$d jours</item>
+        <item quantity="other">≈ %1$s/jour · %2$d jours</item>
+    </plurals>
+    <plurals name="bud_pill_over">
+        <item quantity="one">%d dépassé</item>
+        <item quantity="many">%d dépassés</item>
+        <item quantity="other">%d dépassés</item>
+    </plurals>
+    <plurals name="bud_pill_suggestions">
+        <item quantity="one">%d suggestion</item>
+        <item quantity="many">%d suggestions</item>
+        <item quantity="other">%d suggestions</item>
+    </plurals>
+    <plurals name="bud_purchases">
+        <item quantity="one">%d achat ce mois-ci</item>
+        <item quantity="many">%d achats ce mois-ci</item>
+        <item quantity="other">%d achats ce mois-ci</item>
+    </plurals>
 </resources>
