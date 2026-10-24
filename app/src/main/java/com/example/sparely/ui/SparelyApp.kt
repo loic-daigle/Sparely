@@ -590,7 +590,8 @@ private fun SparelyScaffold(
                 onAuthenticateUser = onAuthenticateUser,
                 settingsHeader = settingsHeader,
                 deepLinkDestination = deepLinkDestination,
-                onDeepLinkHandled = onDeepLinkHandled
+                onDeepLinkHandled = onDeepLinkHandled,
+                onRecordIncome = { showIncomeDialog.value = true }
             )
         }
     }
@@ -741,7 +742,9 @@ private fun SparelyNavHost(
     onAuthenticateUser: ((Boolean) -> Unit) -> Unit,
     settingsHeader: com.example.sparely.ui.screens.SettingsHeaderState,
     deepLinkDestination: String?,
-    onDeepLinkHandled: () -> Unit
+    onDeepLinkHandled: () -> Unit,
+    // Opens the income sheet, which lives with the FAB menu in the scaffold
+    onRecordIncome: () -> Unit
 ) {
     val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -776,7 +779,7 @@ private fun SparelyNavHost(
                 onBackupNow = { navController.openSettingsSection(SettingsSection.Data) },
                 onSnoozeBackupReminder = viewModel::snoozeBackupReminder,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
-                onRecordIncome = { showIncomeDialog.value = true },
+                onRecordIncome = onRecordIncome,
                 onRepeatLastExpense = { expense ->
                     viewModel.setPrefillExpense(expense.copy(id = 0L))
                     navController.navigate(SparelyDestination.ExpenseEntry.route)
