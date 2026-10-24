@@ -8,7 +8,10 @@ junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.9.4"
 activityCompose = "1.11.0"
-composeBom = "2025.05.00"
+composeBom = "2026.09.00"
+# Ahead of the BOM's 1.4.0: the Material 3 Expressive components (button groups, flexible top app
+# bars, FAB menu, floating toolbar, Expressive motion) are only out of experimental in 1.5.
+material3 = "1.5.0-beta02"
 navigationCompose = "2.8.0"
 room = "2.7.0-alpha13"
 dataStore = "1.1.1"
@@ -18,17 +21,13 @@ lifecycleRuntimeCompose = "2.8.6"
 ksp = "2.3.12"
 appfunctions = "1.0.0-alpha12"
 glance = "1.1.0"
-foundationLayout = "1.9.3"
 playServicesBase = "18.5.0"
-uiText = "1.10.0"
 gson = "2.10.1"
 fragment = "1.8.5"
 coil = "2.5.0"
 retrofit = "2.9.0"
 okhttp = "4.12.0"
-ui = "1.10.0"
 places = "5.1.1"
-foundation = "1.11.0"
 # beta4 is needed for Gemini Nano 4 (the AICore Developer Preview model): on beta2, checkStatus()
 # finds it but every request fails with INFERENCE_ERROR 200. Known beta4 bug: its stable/full config
 # asks for a feature most AICore builds lack (github.com/googlesamples/mlkit/issues/1061);
@@ -52,7 +51,7 @@ androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
@@ -63,10 +62,10 @@ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lif
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
-androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
+androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout" }
 play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 androidx-compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
-androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
@@ -74,9 +73,9 @@ retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = 
 retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
-androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 places = { group = "com.google.android.libraries.places", name = "places", version.ref = "places" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
 mlkit-genai-summarization = { group = "com.google.mlkit", name = "genai-summarization", version.ref = "genaiSummarization" }
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "coroutines" }
