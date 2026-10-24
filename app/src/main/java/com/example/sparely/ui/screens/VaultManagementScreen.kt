@@ -426,7 +426,7 @@ private fun VaultsHero(
 }
 
 @Composable
-private fun HeroPill(@DrawableRes icon: Int, text: String, onClick: (() -> Unit)? = null) {
+internal fun HeroPill(@DrawableRes icon: Int, text: String, onClick: (() -> Unit)? = null) {
     val content: @Composable () -> Unit = {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),

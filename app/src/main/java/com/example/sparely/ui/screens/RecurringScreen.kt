@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.example.sparely.ui.screens
 
 import com.example.sparely.domain.model.nextDueDate
@@ -57,6 +59,12 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +120,8 @@ import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.getCategoryColor
 import com.example.sparely.ui.theme.getCategoryIcon
+import com.example.sparely.ui.theme.success
+import com.example.sparely.ui.theme.warning
 import com.sparely.app.R
 import java.time.Instant
 import java.time.LocalDate
@@ -124,20 +134,13 @@ import com.example.sparely.ui.utils.filterCurrencyInput
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import com.example.sparely.ui.utils.formatCurrency
-private enum class RecurringOverviewMode {
-    OVERVIEW,
-    SMART_REMINDERS,
-    AUTO_LOGGING,
-    UPCOMING
+/** The list's sections, in the order they show. */
+private enum class RecurringGroup(val titleRes: Int, @androidx.annotation.DrawableRes val icon: Int) {
+    TO_PAY(R.string.rec_group_to_pay, MaterialSymbols.WARNING),
+    THIS_MONTH(R.string.rec_group_this_month, MaterialSymbols.CALENDAR_MONTH),
+    LATER(R.string.rec_group_later, MaterialSymbols.SCHEDULE),
+    PAUSED(R.string.rec_group_paused, MaterialSymbols.BLOCK)
 }
-
-private data class RecurringHighlight(val title: String, val detail: String? = null)
-
-private data class RecurringUpcomingPreview(
-    val expense: RecurringExpense,
-    val dueDate: LocalDate,
-    val daysUntil: Int
-)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -182,7 +185,7 @@ fun RecurringExpensesScreen(
     var pendingPrefill by remember { mutableStateOf<RecurringExpenseInput?>(null) }
     var expenseToDelete by remember { mutableStateOf<RecurringExpense?>(null) }
     var expenseToPayEarly by remember { mutableStateOf<RecurringExpense?>(null) }
-    var overviewMode by remember { mutableStateOf(RecurringOverviewMode.OVERVIEW) }
+    var openId by remember { mutableStateOf<Long?>(null) }
 
     // Active payments first, soonest due on top; paused ones go to the bottom
     val sortedExpenses = remember(recurringExpenses) {
@@ -222,13 +225,10 @@ fun RecurringExpensesScreen(
                     )
                 }
             }
-            item(key = "overview") {
-                RecurringOverviewCard(
-                    expenses = sortedExpenses,
-                    detected = unsavedDetected,
-                    selectedMode = overviewMode,
-                    onModeChange = { overviewMode = it }
-                )
+            if (sortedExpenses.isNotEmpty() || unsavedDetected.isNotEmpty()) {
+                item(key = "overview") {
+                    RecurringHero(expenses = sortedExpenses, detected = unsavedDetected)
+                }
             }
             item(key = "ai") {
                 val aiLanguage = com.example.sparely.ui.components.LocalOnDeviceAi.current.language
@@ -241,50 +241,52 @@ fun RecurringExpensesScreen(
                     modifier = Modifier.padding(top = 12.dp)
                 )
             }
-            if (unsavedDetected.isNotEmpty()) {
-                item(key = "detected") {
-                    Box(modifier = Modifier.padding(top = 12.dp)) {
-                        DetectedRecurringCard(detected = unsavedDetected, onAdd = onAddDetected)
-                    }
+
+            // Grouped by what they need: to be paid now, this month, later, paused
+            val today = LocalDate.now()
+            val isPaid = { expense: RecurringExpense ->
+                recurringPaidRecords.any { it.recurringExpenseId == expense.id && it.dueDate == calculateNextDue(expense) }
+            }
+            val groups = sortedExpenses.groupBy { expense ->
+                val days = calculateNextDue(expense, today)?.let { ChronoUnit.DAYS.between(today, it).toInt() }
+                when {
+                    !expense.isActive -> RecurringGroup.PAUSED
+                    expense.id in awaitingPaymentIds -> RecurringGroup.TO_PAY
+                    !isPaid(expense) && days != null && days <= maxOf(expense.reminderDaysBefore, 3) -> RecurringGroup.TO_PAY
+                    days != null && days <= 30 -> RecurringGroup.THIS_MONTH
+                    else -> RecurringGroup.LATER
                 }
             }
-            if (sortedExpenses.isNotEmpty()) {
-                item(key = "header_list") {
+            for (group in RecurringGroup.entries) {
+                val list = groups[group].orEmpty()
+                if (list.isEmpty()) continue
+                item(key = "header_${group.name}") {
                     ExpressiveListHeader(
-                        title = stringResource(R.string.recurring_title),
-                        icon = MaterialSymbols.SCHEDULE,
-                        trailing = sortedExpenses.size.toString()
+                        title = stringResource(group.titleRes),
+                        icon = group.icon,
+                        trailing = list.sumOf { if (it.isVariableAmount) it.predictNextAmount() else it.amount }.formatCurrency()
+                    )
+                }
+                itemsIndexed(list, key = { _, expense -> expense.id }) { index, expense ->
+                    RecurringExpenseRow(
+                        expense = expense,
+                        shape = segmentedShape(index, list.size),
+                        modifier = Modifier.segmentSpacing(index),
+                        store = stores.find { it.id == expense.storeId },
+                        brandfetchClientId = brandfetchClientId,
+                        isAlreadyPaid = isPaid(expense),
+                        isAwaitingPayment = expense.id in awaitingPaymentIds,
+                        onOpen = { openId = expense.id },
+                        // The quick check only where paying is what the row is waiting for
+                        onMarkPaid = if (group == RecurringGroup.TO_PAY) { { onMarkProcessed(expense.id) } } else null
                     )
                 }
             }
-            // Payments as one segmented block: rounded ends, thin gaps
-            itemsIndexed(sortedExpenses, key = { _, expense -> expense.id }) { index, expense ->
-                val store = stores.find { it.id == expense.storeId }
-                RecurringExpenseRow(
-                    expense = expense,
-                    shape = segmentedShape(index, sortedExpenses.size),
-                    modifier = Modifier.segmentSpacing(index),
-                    store = store,
-                    brandfetchClientId = brandfetchClientId,
-                    onEdit = {
-                        editingExpense = expense
-                        isDialogVisible = true
-                    },
-                    onDelete = { expenseToDelete = expense }, // Set expense to delete
-                    onToggleActive = { active ->
-                        onUpdateRecurring(expense.copy(isActive = active))
-                    },
-                    onMarkProcessed = { onMarkProcessed(expense.id) },
-                    onPayEarly = { expenseToPayEarly = expense },
-                    // Only while the schedule is still where the payment left it
-                    onUndoPayment = recurringPaymentUndos[expense.id]
-                        ?.takeIf { it.scheduledNextRunAt == expense.nextRunAt }
-                        ?.let { { onUndoPayment(expense.id) } },
-                    isAlreadyPaid = recurringPaidRecords.any { 
-                        it.recurringExpenseId == expense.id && it.dueDate == calculateNextDue(expense)
-                    },
-                    isAwaitingPayment = expense.id in awaitingPaymentIds
-                )
+
+            if (unsavedDetected.isNotEmpty()) {
+                item(key = "detected") {
+                    DetectedRecurringCard(detected = unsavedDetected, onAdd = onAddDetected)
+                }
             }
             if (sortedExpenses.isEmpty()) {
                 item(key = "empty") {
@@ -314,6 +316,33 @@ fun RecurringExpensesScreen(
             text = { Text(stringResource(R.string.recurring_add_button)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    }
+
+    sortedExpenses.find { it.id == openId }?.let { expense ->
+        val nextDue = calculateNextDue(expense)
+        RecurringDetailSheet(
+            expense = expense,
+            nextDue = nextDue,
+            store = stores.find { it.id == expense.storeId },
+            brandfetchClientId = brandfetchClientId,
+            paidWith = paymentMethods.find { it.id == expense.paymentMethodId }?.name
+                ?: if (expense.deductFromMainAccount) stringResource(R.string.dash_main_account) else null,
+            isAlreadyPaid = recurringPaidRecords.any { it.recurringExpenseId == expense.id && it.dueDate == nextDue },
+            isAwaitingPayment = expense.id in awaitingPaymentIds,
+            onDismiss = { openId = null },
+            onMarkPaid = { onMarkProcessed(expense.id) },
+            onPayEarly = { expenseToPayEarly = expense },
+            // Only while the schedule is still where the payment left it
+            onUndoPayment = recurringPaymentUndos[expense.id]
+                ?.takeIf { it.scheduledNextRunAt == expense.nextRunAt }
+                ?.let { { onUndoPayment(expense.id) } },
+            onToggleActive = { onUpdateRecurring(expense.copy(isActive = !expense.isActive)) },
+            onEdit = {
+                editingExpense = expense
+                isDialogVisible = true
+            },
+            onDelete = { expenseToDelete = expense }
         )
     }
 
@@ -395,6 +424,7 @@ fun RecurringExpensesScreen(
             confirmButton = {
                 SparelyTextButton(onClick = {
                     expenseToDelete?.let { onDeleteRecurring(it.id) }
+                    if (expenseToDelete?.id == openId) openId = null
                     expenseToDelete = null
                 }) {
                     Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
@@ -444,438 +474,351 @@ private fun buildPrefillFromInsight(insight: DetectedRecurringTransaction): Recu
 }
 
 
+/** What every active payment costs a month and a year, and the next one due. */
 @Composable
-private fun RecurringOverviewCard(
+private fun RecurringHero(
     expenses: List<RecurringExpense>,
-    detected: List<DetectedRecurringTransaction>,
-    selectedMode: RecurringOverviewMode,
-    onModeChange: (RecurringOverviewMode) -> Unit
+    detected: List<DetectedRecurringTransaction>
 ) {
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val colors = MaterialTheme.colorScheme
+    val onContainer = colors.onPrimaryContainer
     val today = LocalDate.now()
-    val activeExpenses = expenses.filter { it.isActive }
-    val pausedCount = expenses.count { !it.isActive }
-    val upcomingPreviews = activeExpenses.mapNotNull { expense ->
-        calculateNextDue(expense, today)?.let { dueDate ->
-            val daysUntil = ChronoUnit.DAYS.between(today, dueDate).toInt()
-            RecurringUpcomingPreview(expense, dueDate, daysUntil)
-        }
-    }.sortedBy { it.dueDate }
-    val reminderMatches = upcomingPreviews.filter { preview ->
-        val lead = preview.expense.reminderDaysBefore
-        preview.daysUntil >= 0 && preview.daysUntil <= lead
-    }
-    val autoLogActive = activeExpenses.filter { it.executeAutomatically }
-    val savedMonthly = activeExpenses.sumOf { expense ->
+    val active = expenses.filter { it.isActive }
+    val paused = expenses.size - active.size
+    val savedMonthly = active.sumOf { expense ->
         val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
         amount * expense.frequency.perMonth
     }
     // Detected-but-unsaved patterns still cost money every month, so they count toward the total
     val detectedMonthly = detected.sumOf { detectedMonthlyAmount(it) }
     val monthlyTotal = savedMonthly + detectedMonthly
-    val autoLogUpcoming = upcomingPreviews.filter { it.expense.executeAutomatically }
+    val next = active.mapNotNull { e -> calculateNextDue(e, today)?.let { e to it } }.minByOrNull { it.second }
+    val automatic = active.count { it.executeAutomatically }
 
-    val highlights = when (selectedMode) {
-        RecurringOverviewMode.OVERVIEW -> listOfNotNull(
-            RecurringHighlight(
-                title = stringResource(R.string.recurring_title),
-                detail = stringResource(R.string.recurring_active_paused_count, activeExpenses.size, pausedCount)
-            ),
-            RecurringHighlight(
-                title = stringResource(R.string.recurring_auto_log_enabled),
-                detail = stringResource(R.string.recurring_auto_log_count, autoLogActive.size)
-            ),
-            upcomingPreviews.firstOrNull()?.let {
-                RecurringHighlight(
-                    title = stringResource(R.string.recurring_next_due_label),
-                    detail = stringResource(R.string.recurring_next_due_stat, it.expense.description, it.dueDate.format(dateFormatter), formatCountdown(it.daysUntil))
-                )
-            } ?: RecurringHighlight(
-                title = stringResource(R.string.recurring_next_due_label),
-                detail = stringResource(R.string.recurring_no_upcoming)
-            )
-        )
-        RecurringOverviewMode.SMART_REMINDERS -> if (reminderMatches.isEmpty()) {
-            listOf(RecurringHighlight(stringResource(R.string.recurring_reminders_all_clear), stringResource(R.string.recurring_reminders_none)))
-        } else {
-            reminderMatches.take(3).map {
-                RecurringHighlight(
-                    title = it.expense.description,
-                    detail = stringResource(R.string.recurring_reminder_stat, it.expense.reminderDaysBefore, it.dueDate.format(dateFormatter), formatCountdown(it.daysUntil))
-                )
-            }
-        }
-        RecurringOverviewMode.AUTO_LOGGING -> when {
-            autoLogActive.isEmpty() -> listOf(RecurringHighlight(stringResource(R.string.recurring_auto_log_off), stringResource(R.string.recurring_auto_log_tutorial)))
-            autoLogUpcoming.isNotEmpty() -> autoLogUpcoming.take(3).map {
-                RecurringHighlight(
-                    title = it.expense.description,
-                    detail = stringResource(R.string.recurring_auto_log_stat, it.dueDate.format(dateFormatter), formatCountdown(it.daysUntil))
-                )
-            }
-            else -> autoLogActive.take(3).map {
-                RecurringHighlight(
-                    title = it.description,
-                    detail = stringResource(R.string.recurring_auto_log_ready)
-                )
-            }
-        }
-        RecurringOverviewMode.UPCOMING -> if (upcomingPreviews.isEmpty()) {
-            listOf(RecurringHighlight(stringResource(R.string.recurring_nothing_scheduled), stringResource(R.string.recurring_add_suggestion)))
-        } else {
-            upcomingPreviews.take(3).map {
-                RecurringHighlight(
-                    title = it.expense.description,
-                    detail = stringResource(R.string.recurring_due_stat, it.dueDate.format(dateFormatter), formatCountdown(it.daysUntil))
-                )
-            }
-        }
-    }
-
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = ExpressiveShapes.large,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 20.dp
+        color = colors.primaryContainer,
+        contentColor = onContainer
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Headline: what all active recurring payments cost per month
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column {
                 Text(
-                    text = stringResource(R.string.recurring_monthly_total_label),
+                    stringResource(R.string.recurring_monthly_total_label),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = onContainer.copy(alpha = 0.8f)
                 )
-                Text(
+                SingleLineText(
                     text = monthlyTotal.formatCurrency(),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                    color = onContainer
                 )
                 Text(
-                    text = stringResource(
-                        R.string.recurring_monthly_total_detail,
-                        (monthlyTotal * 12).formatCurrency(),
-                        activeExpenses.size
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    stringResource(R.string.recurring_monthly_total_detail, (monthlyTotal * 12).formatCurrency(decimals = 0), active.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onContainer.copy(alpha = 0.8f)
                 )
-                if (detected.isNotEmpty()) {
-                    Text(
-                        text = pluralStringResource(
-                            R.plurals.recurring_monthly_total_detected,
-                            detected.size,
-                            detectedMonthly.formatCurrency(),
-                            detected.size
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
             }
-            Text(
-                text = stringResource(R.string.recurring_insights_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.recurring_insights_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (mode in RecurringOverviewMode.entries) {
-                    SparelyChip(
-                        selected = selectedMode == mode,
-                        onClick = { onModeChange(mode) },
-                        label = { Text(mode.displayName()) }
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(ExpressiveShapes.medium)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-            for (highlight in highlights) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(highlight.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    highlight.detail?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (next != null || paused > 0 || automatic > 0 || detected.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    next?.let { (expense, date) ->
+                        HeroPill(
+                            MaterialSymbols.CALENDAR_MONTH,
+                            stringResource(R.string.rec_hero_next, expense.description, date.format(recurringDay))
                         )
+                    }
+                    if (automatic > 0) {
+                        HeroPill(MaterialSymbols.AUTORENEW, pluralStringResource(R.plurals.rec_hero_automatic, automatic, automatic))
+                    }
+                    if (paused > 0) {
+                        HeroPill(MaterialSymbols.BLOCK, pluralStringResource(R.plurals.rec_hero_paused, paused, paused))
+                    }
+                    if (detected.isNotEmpty()) {
+                        HeroPill(MaterialSymbols.LIGHTBULB, pluralStringResource(R.plurals.rec_hero_detected, detected.size, detected.size))
                     }
                 }
             }
-            }
+        }
+    }
+}
+
+/** "Oct 24", "24 oct." in the user's language. */
+private val recurringDay: DateTimeFormatter
+    get() = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "dMMM"))
+
+private val recurringLongDate: DateTimeFormatter
+    get() = DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+
+/** Where a payment stands, in a few words, and the color for it. */
+@Composable
+private fun recurringStatus(
+    expense: RecurringExpense,
+    nextDue: LocalDate?,
+    isAlreadyPaid: Boolean,
+    isAwaitingPayment: Boolean
+): Pair<String, Color> {
+    val colors = MaterialTheme.colorScheme
+    val daysUntil = nextDue?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
+    return when {
+        !expense.isActive -> stringResource(R.string.recurring_paused) to colors.onSurfaceVariant
+        isAwaitingPayment -> stringResource(R.string.recurring_awaiting_payment) to colors.error
+        isAlreadyPaid -> stringResource(R.string.recurring_paid) to colors.success
+        nextDue == null || daysUntil == null -> stringResource(R.string.recurring_active) to colors.onSurfaceVariant
+        else -> "${nextDue.format(recurringDay)} · ${formatCountdown(daysUntil)}" to when {
+            daysUntil < 0 -> colors.error
+            daysUntil <= expense.reminderDaysBefore -> colors.warning
+            else -> colors.onSurfaceVariant
         }
     }
 }
 
 @Composable
+private fun RecurringIcon(expense: RecurringExpense, store: Store?, brandfetchClientId: String?) {
+    val hasStoreLogo = store?.getBrandfetchLogoUrl(brandfetchClientId) != null
+    val tint = getCategoryColor(expense.category)
+    Surface(
+        shape = CircleShape,
+        color = if (hasStoreLogo) Color.Transparent else tint.copy(alpha = 0.14f),
+        modifier = Modifier.size(44.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (hasStoreLogo) {
+                com.example.sparely.ui.components.StoreIcon(store = store!!, brandfetchClientId = brandfetchClientId, size = 44)
+            } else {
+                MaterialSymbolIcon(icon = getCategoryIcon(expense.category), contentDescription = null, tint = tint, size = 22.dp)
+            }
+        }
+    }
+}
+
+/** One payment: its logo, name and where it stands, its amount and how often, and a ✓ when due. */
+@Composable
 private fun RecurringExpenseRow(
     expense: RecurringExpense,
     store: Store?,
     brandfetchClientId: String?,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onToggleActive: (Boolean) -> Unit,
-    onMarkProcessed: () -> Unit,
-    onPayEarly: () -> Unit,
-    onUndoPayment: (() -> Unit)? = null,
-    isAlreadyPaid: Boolean = false,
-    isAwaitingPayment: Boolean = false,
-    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.medium,
+    isAlreadyPaid: Boolean,
+    isAwaitingPayment: Boolean,
+    onOpen: () -> Unit,
+    onMarkPaid: (() -> Unit)?,
+    shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
-    val nextDue = calculateNextDue(expense)
-    val daysUntil = nextDue?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
-
-    var showMenu by remember { mutableStateOf(false) }
-
-    ExpressiveCard(
-        // Paused payments are dimmed so active ones stand out
-        modifier = modifier
-            .fillMaxWidth()
-            .alpha(if (expense.isActive) 1f else 0.6f),
-        shape = shape,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 16.dp,
-        onClick = onEdit
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Icon Box
-                val hasStoreLogo = store?.getBrandfetchLogoUrl(brandfetchClientId) != null
-                Surface(
-                    shape = CircleShape,
-                    color = if (hasStoreLogo) Color.Transparent else getCategoryColor(expense.category).copy(alpha = 0.14f),
-                    modifier = Modifier.size(44.dp)
-                ) {
-                     Box(contentAlignment = Alignment.Center) {
-                         if (hasStoreLogo) {
-                             com.example.sparely.ui.components.StoreIcon(
-                                 store = store!!,
-                                 brandfetchClientId = brandfetchClientId,
-                                 size = 44
-                             )
-                         } else {
-                             MaterialSymbolIcon(
-                                 icon = getCategoryIcon(expense.category),
-                                 contentDescription = null,
-                                 tint = getCategoryColor(expense.category),
-                                 size = 22.dp
-                             )
-                         }
-                     }
-                }
-                
-                Spacer(modifier = Modifier.width(14.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = expense.description,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = expense.category.displayName(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                Column(horizontalAlignment = Alignment.End) {
-                    // Show amount with variable indicator if applicable
-                    if (expense.isVariableAmount) {
-                        val predictedAmount = expense.predictNextAmount()
-                        Text(
-                            text = "~${predictedAmount.formatCurrency()}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                        Text(
-                            text = stringResource(R.string.recurring_variable_amount),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    } else {
-                        Text(
-                            text = expense.amount.formatCurrency(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = expense.frequency.displayName(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+    val colors = MaterialTheme.colorScheme
+    val (status, statusColor) = recurringStatus(expense, calculateNextDue(expense), isAlreadyPaid, isAwaitingPayment)
+    Surface(onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+        Row(
+            // Paused payments are dimmed so active ones stand out
+            modifier = Modifier
+                .alpha(if (expense.isActive) 1f else 0.6f)
+                .padding(start = 16.dp, end = if (onMarkPaid != null) 8.dp else 16.dp, top = 14.dp, bottom = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RecurringIcon(expense, store, brandfetchClientId)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    expense.description,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    status,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (statusColor == colors.onSurfaceVariant) FontWeight.Normal else FontWeight.Medium,
+                    color = statusColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Status / Next Due
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val (statusIcon, statusColor, statusText) = when {
-                        !expense.isActive -> Triple(MaterialSymbols.BLOCK, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.recurring_paused))
-                        isAwaitingPayment -> Triple(MaterialSymbols.WARNING, MaterialTheme.colorScheme.error, stringResource(R.string.recurring_awaiting_payment))
-                        isAlreadyPaid -> Triple(MaterialSymbols.CHECK_CIRCLE, MaterialTheme.colorScheme.primary, stringResource(R.string.recurring_paid))
-                        daysUntil != null && daysUntil <= expense.reminderDaysBefore -> Triple(MaterialSymbols.WARNING, MaterialTheme.colorScheme.error, stringResource(R.string.recurring_due_soon))
-                        else -> Triple(MaterialSymbols.SCHEDULE, MaterialTheme.colorScheme.primary, stringResource(R.string.recurring_active))
-                    }
-                    
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    if (expense.isVariableAmount) "≈ ${expense.predictNextAmount().formatCurrency()}" else expense.amount.formatCurrency(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    expense.frequency.displayName(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant
+                )
+            }
+            if (onMarkPaid != null) {
+                FilledTonalIconButton(onClick = onMarkPaid) {
                     MaterialSymbolIcon(
-                        icon = statusIcon, 
-                        contentDescription = null, 
-                        tint = statusColor,
-                        size = 18.dp
+                        icon = MaterialSymbols.CHECK,
+                        contentDescription = stringResource(R.string.recurring_mark_paid),
+                        size = 20.dp
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = when {
-                            isAlreadyPaid || isAwaitingPayment || nextDue == null || daysUntil == null -> statusText
-                            // Date plus countdown ("Due Mar 3 · in 2d") so urgency is readable at a glance
-                            else -> stringResource(R.string.recurring_due_date, nextDue.format(formatter)) +
-                                " · " + formatCountdown(daysUntil)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Secondary actions in an overflow menu (full 48dp target); tapping the card edits
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.MORE_VERT,
-                            contentDescription = stringResource(R.string.history_more_actions),
-                            size = 20.dp,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.edit)) },
-                            onClick = {
-                                showMenu = false
-                                onEdit()
-                            },
-                            leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, size = 20.dp) }
-                        )
-                        if (onUndoPayment != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.recurring_action_undo_paid)) },
-                                onClick = {
-                                    showMenu = false
-                                    onUndoPayment()
-                                },
-                                leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.UNDO, contentDescription = null, size = 20.dp) }
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = {
-                                Text(stringResource(if (expense.isActive) R.string.recurring_action_pause else R.string.recurring_action_resume))
-                            },
-                            onClick = {
-                                showMenu = false
-                                onToggleActive(!expense.isActive)
-                            },
-                            leadingIcon = {
-                                MaterialSymbolIcon(
-                                    icon = if (expense.isActive) MaterialSymbols.BLOCK else MaterialSymbols.PLAY_ARROW,
-                                    contentDescription = null,
-                                    size = 20.dp
-                                )
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.delete)) },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null, size = 20.dp) },
-                            colors = MenuDefaults.itemColors(
-                                textColor = MaterialTheme.colorScheme.error,
-                                leadingIconColor = MaterialTheme.colorScheme.error
-                            )
-                        )
-                    }
-                }
-            }
-
-            val maxDaysBefore = getMaxDaysBefore(expense.frequency)
-            val canPayEarly = daysUntil != null && daysUntil >= 0 && daysUntil <= maxDaysBefore
-            // A bill that already came due can always be marked paid, whatever the next date is
-            val isDueSoon = isAwaitingPayment || (daysUntil != null && daysUntil <= 5)
-
-            if ((!isAlreadyPaid || isAwaitingPayment) && expense.isActive) {
-                if (isDueSoon) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SparelyTonalButton(
-                            onClick = onMarkProcessed,
-                            modifier = if (canPayEarly) Modifier.weight(1f) else Modifier.fillMaxWidth(),
-                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 18.dp) }
-                        ) {
-                            Text(stringResource(R.string.recurring_mark_paid))
-                        }
-                        if (canPayEarly) {
-                            SparelyTonalButton(
-                                onClick = onPayEarly,
-                                modifier = Modifier.weight(1f),
-                                icon = { MaterialSymbolIcon(icon = MaterialSymbols.SCHEDULE, contentDescription = null, size = 18.dp) }
-                            ) {
-                                Text(stringResource(R.string.recurring_pay_early))
-                            }
-                        }
-                    }
-                } else if (canPayEarly) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SparelyTonalButton(
-                        onClick = onPayEarly,
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.SCHEDULE, contentDescription = null, size = 18.dp) }
-                    ) {
-                        Text(stringResource(R.string.recurring_pay_early))
-                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Everything about one payment: what it costs a month and a year, when it's next due, how it's
+ * paid, and its actions (mark paid, pay early, undo, pause, edit, delete).
+ */
+@Composable
+private fun RecurringDetailSheet(
+    expense: RecurringExpense,
+    nextDue: LocalDate?,
+    store: Store?,
+    brandfetchClientId: String?,
+    paidWith: String?,
+    isAlreadyPaid: Boolean,
+    isAwaitingPayment: Boolean,
+    onDismiss: () -> Unit,
+    onMarkPaid: () -> Unit,
+    onPayEarly: () -> Unit,
+    onUndoPayment: (() -> Unit)?,
+    onToggleActive: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val amount = if (expense.isVariableAmount) expense.predictNextAmount() else expense.amount
+    val (status, statusColor) = recurringStatus(expense, nextDue, isAlreadyPaid, isAwaitingPayment)
+    val daysUntil = nextDue?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
+    val canPayEarly = daysUntil != null && daysUntil >= 0 && daysUntil <= getMaxDaysBefore(expense.frequency)
+    // A bill that already came due can always be marked paid, whatever the next date is
+    val canMarkPaid = expense.isActive && (isAwaitingPayment || (!isAlreadyPaid && daysUntil != null && daysUntil <= 5))
 
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                RecurringIcon(expense, store, brandfetchClientId)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(expense.description, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        listOf(expense.category.displayName(), expense.frequency.displayName()).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant
+                    )
+                }
+            }
+
+            // The amount and when it's next due
+            Surface(shape = ExpressiveShapes.large, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        stringResource(if (expense.isVariableAmount) R.string.rec_next_amount_estimate else R.string.rec_next_amount),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        (if (expense.isVariableAmount) "≈ " else "") + amount.formatCurrency(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (nextDue != null && expense.isActive && !isAwaitingPayment && !isAlreadyPaid)
+                            stringResource(R.string.rec_due_on, nextDue.format(recurringLongDate), formatCountdown(daysUntil ?: 0))
+                        else status,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (statusColor == colors.onSurfaceVariant || statusColor == colors.warning) colors.onPrimaryContainer else statusColor
+                    )
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatTile(stringResource(R.string.rec_tile_month), (amount * expense.frequency.perMonth).formatCurrency(decimals = 0), Modifier.weight(1f).fillMaxHeight())
+                StatTile(stringResource(R.string.rec_tile_year), (amount * expense.frequency.perMonth * 12).formatCurrency(decimals = 0), Modifier.weight(1f).fillMaxHeight())
+                StatTile(stringResource(R.string.rec_tile_paid_with), paidWith ?: "—", Modifier.weight(1f).fillMaxHeight())
+            }
+
+            if (canMarkPaid || (canPayEarly && expense.isActive && !isAlreadyPaid)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (canMarkPaid) {
+                        SparelyButton(
+                            onClick = {
+                                onMarkPaid()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 18.dp) }
+                        ) { Text(stringResource(R.string.recurring_mark_paid)) }
+                    }
+                    if (canPayEarly && !isAlreadyPaid) {
+                        SparelyTonalButton(
+                            onClick = onPayEarly,
+                            modifier = Modifier.weight(1f),
+                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.SCHEDULE, contentDescription = null, size = 18.dp) }
+                        ) { Text(stringResource(R.string.recurring_pay_early)) }
+                    }
+                }
+            }
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onUndoPayment != null) {
+                    SparelyTonalButton(
+                        onClick = onUndoPayment,
+                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.UNDO, contentDescription = null, size = 18.dp) }
+                    ) { Text(stringResource(R.string.recurring_action_undo_paid)) }
+                }
+                SparelyTonalButton(
+                    onClick = onToggleActive,
+                    icon = {
+                        MaterialSymbolIcon(
+                            icon = if (expense.isActive) MaterialSymbols.BLOCK else MaterialSymbols.PLAY_ARROW,
+                            contentDescription = null,
+                            size = 18.dp
+                        )
+                    }
+                ) { Text(stringResource(if (expense.isActive) R.string.recurring_action_pause else R.string.recurring_action_resume)) }
+                SparelyTonalButton(
+                    onClick = onEdit,
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, size = 18.dp) }
+                ) { Text(stringResource(R.string.action_edit_short)) }
+            }
+
+            // How it runs
+            val details = buildList {
+                add(stringResource(R.string.rec_d_reminder) to
+                    if (expense.reminderDaysBefore > 0) pluralStringResource(R.plurals.rec_days_before, expense.reminderDaysBefore, expense.reminderDaysBefore)
+                    else stringResource(R.string.rec_d_none))
+                add(stringResource(R.string.rec_d_logged) to stringResource(if (expense.executeAutomatically) R.string.rec_d_automatically else R.string.rec_d_when_you_confirm))
+                add(stringResource(R.string.rec_d_since) to expense.startDate.format(recurringLongDate))
+                expense.endDate?.let { add(stringResource(R.string.rec_d_until) to it.format(recurringLongDate)) }
+            }
+            ExpressiveListHeader(title = stringResource(R.string.sav_details_header), icon = MaterialSymbols.INFO)
+            Column {
+                details.forEachIndexed { index, (label, value) ->
+                    SegmentedListItem(
+                        title = label,
+                        shape = segmentedShape(index, details.size),
+                        modifier = Modifier.segmentSpacing(index),
+                        containerColor = colors.surfaceContainerHigh,
+                        trailing = { Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                    )
+                }
+            }
+            expense.notes?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            }
+
+            OutlinedButton(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error)
+            ) {
+                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null, size = 18.dp, tint = colors.error)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.delete))
+            }
+        }
+    }
+}
 
 @Composable
 private fun EmptyRecurringState(onAddRecurring: () -> Unit) {
@@ -1575,14 +1518,6 @@ private fun RecurringFrequency.displayName(): String = when (this) {
 }
 
 @Composable
-private fun RecurringOverviewMode.displayName(): String = when (this) {
-    RecurringOverviewMode.OVERVIEW -> stringResource(R.string.overview_mode_overview)
-    RecurringOverviewMode.SMART_REMINDERS -> stringResource(R.string.overview_mode_reminders)
-    RecurringOverviewMode.AUTO_LOGGING -> stringResource(R.string.overview_mode_autolog)
-    RecurringOverviewMode.UPCOMING -> stringResource(R.string.overview_mode_upcoming)
-}
-
-@Composable
 private fun formatCountdown(daysUntil: Int): String = when {
     daysUntil < 0 -> stringResource(R.string.countdown_overdue, -daysUntil)
     daysUntil == 0 -> stringResource(R.string.countdown_today)
@@ -1594,88 +1529,42 @@ private fun formatCountdown(daysUntil: Int): String = when {
 private fun detectedMonthlyAmount(pattern: DetectedRecurringTransaction): Double =
     if (pattern.cadenceDays > 0) pattern.averageAmount * (365.25 / 12.0) / pattern.cadenceDays else 0.0
 
-/** Detected patterns not yet saved: shown so they can be confirmed with one tap. */
+/** Detected patterns not yet saved, as a group: each with how often and an Add button. */
 @Composable
 private fun DetectedRecurringCard(
     detected: List<DetectedRecurringTransaction>,
     onAdd: (DetectedRecurringTransaction) -> Unit
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 16.dp
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.AUTORENEW,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        size = 20.dp
-                    )
+    val colors = MaterialTheme.colorScheme
+    Column {
+        ExpressiveListHeader(
+            title = stringResource(R.string.recurring_detected_title),
+            icon = MaterialSymbols.AUTORENEW,
+            trailing = stringResource(R.string.recurring_detected_per_month, detected.sumOf { detectedMonthlyAmount(it) }.formatCurrency(decimals = 0))
+        )
+        Text(
+            stringResource(R.string.recurring_detected_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp)
+        )
+        detected.forEachIndexed { index, pattern ->
+            SegmentedListItem(
+                title = pattern.description,
+                subtitle = cadenceLabel(pattern.averageAmount.formatCurrency(), pattern.cadenceDays) + "\n" +
+                    stringResource(R.string.rec_last_on, pattern.lastOccurrence.format(recurringDay)),
+                shape = segmentedShape(index, detected.size),
+                modifier = Modifier.segmentSpacing(index),
+                icon = getCategoryIcon(pattern.suggestedCategory),
+                iconTint = getCategoryColor(pattern.suggestedCategory),
+                onClick = { onAdd(pattern) },
+                trailing = {
+                    SparelyTonalButton(
+                        onClick = { onAdd(pattern) },
+                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 18.dp) }
+                    ) { Text(stringResource(R.string.recurring_detected_add)) }
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.recurring_detected_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(R.string.recurring_detected_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            detected.forEach { pattern ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = pattern.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.recurring_detected_detail,
-                                pattern.averageAmount.formatCurrency(),
-                                pattern.cadenceDays,
-                                pattern.lastOccurrence.format(formatter)
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.recurring_detected_per_month, detectedMonthlyAmount(pattern).formatCurrency()),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    SparelyTextButton(onClick = { onAdd(pattern) }) {
-                        Text(stringResource(R.string.recurring_detected_add))
-                    }
-                }
-            }
+            )
         }
     }
 }

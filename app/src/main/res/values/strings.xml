@@ -2407,4 +2407,74 @@
         <item quantity="one">%1$s a month gets you there in %2$d month</item>
         <item quantity="other">%1$s a month gets you there in %2$d months</item>
     </plurals>
+    <string name="sav_kind_term">Term deposit</string>
+    <string name="sav_kind_notice">Notice account</string>
+    <string name="sav_accounts_header">Accounts</string>
+    <string name="sav_hero_label">Saved in your accounts</string>
+    <string name="sav_hero_monthly_interest">≈ %1$s interest a month</string>
+    <string name="sav_hero_earned">%1$s earned so far</string>
+    <string name="sav_hero_locked">%1$s locked</string>
+    <string name="sav_rate">%1$s interest</string>
+    <string name="sav_per_month">+%1$s/mo</string>
+    <string name="sav_tile_available">Available now</string>
+    <string name="sav_tile_earned">Interest earned</string>
+    <string name="sav_tile_per_month">Interest a month</string>
+    <string name="sav_d_term">Term</string>
+    <string name="sav_d_start">Started</string>
+    <string name="sav_d_maturity">Matures</string>
+    <string name="sav_d_at_maturity">Worth at maturity</string>
+    <string name="sav_d_penalty">Withdrawing early costs</string>
+    <string name="sav_d_notice">Notice</string>
+    <string name="sav_d_min_withdraw">Smallest withdrawal</string>
+    <string name="sav_d_keep">Must stay in the account</string>
+    <string name="sav_d_per_year">Interest a year</string>
+    <string name="sav_details_header">Details</string>
+    <string name="sav_add_interest">Add interest</string>
+    <string name="rec_group_to_pay">To pay</string>
+    <string name="rec_group_this_month">Next 30 days</string>
+    <string name="rec_group_later">Later</string>
+    <string name="rec_group_paused">Paused</string>
+    <string name="rec_hero_next">Next: %1$s, %2$s</string>
+    <string name="rec_next_amount">Next payment</string>
+    <string name="rec_next_amount_estimate">Next payment, estimated</string>
+    <string name="rec_due_on">Due %1$s · %2$s</string>
+    <string name="rec_tile_month">A month</string>
+    <string name="rec_tile_year">A year</string>
+    <string name="rec_tile_paid_with">Paid with</string>
+    <string name="rec_d_reminder">Reminder</string>
+    <string name="rec_d_none">None</string>
+    <string name="rec_d_logged">Logged</string>
+    <string name="rec_d_automatically">Automatically</string>
+    <string name="rec_d_when_you_confirm">When you mark it paid</string>
+    <string name="rec_d_since">Since</string>
+    <string name="rec_d_until">Until</string>
+    <string name="rec_last_on">Last on %1$s</string>
+    <plurals name="sav_months">
+        <item quantity="one">%d month</item>
+        <item quantity="other">%d months</item>
+    </plurals>
+    <plurals name="sav_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="sav_days_interest">
+        <item quantity="one">%d day of interest</item>
+        <item quantity="other">%d days of interest</item>
+    </plurals>
+    <plurals name="rec_hero_automatic">
+        <item quantity="one">%d logged automatically</item>
+        <item quantity="other">%d logged automatically</item>
+    </plurals>
+    <plurals name="rec_hero_paused">
+        <item quantity="one">%d paused</item>
+        <item quantity="other">%d paused</item>
+    </plurals>
+    <plurals name="rec_hero_detected">
+        <item quantity="one">%d detected</item>
+        <item quantity="other">%d detected</item>
+    </plurals>
+    <plurals name="rec_days_before">
+        <item quantity="one">%d day before</item>
+        <item quantity="other">%d days before</item>
+    </plurals>
 </resources>

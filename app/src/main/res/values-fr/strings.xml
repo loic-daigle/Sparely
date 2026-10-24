@@ -2387,4 +2387,81 @@
         <item quantity="many">%1$s par mois et vous y êtes en %2$d mois</item>
         <item quantity="other">%1$s par mois et vous y êtes en %2$d mois</item>
     </plurals>
+    <string name="sav_kind_term">Dépôt à terme</string>
+    <string name="sav_kind_notice">Compte à préavis</string>
+    <string name="sav_accounts_header">Comptes</string>
+    <string name="sav_hero_label">Épargné dans vos comptes</string>
+    <string name="sav_hero_monthly_interest">≈ %1$s d\'intérêts par mois</string>
+    <string name="sav_hero_earned">%1$s gagnés jusqu\'ici</string>
+    <string name="sav_hero_locked">%1$s bloqués</string>
+    <string name="sav_rate">%1$s d\'intérêt</string>
+    <string name="sav_per_month">+%1$s/mois</string>
+    <string name="sav_tile_available">Disponible</string>
+    <string name="sav_tile_earned">Intérêts gagnés</string>
+    <string name="sav_tile_per_month">Intérêts par mois</string>
+    <string name="sav_d_term">Durée</string>
+    <string name="sav_d_start">Début</string>
+    <string name="sav_d_maturity">Échéance</string>
+    <string name="sav_d_at_maturity">Valeur à l\'échéance</string>
+    <string name="sav_d_penalty">Un retrait anticipé coûte</string>
+    <string name="sav_d_notice">Préavis</string>
+    <string name="sav_d_min_withdraw">Retrait minimum</string>
+    <string name="sav_d_keep">Doit rester dans le compte</string>
+    <string name="sav_d_per_year">Intérêts par an</string>
+    <string name="sav_details_header">Détails</string>
+    <string name="sav_add_interest">Ajouter des intérêts</string>
+    <string name="rec_group_to_pay">À payer</string>
+    <string name="rec_group_this_month">D\'ici 30 jours</string>
+    <string name="rec_group_later">Plus tard</string>
+    <string name="rec_group_paused">En pause</string>
+    <string name="rec_hero_next">Prochain : %1$s, %2$s</string>
+    <string name="rec_next_amount">Prochain paiement</string>
+    <string name="rec_next_amount_estimate">Prochain paiement, estimé</string>
+    <string name="rec_due_on">Le %1$s · %2$s</string>
+    <string name="rec_tile_month">Par mois</string>
+    <string name="rec_tile_year">Par année</string>
+    <string name="rec_tile_paid_with">Payé avec</string>
+    <string name="rec_d_reminder">Rappel</string>
+    <string name="rec_d_none">Aucun</string>
+    <string name="rec_d_logged">Enregistré</string>
+    <string name="rec_d_automatically">Automatiquement</string>
+    <string name="rec_d_when_you_confirm">Quand vous le marquez payé</string>
+    <string name="rec_d_since">Depuis</string>
+    <string name="rec_d_until">Jusqu\'au</string>
+    <string name="rec_last_on">Dernier le %1$s</string>
+    <plurals name="sav_months">
+        <item quantity="one">%d mois</item>
+        <item quantity="many">%d mois</item>
+        <item quantity="other">%d mois</item>
+    </plurals>
+    <plurals name="sav_days">
+        <item quantity="one">%d jour</item>
+        <item quantity="many">%d jours</item>
+        <item quantity="other">%d jours</item>
+    </plurals>
+    <plurals name="sav_days_interest">
+        <item quantity="one">%d jour d\'intérêts</item>
+        <item quantity="many">%d jours d\'intérêts</item>
+        <item quantity="other">%d jours d\'intérêts</item>
+    </plurals>
+    <plurals name="rec_hero_automatic">
+        <item quantity="one">%d enregistré automatiquement</item>
+        <item quantity="many">%d enregistrés automatiquement</item>
+        <item quantity="other">%d enregistrés automatiquement</item>
+    </plurals>
+    <plurals name="rec_hero_paused">
+        <item quantity="one">%d en pause</item>
+        <item quantity="many">%d en pause</item>
+        <item quantity="other">%d en pause</item>
+    </plurals>
+    <plurals name="rec_hero_detected">
+        <item quantity="one">%d détecté</item>
+        <item quantity="many">%d détectés</item>
+        <item quantity="other">%d détectés</item>
+    </plurals>
+    <plurals name="rec_days_before">
+        <item quantity="one">%d jour avant</item>
+        <item quantity="many">%d jours avant</item>
+        <item quantity="other">%d jours avant</item>
+    </plurals>
 </resources>

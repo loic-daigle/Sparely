@@ -653,7 +653,7 @@ private fun AssetDetailSheet(
 }
 
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+internal fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, shape = ExpressiveShapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)

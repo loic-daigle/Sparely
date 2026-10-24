@@ -444,7 +444,7 @@ private fun AccountsList(accounts: List<SavingsAccount>, onManage: () -> Unit) {
             DashRow(
                 title = account.name,
                 shape = shape,
-                subtitle = stringResource(R.string.dash_interest, account.annualPercentageYield.formatPercent(2)),
+                subtitle = stringResource(R.string.dash_interest, formatApy(account.annualPercentageYield)),
                 icon = MaterialSymbols.ACCOUNT_BALANCE,
                 onClick = onManage,
                 trailing = { Amount(account.currentBalance.formatCurrency()) }
@@ -985,7 +985,7 @@ internal fun CreditCardsGroup(cards: List<PaymentMethod>, onClick: () -> Unit) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun cadenceLabel(amount: String, days: Int): String = when (days) {
+internal fun cadenceLabel(amount: String, days: Int): String = when (days) {
     in 6..8 -> stringResource(R.string.dash_cadence_week, amount)
     in 13..16 -> stringResource(R.string.dash_cadence_two_weeks, amount)
     in 27..33 -> stringResource(R.string.dash_cadence_month, amount)
