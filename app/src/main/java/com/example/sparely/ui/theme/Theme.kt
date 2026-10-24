@@ -1,4 +1,8 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.example.sparely.ui.theme
+
+import androidx.compose.material3.MotionScheme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -123,6 +127,8 @@ fun SparelyTheme(
     CompositionLocalProvider(LocalSpacing provides SparelySpacing()) {
         MaterialTheme(
             colorScheme = colorScheme,
+            // Spring-based Expressive motion for every Material component (docs/DESIGN.md §9)
+            motionScheme = MotionScheme.expressive(),
             typography = Typography,
             shapes = ExpressiveShapes,
             content = content

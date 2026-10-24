@@ -312,7 +312,7 @@ fun ChallengeCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = stringResource(R.string.challenges_ends_label, challenge.endDate.format(DateTimeFormatter.ofPattern("MMM d"))),
+                    text = stringResource(R.string.challenges_ends_label, challenge.endDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -394,7 +394,7 @@ fun CompletedChallengeCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = stringResource(R.string.challenges_completed_on, challenge.completedDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: ""),
+                        text = stringResource(R.string.challenges_completed_on, challenge.completedDate?.format(com.example.sparely.ui.utils.LocalDates.medium) ?: ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

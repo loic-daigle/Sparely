@@ -377,7 +377,7 @@ fun ExposedDropdownMenuBoxScope.SparelyDropdownAnchor(
         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
         isError = isError,
         colors = sparelyTextFieldColors(),
-        modifier = modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        modifier = modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
     )
 }
 
@@ -426,7 +426,7 @@ fun <T> SparelyExpressiveDropdown(
                 enabled = enabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
             )
 
             SparelyDropdownMenu(

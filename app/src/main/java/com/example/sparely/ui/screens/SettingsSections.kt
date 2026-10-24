@@ -44,7 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -450,7 +450,7 @@ fun SettingsAutoBackupCard(
             val lastBackupText = if (lastAutoBackupTimestamp != null) {
                 val instant = java.time.Instant.ofEpochMilli(lastAutoBackupTimestamp)
                 val dateTime = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
-                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a")
+                val formatter = com.example.sparely.ui.utils.LocalDates.mediumDateTime
                 stringResource(R.string.settings_auto_backup_last_backup, dateTime.format(formatter))
             } else {
                 stringResource(R.string.settings_auto_backup_last_backup, stringResource(R.string.settings_auto_backup_never))
@@ -889,7 +889,7 @@ private fun AssistantActivityList(
     currencySymbol: String,
     onUndo: (Long) -> Unit
 ) {
-    val dateFormatter = remember { java.time.format.DateTimeFormatter.ofPattern("MMM d, HH:mm") }
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.dayMonthTime
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             stringResource(R.string.settings_ai_assistant_activity_title),

@@ -40,7 +40,7 @@ fun SavingsHistoryScreen(
     onNavigateBack: () -> Unit
 ) {
     val transactions by viewModel.getAccountTransactions(accountId).collectAsState(initial = emptyList())
-    val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.mediumDateTime
 
     // The app's frame already pads for the system bars, so this screen's own bar and content
     // don't add them again (they left a gap above the title and below the list)

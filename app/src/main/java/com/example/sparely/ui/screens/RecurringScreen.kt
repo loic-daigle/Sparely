@@ -54,7 +54,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -927,7 +927,7 @@ private fun RecurringExpenseDialog(
     }
 
     val activeVaults = remember(smartVaults) { smartVaults.filter { !it.archived } }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.medium
 
     SparelyBottomSheet(
         isOpen = true,
@@ -1468,7 +1468,7 @@ private fun RecurringExpenseDialog(
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun DateSelector(label: String, date: LocalDate, onDateSelected: (LocalDate) -> Unit) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val formatter = com.example.sparely.ui.utils.LocalDates.medium
     var showDialog by remember { mutableStateOf(false) }
     val millis = remember(date) { date.toSafeDatePickerMillis() }
     val pickerState = rememberDatePickerState(initialSelectedDateMillis = millis)
@@ -1598,7 +1598,7 @@ private fun PayRecurringExpenseEarlyDialog(
     var amountText by remember { mutableStateOf(expense.amount.formatCurrency("", 2)) }
     var paidDate by remember { mutableStateOf(LocalDate.now()) }
     var notes by remember { mutableStateOf("") }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.medium
 
     // Calculate max days before due date based on frequency
     val maxDaysBefore = getMaxDaysBefore(expense.frequency)
@@ -1637,7 +1637,7 @@ private fun PayRecurringExpenseEarlyDialog(
             ) {
                 SparelySheetHeader(
                     title = stringResource(R.string.recurring_pay_early_title),
-                    subtitle = "${expense.description} · Due ${nextDueDate.format(dateFormatter)}",
+                    subtitle = expense.description + " · " + stringResource(R.string.recurring_due_date, nextDueDate.format(dateFormatter)),
                     icon = MaterialSymbols.PAYMENTS
                 )
 

@@ -290,7 +290,7 @@ private fun MonthlyProjectionRow(
         ) {
             Text(
                 text = monthlyProjection.month.format(
-                    java.time.format.DateTimeFormatter.ofPattern("MMM yyyy")
+                    com.example.sparely.ui.utils.LocalDates.monthYear
                 ),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium

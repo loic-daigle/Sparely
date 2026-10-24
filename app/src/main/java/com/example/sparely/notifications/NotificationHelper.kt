@@ -368,7 +368,7 @@ object NotificationHelper {
         suggestedAmount: Double?
     ) {
         ensureChannels(context)
-        val formattedDate = expectedDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+        val formattedDate = expectedDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)
         val baseMessage = context.getString(R.string.notif_payday_message)
         val body = if (suggestedAmount != null && suggestedAmount > 0.0) {
             val formattedAmount = formatAmount(suggestedAmount)

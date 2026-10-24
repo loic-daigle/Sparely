@@ -38,8 +38,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -691,7 +692,7 @@ private fun ProfileCard(
                 modifier = Modifier.fillMaxWidth()
             )
             Column {
-                val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+                val formatter = com.example.sparely.ui.utils.LocalDates.medium
                 Text(
                     text = if (birthday == null) stringResource(R.string.settings_birthday_not_set) else stringResource(R.string.settings_birthday_label, birthday.format(formatter)),
                     style = MaterialTheme.typography.bodyMedium
@@ -773,7 +774,7 @@ private fun EducationEmploymentCard(
             ) {
                 SparelyTextField(
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth(),
                     value = selectedEducation.displayLabel(),
                     onValueChange = {},
@@ -781,7 +782,7 @@ private fun EducationEmploymentCard(
                     label = { Text(stringResource(R.string.settings_education_status_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = educationExpanded) }
                 )
-                ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = educationExpanded,
                     onDismissRequest = { onEducationExpandedChange(false) }
                 ) {
@@ -802,7 +803,7 @@ private fun EducationEmploymentCard(
             ) {
                 SparelyTextField(
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth(),
                     value = selectedEmployment.displayLabel(),
                     onValueChange = {},
@@ -810,7 +811,7 @@ private fun EducationEmploymentCard(
                     label = { Text(stringResource(R.string.settings_employment_status_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = employmentExpanded) }
                 )
-                ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = employmentExpanded,
                     onDismissRequest = { onEmploymentExpandedChange(false) }
                 ) {
@@ -1353,9 +1354,9 @@ private fun IncomeSettingsCard(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intervalExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
-                    ExposedDropdownMenu(
+                    DropdownMenu(
                         expanded = intervalExpanded,
                         onDismissRequest = { intervalExpanded = false }
                     ) {
@@ -1532,7 +1533,7 @@ private fun IncomeSettingsCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.settings_next_payday_label), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text = nextPayDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: stringResource(R.string.common_not_set),
+                            text = nextPayDate?.format(com.example.sparely.ui.utils.LocalDates.medium) ?: stringResource(R.string.common_not_set),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1568,7 +1569,7 @@ private fun IncomeSettingsCard(
                     val lastDate = schedule.lastPayDate
                     val lastAmount = schedule.lastPayAmount.formatCurrency()
                     Text(
-                        text = stringResource(R.string.settings_last_logged_pay_info, lastAmount, lastDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))),
+                        text = stringResource(R.string.settings_last_logged_pay_info, lastAmount, lastDate.format(com.example.sparely.ui.utils.LocalDates.medium)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1612,7 +1613,7 @@ private fun IncomeSettingsCard(
 
 }
 
-private val monthDayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
+private val monthDayFormatter: DateTimeFormatter get() = com.example.sparely.ui.utils.LocalDates.dayMonth
 
 @Composable
 private fun EducationStatus.displayLabel(): String = when (this) {

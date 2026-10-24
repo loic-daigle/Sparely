@@ -70,6 +70,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -258,8 +259,12 @@ private fun SparelyScaffold(
     val settingsHeader = remember { com.example.sparely.ui.screens.SettingsHeaderState() }
     val inSettingsSection = currentDestination?.route == SparelyDestination.Settings.route &&
         settingsHeader.sectionTitle != null
+    // Pages open on a large title that shrinks into the bar as their content scrolls (docs/DESIGN.md §2);
+    // the expense form keeps a small pinned bar so the form starts higher
+    val largeTitle = !isExpenseEntry
     val topBarScrollBehavior = key(currentDestination?.route, inSettingsSection) {
-        TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+        if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        else TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     }
     Scaffold(
         modifier = Modifier
@@ -288,7 +293,8 @@ private fun SparelyScaffold(
                         inSettingsSection -> settingsHeader.sectionTitle
                         else -> null
                     },
-                    onBack = if (inSettingsSection) settingsHeader.closeSection else null
+                    onBack = if (inSettingsSection) settingsHeader.closeSection else null,
+                    large = largeTitle
                 )
             }
         },
@@ -611,24 +617,19 @@ private fun SparelyTopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
     titleOverride: String? = null,
     // Replaces the usual back navigation, e.g. closing an open settings section
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    large: Boolean = true
 ) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
     val title = titleOverride
         ?: destination?.labelRes?.let { stringResource(it) }
         ?: stringResource(R.string.app_name)
     val isTopLevel = destination != null && destination in bottomBarDestinations
-    // Left-aligned like the dashboard greeting and page content, a step smaller than titleLarge
-    TopAppBar(
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        navigationIcon = {
+    val titleContent: @Composable () -> Unit = {
+        // No explicit style: the large bar uses headlineMedium expanded and titleLarge collapsed
+        Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    val navigationIcon: @Composable () -> Unit = {
             if (!isTopLevel || onBack != null) {
                 // Through the dispatcher so a screen's BackHandler (e.g. unsaved changes) sees it too
                 val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
@@ -639,13 +640,16 @@ private fun SparelyTopBar(
                     )
                 }
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        scrollBehavior = scrollBehavior
+    }
+    val colors = TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.background,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
     )
+    if (large) {
+        LargeTopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
+    } else {
+        TopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
+    }
 }
 
 

@@ -549,7 +549,7 @@ private fun StatItem(
 
 @Composable
 private fun PaymentHistoryItem(payment: CreditCardPayment) {
-    val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+    val formatter = com.example.sparely.ui.utils.LocalDates.medium
     Row(
         modifier = Modifier
             .fillMaxWidth()

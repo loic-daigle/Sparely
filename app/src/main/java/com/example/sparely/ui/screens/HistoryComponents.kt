@@ -104,7 +104,7 @@ fun StoreHistoryExpenseRow(
     onRefund: () -> Unit = {}
 ) {
     val categoryColor = getCategoryColor(expense.category)
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.medium
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(

@@ -663,7 +663,7 @@ private fun HistoryFilterBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+                        val dateFormatter = com.example.sparely.ui.utils.LocalDates.medium
                         var showStartPicker by remember { mutableStateOf(false) }
                         var showEndPicker by remember { mutableStateOf(false) }
 
@@ -1535,7 +1535,7 @@ private fun DeleteExpenseConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val formatter = com.example.sparely.ui.utils.LocalDates.medium
     
     SparelyBottomSheet(
         isOpen = true,

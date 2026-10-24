@@ -564,7 +564,7 @@ private fun DashboardGreeting() {
             else -> R.string.dashboard_greeting_evening
         }
     }
-    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d")) }
+    val today = remember { LocalDate.now().format(com.example.sparely.ui.utils.LocalDates.weekdayDayMonth) }
     Column(modifier = Modifier.padding(horizontal = MaterialTheme.spacing.xxs)) {
         Text(
             text = today,
@@ -772,7 +772,7 @@ private fun HeroStat(
 
 @Composable
 private fun CashflowForecastList(weeklyProjections: List<CashflowEngine.WeeklyProjection>) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
+    val formatter = com.example.sparely.ui.utils.LocalDates.dayMonth
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = ExpressiveShapes.medium,

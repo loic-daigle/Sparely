@@ -57,7 +57,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -343,7 +343,7 @@ fun ExpenseEntryScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     val activeVaults = remember(vaults) { vaults.filter { !it.archived } }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val dateFormatter = com.example.sparely.ui.utils.LocalDates.medium
     val currencySymbol = remember(settings.regionalSettings) { settings.regionalSettings.getCurrencySymbol() }
     val amountRequiredError = stringResource(R.string.expense_entry_error_amount)
     val descriptionRequiredError = stringResource(R.string.expense_entry_error_description)

@@ -8,10 +8,10 @@ import java.time.ZoneOffset
 
 object DateUtils {
     /**
-     * Formats a LocalDate to a string (e.g., "Jan 1").
+     * Formats a LocalDate to a string (e.g., "Jan 1", "1 janv.").
      */
     fun formatDate(date: LocalDate): String {
-        return java.time.format.DateTimeFormatter.ofPattern("MMM d").format(date)
+        return LocalDates.dayMonth.format(date)
     }
 
     /**

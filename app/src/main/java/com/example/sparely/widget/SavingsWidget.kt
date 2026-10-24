@@ -195,7 +195,7 @@ private data class NextRecurringSummary(
     val reminderDays: Int
 )
 
-private val widgetDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
+private val widgetDateFormatter: DateTimeFormatter get() = com.example.sparely.ui.utils.LocalDates.dayMonth
 
 private class SavingsWidgetDataRepository(private val context: Context) {
     private val database = SparelyDatabase.getInstance(context)
