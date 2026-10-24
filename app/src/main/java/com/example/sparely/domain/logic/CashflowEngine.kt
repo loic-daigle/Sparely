@@ -35,8 +35,23 @@ object CashflowEngine {
         /** Cushion held back from safe-to-spend for spending that runs over the forecast. */
         val safetyBuffer: Double = 0.0,
         /** How the forecast did on past months; null until there is about two months of history. */
-        val accuracy: ForecastAccuracy.Result? = null
+        val accuracy: ForecastAccuracy.Result? = null,
+        /** The next 30 days one by one, for the home screen's money line. */
+        val dailyProjections: List<DailyProjection> = emptyList()
     )
+
+    /**
+     * What one day is expected to bring in and take out: pay landing that day, bills due that day,
+     * and the usual everyday spending. A balance line is these changes added up from any start.
+     */
+    data class DailyProjection(
+        val date: LocalDate,
+        val income: Double,
+        val obligations: Double,
+        val spending: Double
+    ) {
+        val change: Double get() = income - obligations - spending
+    }
 
     data class LowBalanceWarning(
         val daysUntilLowBalance: Int,
@@ -190,8 +205,45 @@ object CashflowEngine {
             upcomingObligations = upcomingObligations,
             weeklyProjections = weeklyProjections,
             safetyBuffer = buffer,
-            accuracy = accuracy
+            accuracy = accuracy,
+            dailyProjections = buildDailyProjections(
+                dailyBurn = dailyBurn,
+                expectedMonthlyIncome = input.expectedMonthlyIncome,
+                nextPayDate = input.nextPayDate,
+                nextPayAmount = input.nextPayAmount,
+                paySchedule = input.paySchedule,
+                upcomingObligations = upcomingObligations,
+                today = input.today
+            )
         )
+    }
+
+    /**
+     * The next [days] days one at a time, on the same inputs as the weekly projection: the same
+     * pay dates (or the monthly income spread evenly when no schedule is known), the same bills and
+     * the same everyday spending, so a week of these adds up to that week's projection.
+     */
+    internal fun buildDailyProjections(
+        dailyBurn: Double,
+        expectedMonthlyIncome: Double,
+        nextPayDate: LocalDate?,
+        nextPayAmount: Double?,
+        paySchedule: PayScheduleSettings?,
+        upcomingObligations: List<UpcomingObligation>,
+        today: LocalDate,
+        days: Int = 30
+    ): List<DailyProjection> {
+        val payDates = projectPayDates(paySchedule, nextPayDate, nextPayAmount, today, today.plusDays(days.toLong()))
+        val dailyIncome = expectedMonthlyIncome / 4.33 / 7 // Fallback when no real schedule is known
+        return (0 until days).map { offset ->
+            val date = today.plusDays(offset.toLong())
+            DailyProjection(
+                date = date,
+                income = if (payDates.isNotEmpty()) payDates.filter { it.first == date }.sumOf { it.second } else dailyIncome,
+                obligations = upcomingObligations.filter { it.dueDate == date }.sumOf { it.amount },
+                spending = dailyBurn
+            )
+        }
     }
 
     private const val MIN_BUFFER = 50.0

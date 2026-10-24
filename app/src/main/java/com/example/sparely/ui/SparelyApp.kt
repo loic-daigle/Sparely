@@ -253,6 +253,8 @@ private fun SparelyScaffold(
     // Only show the quick actions FAB on the Dashboard screen. Other screens provide their
     // own FABs (Vaults, Recurring, etc.) and we don't want to collide with them.
     val showFab = currentDestination?.route == SparelyDestination.Dashboard.route
+    // Out here so the home page's "Revenu" button can open the same income sheet as the FAB menu
+    val showIncomeDialog = remember { mutableStateOf(false) }
     val isExpenseEntry = currentDestination?.route == SparelyDestination.ExpenseEntry.route
     // The header shares the page's background and only tints once content scrolls under it.
     // Keyed by page so a new page doesn't start out tinted from the previous one's scroll.
@@ -320,7 +322,6 @@ private fun SparelyScaffold(
             if (showFab) {
                 // Material-like stacked FAB menu: primary FAB toggles expansion; child FABs appear above it.
                 val fabExpanded = remember { mutableStateOf(false) }
-                val showIncomeDialog = remember { mutableStateOf(false) }
                 val manualAmountText = remember { mutableStateOf("") }
                 val manualDate = remember { mutableStateOf(LocalDate.now()) }
                 val manualDistribute = remember { mutableStateOf(true) }
@@ -775,6 +776,7 @@ private fun SparelyNavHost(
                 onBackupNow = { navController.openSettingsSection(SettingsSection.Data) },
                 onSnoozeBackupReminder = viewModel::snoozeBackupReminder,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
+                onRecordIncome = { showIncomeDialog.value = true },
                 onRepeatLastExpense = { expense ->
                     viewModel.setPrefillExpense(expense.copy(id = 0L))
                     navController.navigate(SparelyDestination.ExpenseEntry.route)

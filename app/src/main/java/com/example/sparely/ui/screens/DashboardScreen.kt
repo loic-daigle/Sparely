@@ -120,6 +120,7 @@ fun DashboardScreen(
     pendingVaultContributions: List<VaultContribution> = emptyList(),
     onAddExpense: () -> Unit,
     onRepeatLastExpense: (com.example.sparely.domain.model.Expense) -> Unit = {},
+    onRecordIncome: () -> Unit = {},
     onNavigateToHistory: () -> Unit,
     onNavigateToBudgets: () -> Unit = {},
     onNavigateToChallenges: () -> Unit = {},
@@ -256,23 +257,30 @@ fun DashboardScreen(
             }
 
             item(key = "hero") {
-                DashboardHeroCard(
-                    totalBalance = uiState.totalVaultBalance,
-                    monthlyIncome = uiState.settings.monthlyIncome,
-                    actualSavingsRate = uiState.smartSavingSummary?.actualSavingsRate ?: 0.0,
-                    usableBalance = netUsable.takeIf { showUsable },
-                    forecast = uiState.cashflowForecast,
-                    onUsableClick = { showTotalUsableMoneySheet = true }
+                HomeHero(
+                    usable = netUsable,
+                    days = uiState.cashflowForecast?.dailyProjections.orEmpty(),
+                    totalSaved = uiState.totalVaultBalance,
+                    savingsRate = uiState.smartSavingSummary?.actualSavingsRate?.takeIf { uiState.settings.monthlyIncome > 0 },
+                    lowBalanceThreshold = 0.0,
+                    onBreakdown = { showTotalUsableMoneySheet = true },
+                    onVaults = onManageVaults
                 )
             }
 
+            // The page's main actions as one connected group (docs/DESIGN.md §2)
             item(key = QUICK_ACTIONS_KEY) {
-                QuickActionsRow(
-                    lastExpense = lastExpense,
-                    onLogExpense = onAddExpense,
-                    onRepeatLast = { lastExpense?.let(onRepeatLastExpense) },
-                    onManageVaults = onManageVaults,
-                    onViewInsights = onNavigateToInsights
+                com.example.sparely.ui.components.SparelyButtonGroup(
+                    listOf(
+                        com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.home_action_expense), MaterialSymbols.REMOVE, emphasized = true, onClick = onAddExpense),
+                        com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.home_action_income), MaterialSymbols.ADD, onClick = onRecordIncome),
+                        com.example.sparely.ui.components.ButtonGroupItem(
+                            stringResource(R.string.dashboard_repeat_action),
+                            MaterialSymbols.REFRESH,
+                            enabled = lastExpense != null,
+                            onClick = { lastExpense?.let(onRepeatLastExpense) }
+                        )
+                    )
                 )
             }
 
@@ -296,7 +304,7 @@ fun DashboardScreen(
 
             // ── Needs attention ─────────────────────────────────────────
             if (attentionItems.isNotEmpty()) {
-                dashboardSection(key = "attention", titleRes = R.string.dashboard_needs_attention, badge = attentionItems.size) {
+                dashboardSection(key = "attention", titleRes = R.string.dashboard_needs_attention, icon = MaterialSymbols.WARNING, badge = attentionItems.size) {
                     AttentionGroup(items = attentionItems)
                 }
             }
@@ -305,6 +313,7 @@ fun DashboardScreen(
             if (hasInsights || aiReady) {
                 dashboardSection(
                     key = "insights",
+                    icon = MaterialSymbols.LIGHTBULB,
                     titleRes = R.string.dashboard_insights_title,
                     onAction = onNavigateToInsights,
                     actionRes = R.string.dashboard_view_all
@@ -322,7 +331,7 @@ fun DashboardScreen(
             }
 
             // ── Accounts & goals ────────────────────────────────────────
-            dashboardSection(key = "accounts", titleRes = R.string.dashboard_accounts_title) {
+            dashboardSection(key = "accounts", titleRes = R.string.dashboard_accounts_title, icon = MaterialSymbols.SAVINGS) {
                 AccountsAndGoals(
                     savingsAccounts = savingsAccounts.filter { !it.archived },
                     vaults = activeVaults,
@@ -340,28 +349,19 @@ fun DashboardScreen(
             }
 
             // ── This month: scores, then what's coming up, then card debt ──
-            dashboardSection(key = "this_month", titleRes = R.string.dashboard_this_month) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                ) {
-                    uiState.financialHealthScore?.let { healthScore ->
-                        Box(modifier = Modifier.weight(1f)) {
-                            QuickHealthScoreCard(healthScore, onNavigateToHealth)
-                        }
-                    }
-                    val budgetSummary = uiState.budgetSummary
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (budgetSummary != null) {
-                            QuickBudgetCard(budgetSummary, onNavigateToBudgets)
-                        } else {
-                            BudgetEmptyCard(onNavigateToBudgets)
-                        }
-                    }
-                }
+            dashboardSection(key = "this_month", titleRes = R.string.dashboard_this_month, icon = MaterialSymbols.PIE_CHART) {
+                ThisMonthGroup(
+                    budgetSummary = uiState.budgetSummary,
+                    healthScore = uiState.financialHealthScore,
+                    wishlistCount = uiState.wishlists.size,
+                    decisionCount = uiState.wishlists.count { it.needsDecision() },
+                    onBudgets = onNavigateToBudgets,
+                    onHealth = onNavigateToHealth,
+                    onPurchaseCheck = onNavigateToPurchaseCheck
+                )
             }
 
-            dashboardSection(key = "upcoming_bills", titleRes = R.string.dashboard_up_next, onAction = onNavigateToRecurring) {
+            dashboardSection(key = "upcoming_bills", titleRes = R.string.dashboard_up_next, icon = MaterialSymbols.CALENDAR_MONTH, onAction = onNavigateToRecurring) {
                 UpcomingPayments(
                     items = uiState.upcomingRecurring,
                     recurring = uiState.recurringExpenses,
@@ -373,6 +373,7 @@ fun DashboardScreen(
             if (creditCards.isNotEmpty()) {
                 dashboardSection(
                     key = "credit_cards",
+                    icon = MaterialSymbols.CREDIT_CARD,
                     titleRes = R.string.dashboard_credit_cards_title,
                     onAction = onNavigateToCreditCards,
                     actionRes = R.string.dashboard_manage_action
@@ -381,19 +382,11 @@ fun DashboardScreen(
                 }
             }
 
-            item(key = "purchase_check") {
-                PurchaseCheckCard(
-                    wishlistCount = uiState.wishlists.size,
-                    decisionCount = uiState.wishlists.count { it.needsDecision() },
-                    onClick = onNavigateToPurchaseCheck
-                )
-            }
-
             // ── Savings progress ────────────────────────────────────────
             val summary = uiState.smartSavingSummary
             val emergencyGoal = uiState.emergencyFundGoal
             if (summary != null || emergencyGoal != null) {
-                dashboardSection(key = "savings_progress", titleRes = R.string.dashboard_savings_progress) {
+                dashboardSection(key = "savings_progress", titleRes = R.string.dashboard_savings_progress, icon = MaterialSymbols.TRENDING_UP) {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         emergencyGoal?.let { EmergencyFundProgress(goal = it) }
                         summary?.let {
@@ -404,29 +397,20 @@ fun DashboardScreen(
             }
 
             if (activeRecurringInsights.isNotEmpty()) {
-                dashboardSection(key = "recurring_patterns", titleRes = R.string.dashboard_recurring_patterns_found) {
+                dashboardSection(key = "recurring_patterns", titleRes = R.string.dashboard_recurring_patterns_found, icon = MaterialSymbols.AUTORENEW) {
                     RepeatingPayments(insights = activeRecurringInsights, onAdd = onConvertRecurringInsight)
                 }
             }
 
             // ── Challenges ──────────────────────────────────────────────
-            if (uiState.activeChallenges.isEmpty()) {
-                item(key = "challenges_empty") {
-                    ChallengesEmptyCard(onAddChallenge = onNavigateToChallenges)
-                }
-            } else {
-                dashboardSection(
-                    key = "challenges",
-                    titleRes = R.string.dashboard_active_challenges_title,
-                    onAction = onNavigateToChallenges,
-                    actionRes = R.string.dashboard_view_all
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        for (challenge in uiState.activeChallenges) {
-                            QuickChallengeItem(challenge = challenge, onClick = onNavigateToChallenges)
-                        }
-                    }
-                }
+            dashboardSection(
+                key = "challenges",
+                titleRes = R.string.dashboard_active_challenges_title,
+                icon = MaterialSymbols.TROPHY,
+                onAction = onNavigateToChallenges.takeIf { uiState.activeChallenges.isNotEmpty() },
+                actionRes = R.string.dashboard_view_all
+            ) {
+                ChallengesGroup(challenges = uiState.activeChallenges, onOpen = onNavigateToChallenges)
             }
         }
     }
@@ -445,6 +429,7 @@ private fun LazyListScope.dashboardSection(
     titleRes: Int,
     onAction: (() -> Unit)? = null,
     actionRes: Int = R.string.dashboard_view_all,
+    @DrawableRes icon: Int? = null,
     badge: Int? = null,
     content: @Composable () -> Unit
 ) {
@@ -453,27 +438,43 @@ private fun LazyListScope.dashboardSection(
             modifier = Modifier.padding(top = MaterialTheme.spacing.xs),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)
         ) {
-            SectionHeader(title = stringResource(titleRes), actionLabel = stringResource(actionRes), onAction = onAction, badge = badge)
+            SectionHeader(title = stringResource(titleRes), actionLabel = stringResource(actionRes), onAction = onAction, icon = icon, badge = badge)
             content()
         }
     }
 }
 
+/** Same look as [com.example.sparely.ui.components.ExpressiveListHeader], plus a count badge and an action. */
 @Composable
-private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> Unit)?, badge: Int? = null) {
+private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> Unit)?, @DrawableRes icon: Int? = null, badge: Int? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 40.dp)
-            .padding(start = MaterialTheme.spacing.xxs),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .heightIn(min = 48.dp)
+            .padding(start = 4.dp, top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        icon?.let {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(icon = it, contentDescription = null, size = 18.dp, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() }
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() }
         )
         // How many things are waiting, in the same red as the alerts
         badge?.takeIf { it > 0 }?.let { count ->
@@ -495,61 +496,7 @@ private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> U
     }
 }
 
-/** Card header: tinted icon badge, title, optional subtitle and trailing slot. */
-@Composable
-private fun CardHeader(
-    @DrawableRes icon: Int,
-    title: String,
-    iconContainerColor: Color,
-    iconTint: Color,
-    subtitle: String? = null,
-    trailing: (@Composable () -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)
-    ) {
-        IconBadge(icon = icon, containerColor = iconContainerColor, tint = iconTint)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            subtitle?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        trailing?.invoke()
-    }
-}
 
-@Composable
-private fun IconBadge(
-    @DrawableRes icon: Int,
-    containerColor: Color,
-    tint: Color,
-    size: Dp = 40.dp
-) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(ExpressiveShapes.extraSmall)
-            .background(containerColor),
-        contentAlignment = Alignment.Center
-    ) {
-        MaterialSymbolIcon(icon = icon, contentDescription = null, tint = tint, size = size * 0.55f)
-    }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // At a glance
@@ -571,347 +518,15 @@ private fun DashboardGreeting() {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        // The page's large title (docs/DESIGN.md §2): home draws its own instead of the shared bar
         Text(
             text = stringResource(greetingRes),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
 
-@Composable
-private fun DashboardHeroCard(
-    totalBalance: Double,
-    monthlyIncome: Double,
-    actualSavingsRate: Double,
-    usableBalance: Double?,
-    forecast: CashflowEngine.CashflowForecast?,
-    onUsableClick: () -> Unit
-) {
-    // The dashboard's signature card: always Sparely spruce and mint, whatever the app theme.
-    SparelyBrandSurface {
-        val spacing = MaterialTheme.spacing
-        var forecastExpanded by rememberSaveable { mutableStateOf(false) }
-        val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
-
-        ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = onContainer,
-            contentPadding = spacing.lg
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dashboard_total_saved),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = onContainer.copy(alpha = 0.75f),
-                            fontWeight = FontWeight.Medium
-                        )
-                        if (monthlyIncome > 0) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    MaterialSymbolIcon(
-                                        icon = MaterialSymbols.TRENDING_UP,
-                                        contentDescription = null,
-                                        size = 16.dp
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.dashboard_saving_rate, actualSavingsRate.formatPercent()),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    SingleLineText(
-                        text = totalBalance.formatCurrency(),
-                        style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                        // onPrimaryContainer keeps full contrast on the tinted card in every theme
-                        color = onContainer,
-                        modifier = Modifier.fillMaxWidth(),
-                        minFontSize = 24f
-                    )
-                }
-
-                if (usableBalance != null || forecast != null) {
-                    // Every cell always renders a caption line so the cells stay the same height without
-                    // intrinsic measurement (SingleLineText is subcomposed and doesn't support it).
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.xs)
-                    ) {
-                        if (usableBalance != null) {
-                            HeroStat(
-                                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
-                                label = stringResource(R.string.dashboard_usable_chip),
-                                value = usableBalance.formatCurrency(),
-                                caption = stringResource(R.string.dashboard_see_breakdown),
-                                trailingIcon = MaterialSymbols.INFO,
-                                onClickLabel = stringResource(R.string.dashboard_total_usable_money_title),
-                                onClick = onUsableClick,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        if (forecast != null) {
-                            val hasWarning = forecast.lowBalanceWarning != null || forecast.safeToSpend < 0
-                            HeroStat(
-                                icon = if (hasWarning) MaterialSymbols.WARNING else MaterialSymbols.SECURITY,
-                                label = stringResource(R.string.dashboard_safe_to_spend),
-                                value = forecast.safeToSpend.formatCurrency(),
-                                caption = if (forecast.runwayDays < Int.MAX_VALUE) {
-                                    stringResource(R.string.dashboard_runway_days, forecast.runwayDays)
-                                } else {
-                                    stringResource(R.string.dashboard_runway_healthy)
-                                },
-                                valueColor = if (hasWarning) MaterialTheme.colorScheme.critical else null,
-                                trailingIcon = if (forecastExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                                onClickLabel = stringResource(
-                                    if (forecastExpanded) R.string.dashboard_collapse else R.string.dashboard_expand
-                                ),
-                                onClick = { forecastExpanded = !forecastExpanded },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-
-                if (forecast != null) {
-                    AnimatedVisibility(
-                        visible = forecastExpanded,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
-                        CashflowForecastList(forecast.weeklyProjections)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroStat(
-    @DrawableRes icon: Int,
-    label: String,
-    value: String,
-    caption: String,
-    @DrawableRes trailingIcon: Int,
-    onClickLabel: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    valueColor: Color? = null
-) {
-    val contentColor = MaterialTheme.colorScheme.onSurface
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = ExpressiveShapes.medium,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-        contentColor = contentColor
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                MaterialSymbolIcon(
-                    icon = icon,
-                    contentDescription = null,
-                    size = 16.dp,
-                    tint = valueColor ?: MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                MaterialSymbolIcon(
-                    icon = trailingIcon,
-                    contentDescription = onClickLabel,
-                    size = 16.dp,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            SingleLineText(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = valueColor ?: contentColor,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun CashflowForecastList(weeklyProjections: List<CashflowEngine.WeeklyProjection>) {
-    val formatter = com.example.sparely.ui.utils.LocalDates.dayMonth
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.medium,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-        contentColor = MaterialTheme.colorScheme.onSurface
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.dashboard_forecast_title),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
-            if (weeklyProjections.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.dashboard_forecast_empty),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                weeklyProjections.take(4).forEach { projection ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(R.string.dashboard_week_of, projection.weekStartDate.format(formatter)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = projection.projectedEndBalance.formatCurrency(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (projection.projectedEndBalance < 0) {
-                                MaterialTheme.colorScheme.critical
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickActionsRow(
-    lastExpense: Expense?,
-    onLogExpense: () -> Unit,
-    onRepeatLast: () -> Unit,
-    onManageVaults: () -> Unit,
-    onViewInsights: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        QuickAction(
-            icon = MaterialSymbols.ADD,
-            label = stringResource(R.string.dashboard_log_action),
-            onClick = onLogExpense,
-            emphasized = true,
-            modifier = Modifier.weight(1f)
-        )
-        QuickAction(
-            icon = MaterialSymbols.REFRESH,
-            label = stringResource(R.string.dashboard_repeat_action),
-            onClick = onRepeatLast,
-            enabled = lastExpense != null,
-            modifier = Modifier.weight(1f)
-        )
-        QuickAction(
-            icon = MaterialSymbols.SAVINGS,
-            label = stringResource(R.string.dashboard_vaults_action),
-            onClick = onManageVaults,
-            modifier = Modifier.weight(1f)
-        )
-        QuickAction(
-            icon = MaterialSymbols.LIGHTBULB,
-            label = stringResource(R.string.dashboard_insights_title),
-            onClick = onViewInsights,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun QuickAction(
-    @DrawableRes icon: Int,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    emphasized: Boolean = false,
-    enabled: Boolean = true
-) {
-    val colors = MaterialTheme.colorScheme
-    val containerColor = when {
-        !enabled -> colors.surfaceContainerHigh
-        emphasized -> colors.primary
-        else -> colors.secondaryContainer
-    }
-    val contentColor = when {
-        !enabled -> colors.onSurface.copy(alpha = 0.38f)
-        emphasized -> colors.onPrimary
-        else -> colors.onSecondaryContainer
-    }
-    // Round icon button with its label underneath; the whole column is the touch target
-    Column(
-        modifier = modifier
-            .clip(ExpressiveShapes.medium)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(vertical = 6.dp, horizontal = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(if (emphasized) ExpressiveShapes.large else CircleShape)
-                .background(containerColor),
-            contentAlignment = Alignment.Center
-        ) {
-            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 24.dp, tint = contentColor)
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Medium,
-            color = if (enabled) colors.onSurface else colors.onSurface.copy(alpha = 0.38f),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Needs attention
@@ -983,331 +598,6 @@ private fun buildAttentionItems(
 // ─────────────────────────────────────────────────────────────────────────────
 // This month
 // ─────────────────────────────────────────────────────────────────────────────
-
-
-@Composable
-private fun PurchaseCheckCard(wishlistCount: Int, decisionCount: Int, onClick: () -> Unit) {
-    ExpressiveCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        CardHeader(
-            icon = MaterialSymbols.SHOPPING_BAG,
-            title = stringResource(R.string.purchase_check_card_title),
-            subtitle = if (decisionCount > 0) {
-                stringResource(R.string.purchase_check_card_subtitle_decisions, decisionCount)
-            } else if (wishlistCount > 0) {
-                stringResource(R.string.purchase_check_card_subtitle_wishlist, wishlistCount)
-            } else {
-                stringResource(R.string.purchase_check_card_subtitle)
-            },
-            iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-            iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-            trailing = {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.ARROW_FORWARD,
-                    contentDescription = null,
-                    size = 20.dp,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        )
-    }
-}
-
-@Composable
-private fun QuickHealthScoreCard(healthScore: FinancialHealthScore, onClick: () -> Unit) {
-    val healthColor = when (healthScore.healthLevel) {
-        HealthLevel.EXCELLENT -> MaterialTheme.colorScheme.success
-        HealthLevel.GOOD -> MaterialTheme.colorScheme.primary
-        HealthLevel.FAIR -> MaterialTheme.colorScheme.warning
-        HealthLevel.NEEDS_WORK -> MaterialTheme.colorScheme.critical
-        HealthLevel.CRITICAL -> MaterialTheme.colorScheme.critical
-    }
-    
-    ExpressiveCard(
-        onClick = onClick,
-        containerColor = healthColor.copy(alpha = 0.08f),
-        contentPadding = 0.dp,
-        modifier = Modifier.fillMaxWidth().height(156.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.dashboard_financial_health_title),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = healthColor.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = stringResource(when(healthScore.healthLevel) {
-                            HealthLevel.EXCELLENT -> R.string.health_level_excellent
-                            HealthLevel.GOOD -> R.string.health_level_good
-                            HealthLevel.FAIR -> R.string.health_level_fair
-                            HealthLevel.NEEDS_WORK -> R.string.health_level_needs_work
-                            HealthLevel.CRITICAL -> R.string.health_level_critical
-                        }),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = healthColor
-                    )
-                }
-                
-                Surface(
-                    shape = CircleShape,
-                    color = healthColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.HEALTH_AND_SAFETY,
-                            contentDescription = null,
-                            tint = healthColor,
-                            size = 18.dp
-                        )
-                    }
-                }
-            }
-            
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    progress = { healthScore.overallScore.toFloat() / 100f },
-                    modifier = Modifier.size(76.dp),
-                    color = healthColor,
-                    strokeWidth = 8.dp,
-                    trackColor = healthColor.copy(alpha = 0.1f),
-                    strokeCap = StrokeCap.Round
-                )
-                Text(
-                    text = "${healthScore.overallScore}",
-                    style = MaterialTheme.typography.headlineSmall,
-                     fontWeight = FontWeight.Black,
-                    color = healthColor
-                )
-            }
-
-        }
-    }
-}
-
-@Composable
-private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
-    val statusColor = when (budgetSummary.overallHealth) {
-        BudgetHealthStatus.HEALTHY -> MaterialTheme.colorScheme.success
-        BudgetHealthStatus.WARNING -> MaterialTheme.colorScheme.warning
-        BudgetHealthStatus.CRITICAL -> MaterialTheme.colorScheme.critical
-        BudgetHealthStatus.OVER_BUDGET -> MaterialTheme.colorScheme.critical
-    }
-    
-    ExpressiveCard(
-        onClick = onClick,
-        containerColor = statusColor.copy(alpha = 0.08f),
-        contentPadding = 0.dp,
-        modifier = Modifier.fillMaxWidth().height(156.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.dashboard_budget_usage_title),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = stringResource(R.string.dashboard_amount_left, formatCurrency(budgetSummary.totalRemaining)),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = statusColor
-                    )
-                }
-                
-                Surface(
-                    shape = CircleShape,
-                    color = statusColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.ACCOUNT_BALANCE,
-                            contentDescription = null,
-                            tint = statusColor,
-                            size = 18.dp
-                        )
-                    }
-                }
-            }
-            
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Text(
-                        text = formatPercent(budgetSummary.percentageUsed),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black,
-                        color = statusColor
-                    )
-                    Text(
-                         text = stringResource(R.string.dashboard_of_total_amount, formatCurrency(budgetSummary.totalBudget)),
-                         style = MaterialTheme.typography.labelSmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-                
-                LinearProgressIndicator(
-                    progress = { budgetSummary.percentageUsed.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = statusColor,
-                    trackColor = statusColor.copy(alpha = 0.1f),
-                    strokeCap = StrokeCap.Round,
-                )
-            }
-
-        }
-    }
-}
-
-@Composable
-private fun BudgetEmptyCard(onClick: () -> Unit) {
-    ExpressiveCard(
-        onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().height(156.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                modifier = Modifier.size(48.dp)
-            ) {
-                 Box(contentAlignment = Alignment.Center) {
-                     MaterialSymbolIcon(
-                        icon = MaterialSymbols.PIE_CHART,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        size = 24.dp
-                    )
-                 }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.dashboard_no_budgets_set),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.dashboard_plan_spending_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickChallengeItem(challenge: SavingsChallenge, onClick: () -> Unit) {
-    val streakColor = MaterialTheme.colorScheme.warning
-    ExpressiveCard(
-        onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 16.dp
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = challenge.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (challenge.targetAmount > 0) {
-                            pluralStringResource(
-                                R.plurals.dashboard_challenge_progress_complete,
-                                (challenge.progressPercent * 100).toInt(),
-                                formatPercent(challenge.progressPercent)
-                            )
-                        } else {
-                            stringResource(R.string.dashboard_ongoing_challenge)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                if (challenge.streakDays > 0) {
-                    Surface(
-                        color = streakColor.copy(alpha = 0.1f),
-                        shape = CircleShape,
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                             MaterialSymbolIcon(
-                                icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
-                                contentDescription = null,
-                                tint = streakColor,
-                                size = 16.dp
-                            )
-                            Text(
-                                text = challenge.streakDays.toString(),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Black,
-                                color = streakColor
-                            )
-                        }
-                    }
-                }
-            }
-            
-            if (challenge.targetAmount > 0) {
-                LinearProgressIndicator(
-                    progress = { challenge.progressPercent.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    strokeCap = StrokeCap.Round
-                )
-            }
-        }
-    }
-}
 
 
 /**
@@ -1431,31 +721,6 @@ private fun RowChevron() {
 // Patterns & challenges
 // ─────────────────────────────────────────────────────────────────────────────
 
-
-@Composable
-private fun ChallengesEmptyCard(onAddChallenge: () -> Unit) {
-    ExpressiveCard(
-        onClick = onAddChallenge,
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        CardHeader(
-            icon = MaterialSymbols.TROPHY,
-            title = stringResource(R.string.dashboard_join_challenge),
-            subtitle = stringResource(R.string.dashboard_challenge_competitive_desc),
-            iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-            iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
-            trailing = {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.ARROW_FORWARD,
-                    contentDescription = stringResource(R.string.dashboard_browse_challenges),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    size = 20.dp
-                )
-            }
-        )
-    }
-}
 
 /** Nudge to export a backup (or turn on automatic ones) when none is recent. */
 @Composable

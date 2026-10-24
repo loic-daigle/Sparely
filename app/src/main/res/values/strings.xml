@@ -2522,4 +2522,16 @@
         <item quantity="one">%d purchase this month</item>
         <item quantity="other">%d purchases this month</item>
     </plurals>
+    <string name="home_free_to_spend">Free to spend</string>
+    <string name="home_free_to_spend_desc">After bills and vaults · tap for details</string>
+    <string name="home_line_desc">Your money over the next 30 days; lowest %1$s on %2$s</string>
+    <string name="home_lowest">Lowest: %1$s on %2$s</string>
+    <string name="home_saved_pill">%1$s saved</string>
+    <string name="home_action_expense">Expense</string>
+    <string name="home_action_income">Income</string>
+    <string name="home_score">%1$d/100</string>
+    <plurals name="home_streak">
+        <item quantity="one">%d-day streak</item>
+        <item quantity="other">%d-day streak</item>
+    </plurals>
 </resources>

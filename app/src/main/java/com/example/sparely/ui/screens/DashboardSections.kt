@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.example.sparely.ui.screens
 
 import androidx.annotation.DrawableRes
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +42,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -1036,4 +1042,275 @@ internal fun RepeatingPayments(insights: List<DetectedRecurringTransaction>, onA
             }
         )
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Home headline
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The home page's headline (docs/DESIGN.md §3): what's free to spend, and where it heads over the
+ * next 30 days, drawn as a line with paydays and bills marked and its lowest point called out.
+ * Chips: what's saved (opens the vaults), the savings rate, and the breakdown of the number.
+ */
+@Composable
+internal fun HomeHero(
+    usable: Double,
+    days: List<com.example.sparely.domain.logic.CashflowEngine.DailyProjection>,
+    totalSaved: Double,
+    savingsRate: Double?,
+    lowBalanceThreshold: Double,
+    onBreakdown: () -> Unit,
+    onVaults: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val onContainer = colors.onPrimaryContainer
+    // The balance at the end of each day, starting from today's usable money
+    val balances = remember(usable, days) {
+        var running = usable
+        listOf(usable) + days.map { day -> running += day.change; running }
+    }
+    val lowIndex = balances.indices.minByOrNull { balances[it] } ?: 0
+    val low = balances.getOrElse(lowIndex) { usable }
+    val lowDate = days.getOrNull(lowIndex - 1)?.date ?: LocalDate.now()
+    val lowIsTrouble = low < lowBalanceThreshold
+
+    Surface(
+        onClick = onBreakdown,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = colors.primaryContainer,
+        contentColor = onContainer
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.home_free_to_spend), style = MaterialTheme.typography.labelLarge, color = onContainer.copy(alpha = 0.8f))
+            com.example.sparely.ui.components.SingleLineText(
+                text = usable.formatCurrency(decimals = 0),
+                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                color = onContainer
+            )
+            Text(stringResource(R.string.home_free_to_spend_desc), style = MaterialTheme.typography.bodyMedium, color = onContainer.copy(alpha = 0.8f))
+
+            if (days.size >= 2) {
+                val description = stringResource(R.string.home_line_desc, low.formatCurrency(decimals = 0), lowDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth))
+                MoneyLine(
+                    balances = balances,
+                    paydays = days.mapIndexedNotNull { i, d -> if (d.income > 0.5 && d.income > d.spending * 2) i + 1 else null },
+                    bills = days.mapIndexedNotNull { i, d -> if (d.obligations > 0) i + 1 else null },
+                    lowIndex = lowIndex,
+                    lineColor = colors.primary,
+                    lowColor = if (lowIsTrouble) colors.critical else onContainer,
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .semantics { contentDescription = description }
+                )
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.dash_when_today), style = MaterialTheme.typography.labelSmall, color = onContainer.copy(alpha = 0.7f))
+                    Text(
+                        stringResource(R.string.home_lowest, low.formatCurrency(decimals = 0), lowDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (lowIsTrouble) colors.critical else onContainer,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(days.last().date.format(com.example.sparely.ui.utils.LocalDates.dayMonth), style = MaterialTheme.typography.labelSmall, color = onContainer.copy(alpha = 0.7f))
+                }
+            }
+
+            FlowRow(
+                modifier = Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HeroPill(MaterialSymbols.SAVINGS, stringResource(R.string.home_saved_pill, totalSaved.formatCurrency(decimals = 0)), onClick = onVaults)
+                savingsRate?.let { HeroPill(MaterialSymbols.TRENDING_UP, stringResource(R.string.dashboard_saving_rate, it.formatPercent(0))) }
+                HeroPill(MaterialSymbols.INFO, stringResource(R.string.dashboard_see_breakdown), onClick = onBreakdown)
+            }
+        }
+    }
+}
+
+/** The balance over the next days as a filled line, with payday and bill dots and the low point ringed. */
+@Composable
+private fun MoneyLine(
+    balances: List<Double>,
+    paydays: List<Int>,
+    bills: List<Int>,
+    lowIndex: Int,
+    lineColor: Color,
+    lowColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val payColor = MaterialTheme.colorScheme.success
+    val billColor = MaterialTheme.colorScheme.warning
+    val ringBackground = MaterialTheme.colorScheme.primaryContainer
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        val max = balances.max()
+        val min = balances.min()
+        val span = (max - min).takeIf { it > 0 } ?: 1.0
+        val pad = 6.dp.toPx()
+        val stepX = size.width / (balances.size - 1)
+        fun point(i: Int) = androidx.compose.ui.geometry.Offset(
+            i * stepX,
+            pad + (1f - ((balances[i] - min) / span).toFloat()) * (size.height - 2 * pad)
+        )
+        val line = androidx.compose.ui.graphics.Path()
+        balances.indices.forEach { i -> point(i).let { if (i == 0) line.moveTo(it.x, it.y) else line.lineTo(it.x, it.y) } }
+        val area = androidx.compose.ui.graphics.Path().apply {
+            addPath(line)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(area, lineColor.copy(alpha = 0.14f))
+        drawPath(
+            line,
+            lineColor,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 2.5.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
+        val dot = 4.dp.toPx()
+        paydays.forEach { drawCircle(payColor, dot, point(it)) }
+        bills.forEach { drawCircle(billColor, dot, point(it)) }
+        drawCircle(ringBackground, 6.dp.toPx(), point(lowIndex))
+        drawCircle(lowColor, 6.dp.toPx(), point(lowIndex), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// This month and challenges
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Budgets, financial health and the purchase check, as one group of rows. */
+@Composable
+internal fun ThisMonthGroup(
+    budgetSummary: com.example.sparely.domain.model.BudgetSummary?,
+    healthScore: com.example.sparely.domain.model.FinancialHealthScore?,
+    wishlistCount: Int,
+    decisionCount: Int,
+    onBudgets: () -> Unit,
+    onHealth: () -> Unit,
+    onPurchaseCheck: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val today = LocalDate.now()
+    val pace = today.dayOfMonth.toFloat() / today.lengthOfMonth()
+    val rows = buildList<@Composable (Shape) -> Unit> {
+        add(groupRow { shape ->
+            if (budgetSummary == null || budgetSummary.totalBudget <= 0) {
+                DashRow(
+                    title = stringResource(R.string.budgets_title),
+                    shape = shape,
+                    subtitle = stringResource(R.string.budget_create_first_title),
+                    icon = MaterialSymbols.PIE_CHART,
+                    onClick = onBudgets
+                )
+            } else {
+                val used = (budgetSummary.totalSpent / budgetSummary.totalBudget).toFloat()
+                val left = budgetSummary.totalBudget - budgetSummary.totalSpent
+                val accent = when {
+                    left < 0 -> colors.critical
+                    used > pace + 0.05f -> colors.warning
+                    else -> colors.primary
+                }
+                DashRow(
+                    title = stringResource(R.string.budgets_title),
+                    shape = shape,
+                    subtitle = if (left < 0) stringResource(R.string.assets_over_by, (-left).formatCurrency(decimals = 0))
+                    else stringResource(R.string.vault_line_left, left.formatCurrency(decimals = 0)),
+                    subtitleColor = if (accent == colors.primary) colors.onSurfaceVariant else accent,
+                    icon = MaterialSymbols.PIE_CHART,
+                    onClick = onBudgets,
+                    trailing = rowSlot {
+                        Amount(
+                            budgetSummary.totalSpent.formatCurrency(decimals = 0),
+                            under = stringResource(R.string.assets_of_amount, budgetSummary.totalBudget.formatCurrency(decimals = 0))
+                        )
+                    },
+                    below = slot { MarkedBar(progress = used, mark = pace, color = accent) }
+                )
+            }
+        })
+        healthScore?.let { score ->
+            add(groupRow { shape ->
+                val (levelRes, levelColor) = when (score.healthLevel) {
+                    com.example.sparely.domain.model.HealthLevel.EXCELLENT -> R.string.health_level_excellent to colors.success
+                    com.example.sparely.domain.model.HealthLevel.GOOD -> R.string.health_level_good to colors.success
+                    com.example.sparely.domain.model.HealthLevel.FAIR -> R.string.health_level_fair to colors.warning
+                    com.example.sparely.domain.model.HealthLevel.NEEDS_WORK -> R.string.health_level_needs_work to colors.warning
+                    com.example.sparely.domain.model.HealthLevel.CRITICAL -> R.string.health_level_critical to colors.critical
+                }
+                DashRow(
+                    title = stringResource(R.string.dashboard_financial_health_title),
+                    shape = shape,
+                    subtitle = stringResource(levelRes),
+                    subtitleColor = levelColor,
+                    icon = MaterialSymbols.FAVORITE,
+                    iconTint = levelColor,
+                    onClick = onHealth,
+                    trailing = rowSlot { Amount(stringResource(R.string.home_score, score.overallScore)) }
+                )
+            })
+        }
+        add(groupRow { shape ->
+            DashRow(
+                title = stringResource(R.string.purchase_check_card_title),
+                shape = shape,
+                subtitle = when {
+                    decisionCount > 0 -> stringResource(R.string.purchase_check_card_subtitle_decisions, decisionCount)
+                    wishlistCount > 0 -> stringResource(R.string.purchase_check_card_subtitle_wishlist, wishlistCount)
+                    else -> stringResource(R.string.purchase_check_card_subtitle)
+                },
+                subtitleColor = if (decisionCount > 0) colors.warning else colors.onSurfaceVariant,
+                icon = MaterialSymbols.SHOPPING_BAG,
+                onClick = onPurchaseCheck
+            )
+        })
+    }
+    SegmentedGroup(rows)
+}
+
+/** Running challenges as rows with their progress, or one row inviting to start one. */
+@Composable
+internal fun ChallengesGroup(challenges: List<com.example.sparely.domain.model.SavingsChallenge>, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    if (challenges.isEmpty()) {
+        DashRow(
+            title = stringResource(R.string.dashboard_join_challenge),
+            shape = segmentedShape(0, 1),
+            subtitle = stringResource(R.string.dashboard_challenge_competitive_desc),
+            icon = MaterialSymbols.TROPHY,
+            onClick = onOpen
+        )
+        return
+    }
+    SegmentedGroup(
+        challenges.map { challenge ->
+            groupRow { shape ->
+                DashRow(
+                    title = challenge.title,
+                    shape = shape,
+                    subtitle = if (challenge.streakDays > 0) pluralStringResource(R.plurals.home_streak, challenge.streakDays, challenge.streakDays)
+                    else stringResource(R.string.dashboard_ongoing_challenge),
+                    subtitleColor = if (challenge.streakDays > 0) colors.warning else colors.onSurfaceVariant,
+                    icon = if (challenge.streakDays > 0) MaterialSymbols.LOCAL_FIRE_DEPARTMENT else MaterialSymbols.TROPHY,
+                    iconTint = if (challenge.streakDays > 0) colors.warning else colors.primary,
+                    onClick = onOpen,
+                    trailing = if (challenge.targetAmount > 0) rowSlot {
+                        Amount(
+                            challenge.currentAmount.formatCurrency(decimals = 0),
+                            under = stringResource(R.string.assets_of_amount, challenge.targetAmount.formatCurrency(decimals = 0))
+                        )
+                    } else null,
+                    below = if (challenge.targetAmount > 0) slot { Bar(challenge.progressPercent.toFloat(), colors.primary) } else null
+                )
+            }
+        }
+    )
 }

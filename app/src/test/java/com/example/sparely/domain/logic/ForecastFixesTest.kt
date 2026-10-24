@@ -234,4 +234,30 @@ class ForecastFixesTest {
         }
         assertEquals(today.minusDays(30), asOfDates.first())
     }
+
+    // --- Day-by-day projection (home screen money line) ---
+
+    @Test
+    fun `a week of daily projections adds up to that week's projection`() {
+        val result = CashflowEngine.forecast(
+            CashflowEngine.ForecastInput(
+                currentBalance = 3000.0,
+                recentExpenses = handLoggedRentHistory(3),
+                recurringExpenses = emptyList(),
+                expectedMonthlyIncome = 4000.0,
+                today = today
+            )
+        )
+        val days = result.dailyProjections
+        assertEquals(30, days.size)
+        assertEquals(today, days.first().date)
+        var balance = result.currentBalance
+        result.weeklyProjections.forEachIndexed { week, projection ->
+            val slice = days.subList(week * 7, week * 7 + 7)
+            assertEquals(projection.projectedIncome, slice.sumOf { it.income }, 0.01)
+            assertEquals(projection.projectedSpending, slice.sumOf { it.spending + it.obligations }, 0.01)
+            balance += slice.sumOf { it.change }
+            assertEquals(projection.projectedEndBalance, balance, 0.01)
+        }
+    }
 }

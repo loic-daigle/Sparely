@@ -2513,4 +2513,17 @@
         <item quantity="many">%d achats ce mois-ci</item>
         <item quantity="other">%d achats ce mois-ci</item>
     </plurals>
+    <string name="home_free_to_spend">Disponible à dépenser</string>
+    <string name="home_free_to_spend_desc">Après factures et coffres · touchez pour le détail</string>
+    <string name="home_line_desc">Votre argent sur les 30 prochains jours; plus bas %1$s le %2$s</string>
+    <string name="home_lowest">Plus bas : %1$s le %2$s</string>
+    <string name="home_saved_pill">%1$s épargnés</string>
+    <string name="home_action_expense">Dépense</string>
+    <string name="home_action_income">Revenu</string>
+    <string name="home_score">%1$d/100</string>
+    <plurals name="home_streak">
+        <item quantity="one">Série de %d jour</item>
+        <item quantity="many">Série de %d jours</item>
+        <item quantity="other">Série de %d jours</item>
+    </plurals>
 </resources>
