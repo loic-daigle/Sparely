@@ -260,9 +260,14 @@ private fun SparelyScaffold(
     val settingsHeader = remember { com.example.sparely.ui.screens.SettingsHeaderState() }
     val inSettingsSection = currentDestination?.route == SparelyDestination.Settings.route &&
         settingsHeader.sectionTitle != null
+    // Home and the history pages draw their own header instead of this bar
+    val showTopBar = currentDestination?.route != SparelyDestination.Dashboard.route &&
+        currentDestination?.route != SparelyDestination.SavingsHistory.route &&
+        currentDestination?.route != SparelyDestination.VaultHistory.route
     // Pages open on a large title that shrinks into the bar as their content scrolls (docs/DESIGN.md §2);
-    // the expense form keeps a small pinned bar so the form starts higher
-    val largeTitle = !isExpenseEntry
+    // the expense form keeps a small pinned bar so the form starts higher. Only with the bar shown:
+    // without one to measure, the collapsing behaviour has no limit and swallows every scroll.
+    val largeTitle = showTopBar && !isExpenseEntry
     val topBarScrollBehavior = key(currentDestination?.route, inSettingsSection) {
         if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
         else TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -279,9 +284,7 @@ private fun SparelyScaffold(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            if (currentDestination?.route != SparelyDestination.Dashboard.route && 
-                currentDestination?.route != SparelyDestination.SavingsHistory.route &&
-                currentDestination?.route != SparelyDestination.VaultHistory.route) {
+            if (showTopBar) {
                 // The expense form doubles as the editor; say so when editing an existing expense
                 val isEditingExpense = currentDestination?.route == SparelyDestination.ExpenseEntry.route &&
                     (uiState.prefillExpense?.id ?: 0L) > 0L
