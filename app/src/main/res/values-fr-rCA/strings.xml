@@ -915,7 +915,7 @@
     <string name="dashboard_start_saving_title">Commence à épargner</string>
     <string name="dashboard_create_hisa_subtitle">Crée un compte d\'épargne à intérêt élevé</string>
     <string name="dashboard_view_all_action">Voir tout</string>
-    <string name="dashboard_recurring_patterns_found">Modèles récurrents trouvés</string>
+    <string name="dashboard_recurring_patterns_found">Paiements qui reviennent</string>
     <string name="dashboard_recurring_cadence_next">Tous les %1$d jours • Prochain : %2$s</string>
     <string name="dashboard_convert_subscriptions_hint">Touche pour convertir en abonnements</string>
     <string name="dashboard_up_next">À venir</string>
@@ -976,4 +976,16 @@
     <string name="vault_ed_auto_desc">Déplacé de ton compte principal</string>
     <string name="vault_detail_adjust_desc">Mets-le à ce que le compte contient vraiment; c\'est noté dans l\'historique</string>
     <string name="assets_hero_label">Dépensé dans tes projets et biens</string>
+    <plurals name="dash_emergency_tip">
+        <item quantity="one">%1$s par mois et tu y es en %2$d mois</item>
+        <item quantity="many">%1$s par mois et tu y es en %2$d mois</item>
+        <item quantity="other">%1$s par mois et tu y es en %2$d mois</item>
+    </plurals>
+    <string name="dash_projects_empty_desc">Vois ce que coûte vraiment un projet ou un bien</string>
+    <string name="dash_mode_manual">Mode manuel · ta répartition</string>
+    <string name="dash_saved_aim">%1$s épargnés ce mois-ci · vise %2$s</string>
+    <string name="dash_you_owe">Tu dois</string>
+    <string name="dash_util_good" formatted="false">Sous 30 % : bon pour ta cote de crédit</string>
+    <string name="dash_util_high" formatted="false">Au-dessus de 30 %, ça peut baisser ta cote de crédit</string>
+    <string name="dash_patterns_desc">Sparely les a repérés dans tes dépenses. Ajoute-les pour les voir venir.</string>
 </resources>

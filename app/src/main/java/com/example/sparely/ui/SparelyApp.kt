@@ -773,6 +773,7 @@ private fun SparelyNavHost(
                 onNavigateToPurchaseCheck = { navController.navigate(SparelyDestination.PurchaseCheck.route) },
                 onNavigateToRecurring = { navController.navigate(SparelyDestination.Recurring.route) },
                 onManageVaults = { navController.navigate(SparelyDestination.Vaults.route) },
+                onOpenVault = { vaultId -> navController.navigate(SparelyDestination.VaultHistory.createRoute(vaultId)) },
                 onManageSavingsAccounts = { navController.navigate(SparelyDestination.ManageSavingsAccounts.route) },
                 savingsAccounts = uiState.savingsAccounts,
                 onNavigateToVaultTransfers = { navController.navigate(SparelyDestination.VaultTransfers.route) },

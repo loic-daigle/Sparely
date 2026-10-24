@@ -436,7 +436,7 @@
     <string name="dashboard_all_caught_up">Vous êtes à jour !</string>
     <string name="dashboard_log_subscriptions_reminders">Enregistrez vos abonnements et factures pour recevoir des rappels.</string>
     <string name="dashboard_due_on">Échéance %1$s</string>
-    <string name="dashboard_emergency_runway">Voie d\'urgence</string>
+    <string name="dashboard_emergency_runway">Fonds d\'urgence</string>
     <string name="dashboard_month_goal">Objectif de %1$d mois</string>
     <string name="dashboard_current_cushion">Coussin actuel</string>
     <string name="dashboard_shortfall">Déficit</string>
@@ -1187,7 +1187,7 @@
     <string name="dashboard_credit_chip">Crédit</string>
     <string name="dashboard_log_action">Noter</string>
     <string name="dashboard_repeat_action">Répéter</string>
-    <string name="dashboard_recurring_patterns_found">Modèles récurrents trouvés</string>
+    <string name="dashboard_recurring_patterns_found">Paiements qui reviennent</string>
     <string name="dashboard_convert_subscriptions_hint">Appuyez pour convertir en abonnements</string>
 
     <!-- Savings accounts / HISA -->
@@ -2312,4 +2312,79 @@
     <string name="asset_category_health">Santé</string>
     <string name="asset_category_other">Autre</string>
     <string name="asset_category_custom">Personnalisé</string>
+    <string name="dash_att_transfers_title">Virements à faire</string>
+    <string name="dash_att_over_budget_title">Budget dépassé</string>
+    <string name="dash_when_today">Aujourd\'hui</string>
+    <string name="dash_when_tomorrow">Demain</string>
+    <string name="dash_when_in_days">Dans %1$d jours</string>
+    <string name="dash_main_account">Compte principal</string>
+    <string name="dash_variable_amount">Montant variable</string>
+    <string name="dash_tile_accounts">Comptes</string>
+    <string name="dash_tile_vaults">Coffres</string>
+    <string name="dash_tile_projects">Projets</string>
+    <string name="dash_interest">%1$s d\'intérêt</string>
+    <string name="dash_to_transfer">%1$s à transférer</string>
+    <string name="dash_manage_accounts">Gérer les comptes</string>
+    <string name="dash_see_projects">Voir les projets et biens</string>
+    <string name="dash_projects_empty_title">Suivre un projet ou un bien</string>
+    <string name="dash_projects_empty_desc">Voyez ce que coûte vraiment un projet ou un bien</string>
+    <string name="dash_next_payment">Prochain : %1$s le %2$s</string>
+    <string name="dash_emergency_goal">Objectif : %1$s mois de dépenses</string>
+    <string name="dash_months_value">%1$s mois</string>
+    <string name="dash_covered">couverts</string>
+    <string name="dash_set_aside">%1$s de côté</string>
+    <string name="dash_reached">Atteint</string>
+    <string name="dash_mode_manual">Mode manuel · votre répartition</string>
+    <string name="dash_mode_guided">Mode guidé · Sparely suggère</string>
+    <string name="dash_mode_automatic">Mode automatique · Sparely ajuste</string>
+    <string name="dash_target_pct">Cible %1$s</string>
+    <string name="dash_saved_aim">%1$s épargnés ce mois-ci · visez %2$s</string>
+    <string name="dash_saved_ahead">%1$s épargnés ce mois-ci · %2$s de plus que visé</string>
+    <string name="dash_split_title">Mis de côté à chaque dépense</string>
+    <string name="dash_split_emergency">Urgence %1$s</string>
+    <string name="dash_split_invest">Placement %1$s</string>
+    <string name="dash_split_fun">Plaisir %1$s</string>
+    <string name="dash_you_owe">Vous devez</string>
+    <string name="dash_of_limit">sur %1$s de limite</string>
+    <string name="dash_used_pct">%1$s utilisé</string>
+    <string name="dash_util_good" formatted="false">Sous 30 % : bon pour votre cote de crédit</string>
+    <string name="dash_util_high" formatted="false">Au-dessus de 30 %, ça peut baisser votre cote de crédit</string>
+    <string name="dash_statement_day">Relevé le %1$d</string>
+    <string name="dash_credit_card">Carte de crédit</string>
+    <string name="dash_of_limit_pct">%1$s de la limite</string>
+    <string name="dash_available">%1$s disponibles</string>
+    <string name="dash_credit_of">Crédit de %1$s</string>
+    <string name="dash_patterns_desc">Sparely les a repérés dans vos dépenses. Ajoutez-les pour les voir venir.</string>
+    <string name="dash_cadence_week">%1$s chaque semaine</string>
+    <string name="dash_cadence_two_weeks">%1$s aux 2 semaines</string>
+    <string name="dash_cadence_month">%1$s chaque mois</string>
+    <string name="dash_cadence_year">%1$s chaque année</string>
+    <string name="dash_cadence_days">%1$s tous les %2$d jours</string>
+    <string name="dash_next_on">Prochain le %1$s</string>
+    <string name="dash_add">Ajouter</string>
+    <plurals name="dash_att_transfers_sub">
+        <item quantity="one">%d virement en attente</item>
+        <item quantity="many">%d virements en attente</item>
+        <item quantity="other">%d virements en attente</item>
+    </plurals>
+    <plurals name="dash_see_all_vaults">
+        <item quantity="one">Voir le coffre</item>
+        <item quantity="many">Voir les %d coffres</item>
+        <item quantity="other">Voir les %d coffres</item>
+    </plurals>
+    <plurals name="dash_upcoming_summary">
+        <item quantity="one">%1$d paiement d\'ici 30 jours · %2$s</item>
+        <item quantity="many">%1$d paiements d\'ici 30 jours · %2$s</item>
+        <item quantity="other">%1$d paiements d\'ici 30 jours · %2$s</item>
+    </plurals>
+    <plurals name="dash_more_payments">
+        <item quantity="one">%1$d autre paiement · %2$s</item>
+        <item quantity="many">%1$d autres paiements · %2$s</item>
+        <item quantity="other">%1$d autres paiements · %2$s</item>
+    </plurals>
+    <plurals name="dash_emergency_tip">
+        <item quantity="one">%1$s par mois et vous y êtes en %2$d mois</item>
+        <item quantity="many">%1$s par mois et vous y êtes en %2$d mois</item>
+        <item quantity="other">%1$s par mois et vous y êtes en %2$d mois</item>
+    </plurals>
 </resources>

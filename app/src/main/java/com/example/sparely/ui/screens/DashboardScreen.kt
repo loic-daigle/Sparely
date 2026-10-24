@@ -111,8 +111,6 @@ import java.time.temporal.ChronoUnit
 
 /** Days ahead within which an upcoming bill is surfaced in "Needs attention". */
 private const val BILL_ATTENTION_WINDOW_DAYS = 3
-private const val MAX_DASHBOARD_VAULTS = 5
-private const val MAX_DASHBOARD_BILLS = 3
 private const val QUICK_ACTIONS_KEY = "quick_actions"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,6 +134,7 @@ fun DashboardScreen(
     onNavigateToCreditCards: () -> Unit = {},
     onNavigateToInsights: () -> Unit = {},
     onManageAssets: () -> Unit = {},
+    onOpenVault: (Long) -> Unit = {},
     onConvertRecurringInsight: (DetectedRecurringTransaction) -> Unit = {},
     onTransferIdleToSavings: (amount: Double) -> Unit = {},
     pendingVariableBills: List<com.example.sparely.domain.model.PendingVariableBill> = emptyList(),
@@ -190,10 +189,9 @@ fun DashboardScreen(
     val creditCards = uiState.paymentMethods.filter { it.isCreditCard }
     val netUsable = uiState.netUsableMoney
     val showUsable = netUsable > 0 || uiState.settings.mainAccountBalance != 0.0 || savingsAccounts.isNotEmpty()
-    val pendingVaultCount = pendingVaultContributions.mapNotNull { it.vaultId }.distinct().size
     val attentionItems = buildAttentionItems(
         uiState = uiState,
-        pendingVaultCount = pendingVaultCount,
+        pendingVaultContributions = pendingVaultContributions,
         onNavigateToVaultTransfers = onNavigateToVaultTransfers,
         onNavigateToBudgets = onNavigateToBudgets,
         onNavigateToRecurring = onNavigateToRecurring
@@ -298,8 +296,8 @@ fun DashboardScreen(
 
             // ── Needs attention ─────────────────────────────────────────
             if (attentionItems.isNotEmpty()) {
-                dashboardSection(key = "attention", titleRes = R.string.dashboard_needs_attention) {
-                    AttentionCard(items = attentionItems)
+                dashboardSection(key = "attention", titleRes = R.string.dashboard_needs_attention, badge = attentionItems.size) {
+                    AttentionGroup(items = attentionItems)
                 }
             }
 
@@ -325,12 +323,18 @@ fun DashboardScreen(
 
             // ── Accounts & goals ────────────────────────────────────────
             dashboardSection(key = "accounts", titleRes = R.string.dashboard_accounts_title) {
-                UnifiedAccountsDashboardSection(
-                    savingsAccounts = savingsAccounts,
-                    onManageSavingsAccounts = onManageSavingsAccounts,
+                AccountsAndGoals(
+                    savingsAccounts = savingsAccounts.filter { !it.archived },
                     vaults = activeVaults,
-                    pendingVaultCount = pendingVaultCount,
+                    pendingByVault = pendingVaultContributions
+                        .mapNotNull { c -> c.vaultId?.let { it to c.amount } }
+                        .groupBy({ it.first }, { it.second })
+                        .mapValues { (_, amounts) -> amounts.sum() },
+                    assets = uiState.assets,
+                    workingOnProjectId = uiState.settings.workingOnProjectId,
+                    onManageSavingsAccounts = onManageSavingsAccounts,
                     onManageVaults = onManageVaults,
+                    onOpenVault = onOpenVault,
                     onManageAssets = onManageAssets
                 )
             }
@@ -357,20 +361,23 @@ fun DashboardScreen(
                 }
             }
 
-            item(key = "upcoming_bills") {
-                UpcomingRecurringCard(
+            dashboardSection(key = "upcoming_bills", titleRes = R.string.dashboard_up_next, onAction = onNavigateToRecurring) {
+                UpcomingPayments(
                     items = uiState.upcomingRecurring,
-                    hasRecurring = uiState.recurringExpenses.isNotEmpty(),
+                    recurring = uiState.recurringExpenses,
+                    paymentMethods = uiState.paymentMethods,
                     onManageRecurring = onNavigateToRecurring
                 )
             }
 
             if (creditCards.isNotEmpty()) {
-                item(key = "credit_cards") {
-                    CreditCardSummaryCard(
-                        creditCards = creditCards,
-                        onClick = onNavigateToCreditCards
-                    )
+                dashboardSection(
+                    key = "credit_cards",
+                    titleRes = R.string.dashboard_credit_cards_title,
+                    onAction = onNavigateToCreditCards,
+                    actionRes = R.string.dashboard_manage_action
+                ) {
+                    CreditCardsGroup(cards = creditCards, onClick = onNavigateToCreditCards)
                 }
             }
 
@@ -388,20 +395,17 @@ fun DashboardScreen(
             if (summary != null || emergencyGoal != null) {
                 dashboardSection(key = "savings_progress", titleRes = R.string.dashboard_savings_progress) {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        emergencyGoal?.let { EmergencyFundProgress(goal = it) }
                         summary?.let {
-                            SmartSavingSnapshotCard(summary = it, monthlyIncome = uiState.settings.monthlyIncome)
+                            SmartSavingProgress(summary = it, monthlyIncome = uiState.settings.monthlyIncome)
                         }
-                        emergencyGoal?.let { EmergencyFundCard(goal = it) }
                     }
                 }
             }
 
             if (activeRecurringInsights.isNotEmpty()) {
-                item(key = "recurring_patterns") {
-                    RecurringInsightsCard(
-                        insights = activeRecurringInsights,
-                        onConvert = onConvertRecurringInsight
-                    )
+                dashboardSection(key = "recurring_patterns", titleRes = R.string.dashboard_recurring_patterns_found) {
+                    RepeatingPayments(insights = activeRecurringInsights, onAdd = onConvertRecurringInsight)
                 }
             }
 
@@ -441,6 +445,7 @@ private fun LazyListScope.dashboardSection(
     titleRes: Int,
     onAction: (() -> Unit)? = null,
     actionRes: Int = R.string.dashboard_view_all,
+    badge: Int? = null,
     content: @Composable () -> Unit
 ) {
     item(key = key) {
@@ -448,14 +453,14 @@ private fun LazyListScope.dashboardSection(
             modifier = Modifier.padding(top = MaterialTheme.spacing.xs),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)
         ) {
-            SectionHeader(title = stringResource(titleRes), actionLabel = stringResource(actionRes), onAction = onAction)
+            SectionHeader(title = stringResource(titleRes), actionLabel = stringResource(actionRes), onAction = onAction, badge = badge)
             content()
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> Unit)?) {
+private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> Unit)?, badge: Int? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -470,6 +475,18 @@ private fun SectionHeader(title: String, actionLabel: String, onAction: (() -> U
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() }
         )
+        // How many things are waiting, in the same red as the alerts
+        badge?.takeIf { it > 0 }?.let { count ->
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.criticalContainer) {
+                Text(
+                    text = count.toString(),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.critical
+                )
+            }
+        }
         if (onAction != null) {
             SparelyTextButton(onClick = onAction) {
                 Text(actionLabel)
@@ -532,32 +549,6 @@ private fun IconBadge(
     ) {
         MaterialSymbolIcon(icon = icon, contentDescription = null, tint = tint, size = size * 0.55f)
     }
-}
-
-@Composable
-private fun RoundedProgressBar(
-    progress: Float,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    val shown by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(
-            durationMillis = ExpressiveMotionTokens.EmphasizedDurationMillis,
-            easing = ExpressiveMotionTokens.EmphasizedEasing
-        ),
-        label = "progress"
-    )
-    LinearProgressIndicator(
-        progress = { shown },
-        modifier = modifier
-            .fillMaxWidth()
-            .height(8.dp)
-            .clip(CircleShape),
-        color = color,
-        trackColor = color.copy(alpha = 0.18f),
-        strokeCap = StrokeCap.Round
-    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -926,39 +917,36 @@ private fun QuickAction(
 // Needs attention
 // ─────────────────────────────────────────────────────────────────────────────
 
-private enum class AttentionTone { INFO, WARNING, CRITICAL }
-
-private data class AttentionItem(
-    @DrawableRes val icon: Int,
-    val title: String,
-    val tone: AttentionTone,
-    val onClick: () -> Unit
-)
-
 @Composable
 private fun buildAttentionItems(
     uiState: SparelyUiState,
-    pendingVaultCount: Int,
+    pendingVaultContributions: List<VaultContribution>,
     onNavigateToVaultTransfers: () -> Unit,
     onNavigateToBudgets: () -> Unit,
     onNavigateToRecurring: () -> Unit
 ): List<AttentionItem> {
     val items = mutableListOf<AttentionItem>()
 
-    if (pendingVaultCount > 0) {
+    if (pendingVaultContributions.isNotEmpty()) {
+        val count = pendingVaultContributions.size
         items += AttentionItem(
             icon = MaterialSymbols.SWAP_HORIZ,
-            title = pluralStringResource(R.plurals.dashboard_attention_pending_transfers, pendingVaultCount, pendingVaultCount),
+            title = stringResource(R.string.dash_att_transfers_title),
+            subtitle = pluralStringResource(R.plurals.dash_att_transfers_sub, count, count),
+            amount = pendingVaultContributions.sumOf { it.amount }.formatCurrency(decimals = 0),
             tone = AttentionTone.INFO,
             onClick = onNavigateToVaultTransfers
         )
     }
 
     uiState.budgetSummary?.let { budget ->
-        if (budget.categoriesOverBudget > 0) {
+        val over = budget.categoryStatuses.filter { it.isOverBudget }
+        if (over.isNotEmpty()) {
             items += AttentionItem(
                 icon = MaterialSymbols.PIE_CHART,
-                title = pluralStringResource(R.plurals.dashboard_attention_over_budget, budget.categoriesOverBudget, budget.categoriesOverBudget),
+                title = stringResource(R.string.dash_att_over_budget_title),
+                subtitle = over.joinToString(" · ") { it.category.displayName() },
+                amount = "+" + over.sumOf { it.spent - it.limit }.formatCurrency(decimals = 0),
                 tone = AttentionTone.CRITICAL,
                 onClick = onNavigateToBudgets
             )
@@ -970,14 +958,20 @@ private fun buildAttentionItems(
         .sortedBy { it.daysUntilDue }
         .take(2)
         .forEach { bill ->
+            val recurring = bill.recurringExpense
+            val paidWith = uiState.paymentMethods.find { it.id == recurring.paymentMethodId }?.name
+                ?: if (recurring.deductFromMainAccount) stringResource(R.string.dash_main_account) else null
+            val whenText = when (bill.daysUntilDue) {
+                0 -> stringResource(R.string.dash_when_today)
+                1 -> stringResource(R.string.dash_when_tomorrow)
+                else -> stringResource(R.string.dash_when_in_days, bill.daysUntilDue)
+            }
+            val amount = (bill.predictedAmount ?: recurring.amount).formatCurrency()
             items += AttentionItem(
                 icon = MaterialSymbols.CALENDAR_MONTH,
-                title = stringResource(
-                    R.string.dashboard_attention_bill_due,
-                    bill.recurringExpense.description,
-                    (bill.predictedAmount ?: bill.recurringExpense.amount).formatCurrency(),
-                    dueLabel(bill.daysUntilDue)
-                ),
+                title = recurring.description,
+                subtitle = listOfNotNull(whenText, paidWith).joinToString(" · "),
+                amount = if (recurring.isVariableAmount) "≈ $amount" else amount,
                 tone = if (bill.daysUntilDue == 0) AttentionTone.WARNING else AttentionTone.INFO,
                 onClick = onNavigateToRecurring
             )
@@ -986,583 +980,10 @@ private fun buildAttentionItems(
     return items
 }
 
-@Composable
-private fun dueLabel(daysUntilDue: Int): String = when (daysUntilDue) {
-    0 -> stringResource(R.string.dashboard_due_today)
-    1 -> stringResource(R.string.dashboard_due_tomorrow)
-    else -> stringResource(R.string.dashboard_due_in_days, daysUntilDue)
-}
-
-@Composable
-private fun AttentionCard(items: List<AttentionItem>) {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = 12.dp
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxs)) {
-            items.forEach { item -> AttentionRow(item) }
-        }
-    }
-}
-
-@Composable
-private fun AttentionRow(item: AttentionItem) {
-    val (container, tint) = when (item.tone) {
-        AttentionTone.INFO -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
-        AttentionTone.WARNING -> MaterialTheme.colorScheme.warningContainer to MaterialTheme.colorScheme.warning
-        AttentionTone.CRITICAL -> MaterialTheme.colorScheme.criticalContainer to MaterialTheme.colorScheme.critical
-    }
-    Surface(
-        onClick = item.onClick,
-        shape = ExpressiveShapes.small,
-        color = Color.Transparent,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)
-        ) {
-            IconBadge(icon = item.icon, containerColor = container, tint = tint, size = 36.dp)
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-            MaterialSymbolIcon(
-                icon = MaterialSymbols.ARROW_FORWARD,
-                contentDescription = null,
-                size = 18.dp,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Accounts & goals
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun UnifiedAccountsDashboardSection(
-    savingsAccounts: List<SavingsAccount>,
-    onManageSavingsAccounts: () -> Unit,
-    vaults: List<SmartVault>,
-    pendingVaultCount: Int,
-    onManageVaults: () -> Unit,
-    onManageAssets: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf(
-        R.string.dashboard_tab_savings,
-        R.string.dashboard_tab_vaults,
-        R.string.assets_tab
-    )
-
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Pill switcher: the selected segment fills, the others sit on a shared track
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(4.dp)
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                tabs.forEachIndexed { index, titleResId ->
-                    val selected = selectedTab == index
-                    val segmentColor by animateColorAsState(
-                        if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                        label = "segment"
-                    )
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(CircleShape)
-                            .background(segmentColor)
-                            .selectable(selected = selected, role = Role.Tab, onClick = { selectedTab = index })
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(titleResId),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        // Vault transfers waiting on the user
-                        if (index == 1 && pendingVaultCount > 0) {
-                            Spacer(Modifier.width(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(MaterialTheme.colorScheme.critical, CircleShape)
-                            )
-                        }
-                    }
-                }
-            }
-
-            SparelyTextButton(
-                onClick = when (selectedTab) {
-                    0 -> onManageSavingsAccounts
-                    1 -> onManageVaults
-                    else -> onManageAssets
-                }
-            ) {
-                Text(stringResource(R.string.dashboard_manage_action))
-            }
-        }
-
-        when (selectedTab) {
-            0 -> {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    if (savingsAccounts.isEmpty()) {
-                        EmptyAccountsPlaceholder(
-                            title = stringResource(R.string.dashboard_start_saving_title),
-                            subtitle = stringResource(R.string.dashboard_start_saving_subtitle),
-                            onClick = onManageSavingsAccounts
-                        )
-                    } else {
-                        savingsAccounts.forEach { account ->
-                            AccountItem(
-                                name = account.name,
-                                balance = account.currentBalance,
-                                subtitle = stringResource(R.string.dashboard_apy_suffix, formatApy(account.annualPercentageYield)),
-                                onClick = onManageSavingsAccounts
-                            )
-                        }
-                    }
-                }
-            }
-            1 -> DashboardVaultsCarousel(vaults = vaults, onManageVaults = onManageVaults)
-            2 -> {
-                ExpressiveCard(
-                    onClick = onManageAssets,
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    CardHeader(
-                        icon = MaterialSymbols.SHOPPING_BAG,
-                        title = stringResource(R.string.assets_title),
-                        subtitle = stringResource(R.string.dashboard_assets_description),
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        trailing = {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.ARROW_FORWARD,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyAccountsPlaceholder(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    ExpressiveCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        CardHeader(
-            icon = MaterialSymbols.ACCOUNT_BALANCE,
-            title = title,
-            subtitle = subtitle,
-            iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-            iconTint = MaterialTheme.colorScheme.primary,
-            trailing = {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.ADD_CIRCLE,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        )
-    }
-}
-
-@Composable
-private fun AccountItem(
-    name: String,
-    balance: Double,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        shape = ExpressiveShapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Text(
-                text = balance.formatCurrency(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-private val VAULT_CARD_HEIGHT = 152.dp
-
-@Composable
-private fun DashboardVaultsCarousel(
-    vaults: List<SmartVault>,
-    onManageVaults: () -> Unit
-) {
-    if (vaults.isEmpty()) {
-        ExpressiveCard(
-            onClick = onManageVaults,
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)) {
-                CardHeader(
-                    icon = MaterialSymbols.SAVINGS,
-                    title = stringResource(R.string.dashboard_vaults_empty_title),
-                    subtitle = stringResource(R.string.dashboard_vaults_empty_description),
-                    iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.primary
-                )
-                SparelyTonalButton(
-                    onClick = onManageVaults,
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
-                ) {
-                    SingleLineText(stringResource(R.string.dashboard_vaults_empty_action))
-                }
-            }
-        }
-        return
-    }
-
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    val singleVault = vaults.size == 1
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)) {
-        items(vaults.take(MAX_DASHBOARD_VAULTS), key = { it.id }) { vault ->
-            VaultItem(
-                vault = vault,
-                dateFormatter = dateFormatter,
-                onClick = onManageVaults,
-                modifier = Modifier.fillParentMaxWidth(if (singleVault) 1f else 0.82f)
-            )
-        }
-        if (vaults.size > MAX_DASHBOARD_VAULTS) {
-            item(key = "view_all") {
-                val remaining = vaults.size - MAX_DASHBOARD_VAULTS
-                Surface(
-                    onClick = onManageVaults,
-                    modifier = Modifier
-                        .width(112.dp)
-                        .height(VAULT_CARD_HEIGHT),
-                    shape = ExpressiveShapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.ARROW_FORWARD,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = pluralStringResource(R.plurals.dashboard_more_vaults_count, remaining, remaining),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun VaultItem(
-    vault: SmartVault,
-    dateFormatter: DateTimeFormatter,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val spacing = MaterialTheme.spacing
-    val progress = if (vault.targetAmount <= 0) 0f
-                  else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
-
-    val urgencyColor = when (vault.priority) {
-        VaultPriority.CRITICAL -> MaterialTheme.colorScheme.critical
-        VaultPriority.HIGH -> MaterialTheme.colorScheme.tertiary
-        VaultPriority.MEDIUM -> MaterialTheme.colorScheme.primary
-        VaultPriority.LOW -> MaterialTheme.colorScheme.secondary
-    }
-
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(VAULT_CARD_HEIGHT),
-        shape = ExpressiveShapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(spacing.md),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = vault.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val targetText = buildString {
-                        append(stringResource(R.string.dashboard_goal_prefix))
-                        append(vault.targetAmount.formatCurrency())
-                        vault.targetDate?.let {
-                            append(stringResource(R.string.dashboard_separator) + " ${it.format(dateFormatter)}")
-                        }
-                    }
-                    Text(
-                        text = targetText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Surface(
-                    shape = ExpressiveShapes.extraSmall,
-                    color = urgencyColor.copy(alpha = 0.16f)
-                ) {
-                    Text(
-                        text = vault.type.displayName(),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = urgencyColor,
-                        maxLines = 1
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    SingleLineText(
-                        text = vault.currentBalance.formatCurrency(),
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = urgencyColor
-                    )
-                }
-                RoundedProgressBar(progress = progress, color = urgencyColor)
-                vault.nextExpectedContribution?.takeIf { it > 0 }?.let { nextAmount ->
-                    Text(
-                        text = stringResource(R.string.dashboard_next_contribution, nextAmount.formatCurrency()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // This month
 // ─────────────────────────────────────────────────────────────────────────────
 
-@Composable
-private fun UpcomingRecurringCard(
-    items: List<UpcomingRecurringExpense>,
-    hasRecurring: Boolean,
-    onManageRecurring: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
-    val sorted = remember(items) { items.sortedBy { it.dueDate } }
-    val totalUpcoming = sorted.sumOf { it.predictedAmount ?: it.recurringExpense.amount }
-
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onManageRecurring,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            CardHeader(
-                icon = MaterialSymbols.CALENDAR_MONTH,
-                title = stringResource(R.string.dashboard_up_next),
-                subtitle = when {
-                    sorted.isNotEmpty() -> pluralStringResource(R.plurals.dashboard_payments_due_count, sorted.size, sorted.size)
-                    hasRecurring -> stringResource(R.string.dashboard_all_bills_paid)
-                    else -> stringResource(R.string.dashboard_add_subscriptions_prompt)
-                },
-                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
-                trailing = {
-                    if (sorted.isNotEmpty()) {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = stringResource(R.string.dashboard_total_commitment),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = totalUpcoming.formatCurrency(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    } else {
-                        MaterialSymbolIcon(
-                            icon = if (hasRecurring) MaterialSymbols.CHECK_CIRCLE else MaterialSymbols.ADD_CIRCLE,
-                            contentDescription = null,
-                            tint = if (hasRecurring) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            )
-
-            if (sorted.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    sorted.take(MAX_DASHBOARD_BILLS).forEach { upcoming ->
-                        BillRow(upcoming = upcoming, formatter = formatter)
-                    }
-                    if (sorted.size > MAX_DASHBOARD_BILLS) {
-                        val remaining = sorted.size - MAX_DASHBOARD_BILLS
-                        Text(
-                            text = pluralStringResource(R.plurals.dashboard_more_items_count, remaining, remaining),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BillRow(upcoming: UpcomingRecurringExpense, formatter: DateTimeFormatter) {
-    val dueSoon = upcoming.daysUntilDue in 0..BILL_ATTENTION_WINDOW_DAYS
-    val monthFormatter = remember { DateTimeFormatter.ofPattern("MMM") }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)
-    ) {
-        // Date badge: day number over short month for fast scanning
-        Surface(
-            shape = ExpressiveShapes.extraSmall,
-            color = if (dueSoon) MaterialTheme.colorScheme.warningContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = if (dueSoon) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(44.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = upcoming.dueDate.dayOfMonth.toString(),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = upcoming.dueDate.format(monthFormatter),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = upcoming.recurringExpense.description,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = if (upcoming.daysUntilDue in 0..7) {
-                    stringResource(R.string.dashboard_due_date, dueLabel(upcoming.daysUntilDue))
-                } else {
-                    stringResource(R.string.dashboard_due_date, upcoming.dueDate.format(formatter))
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (dueSoon) MaterialTheme.colorScheme.warning else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = (upcoming.predictedAmount ?: upcoming.recurringExpense.amount).formatCurrency(),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
 
 @Composable
 private fun PurchaseCheckCard(wishlistCount: Int, decisionCount: Int, onClick: () -> Unit) {
@@ -1888,162 +1309,6 @@ private fun QuickChallengeItem(challenge: SavingsChallenge, onClick: () -> Unit)
     }
 }
 
-@Composable
-private fun CreditCardSummaryCard(
-    creditCards: List<PaymentMethod>,
-    onClick: () -> Unit
-) {
-    val spacing = MaterialTheme.spacing
-    // What is owed: a card in credit (after a refund) doesn't pay off another card's balance
-    val totalBalance = creditCards.sumOf { it.currentBalance.coerceAtLeast(0.0) }
-    val totalLimit = creditCards.sumOf { it.creditLimit ?: 0.0 }
-    val overallUtilization = if (totalLimit > 0) totalBalance / totalLimit else 0.0
-    
-    val healthLevel = when {
-        overallUtilization < 0.3 -> HealthLevel.GOOD
-        overallUtilization < 0.5 -> HealthLevel.FAIR
-        else -> HealthLevel.CRITICAL
-    }
-    
-    val healthColor = when (healthLevel) {
-        HealthLevel.GOOD -> MaterialTheme.colorScheme.success
-        HealthLevel.FAIR -> MaterialTheme.colorScheme.warning
-        else -> MaterialTheme.colorScheme.critical
-    }
-
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
-        ) {
-            // Same header as the other cards; the balance sits on the right instead of in a
-            // display-size line that would compete with the hero
-            CardHeader(
-                icon = MaterialSymbols.CREDIT_CARD,
-                title = stringResource(R.string.dashboard_credit_cards_title),
-                subtitle = pluralStringResource(
-                    R.plurals.dashboard_credit_cards_count,
-                    creditCards.size,
-                    creditCards.size
-                ),
-                iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
-                trailing = {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = stringResource(R.string.dashboard_total_balance),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatCurrency(totalBalance),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            )
-
-            // Utilization Bar
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_credit_utilization),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatPercent(overallUtilization),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = healthColor
-                    )
-                }
-                LinearProgressIndicator(
-                    progress = { overallUtilization.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = healthColor,
-                    trackColor = healthColor.copy(alpha = 0.2f),
-                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap
-                )
-                if (healthLevel != HealthLevel.GOOD) {
-                    Text(
-                        text = stringResource(R.string.dashboard_utilization_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = healthColor,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-            }
-
-            // Card Breakdown
-            if (creditCards.isNotEmpty()) {
-                HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    creditCards.take(3).forEach { card ->
-                        val cardUtil = if ((card.creditLimit ?: 0.0) > 0) card.currentBalance / card.creditLimit!! else 0.0
-                        val cardColor = when {
-                            cardUtil < 0.3 -> MaterialTheme.colorScheme.onSurface
-                            cardUtil < 0.5 -> MaterialTheme.colorScheme.warning
-                            else -> MaterialTheme.colorScheme.critical
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                com.example.sparely.ui.components.PaymentMethodIcon(
-                                    method = card,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Text(
-                                    text = card.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = formatCurrency(card.currentBalance),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = cardColor
-                                )
-                            }
-                        }
-                    }
-                    if (creditCards.size > 3) {
-                         Text(
-                            text = pluralStringResource(
-                                R.plurals.dashboard_more_items_count,
-                                creditCards.size - 3,
-                                creditCards.size - 3
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 /**
  * The dashboard's insights, as one segmented group like the rest of the app: on-device AI's take
@@ -2162,379 +1427,10 @@ private fun RowChevron() {
 }
 
 
-private fun formatApy(value: Double): String {
-    return value.formatPercent(2)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Savings progress
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: Double) {
-    val spacing = MaterialTheme.spacing
-    val isOnTrack = summary.actualSavingsRate >= summary.targetSavingsRate
-    val statusColor = if (isOnTrack) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.critical
-    
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(ExpressiveShapes.extraSmall)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.SAVINGS,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = stringResource(R.string.dashboard_smart_saving),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = when (summary.allocationMode) {
-                                SmartAllocationMode.MANUAL -> stringResource(R.string.dashboard_allocation_manual_mode)
-                                SmartAllocationMode.GUIDED -> stringResource(R.string.dashboard_allocation_guided_mode)
-                                SmartAllocationMode.AUTOMATIC -> stringResource(R.string.dashboard_allocation_automatic_mode)
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // Savings Rate Display
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.dashboard_savings_rate_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = summary.actualSavingsRate.formatPercent(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = statusColor
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = stringResource(R.string.dashboard_target_with_amount_label, summary.targetSavingsRate.formatPercent()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = if (isOnTrack) MaterialSymbols.CHECK_CIRCLE else MaterialSymbols.WARNING,
-                            contentDescription = null,
-                            size = 16.dp,
-                            tint = statusColor
-                        )
-                        Text(
-                            text = if (isOnTrack) stringResource(R.string.dashboard_on_track) else stringResource(R.string.dashboard_below_target),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor
-                        )
-                    }
-                }
-            }
-
-            // Monthly target hint
-            if (monthlyIncome > 0.0) {
-                val monthlyTarget = monthlyIncome * summary.targetSavingsRate
-                Text(
-                    text = stringResource(R.string.dashboard_aim_for_target, monthlyTarget.formatCurrency()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmergencyFundCard(goal: EmergencyFundGoal) {
-    val spacing = MaterialTheme.spacing
-    val coverage = goal.coverageRatio.coerceIn(0.0, 1.0)
-    val animatedCoverage by animateFloatAsState(
-        targetValue = coverage.toFloat(),
-        animationSpec = tween(
-            durationMillis = ExpressiveMotionTokens.SlowDurationMillis,
-            easing = ExpressiveMotionTokens.EmphasizedEasing
-        ),
-        label = "coverage"
-    )
-    val savedAmount = (goal.targetAmount - goal.shortfallAmount).coerceAtLeast(0.0)
-    val shortfall = goal.shortfallAmount.coerceAtLeast(0.0)
-    val statusColor = if (coverage >= 1.0) MaterialTheme.colorScheme.success else MaterialTheme.colorScheme.primary
-
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(ExpressiveShapes.extraSmall)
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.SECURITY,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = stringResource(R.string.dashboard_emergency_runway),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.dashboard_month_goal_count,
-                                goal.targetMonths.toInt(),
-                                goal.targetMonths.toInt()
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // Balance and Progress
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.dashboard_current_cushion),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = savedAmount.formatCurrency(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = stringResource(R.string.dashboard_target_amount_label, goal.targetAmount.formatCurrency()),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = String.format("%.0f%%", coverage * 100),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor
-                        )
-                    }
-                }
-
-                LinearProgressIndicator(
-                    progress = { animatedCoverage },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(6.dp)),
-                    color = statusColor,
-                    trackColor = statusColor.copy(alpha = 0.2f),
-                    strokeCap = StrokeCap.Round
-                )
-
-                // Shortfall or success message
-                if (shortfall > 0.0) {
-                    Text(
-                        text = stringResource(R.string.dashboard_remaining_to_go_amount, shortfall.formatCurrency()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.CHECK_CIRCLE,
-                            contentDescription = null,
-                            size = 16.dp,
-                            tint = MaterialTheme.colorScheme.success
-                        )
-                        Text(
-                            text = stringResource(R.string.dashboard_goal_reached),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.success,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Patterns & challenges
 // ─────────────────────────────────────────────────────────────────────────────
 
-@Composable
-private fun RecurringInsightsCard(
-    insights: List<DetectedRecurringTransaction>,
-    onConvert: (DetectedRecurringTransaction) -> Unit = {}
-) {
-    val spacing = MaterialTheme.spacing
-    val formatter = DateTimeFormatter.ofPattern("MMM d")
-    val previewInsights = insights.take(3)
-
-    ExpressiveCard(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.AUTORENEW,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            size = 18.dp
-                        )
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.dashboard_recurring_patterns_found),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                for (insight in previewInsights) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = ExpressiveShapes.extraSmall,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                        tonalElevation = 0.dp,
-                        onClick = { onConvert(insight) }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = insight.description,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = stringResource(
-                                        R.string.dashboard_recurring_pattern_detail,
-                                        insight.cadenceDays,
-                                        insight.lastOccurrence.plusDays(insight.cadenceDays.toLong()).format(formatter)
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = insight.averageAmount.formatCurrency(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                MaterialSymbolIcon(
-                                    icon = MaterialSymbols.ARROW_FORWARD,
-                                    contentDescription = null,
-                                    size = 18.dp,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Text(
-                text = stringResource(R.string.dashboard_convert_subscriptions_hint),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-        }
-    }
-}
 
 @Composable
 private fun ChallengesEmptyCard(onAddChallenge: () -> Unit) {

@@ -255,7 +255,7 @@ fun AssetManagementScreen(
 
 /** The icon for a project or asset, from what it is. */
 @DrawableRes
-private fun Asset.icon(): Int = when {
+internal fun Asset.icon(): Int = when {
     isDone -> MaterialSymbols.CHECK_CIRCLE
     else -> when (category) {
         AssetCategory.CAR -> MaterialSymbols.DIRECTIONS_CAR
@@ -272,7 +272,7 @@ private val mediumDate: DateTimeFormatter get() = DateTimeFormatter.ofLocalizedD
 
 /** A project's line under its name: finished on a date, being worked on, or its category. */
 @Composable
-private fun assetSubtitle(asset: Asset, isWorkingOn: Boolean): String = when {
+internal fun assetSubtitle(asset: Asset, isWorkingOn: Boolean): String = when {
     asset.isDone -> asset.completedAt?.let { stringResource(R.string.projects_done_on, it.toLocalDate().format(mediumDate)) }
         ?: stringResource(R.string.projects_section_finished)
     isWorkingOn -> listOf(stringResource(R.string.projects_working_on), asset.category.displayName()).joinToString(" · ")

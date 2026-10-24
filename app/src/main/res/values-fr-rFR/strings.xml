@@ -429,7 +429,7 @@
     <string name="dashboard_all_caught_up">Vous êtes à jour !</string>
     <string name="dashboard_log_subscriptions_reminders">Enregistrez vos abonnements et factures pour recevoir des rappels.</string>
     <string name="dashboard_due_on">Échéance %1$s</string>
-    <string name="dashboard_emergency_runway">Voie d\'urgence</string>
+    <string name="dashboard_emergency_runway">Fonds d\'urgence</string>
     <string name="dashboard_month_goal">Objectif de %1$d mois</string>
     <string name="dashboard_current_cushion">Coussin actuel</string>
     <string name="dashboard_monthly_target">Cible mensuelle</string>
@@ -906,7 +906,7 @@
     <string name="dashboard_start_saving_title">Commencer à épargner</string>
     <string name="dashboard_create_hisa_subtitle">Créer un compte d\'épargne à intérêt élevé</string>
     <string name="dashboard_view_all_action">Voir tout</string>
-    <string name="dashboard_recurring_patterns_found">Modèles récurrents trouvés</string>
+    <string name="dashboard_recurring_patterns_found">Paiements qui reviennent</string>
     <string name="dashboard_recurring_cadence_next">Tous les %1$d jours • Prochain : %2$s</string>
     <string name="dashboard_convert_subscriptions_hint">Appuyez pour convertir en abonnements</string>
     <string name="dashboard_up_next">À venir</string>
