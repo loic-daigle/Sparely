@@ -994,4 +994,10 @@
     <string name="home_free_to_spend_desc">Après factures et coffres · touche pour le détail</string>
     <string name="home_line_desc">Ton argent sur les 30 prochains jours; plus bas %1$s le %2$s</string>
     <string name="cc_no_statement_day">Indique son jour de relevé pour suivre ses factures</string>
+    <string name="chal_hero_label">Épargné dans tes défis</string>
+    <string name="challenges_52week_desc">Épargne progressivement chaque semaine</string>
+    <string name="challenges_52week_detail">Épargne 1 $ la semaine 1, 2 $ la semaine 2, etc.</string>
+    <string name="challenges_daily_desc">Épargne 5 $ chaque jour pendant 30 jours</string>
+    <string name="challenges_daily_detail">Épargne 5 $ chaque jour</string>
+    <string name="challenges_no_active_desc">Commence un défi d\'épargne pour rendre tes finances plus amusantes et gagner des récompenses !</string>
 </resources>

@@ -2570,4 +2570,16 @@
         <item quantity="other">%1$s · %2$d days late</item>
     </plurals>
     <string name="vault_adjust_short">Adjust</string>
+    <string name="chal_hero_label">Saved in your challenges</string>
+    <string name="chal_pace_ahead">Ahead of pace</string>
+    <string name="chal_pace_on">On pace</string>
+    <string name="chal_pace_behind">Behind pace</string>
+    <string name="chal_row_progress">%1$s of %2$s</string>
+    <string name="chal_next_milestone">Next: %1$s · +%2$d pts</string>
+    <string name="chal_option_52week">52 weeks · %1$s in all</string>
+    <string name="chal_option_daily">30 days · %1$s in all</string>
+    <plurals name="chal_streak">
+        <item quantity="one">%d-day streak</item>
+        <item quantity="other">%d-day streak</item>
+    </plurals>
 </resources>

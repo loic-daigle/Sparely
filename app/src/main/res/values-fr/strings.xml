@@ -2564,4 +2564,17 @@
         <item quantity="other">%1$s · en retard de %2$d jours</item>
     </plurals>
     <string name="vault_adjust_short">Ajuster</string>
+    <string name="chal_hero_label">Épargné dans vos défis</string>
+    <string name="chal_pace_ahead">En avance sur le rythme</string>
+    <string name="chal_pace_on">Dans le rythme</string>
+    <string name="chal_pace_behind">En retard sur le rythme</string>
+    <string name="chal_row_progress">%1$s sur %2$s</string>
+    <string name="chal_next_milestone">Prochain : %1$s · +%2$d pts</string>
+    <string name="chal_option_52week">52 semaines · %1$s en tout</string>
+    <string name="chal_option_daily">30 jours · %1$s en tout</string>
+    <plurals name="chal_streak">
+        <item quantity="one">Série de %d jour</item>
+        <item quantity="many">Série de %d jours</item>
+        <item quantity="other">Série de %d jours</item>
+    </plurals>
 </resources>

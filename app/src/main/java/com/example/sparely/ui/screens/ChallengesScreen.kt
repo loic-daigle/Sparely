@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.BorderStroke
@@ -24,9 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
-import com.example.sparely.ui.components.SparelyAlertDialog
 import com.example.sparely.ui.components.SparelyButton
-import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SingleLineText
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +39,53 @@ import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.res.stringResource
 import com.sparely.app.R
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.sparely.ui.components.SparelyBottomSheet
+import com.example.sparely.ui.utils.LocalDates
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.math.roundToInt
+
+/** How far a challenge should be by [today] to keep its pace: the share of its days gone, 0 to 1. */
+internal fun challengePace(challenge: SavingsChallenge, today: LocalDate): Float {
+    val total = ChronoUnit.DAYS.between(challenge.startDate, challenge.endDate).coerceAtLeast(1)
+    val gone = ChronoUnit.DAYS.between(challenge.startDate, today).coerceIn(0, total)
+    return gone.toFloat() / total
+}
+
+/** Ahead, on or behind the pace, with a little room either side so a day's rounding doesn't flip it. */
+internal enum class ChallengePace { AHEAD, ON, BEHIND }
+
+internal fun challengePaceStatus(progress: Float, pace: Float): ChallengePace = when {
+    progress >= pace + 0.03f -> ChallengePace.AHEAD
+    progress <= pace - 0.03f -> ChallengePace.BEHIND
+    else -> ChallengePace.ON
+}
+
+// Challenges started before their names were translated were saved with these English names
+private val legacyTitles = mapOf(
+    "52-Week Money Challenge" to R.string.challenges_52week_name,
+    "30-Day Daily Challenge" to R.string.challenges_daily_name,
+    "30-Day Daily Savings" to R.string.challenges_daily_name
+)
+private val legacyDescriptions = mapOf(
+    "Save $1 in week 1, $2 in week 2, etc." to R.string.challenges_52week_detail,
+    "Save $5 daily" to R.string.challenges_daily_detail
+)
+
+@Composable
+private fun SavingsChallenge.shownTitle(): String = legacyTitles[title]?.let { stringResource(it) } ?: title
+
+@Composable
+private fun SavingsChallenge.shownDescription(): String = legacyDescriptions[description]?.let { stringResource(it) } ?: description
+
+private fun SavingsChallenge.icon(): Int = when (type) {
+    ChallengeType.FIFTY_TWO_WEEK -> MaterialSymbols.CALENDAR_MONTH
+    ChallengeType.NO_SPEND_DAYS -> MaterialSymbols.BLOCK
+    ChallengeType.DAILY_SAVINGS -> MaterialSymbols.TODAY
+    else -> MaterialSymbols.TROPHY
+}
 
 @Composable
 fun ChallengesScreen(
@@ -46,10 +93,11 @@ fun ChallengesScreen(
     onStartChallenge: (ChallengeInput) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    var showChallengeDialog by remember { mutableStateOf(false) }
-    
+    var showPicker by remember { mutableStateOf(false) }
+
     val runningChallenges = uiState.activeChallenges.filter { it.isActive && !it.isCompleted }
     val completedChallenges = uiState.activeChallenges.filter { it.isCompleted }
+    val today = remember { LocalDate.now() }
 
     val listState = rememberLazyListState()
     // The FAB shows its label at the top of the list and shrinks to an icon once scrolling starts
@@ -68,25 +116,29 @@ fun ChallengesScreen(
         ) {
             // Running challenges first: they're what people come here to check
             if (runningChallenges.isNotEmpty()) {
+                item(key = "hero") {
+                    ChallengesHero(runningChallenges, today)
+                }
                 item(key = "header_active") {
                     ExpressiveListHeader(
                         title = stringResource(R.string.challenges_active_title),
                         icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
                         trailing = runningChallenges.size.toString(),
-                        modifier = Modifier.padding(top = 0.dp)
+                        modifier = Modifier.padding(top = 16.dp)
                     )
                 }
                 itemsIndexed(runningChallenges, key = { _, challenge -> "active_${challenge.id}" }) { index, challenge ->
-                    ChallengeCard(
+                    ChallengeRow(
                         challenge = challenge,
-                        shape = segmentedShape(index, runningChallenges.size, outer = 28.dp),
+                        today = today,
+                        shape = segmentedShape(index, runningChallenges.size),
                         modifier = Modifier.segmentSpacing(index)
                     )
                 }
             } else {
                 // Nothing running (none yet, or all finished): invite starting one
                 item(key = "empty") {
-                    EmptyChallengesState(onStartChallenge = { showChallengeDialog = true })
+                    EmptyChallengesState(onStartChallenge = { showPicker = true })
                 }
                 item(key = "overview") {
                     ChallengeOverviewCard()
@@ -94,8 +146,20 @@ fun ChallengesScreen(
             }
 
             if (uiState.achievements.isNotEmpty()) {
-                item(key = "achievements") {
-                    AchievementsSection(uiState.achievements.take(5))
+                val achievements = uiState.achievements.take(5)
+                item(key = "header_achievements") {
+                    ExpressiveListHeader(
+                        title = stringResource(R.string.challenges_recent_achievements),
+                        icon = MaterialSymbols.TROPHY,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+                itemsIndexed(achievements, key = { index, _ -> "achievement_$index" }) { index, achievement ->
+                    AchievementRow(
+                        achievement = achievement,
+                        shape = segmentedShape(index, achievements.size),
+                        modifier = Modifier.segmentSpacing(index)
+                    )
                 }
             }
 
@@ -105,7 +169,7 @@ fun ChallengesScreen(
                         title = stringResource(R.string.challenges_completed_title),
                         icon = MaterialSymbols.CHECK_CIRCLE,
                         trailing = completedChallenges.size.toString(),
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 16.dp)
                     )
                 }
                 itemsIndexed(completedChallenges, key = { _, challenge -> "completed_${challenge.id}" }) { index, challenge ->
@@ -119,7 +183,7 @@ fun ChallengesScreen(
         }
 
         ExtendedFloatingActionButton(
-            onClick = { showChallengeDialog = true },
+            onClick = { showPicker = true },
             expanded = fabExpanded,
             icon = {
                 MaterialSymbolIcon(
@@ -136,185 +200,155 @@ fun ChallengesScreen(
         )
     }
 
-    if (showChallengeDialog) {
-        ChallengeSelectionDialog(
-            onDismiss = { showChallengeDialog = false },
-            onSelectChallenge = { input ->
-                onStartChallenge(input)
-                showChallengeDialog = false
+    ChallengePickerSheet(
+        isOpen = showPicker,
+        onDismiss = { showPicker = false },
+        onSelectChallenge = { input ->
+            onStartChallenge(input)
+            showPicker = false
+        }
+    )
+}
+
+/**
+ * The page's headline (docs/DESIGN.md §3): what's saved across the running challenges against their
+ * targets, a bar with the mark where they should be by now, and pills for the pace, the best streak
+ * and the next one to end.
+ */
+@Composable
+private fun ChallengesHero(running: List<SavingsChallenge>, today: LocalDate) {
+    val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
+    val saved = running.sumOf { it.currentAmount }
+    val target = running.sumOf { it.targetAmount }
+    val progress = if (target > 0) (saved / target).toFloat().coerceIn(0f, 1f) else 0f
+    val mark = if (target > 0) {
+        (running.sumOf { it.targetAmount * challengePace(it, today) } / target).toFloat()
+    } else null
+    val bestStreak = running.maxOf { it.streakDays }
+    val nextEnd = running.minByOrNull { it.endDate }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        color = colors.primaryContainer,
+        contentColor = ink
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column {
+                Text(
+                    stringResource(R.string.chal_hero_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ink.copy(alpha = 0.8f)
+                )
+                SingleLineText(
+                    text = saved.formatCurrency(),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                    color = ink
+                )
+                if (target > 0) {
+                    Text(
+                        stringResource(R.string.challenges_target_label, target.formatCurrency()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink.copy(alpha = 0.8f)
+                    )
+                }
             }
-        )
+            if (target > 0) {
+                MarkedBar(progress = progress, mark = mark, color = ink, height = 10.dp, markColor = ink)
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mark != null) {
+                    val (icon, text) = when (challengePaceStatus(progress, mark)) {
+                        ChallengePace.AHEAD -> MaterialSymbols.TRENDING_UP to stringResource(R.string.chal_pace_ahead)
+                        ChallengePace.ON -> MaterialSymbols.CHECK_CIRCLE to stringResource(R.string.chal_pace_on)
+                        ChallengePace.BEHIND -> MaterialSymbols.TRENDING_DOWN to stringResource(R.string.chal_pace_behind)
+                    }
+                    HeroPill(icon, text)
+                }
+                if (bestStreak > 0) {
+                    HeroPill(MaterialSymbols.LOCAL_FIRE_DEPARTMENT, pluralStringResource(R.plurals.chal_streak, bestStreak, bestStreak))
+                }
+                if (nextEnd != null) {
+                    HeroPill(MaterialSymbols.SCHEDULE, stringResource(R.string.challenges_ends_label, nextEnd.endDate.format(LocalDates.dayMonth)))
+                }
+            }
+        }
     }
 }
 
+/** One running challenge: icon, name, what's saved against its target and the days left, a bar with its pace mark. */
 @Composable
-fun ChallengeCard(
+private fun ChallengeRow(
     challenge: SavingsChallenge,
-    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    today: LocalDate,
+    shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier
 ) {
-    ExpressiveCard(
-        modifier = modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = shape,
-        contentPadding = 20.dp
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    val colors = MaterialTheme.colorScheme
+    val progress = challenge.progressPercent.toFloat()
+    val pace = challengePace(challenge, today)
+    val behind = challenge.targetAmount > 0 && challengePaceStatus(progress, pace) == ChallengePace.BEHIND
+    Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(ExpressiveShapes.small)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .clip(CircleShape)
+                        .background(colors.primary.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    MaterialSymbolIcon(
-                        icon = when (challenge.type) {
-                            ChallengeType.FIFTY_TWO_WEEK -> MaterialSymbols.CALENDAR_MONTH
-                            ChallengeType.NO_SPEND_DAYS -> MaterialSymbols.BLOCK
-                            ChallengeType.DAILY_SAVINGS -> MaterialSymbols.TODAY
-                            else -> MaterialSymbols.TROPHY
-                        },
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        size = 22.dp
-                    )
+                    MaterialSymbolIcon(icon = challenge.icon(), contentDescription = null, size = 22.dp, tint = colors.primary)
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = challenge.title,
+                        challenge.shownTitle(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = challenge.description,
+                        listOfNotNull(
+                            challenge.shownDescription().takeIf { it.isNotBlank() },
+                            stringResource(R.string.challenges_days_remaining, challenge.daysRemaining.coerceAtLeast(0))
+                        ).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = colors.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Progress
-            if (challenge.targetAmount > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = challenge.currentAmount.formatCurrency(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.challenges_target_label, challenge.targetAmount.formatCurrency()),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LinearProgressIndicator(
-                    progress = { challenge.progressPercent.toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = stringResource(R.string.challenges_percent_complete, "${String.format("%.0f", challenge.progressPercent * 100)}%"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            // Streak
-            if (challenge.streakDays > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp),
-                        size = 20.dp
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.challenges_streak_label, challenge.streakDays),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            
-            // Next milestone
-            challenge.nextMilestone?.let { milestone ->
-                Spacer(modifier = Modifier.height(12.dp))
-                ExpressiveCard(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = ExpressiveShapes.medium,
-                    contentPadding = 12.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.challenges_next_milestone_label),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = milestone.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(stringResource(R.string.challenges_points_label, milestone.rewardPoints)) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                            )
-                        )
+                if (challenge.streakDays > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT, contentDescription = null, size = 18.dp, tint = colors.secondary)
+                        Text(challenge.streakDays.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            if (challenge.targetAmount > 0) {
+                MarkedBar(progress = progress, mark = pace, color = if (behind) colors.tertiary else colors.primary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        stringResource(R.string.chal_row_progress, challenge.currentAmount.formatCurrency(), challenge.targetAmount.formatCurrency()),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "${(progress * 100).roundToInt()} %",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.onSurfaceVariant
+                    )
+                }
+            }
+            challenge.nextMilestone?.let { milestone ->
                 Text(
-                    text = stringResource(R.string.challenges_days_remaining, challenge.daysRemaining.coerceAtLeast(0)),
+                    stringResource(R.string.chal_next_milestone, milestone.description, milestone.rewardPoints),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.challenges_ends_label, challenge.endDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = colors.onSurfaceVariant
                 )
             }
         }
@@ -389,7 +423,7 @@ fun CompletedChallengeCard(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = challenge.title,
+                        text = challenge.shownTitle(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -410,61 +444,28 @@ fun CompletedChallengeCard(
     }
 }
 
+/** One achievement in its group: its emoji, name and what it was for. */
 @Composable
-fun AchievementsSection(achievements: List<Achievement>) {
-    ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        shape = ExpressiveShapes.large,
-        contentPadding = 16.dp
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+private fun AchievementRow(achievement: Achievement, shape: androidx.compose.ui.graphics.Shape, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(colors.tertiaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(R.string.challenges_recent_achievements),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                MaterialSymbolIcon(icon = MaterialSymbols.TROPHY, contentDescription = null)
+                Text(achievement.icon, style = MaterialTheme.typography.titleLarge)
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            for (achievement in achievements) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = achievement.icon,
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = achievement.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = achievement.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-                if (achievement != achievements.last()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(achievement.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(achievement.description, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
     }
@@ -487,100 +488,104 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
     )
 }
 
+/** Picking a new challenge (docs/DESIGN.md §5: a quick task, so a sheet): one row per kind, with its length and target. */
 @Composable
-fun ChallengeSelectionDialog(
+private fun ChallengePickerSheet(
+    isOpen: Boolean,
     onDismiss: () -> Unit,
     onSelectChallenge: (ChallengeInput) -> Unit
 ) {
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.challenges_choose_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChallengeOption(
-                    title = stringResource(R.string.challenges_52week_title),
-                    description = stringResource(R.string.challenges_52week_desc),
-                    icon = MaterialSymbols.CALENDAR_MONTH,
-                    onClick = {
-                        onSelectChallenge(
-                            ChallengeInput(
-                                type = ChallengeType.FIFTY_TWO_WEEK,
-                                title = "52-Week Money Challenge",
-                                description = "Save $1 in week 1, $2 in week 2, etc.",
-                                targetAmount = 1378.0,
-                                endDate = java.time.LocalDate.now().plusWeeks(52)
-                            )
-                        )
-                    }
-                )
-                
-                ChallengeOption(
-                    title = stringResource(R.string.challenges_daily_title),
-                    description = stringResource(R.string.challenges_daily_desc),
-                    icon = MaterialSymbols.TODAY,
-                    onClick = {
-                        onSelectChallenge(
-                            ChallengeInput(
-                                type = ChallengeType.DAILY_SAVINGS,
-                                title = "30-Day Daily Challenge",
-                                description = "Save $5 daily",
-                                targetAmount = 150.0,
-                                endDate = java.time.LocalDate.now().plusDays(30)
-                            )
-                        )
-                    }
-                )
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) {
-                SingleLineText(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Composable
-fun ChallengeOption(
-    title: String,
-    description: String,
-    @androidx.annotation.DrawableRes icon: Int,
-    onClick: () -> Unit
-) {
-    ExpressiveCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentPadding = 16.dp
-    ) {
-        Row(
+    // Saved with the names in the phone's language, so the list shows them that way
+    val weeklyName = stringResource(R.string.challenges_52week_name)
+    val weeklyDetail = stringResource(R.string.challenges_52week_detail)
+    val dailyName = stringResource(R.string.challenges_daily_name)
+    val dailyDetail = stringResource(R.string.challenges_daily_detail)
+    SparelyBottomSheet(isOpen = isOpen, onDismiss = onDismiss) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp)
         ) {
-            MaterialSymbolIcon(
-                icon = icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.primary,
-                size = 32.dp
+            Text(
+                stringResource(R.string.challenges_choose_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 8.dp, bottom = 16.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ChallengeOption(
+                title = stringResource(R.string.challenges_52week_title),
+                description = stringResource(R.string.challenges_52week_desc),
+                meta = stringResource(R.string.chal_option_52week, 1378.0.formatCurrency(decimals = 0)),
+                icon = MaterialSymbols.CALENDAR_MONTH,
+                shape = segmentedShape(0, 2),
+                onClick = {
+                    onSelectChallenge(
+                        ChallengeInput(
+                            type = ChallengeType.FIFTY_TWO_WEEK,
+                            title = weeklyName,
+                            description = weeklyDetail,
+                            targetAmount = 1378.0,
+                            endDate = LocalDate.now().plusWeeks(52)
+                        )
+                    )
+                }
+            )
+            ChallengeOption(
+                title = stringResource(R.string.challenges_daily_title),
+                description = stringResource(R.string.challenges_daily_desc),
+                meta = stringResource(R.string.chal_option_daily, 150.0.formatCurrency(decimals = 0)),
+                icon = MaterialSymbols.TODAY,
+                shape = segmentedShape(1, 2),
+                modifier = Modifier.segmentSpacing(1),
+                onClick = {
+                    onSelectChallenge(
+                        ChallengeInput(
+                            type = ChallengeType.DAILY_SAVINGS,
+                            title = dailyName,
+                            description = dailyDetail,
+                            targetAmount = 150.0,
+                            endDate = LocalDate.now().plusDays(30)
+                        )
+                    )
+                }
+            )
         }
     }
 }
 
+@Composable
+private fun ChallengeOption(
+    title: String,
+    description: String,
+    meta: String,
+    @androidx.annotation.DrawableRes icon: Int,
+    shape: androidx.compose.ui.graphics.Shape,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainerHigh) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(colors.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                MaterialSymbolIcon(icon = icon, contentDescription = null, size = 22.dp, tint = colors.primary)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(meta, style = MaterialTheme.typography.labelMedium, color = colors.primary, modifier = Modifier.padding(top = 2.dp))
+            }
+            MaterialSymbolIcon(icon = MaterialSymbols.ARROW_FORWARD, contentDescription = null, size = 20.dp, tint = colors.onSurfaceVariant)
+        }
+    }
+}
