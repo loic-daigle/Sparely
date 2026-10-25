@@ -21,7 +21,17 @@ internal fun FitLabel(modifier: Modifier = Modifier, content: @Composable () -> 
     Layout(content = { Box { content() } }, modifier = modifier) { measurables, constraints ->
         val label = measurables.first()
         val available = constraints.maxWidth
-        val natural = if (available == Constraints.Infinity) 0 else label.maxIntrinsicWidth(constraints.maxHeight)
+        // A label built on a subcomposition (SingleLineText is a BoxWithConstraints) can't report
+        // its natural width and throws; it already shrinks itself to fit, so lay it out as is
+        val natural = if (available == Constraints.Infinity) {
+            0
+        } else {
+            try {
+                label.maxIntrinsicWidth(constraints.maxHeight)
+            } catch (_: IllegalStateException) {
+                0
+            }
+        }
         val scale = if (natural > available) available.toFloat() / natural else 1f
 
         if (scale >= 1f || scale < MIN_LABEL_SCALE) {
