@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.composable as navComposable
 
 /** The app's shared-transition layout, around the navigation host. Null in previews and tests. */
 val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { null }
@@ -28,9 +29,10 @@ fun NavGraphBuilder.composable(
     arguments: List<NamedNavArgument> = emptyList(),
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit
 ) {
-    androidx.navigation.compose.composable(route = route, arguments = arguments) { entry ->
-        CompositionLocalProvider(LocalNavAnimatedScope provides this) {
-            content(this, entry)
+    navComposable(route = route, arguments = arguments) { entry ->
+        val scope: AnimatedContentScope = this
+        CompositionLocalProvider(LocalNavAnimatedScope provides scope) {
+            scope.content(entry)
         }
     }
 }
