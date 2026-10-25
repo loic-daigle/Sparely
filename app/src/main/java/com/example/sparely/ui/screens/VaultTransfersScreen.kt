@@ -398,17 +398,22 @@ private fun TransferRow(
     val dateFormat = remember {
         DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"))
     }
-    val swipe = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> onDone()
-                SwipeToDismissBoxValue.EndToStart -> onCancel()
-                SwipeToDismissBoxValue.Settled -> Unit
+    // Acts once the swipe has settled, after snapping back (the row leaves through the list, held
+    // back while the undo is offered). Acting from confirmValueChange could fire more than once
+    val swipe = rememberSwipeToDismissBoxState()
+    LaunchedEffect(swipe.currentValue) {
+        when (swipe.currentValue) {
+            SwipeToDismissBoxValue.StartToEnd -> {
+                swipe.reset()
+                onDone()
             }
-            // The row leaves through the list (it's held back while the undo is offered)
-            false
+            SwipeToDismissBoxValue.EndToStart -> {
+                swipe.reset()
+                onCancel()
+            }
+            SwipeToDismissBoxValue.Settled -> Unit
         }
-    )
+    }
     SwipeToDismissBox(
         state = swipe,
         modifier = Modifier.padding(top = 2.dp),

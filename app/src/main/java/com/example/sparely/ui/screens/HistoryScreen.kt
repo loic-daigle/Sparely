@@ -386,18 +386,24 @@ fun HistoryScreen(
                         bottomStart = if (isLast) 24.dp else 6.dp,
                         bottomEnd = if (isLast) 24.dp else 6.dp
                     )
-                    // Swipe left to delete (still asks first), right to duplicate. The card always
-                    // springs back: the dialog or the expense form takes it from there
-                    val swipeState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            when (value) {
-                                SwipeToDismissBoxValue.EndToStart -> expenseToDelete = expense
-                                SwipeToDismissBoxValue.StartToEnd -> onDuplicateExpense(expense)
-                                SwipeToDismissBoxValue.Settled -> Unit
+                    // Swipe left to delete (still asks first), right to duplicate. The action runs once
+                    // the swipe has settled, after the card snaps back: acting from confirmValueChange
+                    // could fire again when the list came back into view, reopening the copy on every
+                    // back press
+                    val swipeState = rememberSwipeToDismissBoxState()
+                    LaunchedEffect(swipeState.currentValue) {
+                        when (swipeState.currentValue) {
+                            SwipeToDismissBoxValue.EndToStart -> {
+                                swipeState.reset()
+                                expenseToDelete = expense
                             }
-                            false
+                            SwipeToDismissBoxValue.StartToEnd -> {
+                                swipeState.reset()
+                                onDuplicateExpense(expense)
+                            }
+                            SwipeToDismissBoxValue.Settled -> Unit
                         }
-                    )
+                    }
                     SwipeToDismissBox(
                         state = swipeState,
                         enableDismissFromStartToEnd = !isSelectionMode,
