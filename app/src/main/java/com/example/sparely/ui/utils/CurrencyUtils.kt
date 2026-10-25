@@ -232,15 +232,31 @@ fun Double.roundToTwoDecimals(): Double {
 }
 
 /**
- * Formats a Double as a currency string with specific decimal places.
- * Handles tiny negative numbers by rounding to 0.0 to avoid "-0.00" display.
+ * Formats an amount for reading, the way the phone's language writes money: "$1,826.00" in
+ * English, "1 826,00 $" in French (grouped digits, the language's decimal mark, the symbol where
+ * that language puts it). Handles tiny negative numbers by rounding to 0.0 to avoid "-0.00".
+ *
+ * With an empty [symbol] it gives a plain number instead ("1826.00"): that form fills editable
+ * amount fields and the CSV export, which need digits a parser reads back the same in any language.
  */
 fun Double.formatCurrency(symbol: String = "$", decimals: Int = 2): String {
     val safeValue = if (this.isNaN() || this.isInfinite()) 0.0 else this
     val displayValue = if (safeValue > -0.005 && safeValue <= 0.0) 0.0 else safeValue
-    val format = "%.${decimals}f"
-    val formatted = String.format(Locale.US, format, displayValue)
-    return if (formatted.startsWith("-")) "-$symbol${formatted.substring(1)}" else symbol + formatted
+    if (symbol.isEmpty()) return String.format(Locale.US, "%.${decimals}f", displayValue)
+
+    val locale = Locale.getDefault()
+    val number = (java.text.NumberFormat.getNumberInstance(locale) as java.text.DecimalFormat).apply {
+        isGroupingUsed = true
+        minimumFractionDigits = decimals
+        maximumFractionDigits = decimals
+        roundingMode = RoundingMode.HALF_UP
+    }.format(kotlin.math.abs(displayValue))
+    val sign = if (displayValue < 0) "-" else ""
+    // Where this language puts the currency sign, read from its own currency pattern ("¤#,##0.00"
+    // in English, "#,##0.00 ¤" in French)
+    val symbolFirst = (java.text.NumberFormat.getCurrencyInstance(locale) as? java.text.DecimalFormat)
+        ?.toPattern()?.trimStart()?.startsWith('\u00A4') ?: true
+    return if (symbolFirst) "$sign$symbol$number" else "$sign$number\u00A0$symbol"
 }
 
 @JvmName("formatCurrencyValue")
