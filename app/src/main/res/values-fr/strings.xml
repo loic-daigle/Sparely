@@ -2579,4 +2579,9 @@
     </plurals>
     <string name="wish_pill_held">%1$s mis de côté</string>
     <string name="wish_row_plan">%1$s/mois jusqu\'au %2$s</string>
+    <plurals name="sav_history_movements">
+        <item quantity="one">%d mouvement</item>
+        <item quantity="many">%d mouvements</item>
+        <item quantity="other">%d mouvements</item>
+    </plurals>
 </resources>

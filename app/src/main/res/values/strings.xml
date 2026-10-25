@@ -2584,4 +2584,8 @@
     </plurals>
     <string name="wish_pill_held">%1$s held back</string>
     <string name="wish_row_plan">%1$s/mo until %2$s</string>
+    <plurals name="sav_history_movements">
+        <item quantity="one">%d movement</item>
+        <item quantity="other">%d movements</item>
+    </plurals>
 </resources>
