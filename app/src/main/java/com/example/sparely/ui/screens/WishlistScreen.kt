@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -47,7 +49,13 @@ import com.example.sparely.domain.logic.WishReadiness
 import com.example.sparely.domain.model.Wishlist
 import com.example.sparely.domain.model.needsDecision
 import com.example.sparely.ui.components.ExpressiveCard
-import com.example.sparely.ui.components.SparelyAlertDialog
+import com.example.sparely.ui.components.SparelyBottomSheet
+import com.example.sparely.ui.components.SparelySheetHeader
+import com.example.sparely.ui.components.SheetActions
+import com.example.sparely.ui.components.SheetAmountField
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyOutlinedButton
 import com.example.sparely.ui.components.SparelyTextButton
@@ -163,19 +171,17 @@ fun WishlistScreen(
         ) {
             item(key = "summary") { SummaryCard(statuses, heldBack = uiState.wishlistReserved) }
 
-            // Wishes as one segmented block: rounded ends, thin gaps
+            // Wishes as one segmented group of rows (docs/DESIGN.md §5); buying, removing and the
+            // date are on each wish's page
             itemsIndexed(statuses, key = { _, status -> status.wish.id }) { index, status ->
-                WishCard(
+                WishRow(
                     status = status,
-                    shape = segmentedShape(index, statuses.size, outer = 28.dp),
+                    shape = segmentedShape(index, statuses.size),
                     modifier = Modifier.segmentSpacing(index),
                     onAddSavings = { savingsDialogFor = status.wish },
                     onOpen = { onOpenWish(status.wish.id) },
-                    onChangeDate = { dateDialogFor = status.wish },
                     onStillWant = { onStillWant(status.wish.id) },
-                    onNotAnymore = { onNotAnymore(status.wish.id) },
-                    onBought = { confirmBought = status.wish },
-                    onDelete = { confirmDelete = status.wish }
+                    onNotAnymore = { onNotAnymore(status.wish.id) }
                 )
             }
 
@@ -230,34 +236,59 @@ fun WishlistScreen(
     }
 }
 
+/** "Bought it?" asked once, in a sheet (docs/DESIGN.md §6). */
 @Composable
 internal fun ConfirmBoughtDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.wishlist_bought_title, wish.description)) },
-        text = { Text(stringResource(R.string.wishlist_bought_desc)) },
-        confirmButton = {
-            SparelyTextButton(onClick = onConfirm) { Text(stringResource(R.string.wishlist_bought)) }
-        },
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        WishSheetColumn {
+            SparelySheetHeader(
+                title = stringResource(R.string.wishlist_bought_title, wish.description),
+                subtitle = stringResource(R.string.wishlist_bought_desc),
+                icon = MaterialSymbols.CHECK_CIRCLE,
+                iconTint = MaterialTheme.colorScheme.success
+            )
+            SheetActions(
+                confirmLabel = stringResource(R.string.wishlist_bought),
+                onConfirm = onConfirm,
+                dismissLabel = stringResource(R.string.purchase_check_save_cancel),
+                onDismiss = onDismiss
+            )
         }
-    )
+    }
 }
 
+/** Removing a wish, asked once in a sheet. */
 @Composable
 internal fun ConfirmDeleteDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.wishlist_delete_title, wish.description)) },
-        confirmButton = {
-            SparelyTextButton(onClick = onConfirm, contentColor = MaterialTheme.colorScheme.critical) {
-                Text(stringResource(R.string.wishlist_delete))
-            }
-        },
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        WishSheetColumn {
+            SparelySheetHeader(
+                title = stringResource(R.string.wishlist_delete_title, wish.description),
+                subtitle = stringResource(R.string.budget_delete_undone),
+                icon = MaterialSymbols.DELETE,
+                iconTint = MaterialTheme.colorScheme.error
+            )
+            SheetActions(
+                confirmLabel = stringResource(R.string.wishlist_delete),
+                onConfirm = onConfirm,
+                destructive = true,
+                dismissLabel = stringResource(R.string.purchase_check_save_cancel),
+                onDismiss = onDismiss
+            )
         }
+    }
+}
+
+/** A wish sheet's padding and spacing, like the app's other sheets. */
+@Composable
+private fun WishSheetColumn(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        content = content
     )
 }
 
@@ -293,9 +324,12 @@ private fun EmptyWishlist(onQuickCheck: () -> Unit) {
     }
 }
 
+/**
+ * The page's headline (docs/DESIGN.md §3): what the wishes add up to, what's set aside for them
+ * with its bar, and pills for where they stand and what's held back from spending.
+ */
 @Composable
 private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
-    val spacing = MaterialTheme.spacing
     val ready = statuses.count { it.readiness == WishReadiness.READY }
     val cooling = statuses.count { it.readiness == WishReadiness.COOLING_DOWN }
     val saving = statuses.count { it.readiness == WishReadiness.SAVING_UP }
@@ -303,209 +337,141 @@ private fun SummaryCard(statuses: List<WishStatus>, heldBack: Double) {
     val total = statuses.sumOf { it.wish.targetAmount }
     val saved = statuses.sumOf { it.reserved }
 
-    val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
-    ExpressiveCard(
+    val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = spacing.md),
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = onContainer
+            .padding(bottom = 16.dp),
+        shape = ExpressiveShapes.large,
+        color = colors.primaryContainer,
+        contentColor = ink
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.wishlist_total_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = onContainer.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = total.formatCurrency(decimals = 0),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column {
+                Text(
+                    text = stringResource(R.string.wishlist_total_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ink.copy(alpha = 0.8f)
+                )
+                Text(
+                    text = total.formatCurrency(decimals = 0),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
                 Text(
                     text = stringResource(R.string.wishlist_saved_short, saved.formatCurrency(decimals = 0)),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = onContainer.copy(alpha = 0.8f)
+                    color = ink.copy(alpha = 0.8f)
                 )
             }
-            val parts = buildList {
-                if (ready > 0) add(stringResource(R.string.wishlist_count_ready, ready))
-                if (cooling > 0) add(stringResource(R.string.wishlist_count_cooling, cooling))
-                if (saving > 0) add(stringResource(R.string.wishlist_count_saving, saving))
-                if (blocked > 0) add(stringResource(R.string.wishlist_count_blocked, blocked))
+            if (total > 0) {
+                MarkedBar(progress = (saved / total).toFloat(), mark = null, color = ink, height = 10.dp)
             }
-            if (parts.isNotEmpty()) {
-                Text(
-                    text = parts.joinToString("  ·  "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            if (heldBack > 0.005) {
-                Row(
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.SECURITY,
-                        contentDescription = null,
-                        size = 18.dp,
-                        tint = onContainer,
-                        modifier = Modifier.padding(top = 1.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.wishlist_held_back, heldBack.formatCurrency(decimals = 0)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = onContainer.copy(alpha = 0.8f),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ready > 0) HeroPill(MaterialSymbols.CHECK_CIRCLE, stringResource(R.string.wishlist_count_ready, ready))
+                if (cooling > 0) HeroPill(MaterialSymbols.SCHEDULE, stringResource(R.string.wishlist_count_cooling, cooling))
+                if (saving > 0) HeroPill(MaterialSymbols.SAVINGS, stringResource(R.string.wishlist_count_saving, saving))
+                if (blocked > 0) HeroPill(MaterialSymbols.BLOCK, stringResource(R.string.wishlist_count_blocked, blocked))
+                if (heldBack > 0.005) HeroPill(MaterialSymbols.SECURITY, stringResource(R.string.wish_pill_held, heldBack.formatCurrency(decimals = 0)))
             }
         }
     }
 }
 
+/**
+ * One wish: its status in words and colour, the price with what's set aside under it, a bar, the
+ * plan when it has a date, and ＋ to set money aside. The "still want it?" question shows here
+ * when it's due, since it's waiting on an answer.
+ */
 @Composable
-private fun WishCard(
+private fun WishRow(
     status: WishStatus,
     onOpen: () -> Unit,
     onAddSavings: () -> Unit,
-    onChangeDate: () -> Unit,
     onStillWant: () -> Unit,
     onNotAnymore: () -> Unit,
-    onBought: () -> Unit,
-    onDelete: () -> Unit,
-    shape: androidx.compose.ui.graphics.Shape = ExpressiveShapes.large,
+    shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier
 ) {
-    val spacing = MaterialTheme.spacing
+    val colors = MaterialTheme.colorScheme
     val wish = status.wish
     val readiness = status.readiness
     val color = readinessColor(readiness)
-
     val cooldownDays = cooldownDaysLeft(wish)
     val statusLabel = readinessLabel(readiness, cooldownDays)
-
-    // The most useful reason for where it stands today: the save-up plan, or the first problem.
-    val headline = status.result?.findings?.let { findings ->
-        findings.firstOrNull { it.kind == FindingKind.SAVE_UP_PLAN }
-            ?: findings.firstOrNull { it.impact == PurchaseAffordabilityEngine.Impact.PROBLEM }
-            ?: findings.firstOrNull { it.kind == FindingKind.NO_MONTHLY_SURPLUS }
+    val monthly = WishPlan.monthlyAmount(wish)
+    val daysLeft = WishPlan.daysLeft(wish)
+    val plan = wish.targetDate?.takeIf { monthly != null && daysLeft != null && daysLeft > 0 }?.let { date ->
+        stringResource(R.string.wish_row_plan, monthly!!.formatCurrency(decimals = 0), formatTargetDate(date))
     }
-    // With a target date the plan is already chosen, so the generic "save for N months" tip is redundant.
-    val showHeadline = headline != null && readiness != WishReadiness.READY &&
-        !(wish.targetDate != null && headline.kind == FindingKind.SAVE_UP_PLAN)
 
-    ExpressiveCard(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
-        shape = shape,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-            ) {
-                IconBadge(icon = MaterialSymbols.SHOPPING_BAG, color = color, size = 44.dp)
+    Surface(onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(icon = MaterialSymbols.SHOPPING_BAG, contentDescription = null, size = 22.dp, tint = color)
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = wish.description,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (statusLabel != null) {
+                    val line = listOfNotNull(statusLabel, plan).joinToString(" · ")
+                    if (line.isNotEmpty()) {
                         Text(
-                            text = statusLabel,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = color
+                            text = line,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (statusLabel != null) color else colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                Text(
-                    text = wish.targetAmount.formatCurrency(decimals = 0),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                LinearProgressIndicator(
-                    progress = { status.progress },
-                    color = color,
-                    trackColor = color.copy(alpha = 0.18f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = stringResource(
-                            R.string.wishlist_saved_of,
-                            status.reserved.formatCurrency(decimals = 0),
-                            wish.targetAmount.formatCurrency(decimals = 0)
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = wish.targetAmount.formatCurrency(decimals = 0),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = status.progress.toDouble().formatPercent(0),
+                        text = stringResource(R.string.wishlist_saved_short, status.reserved.formatCurrency(decimals = 0)),
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = color
+                        color = colors.onSurfaceVariant
                     )
                 }
+                if (status.progress < 1f) {
+                    IconButton(onClick = onAddSavings) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ADD,
+                            contentDescription = stringResource(R.string.wishlist_add_savings),
+                            tint = colors.primary
+                        )
+                    }
+                }
             }
-
-            PlanRow(status = status, onChangeDate = onChangeDate)
-
-            if (showHeadline && headline != null) {
-                InsightRow(icon = MaterialSymbols.LIGHTBULB, tint = color, text = findingText(headline))
-            }
-
+            MarkedBar(
+                progress = status.progress,
+                mark = null,
+                color = color,
+                modifier = Modifier.padding(start = 58.dp, end = 8.dp)
+            )
             if (wish.needsDecision()) {
-                DecisionBlock(
-                    daysLeft = cooldownDays,
-                    onStillWant = onStillWant,
-                    onNotAnymore = onNotAnymore
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SparelyTonalButton(onClick = onAddSavings, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.wishlist_add_savings), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (readiness == WishReadiness.READY) {
-                    SparelyButton(onClick = onBought, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.wishlist_bought), maxLines = 1)
-                    }
-                } else {
-                    SparelyOutlinedButton(onClick = onBought, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.wishlist_bought), maxLines = 1)
-                    }
-                }
-                IconButton(onClick = onDelete) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.DELETE,
-                        contentDescription = stringResource(R.string.wishlist_delete),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box(modifier = Modifier.padding(end = 8.dp)) {
+                    DecisionBlock(daysLeft = cooldownDays, onStillWant = onStillWant, onNotAnymore = onNotAnymore)
                 }
             }
         }
@@ -612,62 +578,52 @@ internal fun PlanRow(status: WishStatus, onChangeDate: () -> Unit) {
     }
 }
 
+/** Choosing (or clearing) the date a wish should be ready by, in a sheet. */
 @Composable
 internal fun ChangeDateDialog(wish: Wishlist, onDismiss: () -> Unit, onConfirm: (LocalDate?) -> Unit) {
     var date by remember { mutableStateOf(wish.targetDate) }
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(wish.description) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)) {
-                TargetDatePicker(selectedDate = date, onSelect = { date = it })
-                Text(
-                    text = stringResource(R.string.wishlist_date_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            SparelyTextButton(onClick = { onConfirm(date) }, enabled = date != wish.targetDate) {
-                Text(stringResource(R.string.purchase_check_save_confirm))
-            }
-        },
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        WishSheetColumn {
+            SparelySheetHeader(
+                title = wish.description,
+                subtitle = stringResource(R.string.wishlist_date_hint),
+                icon = MaterialSymbols.SCHEDULE
+            )
+            TargetDatePicker(selectedDate = date, onSelect = { date = it })
+            SheetActions(
+                confirmLabel = stringResource(R.string.purchase_check_save_confirm),
+                onConfirm = { onConfirm(date) },
+                confirmEnabled = date != wish.targetDate,
+                dismissLabel = stringResource(R.string.purchase_check_save_cancel),
+                onDismiss = onDismiss
+            )
         }
-    )
+    }
 }
 
+/** Setting money aside for a wish: the amount large, with what's still to go under it. */
 @Composable
 internal fun AddSavingsDialog(remaining: Double, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
     var text by remember { mutableStateOf("") }
     val amount = text.toSafeDouble()?.takeIf { it > 0 }
-    SparelyAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.wishlist_add_savings)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)) {
-                SparelyAmountTextField(
-                    value = text,
-                    onValueChange = { text = it.filterAmountExpressionInput() },
-                    label = { Text(stringResource(R.string.wishlist_amount_label)) },
-                    prefix = { Text("$") }
-                )
-                Text(
-                    text = stringResource(R.string.wishlist_remaining, remaining.formatCurrency(decimals = 0)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            SparelyTextButton(onClick = { amount?.let(onConfirm) }, enabled = amount != null) {
-                Text(stringResource(R.string.purchase_check_save_confirm))
-            }
-        },
-        dismissButton = {
-            SparelyTextButton(onClick = onDismiss) { Text(stringResource(R.string.purchase_check_save_cancel)) }
+    val save = { amount?.let(onConfirm) ?: Unit }
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismiss) {
+        WishSheetColumn {
+            SparelySheetHeader(title = stringResource(R.string.wishlist_add_savings), icon = MaterialSymbols.SAVINGS)
+            SheetAmountField(
+                value = text,
+                onValueChange = { text = it.filterAmountExpressionInput() },
+                label = stringResource(R.string.wishlist_amount_label),
+                supportingText = stringResource(R.string.wishlist_remaining, remaining.formatCurrency(decimals = 0)),
+                onImeAction = save
+            )
+            SheetActions(
+                confirmLabel = stringResource(R.string.purchase_check_save_confirm),
+                onConfirm = save,
+                confirmEnabled = amount != null,
+                dismissLabel = stringResource(R.string.purchase_check_save_cancel),
+                onDismiss = onDismiss
+            )
         }
-    )
+    }
 }

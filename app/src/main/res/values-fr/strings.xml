@@ -2577,4 +2577,6 @@
         <item quantity="many">Série de %d jours</item>
         <item quantity="other">Série de %d jours</item>
     </plurals>
+    <string name="wish_pill_held">%1$s mis de côté</string>
+    <string name="wish_row_plan">%1$s/mois jusqu\'au %2$s</string>
 </resources>

@@ -2582,4 +2582,6 @@
         <item quantity="one">%d-day streak</item>
         <item quantity="other">%d-day streak</item>
     </plurals>
+    <string name="wish_pill_held">%1$s held back</string>
+    <string name="wish_row_plan">%1$s/mo until %2$s</string>
 </resources>
