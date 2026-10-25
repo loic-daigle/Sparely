@@ -5,6 +5,7 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.SparelyAlertDialog
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
@@ -441,7 +442,7 @@ fun ExpenseEntryScreen(
     }
 
     if (showDiscardDialog) {
-        AlertDialog(
+        SparelyAlertDialog(
             onDismissRequest = { showDiscardDialog = false },
             title = {
                 Text(stringResource(if (isEditMode) R.string.expense_entry_discard_edit_title else R.string.expense_entry_discard_title))

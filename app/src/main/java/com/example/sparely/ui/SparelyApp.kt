@@ -1,5 +1,6 @@
 package com.example.sparely.ui
 
+import com.example.sparely.ui.components.SparelyAlertDialog
 import androidx.compose.ui.unit.sp
 import com.example.sparely.domain.model.displayName
 
@@ -1606,7 +1607,7 @@ private fun VaultArchiveConfirmationDialog(
     onDismiss: () -> Unit
 ) {
     // dialog composed for vault archive prompt
-    AlertDialog(
+    SparelyAlertDialog(
         onDismissRequest = onDismiss,
         title = { 
             Text(

@@ -313,9 +313,11 @@ fun SparelyOutlinedButton(
 }
 
 /**
- * Sparely-styled AlertDialog wrapper.
- * Applies consistent shape, container color, and title typography across all dialogs.
+ * What used to be the app's AlertDialog, now shown as a bottom sheet (docs/DESIGN.md §6: no
+ * AlertDialogs), so every caller asks the same way. The look parameters are kept for the callers
+ * that still pass them; a sheet has its own shape and colour.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun SparelyAlertDialog(
     onDismissRequest: () -> Unit,
@@ -329,28 +331,13 @@ fun SparelyAlertDialog(
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     tonalElevation: androidx.compose.ui.unit.Dp = 0.dp
 ) {
-    AlertDialog(
+    SparelyDialogSheet(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
-        modifier = modifier,
         dismissButton = dismissButton,
         icon = icon,
-        title = title?.let {
-            {
-                ProvideTextStyle(
-                    value = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = PoppinsFontFamily,
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    title()
-                }
-            }
-        },
-        text = text,
-        shape = shape,
-        containerColor = containerColor,
-        tonalElevation = tonalElevation
+        title = title,
+        text = text
     )
 }
 
