@@ -489,6 +489,7 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
 }
 
 /** Picking a new challenge (docs/DESIGN.md §5: a quick task, so a sheet): one row per kind, with its length and target. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChallengePickerSheet(
     isOpen: Boolean,
