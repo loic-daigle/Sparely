@@ -2563,4 +2563,5 @@
         <item quantity="many">%1$s · en retard de %2$d jours</item>
         <item quantity="other">%1$s · en retard de %2$d jours</item>
     </plurals>
+    <string name="vault_adjust_short">Ajuster</string>
 </resources>

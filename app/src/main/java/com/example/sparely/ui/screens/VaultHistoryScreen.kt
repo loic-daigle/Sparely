@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Shape
 import com.example.sparely.ui.components.ExpressiveEmptyState
 import com.example.sparely.ui.components.segmentSpacing
@@ -76,14 +77,22 @@ fun VaultHistoryScreen(
     var showDelete by remember { mutableStateOf(false) }
 
     // The app's frame already pads for the system bars, so this screen's own bar and content
-    // don't add them again (they left a gap above the title and below the list)
+    // don't add them again (they left a gap above the title and below the list). Like every page,
+    // the title starts large and shrinks into the bar as the page scrolls (docs/DESIGN.md §2)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
+            MediumTopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
+                scrollBehavior = scrollBehavior,
+                expandedHeight = 100.dp,
                 title = { Text(vault?.name ?: vaultName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.common_back))
@@ -108,31 +117,17 @@ fun VaultHistoryScreen(
         ) {
             if (vault != null) {
                 item(key = "summary") {
-                    VaultSummaryCard(vault = vault, pending = pending, onOpenTransfers = onOpenTransfers)
+                    VaultSummaryCard(vault = vault, history = historyItems, pending = pending, onOpenTransfers = onOpenTransfers)
                 }
                 item(key = "actions") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SparelyButton(
-                            onClick = { showDeposit = true },
-                            modifier = Modifier.weight(1f),
-                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 18.dp) }
-                        ) { Text(stringResource(R.string.vault_action_add_short), maxLines = 1) }
-                        SparelyTonalButton(
-                            onClick = { showWithdraw = true },
-                            modifier = Modifier.weight(1f),
-                            icon = { MaterialSymbolIcon(icon = MaterialSymbols.REMOVE, contentDescription = null, size = 18.dp) }
-                        ) { Text(stringResource(R.string.vault_action_withdraw_short), maxLines = 1) }
-                    }
-                    SparelyTextButton(
-                        onClick = { showAdjust = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = null, size = 18.dp) }
-                    ) { Text(stringResource(R.string.vault_detail_adjust)) }
+                    com.example.sparely.ui.components.SparelyButtonGroup(
+                        listOf(
+                            com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_action_add_short), MaterialSymbols.ADD, emphasized = true) { showDeposit = true },
+                            com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_action_withdraw_short), MaterialSymbols.REMOVE) { showWithdraw = true },
+                            com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_adjust_short), MaterialSymbols.EDIT) { showAdjust = true }
+                        ),
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
                 }
             }
             item(key = "history_header") {
@@ -222,72 +217,132 @@ fun VaultHistoryScreen(
     }
 }
 
-/** The vault at a glance: icon, status, balance against target with its bar, what's on the way. */
+/** The balance after each change, oldest first, worked back from today's balance. */
+internal object VaultBalanceSeries {
+    fun of(
+        current: Double,
+        history: List<com.example.sparely.domain.model.VaultHistoryItem>
+    ): List<Pair<java.time.LocalDate, Double>> {
+        // Transfers still waiting aren't in the balance yet
+        val counted = history.filter { item ->
+            item !is com.example.sparely.domain.model.HistoryContribution || item.contribution.reconciled
+        }.sortedByDescending { it.date }
+        if (counted.isEmpty()) return emptyList()
+        val points = mutableListOf(java.time.LocalDate.now() to current)
+        var after = current
+        for (item in counted) {
+            if (item is com.example.sparely.domain.model.HistoryAdjustment) after = item.balanceAfter
+            points += item.date.toLocalDate() to after
+            after -= item.amount
+        }
+        // Where it started: the day before the first change
+        points += counted.last().date.toLocalDate().minusDays(1) to after.coerceAtLeast(0.0)
+        // Oldest first, one point per day (the day's last balance)
+        return points.reversed().groupBy { it.first }.map { (day, list) -> day to list.last().second }
+    }
+}
+
+/**
+ * The vault at a glance (docs/DESIGN.md §3): progress ring, balance against the goal, how it's doing,
+ * the balance over time against the goal as a line, and what's on its way.
+ */
 @Composable
 private fun VaultSummaryCard(
     vault: com.example.sparely.domain.model.SmartVault,
+    history: List<com.example.sparely.domain.model.VaultHistoryItem>,
     pending: Double,
     onOpenTransfers: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
     val status = vaultStatus(vault)
-    val accent = if (status.color == colors.onSurfaceVariant) colors.primary else status.color
-    val progress = if (vault.targetAmount > 0) (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f) else 0f
-    ExpressiveCard(modifier = Modifier.fillMaxWidth(), containerColor = colors.primaryContainer) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(colors.surface.copy(alpha = 0.6f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MaterialSymbolIcon(icon = vault.displayIcon(), contentDescription = null, size = 22.dp, tint = accent)
+    val target = vault.targetAmount.takeIf { it > 0 }
+    val progress = target?.let { (vault.currentBalance / it).toFloat().coerceIn(0f, 1f) }
+    val series = androidx.compose.runtime.remember(vault.currentBalance, history) { VaultBalanceSeries.of(vault.currentBalance, history) }
+    Surface(modifier = Modifier.fillMaxWidth(), shape = com.example.sparely.ui.theme.ExpressiveShapes.large, color = colors.primaryContainer, contentColor = ink) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
+                    CircularProgressIndicator(
+                        progress = { progress ?: 0f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = colors.primary,
+                        trackColor = ink.copy(alpha = 0.12f),
+                        strokeWidth = 8.dp,
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                    if (progress != null) {
+                        Text("${(progress * 100).toInt()} %", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    } else {
+                        MaterialSymbolIcon(icon = vault.displayIcon(), contentDescription = null, size = 26.dp, tint = colors.primary)
+                    }
                 }
-                Text(
-                    status.text,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onPrimaryContainer,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    vault.currentBalance.formatCurrency(),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onPrimaryContainer
-                )
-                if (vault.targetAmount > 0) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.vault_hero_saved), style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.8f))
+                    com.example.sparely.ui.components.SingleLineText(
+                        text = vault.currentBalance.formatCurrency(decimals = 0),
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                        color = ink
+                    )
                     Text(
-                        " / " + vault.targetAmount.formatCurrency(decimals = 0),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        listOfNotNull(
+                            target?.let { stringResource(R.string.assets_of_amount, it.formatCurrency(decimals = 0)) },
+                            status.text
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink.copy(alpha = 0.8f),
+                        maxLines = 2
                     )
                 }
             }
-            if (vault.targetAmount > 0) {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = colors.primary,
-                    trackColor = colors.onPrimaryContainer.copy(alpha = 0.12f),
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
-                    gapSize = 0.dp,
-                    drawStopIndicator = {}
-                )
+            if (series.size >= 2) {
+                BalanceLine(series = series, target = target, lineColor = colors.primary, ink = ink)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(series.first().first.format(com.example.sparely.ui.utils.LocalDates.dayMonth), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.7f))
+                    Spacer(Modifier.weight(1f))
+                    Text(stringResource(R.string.dash_when_today), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.7f))
+                }
             }
             if (pending > 0.005) {
-                SparelyTextButton(
-                    onClick = onOpenTransfers,
-                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.SWAP_HORIZ, contentDescription = null, size = 18.dp) }
-                ) { Text(stringResource(R.string.vault_hero_on_the_way, pending.formatCurrency())) }
+                HeroPill(MaterialSymbols.SWAP_HORIZ, stringResource(R.string.vault_hero_on_the_way, pending.formatCurrency()), onClick = onOpenTransfers)
             }
+        }
+    }
+}
+
+/** The balance over time, placed by date, with the goal as a dashed line. */
+@Composable
+private fun BalanceLine(
+    series: List<Pair<java.time.LocalDate, Double>>,
+    target: Double?,
+    lineColor: androidx.compose.ui.graphics.Color,
+    ink: androidx.compose.ui.graphics.Color
+) {
+    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+        val start = series.first().first.toEpochDay()
+        val span = (series.last().first.toEpochDay() - start).coerceAtLeast(1)
+        val max = maxOf(series.maxOf { it.second }, target ?: 0.0).takeIf { it > 0 } ?: 1.0
+        val pad = 4.dp.toPx()
+        fun point(day: java.time.LocalDate, value: Double) = androidx.compose.ui.geometry.Offset(
+            ((day.toEpochDay() - start).toFloat() / span) * size.width,
+            pad + (1f - (value / max).toFloat()) * (size.height - 2 * pad)
+        )
+        val line = androidx.compose.ui.graphics.Path()
+        series.forEachIndexed { i, (day, value) ->
+            val p = point(day, value)
+            if (i == 0) line.moveTo(p.x, p.y) else line.lineTo(p.x, p.y)
+        }
+        val area = androidx.compose.ui.graphics.Path().apply {
+            addPath(line)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(area, lineColor.copy(alpha = 0.16f))
+        drawPath(line, lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        target?.let {
+            val y = pad + (1f - (it / max).toFloat()) * (size.height - 2 * pad)
+            drawLine(ink.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = 1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
         }
     }
 }
