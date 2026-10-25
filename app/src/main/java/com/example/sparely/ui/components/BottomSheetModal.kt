@@ -26,7 +26,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
@@ -34,6 +36,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.focus.onFocusChanged
@@ -468,6 +471,67 @@ fun SheetDateField(
                 size = 20.dp,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * A dialog's pieces (title, text, buttons) shown as a sheet, so screens that asked something in an
+ * AlertDialog follow docs/DESIGN.md §6 without being rewritten: the [icon] in a tonal tile beside
+ * the [title], the [text] under it, and the buttons at the end, dismiss before confirm.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SparelyDialogSheet(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable (() -> Unit)? = null,
+    icon: @Composable (() -> Unit)? = null,
+    title: @Composable (() -> Unit)? = null,
+    text: @Composable (() -> Unit)? = null
+) {
+    SparelyBottomSheet(isOpen = true, onDismiss = onDismissRequest) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (icon != null || title != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (icon != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(ExpressiveShapes.small)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center
+                        ) { icon() }
+                    }
+                    if (title != null) {
+                        Box(modifier = Modifier.weight(1f).semantics { heading() }) {
+                            ProvideTextStyle(MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)) { title() }
+                        }
+                    }
+                }
+            }
+            if (text != null) {
+                // Takes what's left, so a long scrolling list (the countries) keeps the buttons in view
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
+                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) { text() }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                dismissButton?.invoke()
+                confirmButton()
+            }
         }
     }
 }

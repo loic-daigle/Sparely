@@ -957,7 +957,7 @@ fun SettingsDataCard(
     var pendingRetention by remember { mutableStateOf<ExpenseHistoryRetention?>(null) }
 
     if (showImportConfirmation) {
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { showImportConfirmation = false },
             icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.settings_import_confirm_title)) },
@@ -994,7 +994,7 @@ fun SettingsDataCard(
         // Same cutoff SettingsViewModel.pruneHistory uses: anything dated before it is deleted
         val cutoff = LocalDate.now().minusMonths((retention.months ?: 0).toLong())
         val doomedCount = expenses.count { it.date.isBefore(cutoff) }
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { pendingRetention = null },
             icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.settings_retention_confirm_title)) },
@@ -1179,7 +1179,7 @@ fun SettingsDataCard(
             var showResetConfirmation by remember { mutableStateOf(false) }
 
             if (showResetConfirmation) {
-                SparelyAlertDialog(
+                SparelyDialogSheet(
                     onDismissRequest = { showResetConfirmation = false },
                     icon = { MaterialSymbolIcon(icon = MaterialSymbols.WARNING, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     title = { Text(stringResource(R.string.settings_reset_history_confirm_title)) },
@@ -1360,7 +1360,7 @@ private fun PaymentAppPickerDialog(
     var query by remember { mutableStateOf("") }
     val shown = allApps.filter { query.isBlank() || it.second.contains(query.trim(), ignoreCase = true) }
 
-    SparelyAlertDialog(
+    SparelyDialogSheet(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.payment_settings_choose_apps)) },
         text = {

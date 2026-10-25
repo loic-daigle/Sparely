@@ -93,7 +93,7 @@ import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.domain.model.ExpenseHistoryRetention
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.SmartVault
-import com.example.sparely.ui.components.SparelyAlertDialog
+import com.example.sparely.ui.components.SparelyDialogSheet
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
@@ -1207,7 +1207,7 @@ private fun AutoDepositsCard(
     }
 
     if (showHourPicker) {
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { showHourPicker = false },
             title = { Text(stringResource(R.string.dialog_select_check_time_title)) },
             text = {
@@ -1826,7 +1826,7 @@ private fun RegionalSettingsCard(
     
     // Country Picker Dialog
     if (showCountryPicker) {
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { showCountryPicker = false },
             title = { Text(stringResource(R.string.dialog_select_country_title)) },
             text = {
@@ -1883,7 +1883,7 @@ private fun RegionalSettingsCard(
     
     // Language Picker Dialog
     if (showLanguagePicker) {
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { showLanguagePicker = false },
             title = { Text(stringResource(R.string.dialog_select_language_title)) },
             text = {
@@ -1925,7 +1925,7 @@ private fun RegionalSettingsCard(
     
     // Currency Picker Dialog
     if (showCurrencyPicker) {
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { showCurrencyPicker = false },
             title = { Text(stringResource(R.string.dialog_select_currency_title)) },
             text = {
@@ -2093,7 +2093,7 @@ private fun PaymentMethodsSettingsCard(
             }
         }
 
-        SparelyAlertDialog(
+        SparelyDialogSheet(
             onDismissRequest = { 
                 showAddDialog = false 
                 editingMethod = null
