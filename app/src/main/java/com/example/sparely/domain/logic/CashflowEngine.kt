@@ -48,7 +48,9 @@ object CashflowEngine {
         val date: LocalDate,
         val income: Double,
         val obligations: Double,
-        val spending: Double
+        val spending: Double,
+        /** A known pay date. Without a schedule, income is spread evenly and no day is a payday. */
+        val isPayday: Boolean = false
     ) {
         val change: Double get() = income - obligations - spending
     }
@@ -237,11 +239,13 @@ object CashflowEngine {
         val dailyIncome = expectedMonthlyIncome / 4.33 / 7 // Fallback when no real schedule is known
         return (0 until days).map { offset ->
             val date = today.plusDays(offset.toLong())
+            val pay = payDates.filter { it.first == date }
             DailyProjection(
                 date = date,
-                income = if (payDates.isNotEmpty()) payDates.filter { it.first == date }.sumOf { it.second } else dailyIncome,
+                income = if (payDates.isNotEmpty()) pay.sumOf { it.second } else dailyIncome,
                 obligations = upcomingObligations.filter { it.dueDate == date }.sumOf { it.amount },
-                spending = dailyBurn
+                spending = dailyBurn,
+                isPayday = pay.isNotEmpty()
             )
         }
     }

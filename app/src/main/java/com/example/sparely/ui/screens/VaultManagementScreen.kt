@@ -2,6 +2,10 @@
 
 package com.example.sparely.ui.screens
 
+import androidx.compose.material3.minimumInteractiveComponentSize
+
+import androidx.compose.material3.LocalContentColor
+
 import android.annotation.SuppressLint
 import com.example.sparely.ui.utils.toInputString
 import androidx.annotation.DrawableRes
@@ -425,22 +429,39 @@ private fun VaultsHero(
     }
 }
 
+/**
+ * A small fact on a headline card (docs/DESIGN.md §3). Tinted from the card's own text colour so it
+ * reads on the card in light and dark themes alike; one that leads somewhere ends with an arrow.
+ * Every pill takes the same height, tappable or not, so a row of them lines up.
+ */
 @Composable
 internal fun HeroPill(@DrawableRes icon: Int, text: String, onClick: (() -> Unit)? = null) {
+    val ink = LocalContentColor.current
     val content: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 16.dp)
-            Text(text, style = MaterialTheme.typography.labelLarge)
-            if (onClick != null) MaterialSymbolIcon(icon = MaterialSymbols.ARROW_FORWARD, contentDescription = null, size = 16.dp)
+            MaterialSymbolIcon(icon = icon, contentDescription = null, size = 16.dp, tint = ink)
+            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, color = ink, maxLines = 1)
+            if (onClick != null) MaterialSymbolIcon(icon = MaterialSymbols.ARROW_FORWARD, contentDescription = null, size = 16.dp, tint = ink)
         }
     }
-    val color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
-    if (onClick != null) Surface(onClick = onClick, shape = CircleShape, color = color) { content() }
-    else Surface(shape = CircleShape, color = color) { content() }
+    val color = ink.copy(alpha = 0.10f)
+    // A tappable Surface reserves a 48dp touch area around itself; give the others the same room
+    val modifier = Modifier
+        .minimumInteractiveComponentSize()
+        .height(36.dp)
+    if (onClick != null) {
+        Surface(onClick = onClick, shape = CircleShape, color = color, contentColor = ink, modifier = modifier) {
+            Box(contentAlignment = Alignment.Center) { content() }
+        }
+    } else {
+        Surface(shape = CircleShape, color = color, contentColor = ink, modifier = modifier) {
+            Box(contentAlignment = Alignment.Center) { content() }
+        }
+    }
 }
 
 /**

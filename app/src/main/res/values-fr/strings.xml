@@ -2526,4 +2526,5 @@
         <item quantity="many">Série de %d jours</item>
         <item quantity="other">Série de %d jours</item>
     </plurals>
+    <string name="home_in_30_days">Dans 30 jours : %1$s</string>
 </resources>

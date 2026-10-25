@@ -1095,7 +1095,7 @@ internal fun HomeHero(
                 val description = stringResource(R.string.home_line_desc, low.formatCurrency(decimals = 0), lowDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth))
                 MoneyLine(
                     balances = balances,
-                    paydays = days.mapIndexedNotNull { i, d -> if (d.income > 0.5 && d.income > d.spending * 2) i + 1 else null },
+                    paydays = days.mapIndexedNotNull { i, d -> if (d.isPayday) i + 1 else null },
                     bills = days.mapIndexedNotNull { i, d -> if (d.obligations > 0) i + 1 else null },
                     lowIndex = lowIndex,
                     lineColor = colors.primary,
@@ -1109,7 +1109,8 @@ internal fun HomeHero(
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.dash_when_today), style = MaterialTheme.typography.labelSmall, color = onContainer.copy(alpha = 0.7f))
                     Text(
-                        stringResource(R.string.home_lowest, low.formatCurrency(decimals = 0), lowDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
+                        if (lowIndex == 0) stringResource(R.string.home_in_30_days, balances.last().formatCurrency(decimals = 0))
+                        else stringResource(R.string.home_lowest, low.formatCurrency(decimals = 0), lowDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (lowIsTrouble) colors.critical else onContainer,
@@ -1178,8 +1179,11 @@ private fun MoneyLine(
         val dot = 4.dp.toPx()
         paydays.forEach { drawCircle(payColor, dot, point(it)) }
         bills.forEach { drawCircle(billColor, dot, point(it)) }
-        drawCircle(ringBackground, 6.dp.toPx(), point(lowIndex))
-        drawCircle(lowColor, 6.dp.toPx(), point(lowIndex), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+        // Ringed only when the low comes later; today being the lowest is nothing to point at
+        if (lowIndex > 0) {
+            drawCircle(ringBackground, 6.dp.toPx(), point(lowIndex))
+            drawCircle(lowColor, 6.dp.toPx(), point(lowIndex), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+        }
     }
 }
 

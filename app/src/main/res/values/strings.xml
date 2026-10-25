@@ -2534,4 +2534,5 @@
         <item quantity="one">%d-day streak</item>
         <item quantity="other">%d-day streak</item>
     </plurals>
+    <string name="home_in_30_days">In 30 days: %1$s</string>
 </resources>
