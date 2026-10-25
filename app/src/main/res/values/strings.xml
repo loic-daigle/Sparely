@@ -2555,4 +2555,18 @@
     <string name="exp_d_from_vault">Paid from a vault</string>
     <string name="exp_d_whole">All of it</string>
     <string name="exp_d_items">Items</string>
+    <string name="cc_next_bill">%1$s: %2$s by %3$s</string>
+    <string name="cc_cards_header">Cards</string>
+    <string name="cc_no_statement_day">Set its statement day to follow its bills</string>
+    <string name="cc_since_statement">Since the statement</string>
+    <string name="cc_pay">Pay the bill</string>
+    <string name="cc_payment">Payment</string>
+    <plurals name="cc_bill_due_in">
+        <item quantity="one">Bill of %1$s · due in %2$d day</item>
+        <item quantity="other">Bill of %1$s · due in %2$d days</item>
+    </plurals>
+    <plurals name="cc_bill_late">
+        <item quantity="one">%1$s · %2$d day late</item>
+        <item quantity="other">%1$s · %2$d days late</item>
+    </plurals>
 </resources>

@@ -2547,4 +2547,20 @@
     <string name="exp_d_from_vault">Payé depuis un coffre</string>
     <string name="exp_d_whole">En entier</string>
     <string name="exp_d_items">Articles</string>
+    <string name="cc_next_bill">%1$s : %2$s d\'ici le %3$s</string>
+    <string name="cc_cards_header">Cartes</string>
+    <string name="cc_no_statement_day">Indiquez son jour de relevé pour suivre ses factures</string>
+    <string name="cc_since_statement">Depuis le relevé</string>
+    <string name="cc_pay">Payer le relevé</string>
+    <string name="cc_payment">Paiement</string>
+    <plurals name="cc_bill_due_in">
+        <item quantity="one">Relevé de %1$s · dans %2$d jour</item>
+        <item quantity="many">Relevé de %1$s · dans %2$d jours</item>
+        <item quantity="other">Relevé de %1$s · dans %2$d jours</item>
+    </plurals>
+    <plurals name="cc_bill_late">
+        <item quantity="one">%1$s · en retard de %2$d jour</item>
+        <item quantity="many">%1$s · en retard de %2$d jours</item>
+        <item quantity="other">%1$s · en retard de %2$d jours</item>
+    </plurals>
 </resources>

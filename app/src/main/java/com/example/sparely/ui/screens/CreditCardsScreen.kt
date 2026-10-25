@@ -1,5 +1,11 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.foundation.layout.fillMaxHeight
+
+import com.example.sparely.domain.model.netAmount
+
+import com.example.sparely.domain.model.displayName
+
 import androidx.compose.foundation.layout.WindowInsets
 
 import androidx.compose.animation.AnimatedVisibility
@@ -91,7 +97,31 @@ import com.example.sparely.ui.utils.formatPercent
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+private typealias Bill = com.example.sparely.domain.logic.CreditCardStatements.Bill
+
+/** Credit use above this share of the limit starts to weigh on a credit score. */
+private const val GOOD_UTILIZATION = 0.30
+
+/** What a card's bill says in a few words, and its colour: paid, due in N days, or late. */
+@Composable
+private fun billStatus(card: PaymentMethod, bill: Bill?): Pair<String, Color> {
+    val colors = MaterialTheme.colorScheme
+    return when {
+        card.currentBalance < 0 -> stringResource(R.string.dash_credit_of, (-card.currentBalance).formatCurrency(decimals = 0)) to colors.success
+        bill == null -> (card.creditLimit?.let { stringResource(R.string.credit_cards_limit_label, it.formatCurrency(decimals = 0)) }
+            ?: stringResource(R.string.dash_credit_card)) to colors.onSurfaceVariant
+        bill.isPaid -> stringResource(R.string.credit_cards_bill_paid) to colors.success
+        bill.isOverdue -> pluralStringResource(R.plurals.cc_bill_late, -bill.daysUntilDue, bill.amountDue.formatCurrency(decimals = 0), -bill.daysUntilDue) to colors.error
+        else -> pluralStringResource(R.plurals.cc_bill_due_in, bill.daysUntilDue, bill.amountDue.formatCurrency(decimals = 0), bill.daysUntilDue) to
+            (if (bill.daysUntilDue <= 7) colors.warning else colors.onSurfaceVariant)
+    }
+}
+
+/**
+ * The credit cards page (docs/DESIGN.md): what's owed against the limits with the 30 % mark, then
+ * each card with its bill, its use of its limit and a Pay button when a bill is waiting. Tapping a
+ * card opens its own page.
+ */
 @Composable
 fun CreditCardsScreen(
     creditCards: List<PaymentMethod>,
@@ -102,25 +132,27 @@ fun CreditCardsScreen(
     initialExpandedCardId: Long? = null,
     onAddCard: (() -> Unit)? = null,
     /** Used to tell this bill's purchases from the ones made since it came out. */
-    expenses: List<com.example.sparely.domain.model.Expense> = emptyList()
+    expenses: List<com.example.sparely.domain.model.Expense> = emptyList(),
+    onOpenCard: (Long) -> Unit = {}
 ) {
     val spacing = MaterialTheme.spacing
+    val colors = MaterialTheme.colorScheme
     val bills = remember(creditCards, expenses) {
         creditCards.associate { it.id to com.example.sparely.domain.logic.CreditCardStatements.currentBill(it, expenses) }
     }
-    var expandedCardId by remember { mutableStateOf<Long?>(initialExpandedCardId) }
     var payingCard by remember { mutableStateOf<PaymentMethod?>(null) }
-    
-    // Using global SparelyTopBar for navigation - no local topBar needed
-    // The app's frame already pads for the system bars; padding again left a gap
-    Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0), containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
+    // A link to one card (a bill reminder) opens its page once
+    var openedInitial by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(initialExpandedCardId) {
+        if (initialExpandedCardId != null && !openedInitial) {
+            openedInitial = true
+            onOpenCard(initialExpandedCardId)
+        }
+    }
+
+    Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0), containerColor = colors.background) { innerPadding ->
         if (creditCards.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 ExpressiveEmptyState(
                     icon = MaterialSymbols.CREDIT_CARD,
                     title = stringResource(R.string.credit_cards_no_cards),
@@ -130,57 +162,95 @@ fun CreditCardsScreen(
                             SparelyButton(
                                 onClick = it,
                                 icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 20.dp) }
-                            ) {
-                                Text(stringResource(R.string.credit_cards_add_card_action))
-                            }
+                            ) { Text(stringResource(R.string.credit_cards_add_card_action)) }
                         }
                     }
                 )
             }
-        } else {
-            // What is owed: a card in credit (after a refund) doesn't pay off another card's balance
-            val totalDebt = creditCards.sumOf { it.currentBalance.coerceAtLeast(0.0) }
-            val totalLimit = creditCards.mapNotNull { it.creditLimit }.sum()
-            val overallUtilization = if (totalLimit > 0) (totalDebt / totalLimit).coerceIn(0.0, 1.0) else 0.0
-            
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                // Content padding (not Modifier.padding) so cards don't clip at the edges
-                contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = spacing.xl)
-            ) {
-                // Summary Header
-                item(key = "summary") {
-                    CreditCardsSummaryHeader(
-                        totalDebt = totalDebt,
-                        totalLimit = totalLimit,
-                        overallUtilization = overallUtilization,
-                        cardCount = creditCards.size,
-                        modifier = Modifier.padding(bottom = spacing.md)
-                    )
-                }
+            return@Scaffold
+        }
+        // What is owed: a card in credit (after a refund) doesn't pay off another card's balance
+        val owed = creditCards.sumOf { it.currentBalance.coerceAtLeast(0.0) }
+        val limit = creditCards.mapNotNull { it.creditLimit }.sum()
+        val utilization = if (limit > 0) owed / limit else 0.0
+        val sorted = creditCards.sortedWith(compareBy<PaymentMethod> { bills[it.id]?.takeIf { b -> !b.isPaid }?.daysUntilDue ?: Int.MAX_VALUE }.thenByDescending { it.currentBalance })
+        val nextBill = sorted.firstNotNullOfOrNull { card -> bills[card.id]?.takeIf { !it.isPaid }?.let { card to it } }
 
-                // Individual cards as one segmented block: rounded ends, thin gaps
-                itemsIndexed(creditCards, key = { _, card -> card.id }) { index, card ->
-                    CreditCardDetailItem(
-                        card = card,
-                        shape = segmentedShape(index, creditCards.size, outer = 28.dp),
-                        modifier = Modifier.segmentSpacing(index),
-                        isExpanded = expandedCardId == card.id,
-                        recentPayments = recentPayments[card.id] ?: emptyList(),
-                        bill = bills[card.id],
-                        onClick = { 
-                            expandedCardId = if (expandedCardId == card.id) null else card.id
-                        },
-                        onPayBill = { payingCard = card }
-                    )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(start = spacing.md, end = spacing.md, top = spacing.xs, bottom = spacing.xl)
+        ) {
+            item(key = "hero") {
+                val accent = if (utilization <= GOOD_UTILIZATION) colors.success else colors.warning
+                Surface(modifier = Modifier.fillMaxWidth(), shape = ExpressiveShapes.large, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.dash_you_owe), style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            com.example.sparely.ui.components.SingleLineText(
+                                text = owed.formatCurrency(decimals = 0),
+                                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                                color = colors.onPrimaryContainer,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (limit > 0) {
+                                Text(
+                                    stringResource(R.string.dash_of_limit, limit.formatCurrency(decimals = 0)),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
+                        }
+                        if (limit > 0) {
+                            MarkedBar(
+                                progress = utilization.toFloat(),
+                                mark = GOOD_UTILIZATION.toFloat(),
+                                color = accent,
+                                height = 10.dp,
+                                trackColor = colors.surface.copy(alpha = 0.6f),
+                                markColor = colors.onPrimaryContainer,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                            Text(
+                                stringResource(R.string.dash_used_pct, utilization.formatPercent(0)) + " · " +
+                                    stringResource(if (utilization <= GOOD_UTILIZATION) R.string.dash_util_good else R.string.dash_util_high),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        nextBill?.let { (card, bill) ->
+                            Box(modifier = Modifier.padding(top = 8.dp)) {
+                                HeroPill(
+                                    MaterialSymbols.CALENDAR_MONTH,
+                                    stringResource(R.string.cc_next_bill, card.name, bill.amountDue.formatCurrency(decimals = 0), bill.dueDate.format(com.example.sparely.ui.utils.LocalDates.dayMonth)),
+                                    onClick = { onOpenCard(card.id) }
+                                )
+                            }
+                        }
+                    }
                 }
+            }
+            item(key = "header") {
+                com.example.sparely.ui.components.ExpressiveListHeader(
+                    title = stringResource(R.string.cc_cards_header),
+                    icon = MaterialSymbols.CREDIT_CARD,
+                    trailing = creditCards.size.toString()
+                )
+            }
+            itemsIndexed(sorted, key = { _, card -> card.id }) { index, card ->
+                val bill = bills[card.id]
+                CreditCardRow(
+                    card = card,
+                    bill = bill,
+                    shape = segmentedShape(index, sorted.size),
+                    modifier = Modifier.segmentSpacing(index),
+                    onClick = { onOpenCard(card.id) },
+                    onPay = if (bill != null && !bill.isPaid) ({ payingCard = card }) else null
+                )
             }
         }
     }
-    
-    // Pay Bill Bottom Sheet
+
     payingCard?.let { card ->
         PayBillBottomSheet(
             card = card,
@@ -196,429 +266,241 @@ fun CreditCardsScreen(
 }
 
 @Composable
-private fun CreditCardsSummaryHeader(
-    totalDebt: Double,
-    totalLimit: Double,
-    overallUtilization: Double,
-    cardCount: Int,
-    modifier: Modifier = Modifier
-) {
-    val spacing = MaterialTheme.spacing
-    val utilizationColor = when {
-        overallUtilization <= 0.30 -> MaterialTheme.colorScheme.success
-        overallUtilization <= 0.50 -> MaterialTheme.colorScheme.warning
-        else -> MaterialTheme.colorScheme.critical
-    }
-    
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = ExpressiveShapes.large
-    ) {
-        Column(
-            modifier = Modifier.padding(spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        stringResource(R.string.credit_cards_total_balance),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        totalDebt.formatCurrency(),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        pluralStringResource(R.plurals.credit_cards_count, cardCount, cardCount),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    if (totalLimit > 0) {
-                        Text(
-                            stringResource(R.string.credit_cards_of_limit, totalLimit.formatCurrency()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-            
-            if (totalLimit > 0) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            stringResource(R.string.credit_cards_overall_utilization),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            overallUtilization.formatPercent(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = utilizationColor
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { overallUtilization.toFloat() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .clip(CircleShape),
-                        color = utilizationColor,
-                        trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
-                        strokeCap = StrokeCap.Round
-                    )
-                }
-                
-                if (overallUtilization > 0.30) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.WARNING,
-                            contentDescription = null,
-                            size = 16.dp,
-                            tint = utilizationColor
-                        )
-                        Text(
-                            if (overallUtilization > 0.50) 
-                                stringResource(R.string.credit_cards_utilization_high_desc)
-                            else 
-                                stringResource(R.string.credit_cards_utilization_warning_desc),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = utilizationColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CreditCardDetailItem(
+private fun CreditCardRow(
     card: PaymentMethod,
-    isExpanded: Boolean,
-    recentPayments: List<CreditCardPayment>,
+    bill: Bill?,
+    shape: Shape,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
-    onPayBill: () -> Unit,
-    shape: Shape = ExpressiveShapes.large,
-    bill: com.example.sparely.domain.logic.CreditCardStatements.Bill? = null,
-    modifier: Modifier = Modifier
+    onPay: (() -> Unit)?
 ) {
-    val spacing = MaterialTheme.spacing
-    val isCreditBalance = card.currentBalance < -0.005
-    val utilizationColor = when {
-        card.isUtilizationHealthy -> MaterialTheme.colorScheme.success
-        card.isUtilizationWarning -> MaterialTheme.colorScheme.warning
-        else -> MaterialTheme.colorScheme.critical
+    val colors = MaterialTheme.colorScheme
+    val (status, statusColor) = billStatus(card, bill)
+    val cardLimit = card.creditLimit?.takeIf { it > 0 }
+    val used = cardLimit?.let { card.currentBalance.coerceAtLeast(0.0) / it }
+    val barColor = when {
+        used == null || used <= GOOD_UTILIZATION -> colors.primary
+        used <= 0.5 -> colors.warning
+        else -> colors.error
     }
-
-    ExpressiveCard(
-        modifier = modifier.fillMaxWidth(),
-        onClick = onClick,
-        shape = shape,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
-        ) {
-            // Card Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(colors.tertiary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(ExpressiveShapes.small)
-                            .background(utilizationColor.copy(alpha = 0.14f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.CREDIT_CARD,
-                            contentDescription = null,
-                            tint = utilizationColor,
-                            size = 24.dp
-                        )
-                    }
-                    Column {
-                        Text(
-                            card.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        card.creditLimit?.let { limit ->
-                            Text(
-                                stringResource(R.string.credit_cards_limit_label, limit.formatCurrency()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    MaterialSymbolIcon(icon = MaterialSymbols.CREDIT_CARD, contentDescription = null, size = 22.dp, tint = colors.tertiary)
                 }
-                
-                Column(horizontalAlignment = Alignment.End) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(card.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        card.currentBalance.formatCurrency(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            isCreditBalance -> MaterialTheme.colorScheme.success
-                            card.currentBalance > 0 -> utilizationColor
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-                    if (isCreditBalance) {
-                        Text(
-                            stringResource(R.string.credit_cards_credit_balance_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.success,
-                            fontWeight = FontWeight.Medium
-                        )
-                    } else {
-                        Text(
-                            card.utilizationPercent.formatPercent(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = utilizationColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-
-            // Utilization Bar
-            card.creditLimit?.let { limit ->
-                if (limit > 0) {
-                    LinearProgressIndicator(
-                        progress = { card.utilizationPercent.toFloat().coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(CircleShape),
-                        color = utilizationColor,
-                        trackColor = utilizationColor.copy(alpha = 0.18f),
-                        strokeCap = StrokeCap.Round
+                        status,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = if (statusColor == colors.onSurfaceVariant) FontWeight.Normal else FontWeight.Medium,
+                        color = statusColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-            
-            // Expanded Content
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(spacing.md)
-                ) {
-                    // Quick Stats
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(ExpressiveShapes.medium)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .padding(vertical = spacing.sm),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        // Available credit only makes sense when a limit is set
-                        card.creditLimit?.takeIf { it > 0 }?.let { limit ->
-                            StatItem(
-                                label = stringResource(R.string.credit_cards_available_label),
-                                value = (limit - card.currentBalance).coerceAtLeast(0.0).formatCurrency()
-                            )
-                        }
-                        StatItem(
-                            label = stringResource(R.string.credit_cards_billing_day_label),
-                            value = card.billingCycleDay?.toString() ?: stringResource(R.string.credit_cards_billing_day_not_set)
-                        )
-                        StatItem(
-                            label = stringResource(R.string.credit_cards_utilization_label),
-                            value = card.utilizationPercent.formatPercent(),
-                            valueColor = utilizationColor
-                        )
-                    }
-                    
-                    bill?.let { CurrentBillSummary(it) }
-
-                    // Recent Payments
-                    if (recentPayments.isNotEmpty()) {
-                        Text(
-                            stringResource(R.string.credit_cards_recent_payments_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        recentPayments.take(3).forEach { payment ->
-                            PaymentHistoryItem(payment)
-                        }
-                    }
-                    
-                    if (isCreditBalance) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.PAYMENTS,
-                                contentDescription = null,
-                                size = 16.dp,
-                                tint = MaterialTheme.colorScheme.success
-                            )
-                            Text(
-                                stringResource(R.string.credit_cards_credit_balance_desc),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.success,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Primary action always visible; details expand on tap
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-            ) {
-                if (card.currentBalance > 0.0) {
-                    SparelyButton(
-                        onClick = onPayBill,
-                        modifier = Modifier.weight(1f),
-                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.PAYMENTS, contentDescription = null, size = 18.dp) }
-                    ) {
-                        Text(stringResource(R.string.credit_cards_pay_bill_action))
-                    }
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-                MaterialSymbolIcon(
-                    icon = if (isExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
-                    contentDescription = stringResource(if (isExpanded) R.string.dashboard_collapse else R.string.dashboard_expand),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    label: String,
-    value: String,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = valueColor
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun PaymentHistoryItem(payment: CreditCardPayment) {
-    val formatter = com.example.sparely.ui.utils.LocalDates.medium
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                payment.date.format(formatter),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            payment.note?.let { note ->
                 Text(
-                    note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    card.currentBalance.coerceAtLeast(0.0).formatCurrency(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (used != null && used > 0.5) colors.error else colors.onSurface
                 )
             }
+            if (used != null && card.currentBalance >= 0) {
+                MarkedBar(progress = used.toFloat(), mark = GOOD_UTILIZATION.toFloat(), color = barColor, modifier = Modifier.padding(start = 58.dp, top = 8.dp))
+            }
+            if (used != null || onPay != null) {
+                Row(modifier = Modifier.padding(start = 58.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        listOfNotNull(
+                            used?.let { stringResource(R.string.dash_of_limit_pct, it.formatPercent(0)) },
+                            cardLimit?.let { stringResource(R.string.dash_available, (it - card.currentBalance).coerceAtLeast(0.0).formatCurrency(decimals = 0)) }
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    onPay?.let { SparelyTonalButton(onClick = it) { Text(stringResource(R.string.credit_cards_pay_bill_action)) } }
+                }
+            }
         }
-        Text(
-            "-${payment.amount.formatCurrency()}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.success
-        )
     }
 }
 
 /**
- * The bill that came out on the statement date: what's still owed on it and by when, apart from
- * purchases made since, which go on the next bill.
+ * One card's page: the current bill and when it's due on a statement-to-due timeline, what's
+ * available and used, Pay the bill, what was spent since the statement by category, and payments.
  */
 @Composable
-private fun CurrentBillSummary(bill: com.example.sparely.domain.logic.CreditCardStatements.Bill) {
-    val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM) }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(ExpressiveShapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+fun CreditCardDetailScreen(
+    card: PaymentMethod?,
+    mainAccountBalance: Double,
+    recentPayments: List<CreditCardPayment>,
+    expenses: List<com.example.sparely.domain.model.Expense>,
+    onPayBill: (paymentMethodId: Long, amount: Double, note: String?, deductFromMainAccount: Boolean) -> Unit,
+    onEditCard: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    if (card == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(stringResource(R.string.credit_cards_no_cards), color = colors.onSurfaceVariant)
+        }
+        return
+    }
+    val today = remember { java.time.LocalDate.now() }
+    val bill = remember(card, expenses) { com.example.sparely.domain.logic.CreditCardStatements.currentBill(card, expenses) }
+    var paying by remember { mutableStateOf(false) }
+    val cardLimit = card.creditLimit?.takeIf { it > 0 }
+    val used = cardLimit?.let { card.currentBalance.coerceAtLeast(0.0) / it }
+    val since = bill?.statementDate
+    val sinceStatement = remember(expenses, card.id, since) {
+        expenses.filter { it.paymentMethodId == card.id && (since == null || it.date.isAfter(since)) && (since != null || java.time.YearMonth.from(it.date) == java.time.YearMonth.from(today)) }
+    }
+    val byCategory = sinceStatement.groupBy { it.category }
+        .map { (category, list) -> Triple(category, list.sumOf { it.netAmount }, list.size) }
+        .sortedByDescending { it.second }
+    val sinceTotal = byCategory.sumOf { it.second }
+    val dateFormat = com.example.sparely.ui.utils.LocalDates.medium
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(colors.background),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(R.string.credit_cards_bill_of, bill.statementDate.format(dateFormat)),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = when {
-                bill.isPaid -> stringResource(R.string.credit_cards_bill_paid)
-                bill.isOverdue -> stringResource(R.string.credit_cards_bill_overdue, bill.amountDue.formatCurrency(), bill.dueDate.format(dateFormat))
-                else -> stringResource(R.string.credit_cards_bill_due, bill.amountDue.formatCurrency(), bill.dueDate.format(dateFormat))
-            },
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = when {
-                bill.isPaid -> MaterialTheme.colorScheme.success
-                bill.isOverdue -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.onSurface
+        item(key = "hero") {
+            Surface(shape = ExpressiveShapes.large, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
+                Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (bill != null) {
+                        Text(stringResource(R.string.credit_cards_bill_of, bill.statementDate.format(dateFormat)), style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+                        com.example.sparely.ui.components.SingleLineText(
+                            text = bill.amountDue.formatCurrency(),
+                            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                            color = colors.onPrimaryContainer
+                        )
+                        val (status, statusColor) = billStatus(card, bill)
+                        Text(
+                            if (bill.isPaid) status else stringResource(R.string.credit_cards_bill_due, bill.amountDue.formatCurrency(), bill.dueDate.format(dateFormat)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = if (bill.isOverdue || bill.isPaid) statusColor else colors.onPrimaryContainer
+                        )
+                        BillTimeline(statement = bill.statementDate, due = bill.dueDate, today = today, late = bill.isOverdue)
+                    } else {
+                        Text(stringResource(R.string.credit_cards_total_balance), style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+                        com.example.sparely.ui.components.SingleLineText(
+                            text = card.currentBalance.formatCurrency(),
+                            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                            color = colors.onPrimaryContainer
+                        )
+                        Text(stringResource(R.string.cc_no_statement_day), style = MaterialTheme.typography.bodyMedium, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+                    }
+                }
+            }
+        }
+        item(key = "tiles") {
+            Row(modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatTile(stringResource(R.string.credit_cards_available_label), cardLimit?.let { (it - card.currentBalance).coerceAtLeast(0.0).formatCurrency(decimals = 0) } ?: "—", Modifier.weight(1f).fillMaxHeight())
+                StatTile(stringResource(R.string.credit_cards_utilization_label), used?.formatPercent(0) ?: "—", Modifier.weight(1f).fillMaxHeight())
+                StatTile(stringResource(R.string.cc_since_statement), sinceTotal.formatCurrency(decimals = 0), Modifier.weight(1f).fillMaxHeight())
+            }
+        }
+        item(key = "actions") {
+            com.example.sparely.ui.components.SparelyButtonGroup(
+                listOf(
+                    com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.cc_pay), MaterialSymbols.PAYMENTS, emphasized = true) { paying = true },
+                    com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.action_edit_short), MaterialSymbols.EDIT, onClick = onEditCard)
+                )
+            )
+        }
+        if (byCategory.isNotEmpty()) {
+            item(key = "since") {
+                Column {
+                    com.example.sparely.ui.components.ExpressiveListHeader(
+                        title = stringResource(if (since != null) R.string.cc_since_statement else R.string.dashboard_this_month),
+                        icon = MaterialSymbols.PIE_CHART,
+                        trailing = sinceTotal.formatCurrency(decimals = 0)
+                    )
+                    byCategory.forEachIndexed { index, (category, amount, count) ->
+                        val tint = com.example.sparely.ui.theme.getCategoryColor(category)
+                        com.example.sparely.ui.components.SegmentedListItem(
+                            title = category.displayName(),
+                            subtitle = pluralStringResource(R.plurals.history_store_purchases, count, count),
+                            shape = segmentedShape(index, byCategory.size),
+                            modifier = Modifier.segmentSpacing(index),
+                            icon = com.example.sparely.ui.theme.getCategoryIcon(category),
+                            iconTint = tint,
+                            below = { MarkedBar(progress = (amount / sinceTotal).toFloat(), mark = null, color = tint) },
+                            trailing = { Text(amount.formatCurrency(decimals = 0), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                }
+            }
+        }
+        if (recentPayments.isNotEmpty()) {
+            item(key = "payments") {
+                Column {
+                    com.example.sparely.ui.components.ExpressiveListHeader(title = stringResource(R.string.credit_cards_recent_payments_label), icon = MaterialSymbols.HISTORY)
+                    val shown = recentPayments.sortedByDescending { it.date }.take(6)
+                    shown.forEachIndexed { index, payment ->
+                        com.example.sparely.ui.components.SegmentedListItem(
+                            title = payment.note?.takeIf { it.isNotBlank() } ?: stringResource(R.string.cc_payment),
+                            subtitle = payment.date.format(dateFormat),
+                            shape = segmentedShape(index, shown.size),
+                            modifier = Modifier.segmentSpacing(index),
+                            icon = MaterialSymbols.CHECK_CIRCLE,
+                            iconTint = colors.success,
+                            trailing = { Text(payment.amount.formatCurrency(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (paying) {
+        PayBillBottomSheet(
+            card = card,
+            statementAmount = bill?.amountDue?.takeIf { it >= 0.005 },
+            mainAccountBalance = mainAccountBalance,
+            onDismiss = { paying = false },
+            onPay = { amount, note, deductFromMain ->
+                onPayBill(card.id, amount, note, deductFromMain)
+                paying = false
             }
         )
-        if (bill.newCharges >= 0.005) {
-            Text(
-                text = stringResource(R.string.credit_cards_bill_new_charges, bill.newCharges.formatCurrency()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    }
+}
+
+/** Statement date, today and the due date on one line, today's dot where it falls between them. */
+@Composable
+private fun BillTimeline(statement: java.time.LocalDate, due: java.time.LocalDate, today: java.time.LocalDate, late: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val total = java.time.temporal.ChronoUnit.DAYS.between(statement, due).toFloat().coerceAtLeast(1f)
+    val progress = (java.time.temporal.ChronoUnit.DAYS.between(statement, today) / total).coerceIn(0f, 1f)
+    val ink = colors.onPrimaryContainer
+    val dueColor = if (late) colors.error else colors.warning
+    Column(modifier = Modifier.padding(top = 14.dp)) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(20.dp)) {
+            val y = size.height / 2
+            val r = 6.dp.toPx()
+            drawLine(ink.copy(alpha = 0.2f), androidx.compose.ui.geometry.Offset(r, y), androidx.compose.ui.geometry.Offset(size.width - r, y), strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+            val x = r + (size.width - 2 * r) * progress
+            drawLine(ink, androidx.compose.ui.geometry.Offset(r, y), androidx.compose.ui.geometry.Offset(x, y), strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+            drawCircle(ink, r, androidx.compose.ui.geometry.Offset(r, y))
+            drawCircle(dueColor, r, androidx.compose.ui.geometry.Offset(size.width - r, y))
+            drawCircle(colors.primaryContainer, r + 1.dp.toPx(), androidx.compose.ui.geometry.Offset(x, y))
+            drawCircle(ink, r + 1.dp.toPx(), androidx.compose.ui.geometry.Offset(x, y), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(statement.format(com.example.sparely.ui.utils.LocalDates.dayMonth), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.75f))
+            Spacer(Modifier.weight(1f))
+            Text(stringResource(R.string.dash_when_today), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.75f))
+            Spacer(Modifier.weight(1f))
+            Text(due.format(com.example.sparely.ui.utils.LocalDates.dayMonth), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.75f))
         }
     }
 }

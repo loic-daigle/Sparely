@@ -993,4 +993,5 @@
     <string name="bud_pill_over_income">Plus que ton revenu</string>
     <string name="home_free_to_spend_desc">Après factures et coffres · touche pour le détail</string>
     <string name="home_line_desc">Ton argent sur les 30 prochains jours; plus bas %1$s le %2$s</string>
+    <string name="cc_no_statement_day">Indique son jour de relevé pour suivre ses factures</string>
 </resources>

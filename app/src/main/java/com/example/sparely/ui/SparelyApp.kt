@@ -296,6 +296,10 @@ private fun SparelyScaffold(
                     scrollBehavior = topBarScrollBehavior,
                     titleOverride = when {
                         isEditingExpense -> stringResource(R.string.expense_entry_edit_title)
+                        // A card's page is titled with the card
+                        currentDestination?.route == SparelyDestination.CreditCardDetail.route ->
+                            navBackStackEntry?.arguments?.getString("cardId")?.toLongOrNull()
+                                ?.let { id -> uiState.paymentMethods.find { it.id == id }?.name }
                         // An expense's page is titled with what it was
                         currentDestination?.route == SparelyDestination.ExpenseDetail.route ->
                             navBackStackEntry?.arguments?.getString("expenseId")?.toLongOrNull()
@@ -1475,7 +1479,21 @@ private fun SparelyNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 // Payment methods (including credit cards) are managed in Settings
                 onAddCard = { navController.openSettingsSection(SettingsSection.PaymentMethods) },
-                expenses = uiState.expenses
+                expenses = uiState.expenses,
+                onOpenCard = { id -> navController.navigate(SparelyDestination.CreditCardDetail.createRoute(id)) }
+            )
+        }
+        composable(SparelyDestination.CreditCardDetail.route) { entry ->
+            val cardId = entry.arguments?.getString("cardId")?.toLongOrNull()
+            com.example.sparely.ui.screens.CreditCardDetailScreen(
+                card = uiState.paymentMethods.find { it.id == cardId },
+                mainAccountBalance = uiState.settings.mainAccountBalance,
+                recentPayments = uiState.creditCardPayments[cardId].orEmpty(),
+                expenses = uiState.expenses,
+                onPayBill = { paymentMethodId, amount, note, deductFromMainAccount ->
+                    viewModel.payCreditCardBill(paymentMethodId, amount, note, deductFromMainAccount)
+                },
+                onEditCard = { navController.openSettingsSection(SettingsSection.PaymentMethods) }
             )
         }
         composable(SparelyDestination.Insights.route) {
@@ -1570,6 +1588,7 @@ private enum class SparelyDestination(
     Settings("settings", null, MaterialSymbols.SETTINGS, R.string.settings_title),
     ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title),
     CreditCards("creditCards?cardId={cardId}", null, MaterialSymbols.CREDIT_CARD, R.string.dashboard_credit_cards_title),
+    CreditCardDetail("creditCard/{cardId}", null, MaterialSymbols.CREDIT_CARD, R.string.dashboard_credit_cards_title),
     VaultTransfers("vaultTransfers", null, MaterialSymbols.SWAP_HORIZ, R.string.vault_transfers_title),
     VaultHistory("vaultHistory/{vaultId}", null, MaterialSymbols.HISTORY, R.string.vault_history_screen_title),
 
