@@ -309,9 +309,9 @@ private fun VaultSummaryCard(
     }
 }
 
-/** The balance over time, placed by date, with the goal as a dashed line. */
+/** The balance over time, placed by date, with the goal as a dashed line. Below zero draws at zero. */
 @Composable
-private fun BalanceLine(
+internal fun BalanceLine(
     series: List<Pair<java.time.LocalDate, Double>>,
     target: Double?,
     lineColor: androidx.compose.ui.graphics.Color,
@@ -324,7 +324,7 @@ private fun BalanceLine(
         val pad = 4.dp.toPx()
         fun point(day: java.time.LocalDate, value: Double) = androidx.compose.ui.geometry.Offset(
             ((day.toEpochDay() - start).toFloat() / span) * size.width,
-            pad + (1f - (value / max).toFloat()) * (size.height - 2 * pad)
+            pad + (1f - (value.coerceAtLeast(0.0) / max).toFloat()) * (size.height - 2 * pad)
         )
         val line = androidx.compose.ui.graphics.Path()
         series.forEachIndexed { i, (day, value) ->

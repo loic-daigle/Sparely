@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -98,6 +100,10 @@ fun MainAccountScreen(
         incoming to outgoing
     }
 
+    val series = remember(transactions, currentBalance) {
+        MainAccountSeries.balances(transactions, currentBalance, java.time.LocalDate.now())
+    }
+
     Scaffold(
         // The app's frame already pads for the system bars; padding again left a gap
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -110,92 +116,18 @@ fun MainAccountScreen(
             // Content padding (not Modifier.padding) so cards don't clip while scrolling
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
         ) {
-            // Balance Card
+            // The page's headline (docs/DESIGN.md §3): the balance, its last 90 days, this month's money
+            // in and out, then the actions as one button group
             item(key = "balance") {
-                // Same signature card as the dashboard: Sparely spruce and mint in every theme.
-                SparelyBrandSurface {
-                    ExpressiveCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        shape = MaterialTheme.shapes.large,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentPadding = 24.dp
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = stringResource(R.string.main_account_current_balance),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = currentBalance.formatCurrency(),
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            if (monthIn > 0 || monthOut > 0) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.main_account_month_in, monthIn.formatCurrency()),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.success
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.main_account_month_out, monthOut.formatCurrency()),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Action Buttons
-            item(key = "actions") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SparelyButton(
-                        onClick = { showDepositDialog = true },
-                        modifier = Modifier.weight(1f),
-                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, null, modifier = Modifier.size(18.dp)) }
-                    ) {
-                        Text(stringResource(R.string.vault_deposit))
-                    }
-                    
-                    SparelyTonalButton(
-                        onClick = { showWithdrawDialog = true },
-                        modifier = Modifier.weight(1f),
-                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.REMOVE, null, modifier = Modifier.size(18.dp)) }
-                    ) {
-                        Text(stringResource(R.string.vault_withdraw))
-                    }
-
-                    // Correcting the balance is rarer, so it gets a round icon button beside the two actions
-                    FilledTonalIconButton(
-                        onClick = { showAdjustDialog = true },
-                        modifier = Modifier.size(50.dp)
-                    ) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.EDIT,
-                            contentDescription = stringResource(R.string.main_account_adjust_balance),
-                            size = 20.dp
-                        )
-                    }
-                }
+                MainAccountHero(
+                    currentBalance = currentBalance,
+                    series = series,
+                    monthIn = monthIn,
+                    monthOut = monthOut,
+                    onDeposit = { showDepositDialog = true },
+                    onWithdraw = { showWithdrawDialog = true },
+                    onAdjust = { showAdjustDialog = true }
+                )
             }
 
             // Transaction History Header
@@ -303,6 +235,85 @@ fun MainAccountScreen(
                 onAdjust(newBalance, reason)
                 showAdjustDialog = false
             }
+        )
+    }
+}
+
+/** The balance after each day with a change over the last [days], ending today, oldest first. */
+internal object MainAccountSeries {
+    fun balances(
+        transactions: List<MainAccountTransaction>,
+        currentBalance: Double,
+        today: java.time.LocalDate,
+        days: Long = 90
+    ): List<Pair<java.time.LocalDate, Double>> {
+        val start = today.minusDays(days - 1)
+        val sorted = transactions.sortedBy { it.timestamp }
+        val points = sortedMapOf<java.time.LocalDate, Double>()
+        // Where it stood when the window opens, if anything happened before it
+        sorted.lastOrNull { it.timestamp.toLocalDate().isBefore(start) }?.let { points[start] = it.balanceAfter }
+        sorted.filter { !it.timestamp.toLocalDate().isBefore(start) && !it.timestamp.toLocalDate().isAfter(today) }
+            .forEach { points[it.timestamp.toLocalDate()] = it.balanceAfter }
+        if (points.isEmpty()) return emptyList()
+        points[today] = currentBalance
+        return points.map { it.key to it.value }
+    }
+}
+
+@Composable
+private fun MainAccountHero(
+    currentBalance: Double,
+    series: List<Pair<java.time.LocalDate, Double>>,
+    monthIn: Double,
+    monthOut: Double,
+    onDeposit: () -> Unit,
+    onWithdraw: () -> Unit,
+    onAdjust: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
+    Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = com.example.sparely.ui.theme.ExpressiveShapes.large,
+            color = colors.primaryContainer,
+            contentColor = ink
+        ) {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.main_account_current_balance),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = ink.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = currentBalance.formatCurrency(),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+                if (series.size >= 2) {
+                    BalanceLine(series = series, target = null, lineColor = ink, ink = ink)
+                }
+                if (monthIn > 0 || monthOut > 0) {
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (monthIn > 0) HeroPill(MaterialSymbols.ARROW_DOWNWARD, stringResource(R.string.main_account_month_in, monthIn.formatCurrency()))
+                        if (monthOut > 0) HeroPill(MaterialSymbols.ARROW_UPWARD, stringResource(R.string.main_account_month_out, monthOut.formatCurrency()))
+                    }
+                }
+            }
+        }
+        com.example.sparely.ui.components.SparelyButtonGroup(
+            listOf(
+                com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_deposit), MaterialSymbols.ADD, emphasized = true, onClick = onDeposit),
+                com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_withdraw), MaterialSymbols.REMOVE, onClick = onWithdraw),
+                com.example.sparely.ui.components.ButtonGroupItem(stringResource(R.string.vault_adjust_short), MaterialSymbols.EDIT, onClick = onAdjust)
+            ),
+            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
     }
 }
