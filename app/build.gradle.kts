@@ -82,6 +82,9 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        // The container transform (ui/components/ContainerTransform.kt). Opted in here rather than
+        // in code, so it keeps building once Compose makes shared elements stable
+        optIn.add("androidx.compose.animation.ExperimentalSharedTransitionApi")
     }
 }
 

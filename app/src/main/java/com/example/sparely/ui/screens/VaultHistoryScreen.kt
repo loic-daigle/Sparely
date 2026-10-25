@@ -2,6 +2,8 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -81,7 +83,9 @@ fun VaultHistoryScreen(
     // one short bar with the title in it (docs/DESIGN.md §2)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier
+            .then(if (vault != null) Modifier.containerTransform("vault-${vault.id}") else Modifier)
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(

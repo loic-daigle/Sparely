@@ -2,6 +2,8 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import com.example.sparely.ui.theme.ExpressiveMotionTokens
@@ -485,7 +487,7 @@ private fun BudgetRow(
     }
     val categoryColor = getCategoryColor(status.category)
     val left = status.limit - status.spent
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+    Surface(onClick = onClick, modifier = modifier.containerTransform("budget-${status.category.name}", shape).fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -614,7 +616,7 @@ fun BudgetDetailScreen(
     val left = status.limit - status.spent
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(colors.background),
+        modifier = Modifier.containerTransform("budget-${category.name}").fillMaxSize().background(colors.background),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

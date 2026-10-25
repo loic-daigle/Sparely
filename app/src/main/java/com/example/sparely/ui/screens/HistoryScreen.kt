@@ -1,5 +1,7 @@
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.animation.*
 import com.example.sparely.ui.utils.toSafeDouble
 import com.example.sparely.ui.utils.filterAmountExpressionInput
@@ -977,6 +979,7 @@ private fun ModernExpenseCard(
 
     Surface(
         modifier = modifier
+            .containerTransform("expense-${expense.id}", shape)
             .fillMaxWidth()
             .clip(shape)
             .then(

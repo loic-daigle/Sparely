@@ -95,7 +95,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import com.example.sparely.ui.components.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.sparely.domain.model.VaultArchivePrompt
@@ -748,12 +748,18 @@ private fun SparelyNavHost(
     val pendingVariableBills by viewModel.pendingVariableBills.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    NavHost(
-        navController = navController,
-        startDestination = SparelyDestination.Dashboard.route,
+    // Rows grow into the page they open (docs/DESIGN.md §6): the shared-transition layout holds the
+    // moving container while the pages switch
+    androidx.compose.animation.SharedTransitionLayout(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
+    ) {
+    androidx.compose.runtime.CompositionLocalProvider(com.example.sparely.ui.components.LocalSharedTransitionScope provides this) {
+    NavHost(
+        navController = navController,
+        startDestination = SparelyDestination.Dashboard.route,
+        modifier = Modifier.fillMaxSize()
     ) {
         composable(
             route = SparelyDestination.Dashboard.route,
@@ -1506,6 +1512,8 @@ private fun SparelyNavHost(
                 }
             )
         }
+    }
+    }
     }
 
     // Here, after the NavHost, so the graph exists: run from the app root, a link that arrived while

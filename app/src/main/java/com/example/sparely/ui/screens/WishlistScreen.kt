@@ -2,6 +2,8 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -407,7 +409,7 @@ private fun WishRow(
         stringResource(R.string.wish_row_plan, monthly!!.formatCurrency(decimals = 0), formatTargetDate(date))
     }
 
-    Surface(onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+    Surface(onClick = onOpen, modifier = modifier.containerTransform("wish-${wish.id}", shape).fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)

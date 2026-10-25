@@ -2,6 +2,8 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -329,7 +331,7 @@ fun ExpenseDetailScreen(
     val saved = expense.allocation.totalSetAside
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(colors.background),
+        modifier = Modifier.containerTransform("expense-${expense?.id}").fillMaxSize().background(colors.background),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

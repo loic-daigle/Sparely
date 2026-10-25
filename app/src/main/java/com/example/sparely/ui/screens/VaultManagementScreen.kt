@@ -2,6 +2,8 @@
 
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.material3.minimumInteractiveComponentSize
 
 import androidx.compose.material3.LocalContentColor
@@ -498,7 +500,7 @@ private fun VaultRow(
     Surface(
         onClick = onOpen ?: {},
         enabled = onOpen != null,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.containerTransform("vault-${vault.id}", shape).fillMaxWidth(),
         shape = shape,
         color = colors.surfaceContainer
     ) {

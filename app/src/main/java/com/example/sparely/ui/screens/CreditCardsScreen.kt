@@ -1,5 +1,7 @@
 package com.example.sparely.ui.screens
 
+import com.example.sparely.ui.components.containerTransform
+
 import androidx.compose.foundation.layout.fillMaxHeight
 
 import com.example.sparely.domain.model.netAmount
@@ -283,7 +285,7 @@ private fun CreditCardRow(
         used <= 0.5 -> colors.warning
         else -> colors.error
     }
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
+    Surface(onClick = onClick, modifier = modifier.containerTransform("card-${card.id}", shape).fillMaxWidth(), shape = shape, color = colors.surfaceContainer) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -367,7 +369,7 @@ fun CreditCardDetailScreen(
     val dateFormat = com.example.sparely.ui.utils.LocalDates.medium
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(colors.background),
+        modifier = Modifier.containerTransform("card-${card?.id}").fillMaxSize().background(colors.background),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
