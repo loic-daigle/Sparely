@@ -78,16 +78,15 @@ fun VaultHistoryScreen(
 
     // The app's frame already pads for the system bars, so this screen's own bar and content
     // don't add them again (they left a gap above the title and below the list). Like every page,
-    // the title starts large and shrinks into the bar as the page scrolls (docs/DESIGN.md §2)
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    // one short bar with the title in it (docs/DESIGN.md §2)
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            MediumTopAppBar(
+            TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 scrollBehavior = scrollBehavior,
-                expandedHeight = 100.dp,
                 title = { Text(vault?.name ?: vaultName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,

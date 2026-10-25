@@ -71,7 +71,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -266,13 +265,10 @@ private fun SparelyScaffold(
     val showTopBar = currentDestination?.route != SparelyDestination.Dashboard.route &&
         currentDestination?.route != SparelyDestination.SavingsHistory.route &&
         currentDestination?.route != SparelyDestination.VaultHistory.route
-    // Pages open on a large title that shrinks into the bar as their content scrolls (docs/DESIGN.md §2);
-    // the expense form keeps a small pinned bar so the form starts higher. Only with the bar shown:
-    // without one to measure, the collapsing behaviour has no limit and swallows every scroll.
-    val largeTitle = showTopBar && !isExpenseEntry
+    // One short bar with the title already in it (docs/DESIGN.md §2): a title that starts large and
+    // shrinks on scroll left an empty band above every page's content
     val topBarScrollBehavior = key(currentDestination?.route, inSettingsSection) {
-        if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-        else TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+        TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     }
     Scaffold(
         modifier = Modifier
@@ -313,8 +309,7 @@ private fun SparelyScaffold(
                         inSettingsSection -> settingsHeader.sectionTitle
                         else -> null
                     },
-                    onBack = if (inSettingsSection) settingsHeader.closeSection else null,
-                    large = largeTitle
+                    onBack = if (inSettingsSection) settingsHeader.closeSection else null
                 )
             }
         },
@@ -637,8 +632,7 @@ private fun SparelyTopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
     titleOverride: String? = null,
     // Replaces the usual back navigation, e.g. closing an open settings section
-    onBack: (() -> Unit)? = null,
-    large: Boolean = true
+    onBack: (() -> Unit)? = null
 ) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
     val title = titleOverride
@@ -646,7 +640,6 @@ private fun SparelyTopBar(
         ?: stringResource(R.string.app_name)
     val isTopLevel = destination != null && destination in bottomBarDestinations
     val titleContent: @Composable () -> Unit = {
-        // No explicit style: the large bar uses headlineMedium expanded and titleLarge collapsed
         Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     val navigationIcon: @Composable () -> Unit = {
@@ -665,19 +658,7 @@ private fun SparelyTopBar(
         containerColor = MaterialTheme.colorScheme.background,
         scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
     )
-    if (large) {
-        // A medium bar, kept short: the large one's 152dp left an empty band above the title on
-        // every page. Expanded, the title sits just above the content; it still shrinks on scroll
-        MediumTopAppBar(
-            title = titleContent,
-            navigationIcon = navigationIcon,
-            colors = colors,
-            scrollBehavior = scrollBehavior,
-            expandedHeight = 100.dp
-        )
-    } else {
-        TopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
-    }
+    TopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
 }
 
 

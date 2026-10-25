@@ -24,8 +24,9 @@ headings and numbers, Roboto Flex for text).
 
 From top to bottom:
 
-1. **Top bar.** A large title that shrinks into a regular bar as the list scrolls
-   (`LargeTopAppBar` with `exitUntilCollapsedScrollBehavior`). Actions: at most two icons (search,
+1. **Top bar.** One short bar with the title in it from the start (`TopAppBar` with
+   `pinnedScrollBehavior`); it tints when the content scrolls under it. No large or medium
+   collapsing title: its expanded band reads as an empty gap above the page. Actions: at most two icons (search,
    filter). Screens inside the main scaffold don't add their own insets (`WindowInsets(0)`).
 2. **Headline.** The page's main number and its direction (see §3). One per page, never two.
 3. **Quick actions.** When a page has two to four common actions, a connected button group under
@@ -100,7 +101,7 @@ Never put a donut chart, a legend or a second big number in the headline.
 - Destructive actions are an outlined error button at the bottom of the detail page, and ask once
   in a sheet. No `AlertDialog`s, except the system date and time pickers.
 
-A detail page follows §2: large title (the item's name), headline with its visual, quick action
+A detail page follows §2: title in the bar (the item's name), headline with its visual, quick action
 button group, then groups (details, history).
 
 ## 7. Editors
