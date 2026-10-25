@@ -296,6 +296,11 @@ private fun SparelyScaffold(
                     scrollBehavior = topBarScrollBehavior,
                     titleOverride = when {
                         isEditingExpense -> stringResource(R.string.expense_entry_edit_title)
+                        // An expense's page is titled with what it was
+                        currentDestination?.route == SparelyDestination.ExpenseDetail.route ->
+                            navBackStackEntry?.arguments?.getString("expenseId")?.toLongOrNull()
+                                ?.let { id -> uiState.expenses.find { it.id == id } }
+                                ?.description?.takeIf { it.isNotBlank() }
                         // A budget's page is titled with its category
                         currentDestination?.route == SparelyDestination.BudgetDetail.route ->
                             navBackStackEntry?.arguments?.getString("category")
@@ -869,7 +874,34 @@ private fun SparelyNavHost(
                 onLoadAssetAllocationsForExpense = { expenseId ->
                     viewModel.getAssetAllocationsForExpense(expenseId)
                 },
-                highlightExpenseId = highlightExpenseId
+                highlightExpenseId = highlightExpenseId,
+                onOpenExpense = { id -> navController.navigate(SparelyDestination.ExpenseDetail.createRoute(id)) }
+            )
+        }
+        composable(SparelyDestination.ExpenseDetail.route) { entry ->
+            val expenseId = entry.arguments?.getString("expenseId")?.toLongOrNull()
+            val expense = uiState.expenses.find { it.id == expenseId }
+            com.example.sparely.ui.screens.ExpenseDetailScreen(
+                expense = expense,
+                store = uiState.stores.find { it.id == expense?.storeId },
+                paymentMethod = uiState.paymentMethods.find { it.id == expense?.paymentMethodId },
+                vault = uiState.smartVaults.find { it.id == expense?.deductedFromVaultId },
+                assets = uiState.assets,
+                brandfetchClientId = uiState.settings.brandfetchClientId,
+                onLoadAssetAllocations = { id -> viewModel.getAssetAllocationsForExpense(id) },
+                onEdit = { e ->
+                    viewModel.setPrefillExpense(e)
+                    navController.navigate(SparelyDestination.ExpenseEntry.route)
+                },
+                onDuplicate = { e ->
+                    viewModel.setPrefillExpense(e.copy(id = 0L))
+                    navController.navigate(SparelyDestination.ExpenseEntry.route)
+                },
+                onRefund = viewModel::refundExpense,
+                onDelete = { e ->
+                    viewModel.deleteExpense(e.id)
+                    navController.popBackStack()
+                }
             )
         }
         composable(SparelyDestination.Vaults.route) {
@@ -1517,6 +1549,7 @@ private enum class SparelyDestination(
 ) {
     Dashboard("dashboard?action={action}", null, MaterialSymbols.HOME, R.string.dashboard_title),
     History("history?highlightExpenseId={highlightExpenseId}", null, MaterialSymbols.BAR_CHART, R.string.history_title),
+    ExpenseDetail("expense/{expenseId}", null, MaterialSymbols.RECEIPT, R.string.exp_d_title),
     Vaults("vaults", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.vaults_title),
     Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, R.string.budgets_title),
     BudgetDetail("budgets/{category}", null, MaterialSymbols.PIE_CHART, R.string.budgets_title),

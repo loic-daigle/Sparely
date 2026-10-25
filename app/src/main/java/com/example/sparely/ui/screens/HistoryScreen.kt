@@ -73,7 +73,9 @@ fun HistoryScreen(
     vaults: List<com.example.sparely.domain.model.SmartVault> = emptyList(),
     assets: List<com.example.sparely.domain.model.Asset> = emptyList(),
     onLoadAssetAllocationsForExpense: suspend (Long) -> Map<Long, Double> = { emptyMap() },
-    highlightExpenseId: Long? = null
+    highlightExpenseId: Long? = null,
+    // Opens an expense's own page (docs/DESIGN.md §6)
+    onOpenExpense: (Long) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var categoryFilter by remember { mutableStateOf<ExpenseCategory?>(null) }
@@ -234,13 +236,7 @@ fun HistoryScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(ExpressiveShapes.small)
-                                    .clickable {
-                                        expandedExpenseId = expense.id
-                                        highlightedExpenseId = expense.id
-                                        findExpenseIndex(expense.id)?.let { target ->
-                                            scope.launch { listState.animateScrollToItem(target) }
-                                        }
-                                    }
+                                    .clickable { onOpenExpense(expense.id) }
                                     .padding(horizontal = 8.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -347,12 +343,18 @@ fun HistoryScreen(
             // Summary Insight Card
             if (showSummary) {
                 item(key = "summary") {
-                    ModernSummaryCard(
-                        filteredExpenses = filteredExpenses,
-                        dateFilter = dateFilter,
-                        searchQuery = searchQuery,
-                        categoryFilter = categoryFilter,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                    // Names what the total covers: the search, else the category, then the period
+                    val scopeLabel = searchQuery.trim().takeIf { it.isNotEmpty() }?.let { "“$it”" }
+                        ?: categoryFilter?.displayName()
+                    ExpensesHero(
+                        label = if (scopeLabel != null) stringResource(R.string.history_total_spent_matching, scopeLabel, dateFilter.displayName())
+                        else stringResource(R.string.history_total_spent_period, dateFilter.displayName()),
+                        expenses = filteredExpenses,
+                        allExpenses = expenses,
+                        filter = dateFilter,
+                        customStart = customStartDate,
+                        customEnd = customEndDate,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
             }
@@ -360,12 +362,12 @@ fun HistoryScreen(
             // Store Analytics Card - only when browsing everything, to avoid repeating the summary
             if (showStoreStats) {
                 item(key = "store_stats") {
-                    StoreAnalyticsCard(
+                    TopStoresGroup(
                         storeStats = storeStats,
                         totalSpent = filteredExpenses.sumOf { it.netAmount },
-                        onStoreClick = onStoreSelected,
                         brandfetchClientId = brandfetchClientId,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        onStoreClick = onStoreSelected,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
             }
@@ -409,8 +411,8 @@ fun HistoryScreen(
                         shape = cardShape,
                         expense = expense,
                         store = stores.find { it.id == expense.storeId },
+                        paymentName = paymentMethods.find { it.id == expense.paymentMethodId }?.name,
                         brandfetchClientId = brandfetchClientId,
-                        isExpanded = expandedExpenseId == expense.id,
                         isHighlighted = highlightedExpenseId == expense.id,
                         onClick = {
                             if (isSelectionMode) {
@@ -422,8 +424,7 @@ fun HistoryScreen(
                                     selectedExpenseIds + expense.id
                                 }
                             } else {
-                                // Toggle expand/collapse
-                                expandedExpenseId = if (expandedExpenseId == expense.id) null else expense.id
+                                onOpenExpense(expense.id)
                             }
                         },
                         isSelected = selectedExpenseIds.contains(expense.id),
@@ -832,147 +833,7 @@ private fun HistorySearchBar(
     }
 }
 
-@Composable
-private fun ModernSummaryCard(
-    filteredExpenses: List<Expense>,
-    dateFilter: DateRangeFilter,
-    modifier: Modifier = Modifier,
-    searchQuery: String = "",
-    categoryFilter: ExpenseCategory? = null
-) {
-    val totalFilteredSpent = filteredExpenses.sumOf { it.netAmount }
-    val totalFilteredReserve = filteredExpenses.sumOf { it.allocation.totalSetAside }
-    val savingsRate = if (totalFilteredSpent > 0) totalFilteredReserve / totalFilteredSpent else 0.0
 
-    val animatedRate by animateFloatAsState(
-        targetValue = savingsRate.toFloat(),
-        animationSpec = tween(
-            durationMillis = ExpressiveMotionTokens.EmphasizedDurationMillis,
-            easing = ExpressiveMotionTokens.EmphasizedEasing
-        ),
-        label = "savingsRate"
-    )
-    val colors = MaterialTheme.colorScheme
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
-        color = colors.primaryContainer,
-        contentColor = colors.onPrimaryContainer
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Headline number first, supporting stats and chart after
-            Column {
-                // Names what the total covers: the search, else the category, then the period
-                val scope = searchQuery.trim().takeIf { it.isNotEmpty() }?.let { "“$it”" }
-                    ?: categoryFilter?.displayName()
-                Text(
-                    text = if (scope != null) {
-                        stringResource(R.string.history_total_spent_matching, scope, dateFilter.displayName())
-                    } else {
-                        stringResource(R.string.history_total_spent_period, dateFilter.displayName())
-                    },
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.onPrimaryContainer.copy(alpha = 0.8f)
-                )
-                SingleLineText(
-                    text = totalFilteredSpent.formatCurrency(),
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                    color = colors.onPrimaryContainer
-                )
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.history_transactions_count,
-                        filteredExpenses.size,
-                        filteredExpenses.size
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onPrimaryContainer.copy(alpha = 0.8f)
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SummaryStat(
-                    label = stringResource(R.string.history_savings),
-                    value = totalFilteredReserve.formatCurrency(),
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                )
-                SummaryStat(
-                    label = stringResource(R.string.history_savings_rate),
-                    value = savingsRate.formatPercent(),
-                    progress = animatedRate,
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                )
-            }
-
-            SpendingGraph(
-                expenses = filteredExpenses,
-                dateFilter = dateFilter,
-                barColor = colors.primary,
-                labelColor = colors.onPrimaryContainer.copy(alpha = 0.7f),
-                emptyBarColor = colors.onPrimaryContainer.copy(alpha = 0.12f)
-            )
-        }
-    }
-}
-
-/** Small stat tile on the summary card, with an optional progress bar under the value. */
-@Composable
-private fun SummaryStat(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    progress: Float? = null
-) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        modifier = modifier,
-        shape = ExpressiveShapes.medium,
-        color = colors.surface.copy(alpha = 0.6f)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-            // Plain Text, not SingleLineText: the tiles are sized with intrinsics, which
-            // SingleLineText's BoxWithConstraints (a SubcomposeLayout) can't answer
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = colors.onSurface,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-            )
-            progress?.let { fraction ->
-                LinearProgressIndicator(
-                    progress = { fraction.coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                        .height(6.dp)
-                        .clip(CircleShape),
-                    color = colors.primary,
-                    trackColor = colors.primary.copy(alpha = 0.18f),
-                    strokeCap = StrokeCap.Round
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun SpendingGraph(
@@ -1072,6 +933,7 @@ fun SpendingGraph(
 private fun ModernExpenseCard(
     expense: Expense,
     store: Store?,
+    paymentName: String? = null,
     brandfetchClientId: String?,
     modifier: Modifier = Modifier,
     shape: Shape = ExpressiveShapes.large,
@@ -1190,7 +1052,7 @@ private fun ModernExpenseCard(
                         }
                     }
                     Text(
-                        text = listOfNotNull(expense.category.displayName(), store?.name).joinToString(" · "),
+                        text = listOfNotNull(expense.category.displayName(), store?.name ?: paymentName).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -1530,7 +1392,7 @@ private fun EmptyHistoryNotice(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeleteExpenseConfirmationDialog(
+internal fun DeleteExpenseConfirmationDialog(
     expense: Expense,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
@@ -1632,84 +1494,6 @@ private fun DeleteExpenseConfirmationDialog(
     }
 }
 
-@Composable
-private fun StoreAnalyticsCard(
-    storeStats: List<Triple<Store, Double, Int>>,
-    totalSpent: Double,
-    onStoreClick: (Store) -> Unit,
-    brandfetchClientId: String?,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = ExpressiveShapes.large,
-        color = colors.surfaceContainer
-    ) {
-        Column(modifier = Modifier.padding(vertical = 12.dp)) {
-            Text(
-                text = stringResource(R.string.history_top_stores),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-
-            storeStats.forEach { (store, amount, count) ->
-                val share = if (totalSpent > 0) amount / totalSpent else 0.0
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onStoreClick(store) }
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    com.example.sparely.ui.components.StoreIcon(
-                        store = store,
-                        brandfetchClientId = brandfetchClientId,
-                        size = 40
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = store.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = amount.formatCurrency(),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        // Share of total spending
-                        LinearProgressIndicator(
-                            progress = { share.toFloat().coerceIn(0f, 1f) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(CircleShape),
-                            color = colors.primary,
-                            trackColor = colors.primary.copy(alpha = 0.14f),
-                            strokeCap = StrokeCap.Round
-                        )
-                        Text(
-                            text = "${pluralStringResource(R.plurals.history_store_purchases, count, count)} · ${share.formatPercent(0)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 private fun matchesDate(
     date: LocalDate,
@@ -1752,7 +1536,7 @@ private fun formatCurrency(value: Double): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RefundExpenseDialog(
+internal fun RefundExpenseDialog(
     expense: Expense,
     onConfirm: (Double, List<Long>) -> Unit,
     onDismiss: () -> Unit

@@ -2535,4 +2535,24 @@
         <item quantity="other">%d-day streak</item>
     </plurals>
     <string name="home_in_30_days">In 30 days: %1$s</string>
+    <string name="exp_per_day">≈ %1$s/day</string>
+    <string name="exp_vs_last_month">vs last month</string>
+    <string name="exp_vs_last_year">vs last year</string>
+    <string name="exp_vs_before">vs the days before</string>
+    <string name="exp_set_aside">%1$s set aside</string>
+    <string name="exp_d_title">Expense</string>
+    <string name="exp_d_missing">This expense no longer exists.</string>
+    <string name="exp_d_paid">Paid</string>
+    <string name="exp_d_saved">%1$s set aside (%2$s)</string>
+    <string name="exp_d_refunded">%1$s refunded</string>
+    <string name="exp_d_category">Category</string>
+    <string name="exp_d_store">Store</string>
+    <string name="exp_d_paid_with">Paid with</string>
+    <string name="exp_d_date">Date</string>
+    <string name="exp_d_tax">Taxes</string>
+    <string name="exp_d_tax_included">Included</string>
+    <string name="exp_d_tax_not_included">Added on top</string>
+    <string name="exp_d_from_vault">Paid from a vault</string>
+    <string name="exp_d_whole">All of it</string>
+    <string name="exp_d_items">Items</string>
 </resources>

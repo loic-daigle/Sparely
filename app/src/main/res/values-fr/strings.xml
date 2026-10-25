@@ -2527,4 +2527,24 @@
         <item quantity="other">Série de %d jours</item>
     </plurals>
     <string name="home_in_30_days">Dans 30 jours : %1$s</string>
+    <string name="exp_per_day">≈ %1$s/jour</string>
+    <string name="exp_vs_last_month">vs le mois dernier</string>
+    <string name="exp_vs_last_year">vs l\'an dernier</string>
+    <string name="exp_vs_before">vs les jours d\'avant</string>
+    <string name="exp_set_aside">%1$s mis de côté</string>
+    <string name="exp_d_title">Dépense</string>
+    <string name="exp_d_missing">Cette dépense n\'existe plus.</string>
+    <string name="exp_d_paid">Payé</string>
+    <string name="exp_d_saved">%1$s mis de côté (%2$s)</string>
+    <string name="exp_d_refunded">%1$s remboursés</string>
+    <string name="exp_d_category">Catégorie</string>
+    <string name="exp_d_store">Magasin</string>
+    <string name="exp_d_paid_with">Payé avec</string>
+    <string name="exp_d_date">Date</string>
+    <string name="exp_d_tax">Taxes</string>
+    <string name="exp_d_tax_included">Incluses</string>
+    <string name="exp_d_tax_not_included">En plus</string>
+    <string name="exp_d_from_vault">Payé depuis un coffre</string>
+    <string name="exp_d_whole">En entier</string>
+    <string name="exp_d_items">Articles</string>
 </resources>
