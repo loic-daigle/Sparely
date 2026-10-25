@@ -71,7 +71,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -662,7 +662,15 @@ private fun SparelyTopBar(
         scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
     )
     if (large) {
-        LargeTopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
+        // A medium bar, kept short: the large one's 152dp left an empty band above the title on
+        // every page. Expanded, the title sits just above the content; it still shrinks on scroll
+        MediumTopAppBar(
+            title = titleContent,
+            navigationIcon = navigationIcon,
+            colors = colors,
+            scrollBehavior = scrollBehavior,
+            expandedHeight = 100.dp
+        )
     } else {
         TopAppBar(title = titleContent, navigationIcon = navigationIcon, colors = colors, scrollBehavior = scrollBehavior)
     }
