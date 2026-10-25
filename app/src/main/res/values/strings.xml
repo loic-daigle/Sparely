@@ -2594,4 +2594,5 @@
         <item quantity="one">%d tip</item>
         <item quantity="other">%d tips</item>
     </plurals>
+    <string name="insights_hero_in_30_days">%1$s in your account in 30 days</string>
 </resources>

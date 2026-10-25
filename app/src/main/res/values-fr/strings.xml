@@ -2591,4 +2591,5 @@
         <item quantity="many">%d conseils</item>
         <item quantity="other">%d conseils</item>
     </plurals>
+    <string name="insights_hero_in_30_days">%1$s dans votre compte dans 30 jours</string>
 </resources>

@@ -100,42 +100,7 @@ fun InsightsScreen(
             // instead of an endless loading spinner.
             if (cashflowForecast != null) {
                 item(key = "metrics_top") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        MetricCard(
-                            title = stringResource(R.string.insights_safe_to_spend),
-                            value = cashflowForecast.safeToSpend.formatCurrency(),
-                            modifier = Modifier.weight(1f),
-                            isPositive = cashflowForecast.safeToSpend >= 0
-                        )
-                        MetricCard(
-                            title = stringResource(R.string.insights_runway),
-                            value = if (cashflowForecast.runwayDays > 365) stringResource(R.string.insights_runway_over_year) else "${cashflowForecast.runwayDays} ${stringResource(R.string.insights_days)}",
-                            modifier = Modifier.weight(1f),
-                            isPositive = cashflowForecast.runwayDays > 30
-                        )
-                    }
-                }
-                item(key = "metrics_bottom") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        MetricCard(
-                            title = stringResource(R.string.insights_projected_balance),
-                            value = cashflowForecast.projectedBalance30Days.formatCurrency(),
-                            modifier = Modifier.weight(1f),
-                            isPositive = cashflowForecast.projectedBalance30Days > 0
-                        )
-                        // Spending pace is informational, not an error state
-                        MetricCard(
-                            title = stringResource(R.string.insights_burn_rate),
-                            value = "${cashflowForecast.dailyBurnRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    InsightsHero(cashflowForecast)
                 }
                 item(key = "forecast") {
                     CashflowForecastCard(cashflowForecast)
@@ -1052,6 +1017,57 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
 private fun maxAndMinRange(max: Double, min: Double): Pair<Double, Double> {
     val padding = (max - min) * 0.1
     return Pair((min - padding).coerceAtLeast(0.0), max + padding)
+}
+
+/**
+ * The page's headline (docs/DESIGN.md §3): what's safe to spend, where the balance will be in 30
+ * days, and pills for how long the money lasts and the daily spending pace.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InsightsHero(forecast: CashflowEngine.CashflowForecast) {
+    val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ExpressiveShapes.large,
+        color = colors.primaryContainer,
+        contentColor = ink
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column {
+                Text(
+                    stringResource(R.string.insights_safe_to_spend),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ink.copy(alpha = 0.8f)
+                )
+                Text(
+                    forecast.safeToSpend.formatCurrency(),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (forecast.safeToSpend >= 0) ink else colors.error,
+                    maxLines = 1
+                )
+                Text(
+                    stringResource(R.string.insights_hero_in_30_days, forecast.projectedBalance30Days.formatCurrency()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ink.copy(alpha = 0.8f)
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val runway = if (forecast.runwayDays > 365) {
+                    stringResource(R.string.insights_runway_over_year)
+                } else {
+                    "${forecast.runwayDays} ${stringResource(R.string.insights_days)}"
+                }
+                HeroPill(MaterialSymbols.SCHEDULE, "${stringResource(R.string.insights_runway)} · $runway")
+                HeroPill(
+                    MaterialSymbols.TRENDING_DOWN,
+                    "${forecast.dailyBurnRate.formatCurrency()}${stringResource(R.string.insights_per_day, stringResource(R.string.insights_day))}"
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -1000,4 +1000,5 @@
     <string name="challenges_daily_desc">Épargne 5 $ chaque jour pendant 30 jours</string>
     <string name="challenges_daily_detail">Épargne 5 $ chaque jour</string>
     <string name="challenges_no_active_desc">Commence un défi d\'épargne pour rendre tes finances plus amusantes et gagner des récompenses !</string>
+    <string name="insights_hero_in_30_days">%1$s dans ton compte dans 30 jours</string>
 </resources>
