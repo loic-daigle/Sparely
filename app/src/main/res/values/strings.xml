@@ -2588,4 +2588,10 @@
         <item quantity="one">%d movement</item>
         <item quantity="other">%d movements</item>
     </plurals>
+    <string name="health_out_of_100_score">%1$d out of 100</string>
+    <string name="health_pill_gain">Up to +%1$d with the tips</string>
+    <plurals name="health_pill_tips">
+        <item quantity="one">%d tip</item>
+        <item quantity="other">%d tips</item>
+    </plurals>
 </resources>

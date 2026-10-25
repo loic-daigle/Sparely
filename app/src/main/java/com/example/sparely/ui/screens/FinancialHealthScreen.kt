@@ -34,6 +34,7 @@ import com.example.sparely.domain.model.*
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.sparely.app.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
@@ -84,7 +85,7 @@ fun FinancialHealthScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)
     ) {
         item(key = "score") {
-            HealthScoreCard(healthScore, potentialGain = potentialGain)
+            HealthScoreCard(healthScore, potentialGain = potentialGain, tipCount = tips.size)
         }
 
         item(key = "ai") {
@@ -125,8 +126,15 @@ fun FinancialHealthScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
-        item(key = "breakdown") {
-            ScoreBreakdownCard(healthScore)
+        // One row per part of the score, weakest first, so what pulls it down leads
+        val parts = healthScore.scoreBreakdown.entries.sortedBy { it.value }
+        itemsIndexed(parts, key = { _, part -> "part_${part.key}" }) { index, (category, score) ->
+            BreakdownRow(
+                category = category,
+                score = score,
+                shape = segmentedShape(index, parts.size),
+                modifier = Modifier.segmentSpacing(index)
+            )
         }
 
         if (healthScore.topStrengths.isNotEmpty()) {
@@ -167,59 +175,55 @@ private fun scoreColor(score: Int): Color = when {
     else -> MaterialTheme.colorScheme.critical
 }
 
+/**
+ * The page's headline (docs/DESIGN.md §3): the score in its ring beside the level, then pills for
+ * what the tips could add and how many there are.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HealthScoreCard(healthScore: FinancialHealthScore, potentialGain: Int = 0) {
-    // Determine gradient colors based on health level
-    val (startColor, endColor) = when (healthScore.healthLevel) {
-        HealthLevel.EXCELLENT -> MaterialTheme.colorScheme.success to MaterialTheme.colorScheme.success.copy(alpha = 0.72f)
-        HealthLevel.GOOD -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
-        HealthLevel.FAIR -> MaterialTheme.colorScheme.warning to MaterialTheme.colorScheme.warning.copy(alpha = 0.72f)
-        HealthLevel.NEEDS_WORK -> MaterialTheme.colorScheme.warning to MaterialTheme.colorScheme.warning.copy(alpha = 0.55f)
-        HealthLevel.CRITICAL -> MaterialTheme.colorScheme.critical to MaterialTheme.colorScheme.critical.copy(alpha = 0.72f)
-    }
-
-    ExpressiveCard(
+fun HealthScoreCard(healthScore: FinancialHealthScore, potentialGain: Int = 0, tipCount: Int = 0) {
+    val colors = MaterialTheme.colorScheme
+    val ink = colors.onPrimaryContainer
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = ExpressiveShapes.large,
-        contentPadding = 24.dp
+        color = colors.primaryContainer,
+        contentColor = ink
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = stringResource(R.string.dashboard_financial_health),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            EnhancedAnimatedScoreCircle(
-                score = healthScore.overallScore,
-                size = 200.dp,
-                strokeWidth = 20.dp,
-                primaryColor = startColor,
-                secondaryColor = endColor
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = healthScore.healthLevel.displayName(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = startColor
-            )
-            if (potentialGain > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.health_potential_gain, potentialGain),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                EnhancedAnimatedScoreCircle(
+                    score = healthScore.overallScore,
+                    size = 112.dp,
+                    strokeWidth = 12.dp,
+                    primaryColor = ink,
+                    secondaryColor = ink.copy(alpha = 0.7f),
+                    trackColor = ink.copy(alpha = 0.14f),
+                    compact = true
                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.dashboard_financial_health),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = ink.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = healthScore.healthLevel.displayName(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.health_out_of_100_score, healthScore.overallScore),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            if (potentialGain > 0 || tipCount > 0) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (potentialGain > 0) HeroPill(MaterialSymbols.TRENDING_UP, stringResource(R.string.health_pill_gain, potentialGain))
+                    if (tipCount > 0) HeroPill(MaterialSymbols.LIGHTBULB, pluralStringResource(R.plurals.health_pill_tips, tipCount, tipCount))
+                }
             }
         }
     }
@@ -231,10 +235,12 @@ fun EnhancedAnimatedScoreCircle(
     size: Dp = 200.dp,
     strokeWidth: Dp = 20.dp,
     primaryColor: Color,
-    secondaryColor: Color
+    secondaryColor: Color,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+    // Small ring in a headline: the number alone, in the ring's colour
+    compact: Boolean = false
 ) {
     var animatedScore by remember { mutableStateOf(0f) }
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     
     LaunchedEffect(score) {
         animate(
@@ -291,7 +297,14 @@ fun EnhancedAnimatedScoreCircle(
             }
         }
         
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (compact) {
+            Text(
+                text = "${animatedScore.toInt()}",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = primaryColor
+            )
+        } else Column(horizontalAlignment = Alignment.CenterHorizontally) {
              Text(
                 text = "${animatedScore.toInt()}",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit(64f, androidx.compose.ui.unit.TextUnitType.Sp)),
@@ -303,6 +316,39 @@ fun EnhancedAnimatedScoreCircle(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/** One part of the score: its name, a bar in the score's colour, and the score out of 100. */
+@Composable
+private fun BreakdownRow(category: String, score: Int, shape: androidx.compose.ui.graphics.Shape, modifier: Modifier = Modifier) {
+    val color = scoreColor(score)
+    Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = getCategoryDisplayName(category),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "$score",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+                Text(
+                    text = " / 100",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            MarkedBar(progress = score / 100f, mark = null, color = color)
         }
     }
 }

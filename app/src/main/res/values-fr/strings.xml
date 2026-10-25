@@ -2584,4 +2584,11 @@
         <item quantity="many">%d mouvements</item>
         <item quantity="other">%d mouvements</item>
     </plurals>
+    <string name="health_out_of_100_score">%1$d sur 100</string>
+    <string name="health_pill_gain">Jusqu\'à +%1$d avec les conseils</string>
+    <plurals name="health_pill_tips">
+        <item quantity="one">%d conseil</item>
+        <item quantity="many">%d conseils</item>
+        <item quantity="other">%d conseils</item>
+    </plurals>
 </resources>
