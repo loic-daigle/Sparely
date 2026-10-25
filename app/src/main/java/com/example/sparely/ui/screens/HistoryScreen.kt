@@ -386,28 +386,34 @@ fun HistoryScreen(
                         bottomStart = if (isLast) 24.dp else 6.dp,
                         bottomEnd = if (isLast) 24.dp else 6.dp
                     )
-                    // Swipe left to delete (still asks first), right to duplicate. The action runs once
-                    // the swipe has settled, after the card snaps back: acting from confirmValueChange
-                    // could fire again when the list came back into view, reopening the copy on every
-                    // back press
+                    // Swipe left to delete (still asks first), right to duplicate. onDismiss runs once the
+                    // swipe has settled: acting from confirmValueChange could fire again when the list came
+                    // back into view, and acting on currentValue ran mid-drag, where snapping back was
+                    // cancelled by the finger still down and the action never ran. The row snaps back
+                    // before acting, so a page that's left and come back to (the swipe state is saved)
+                    // finds it at rest. The callback is kept stable: a new one would make the box call
+                    // it again while still swiped
                     val swipeState = rememberSwipeToDismissBoxState()
-                    LaunchedEffect(swipeState.currentValue) {
-                        when (swipeState.currentValue) {
-                            SwipeToDismissBoxValue.EndToStart -> {
-                                swipeState.reset()
-                                expenseToDelete = expense
+                    val swipeScope = rememberCoroutineScope()
+                    val currentExpense by rememberUpdatedState(expense)
+                    val currentOnDuplicate by rememberUpdatedState(onDuplicateExpense)
+                    val onSwiped: (SwipeToDismissBoxValue) -> Unit = remember(swipeState) {
+                        { direction ->
+                            swipeScope.launch {
+                                swipeState.snapTo(SwipeToDismissBoxValue.Settled)
+                                when (direction) {
+                                    SwipeToDismissBoxValue.EndToStart -> expenseToDelete = currentExpense
+                                    SwipeToDismissBoxValue.StartToEnd -> currentOnDuplicate(currentExpense)
+                                    SwipeToDismissBoxValue.Settled -> Unit
+                                }
                             }
-                            SwipeToDismissBoxValue.StartToEnd -> {
-                                swipeState.reset()
-                                onDuplicateExpense(expense)
-                            }
-                            SwipeToDismissBoxValue.Settled -> Unit
                         }
                     }
                     SwipeToDismissBox(
                         state = swipeState,
                         enableDismissFromStartToEnd = !isSelectionMode,
                         enableDismissFromEndToStart = !isSelectionMode,
+                        onDismiss = onSwiped,
                         modifier = Modifier.padding(top = if (isFirst) 0.dp else 2.dp),
                         backgroundContent = {
                             ExpenseSwipeBackground(direction = swipeState.dismissDirection, shape = cardShape)

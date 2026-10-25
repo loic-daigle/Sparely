@@ -2,6 +2,7 @@
 
 package com.example.sparely.ui.screens
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -398,24 +399,29 @@ private fun TransferRow(
     val dateFormat = remember {
         DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"))
     }
-    // Acts once the swipe has settled, after snapping back (the row leaves through the list, held
-    // back while the undo is offered). Acting from confirmValueChange could fire more than once
+    // Acts once the swipe has settled (the row leaves through the list, held back while the undo is
+    // offered): confirmValueChange could fire more than once, and currentValue changes mid-drag, where
+    // snapping back is cancelled by the finger still down. It snaps back before acting, with a stable
+    // callback (a new one would make the box call it again)
     val swipe = rememberSwipeToDismissBoxState()
-    LaunchedEffect(swipe.currentValue) {
-        when (swipe.currentValue) {
-            SwipeToDismissBoxValue.StartToEnd -> {
-                swipe.reset()
-                onDone()
+    val swipeScope = rememberCoroutineScope()
+    val currentOnDone by rememberUpdatedState(onDone)
+    val currentOnCancel by rememberUpdatedState(onCancel)
+    val onSwiped: (SwipeToDismissBoxValue) -> Unit = remember(swipe) {
+        { direction ->
+            swipeScope.launch {
+                swipe.snapTo(SwipeToDismissBoxValue.Settled)
+                when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> currentOnDone()
+                    SwipeToDismissBoxValue.EndToStart -> currentOnCancel()
+                    SwipeToDismissBoxValue.Settled -> Unit
+                }
             }
-            SwipeToDismissBoxValue.EndToStart -> {
-                swipe.reset()
-                onCancel()
-            }
-            SwipeToDismissBoxValue.Settled -> Unit
         }
     }
     SwipeToDismissBox(
         state = swipe,
+        onDismiss = onSwiped,
         modifier = Modifier.padding(top = 2.dp),
         backgroundContent = {
             val style = when (swipe.dismissDirection) {
