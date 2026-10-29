@@ -63,5 +63,8 @@ data class ExpenseEntity(
     val isRefunded: Boolean = false,
     val orderNumber: String? = null,
     val type: String = "PRODUCT", // PRODUCT or SERVICE
-    val isIgnored: Boolean = false
+    val isIgnored: Boolean = false,
+    // The recurring payment this expense belongs to, so renaming the payment keeps them together.
+    // No foreign key: a deleted payment leaves its id here and the expense counts as unlinked again
+    val recurringExpenseId: Long? = null
 )

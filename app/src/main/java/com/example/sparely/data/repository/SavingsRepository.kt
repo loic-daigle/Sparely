@@ -148,15 +148,18 @@ class SavingsRepository(
 
     suspend fun upsertExpense(entity: ExpenseEntity): Long = database.withTransaction {
         // Handle updates to existing expense
+        var toSave = entity
         if (entity.id != 0L) {
             val existing = expenseDao.findExpenseById(entity.id)
             if (existing != null) {
                 processExpenseResult(existing, reverse = true)
+                // Editing an expense keeps the recurring payment it belongs to; the form doesn't carry it
+                if (entity.recurringExpenseId == null) toSave = entity.copy(recurringExpenseId = existing.recurringExpenseId)
             }
         }
         // Apply new impact
-        processExpenseResult(entity, reverse = false)
-        expenseDao.upsertExpense(entity)
+        processExpenseResult(toSave, reverse = false)
+        expenseDao.upsertExpense(toSave)
     }
 
     suspend fun deleteExpense(entity: ExpenseEntity) {
@@ -1048,6 +1051,11 @@ class SavingsRepository(
                 )
             }
         }
+    }
+
+    /** Ties expenses to the recurring payment they belong to; ones already tied to one keep theirs. */
+    suspend fun linkExpensesToRecurring(expenseIds: List<Long>, recurringExpenseId: Long) {
+        if (expenseIds.isNotEmpty()) expenseDao.linkToRecurring(expenseIds, recurringExpenseId)
     }
 
     suspend fun deleteRecurringExpense(id: Long) {
@@ -1970,6 +1978,7 @@ class SavingsRepository(
             storeId = recurringEntity.storeId,
             paymentMethodId = recurringEntity.paymentMethodId,
             isRecurring = true,
+            recurringExpenseId = recurringEntity.id,
             type = recurringEntity.type
         )
         val createdExpense = upsertExpense(expenseEntity)
@@ -2436,6 +2445,7 @@ class SavingsRepository(
             storeId = recurringEntity.storeId,
             paymentMethodId = recurringEntity.paymentMethodId,
             isRecurring = true,
+            recurringExpenseId = recurringEntity.id,
             type = recurringEntity.type
         )
         val createdExpense = upsertExpense(expenseEntity)

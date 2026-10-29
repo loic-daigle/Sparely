@@ -20,6 +20,8 @@ data class Expense(
     val storeId: Long? = null,
     val paymentMethodId: Long? = null,
     val isRecurring: Boolean = false,
+    // The saved recurring payment it belongs to (see ExpenseEntity.recurringExpenseId)
+    val recurringExpenseId: Long? = null,
     val notes: String? = null,
     val refundedAmount: Double = 0.0,
     val isRefunded: Boolean = false,
@@ -56,6 +58,7 @@ data class ExpenseInput(
     val storeId: Long? = null,
     val paymentMethodId: Long? = null,
     val isRecurring: Boolean = false,
+    val recurringExpenseId: Long? = null,
     val notes: String? = null,
     val orderNumber: String? = null,
     val items: List<ExpenseItem> = emptyList(),

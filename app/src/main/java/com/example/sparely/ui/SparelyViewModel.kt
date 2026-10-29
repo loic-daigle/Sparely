@@ -505,7 +505,8 @@ class SparelyViewModel(
 
                     val totalVaultBalance = feed.vaults.sumOf { it.currentBalance }
                     val smartSavingSummary = buildSmartSavingSummary(feed.settings, analytics, recommendation)
-                    val detectedRecurring = detectRecurringTransactions(domainExpenses).pruneStaleRecurring(feed.recurring)
+                    val detectedRecurring = detectRecurringTransactions(domainExpenses, feed.recurring.map { it.id }.toSet())
+                        .pruneStaleRecurring(feed.recurring)
                     
                     // Smart Insight Engine computations
                     val recurringPatterns = SmartInsightEngine.detectRecurringPatterns(
@@ -789,6 +790,7 @@ class SparelyViewModel(
                 storeId = recurring.storeId,
                 paymentMethodId = recurring.paymentMethodId,
                 isRecurring = true,
+                recurringExpenseId = recurring.id,
                 type = recurring.type,
                 items = recurring.items,
                 assetAllocations = recurring.assetAllocations
@@ -822,6 +824,7 @@ class SparelyViewModel(
                 storeId = recurring.storeId,
                 paymentMethodId = recurring.paymentMethodId,
                 isRecurring = true,
+                recurringExpenseId = recurring.id,
                 notes = notes?.let { "Early payment (due $dueDate): $it" },
                 type = recurring.type,
                 items = recurring.items,
@@ -969,12 +972,13 @@ class SparelyViewModel(
         )
     }
 
-    private fun detectRecurringTransactions(expenses: List<Expense>): List<DetectedRecurringTransaction> {
+    private fun detectRecurringTransactions(expenses: List<Expense>, savedRecurringIds: Set<Long>): List<DetectedRecurringTransaction> {
         if (expenses.isEmpty()) return emptyList()
         val windowStart = LocalDate.now().minusDays(180)
-        // Expenses a saved recurring payment logged are already accounted for, whatever it's called now
+        // Expenses tied to a saved recurring payment (or logged by one) are already accounted for,
+        // whatever the payment is called now
         val grouped = expenses
-            .filter { !it.date.isBefore(windowStart) && !it.isRecurring }
+            .filter { !it.date.isBefore(windowStart) && !it.isRecurring && it.recurringExpenseId !in savedRecurringIds }
             .groupBy { it.description.trim().lowercase() }
         return grouped.values.mapNotNull { cluster ->
             if (cluster.size < 3) return@mapNotNull null
@@ -994,7 +998,7 @@ class SparelyViewModel(
                 cadenceDays = roundedCadence,
                 lastOccurrence = sorted.last().date,
                 suggestedCategory = sorted.first().category,
-                storeId = cluster.mapNotNull { it.storeId }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+                expenseIds = cluster.map { it.id }
             )
         }
             .sortedBy { it.cadenceDays }
@@ -1005,7 +1009,16 @@ class SparelyViewModel(
         existingRecurring: List<RecurringExpense> = emptyList(),
         now: LocalDate = LocalDate.now()
     ): List<DetectedRecurringTransaction> {
-        return com.example.sparely.domain.logic.DetectedRecurringMatch.unsaved(this, existingRecurring).filter { insight ->
+        return filter { insight ->
+            // Expenses not tied by id yet whose name is a saved payment's: tie them to it, so they stay
+            // with it if it's renamed later. They drop out here and stay out on the next load
+            val owner = com.example.sparely.domain.logic.DetectedRecurringMatch.owner(insight, existingRecurring)
+            if (owner != null) {
+                viewModelScope.launch(dispatcher + errorHandler) {
+                    savingsRepository.linkExpensesToRecurring(insight.expenseIds, owner.id)
+                }
+                return@filter false
+            }
             val daysSinceLast = ChronoUnit.DAYS.between(insight.lastOccurrence, now).toInt()
             daysSinceLast <= insight.cadenceDays + 7
         }

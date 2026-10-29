@@ -25,6 +25,13 @@ interface ExpenseDao {
     @Upsert
     suspend fun upsertExpense(entity: ExpenseEntity): Long
 
+    // Leaves expenses tied to another payment alone, unless that payment was deleted
+    @Query(
+        "UPDATE expenses SET recurringExpenseId = :recurringExpenseId WHERE id IN (:ids) AND " +
+            "(recurringExpenseId IS NULL OR recurringExpenseId NOT IN (SELECT id FROM recurring_expenses))"
+    )
+    suspend fun linkToRecurring(ids: List<Long>, recurringExpenseId: Long)
+
     @Delete
     suspend fun deleteExpense(entity: ExpenseEntity)
 

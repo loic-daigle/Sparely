@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
-const val SPARELY_DATABASE_VERSION = 50
+const val SPARELY_DATABASE_VERSION = 51
 
 @Database(
     entities = [
@@ -1288,7 +1288,8 @@ abstract class SparelyDatabase : RoomDatabase() {
             MIGRATION_46_47,
             MIGRATION_47_48,
             MIGRATION_48_49,
-            MIGRATION_49_50
+            MIGRATION_49_50,
+            MIGRATION_50_51
             )
         }
 
@@ -1313,6 +1314,26 @@ abstract class SparelyDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE assets ADD COLUMN completedAt INTEGER")
                 // The categories people use for things they finish start out as projects
                 db.execSQL("UPDATE assets SET kind = 'PROJECT' WHERE category IN ('HOBBY', 'VACATION', 'EDUCATION')")
+            }
+        }
+
+        val MIGRATION_50_51 = object : androidx.room.migration.Migration(50, 51) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Expenses remember the recurring payment they belong to, by id, so renaming the
+                // payment doesn't turn its past expenses into a "detected" new one
+                db.execSQL("ALTER TABLE expenses ADD COLUMN recurringExpenseId INTEGER")
+                // Ones paid through a payment's page say which payment in its paid records
+                db.execSQL(
+                    "UPDATE expenses SET recurringExpenseId = (SELECT p.recurringExpenseId FROM recurring_expenses_paid p " +
+                        "WHERE p.expenseId = expenses.id LIMIT 1) WHERE recurringExpenseId IS NULL"
+                )
+                // The others by name, while it's still the same; renamed ones are tied on the next
+                // load (DetectedRecurringMatch)
+                db.execSQL(
+                    "UPDATE expenses SET recurringExpenseId = (SELECT r.id FROM recurring_expenses r " +
+                        "WHERE lower(trim(r.description)) = lower(trim(expenses.description)) LIMIT 1) " +
+                        "WHERE recurringExpenseId IS NULL"
+                )
             }
         }
 

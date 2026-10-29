@@ -2,14 +2,12 @@ package com.example.sparely.domain.logic
 
 import com.example.sparely.domain.model.DetectedRecurringTransaction
 import com.example.sparely.domain.model.RecurringExpense
-import kotlin.math.abs
 
 /**
- * Whether a repeating payment found in the expenses is already a saved recurring payment. Names
- * alone aren't enough: renaming "Claude Pro subscription" to "Claude Pro" left the old expenses
- * looking like a new, unsaved subscription. So a saved payment also covers a pattern when one name
- * holds the other as whole words, when it's the same store at about the same amount, or when it's
- * the same category, amount and rhythm under another name.
+ * Which saved recurring payment a repeating pattern found in the expenses belongs to, for the
+ * expenses that aren't tied to one by id yet (logged by hand before the payment was saved, or
+ * from before expenses carried the id). Once tied, the id decides and the name no longer matters:
+ * renaming "Claude Pro subscription" to "Claude Pro" keeps its expenses with it.
  */
 object DetectedRecurringMatch {
 
@@ -27,22 +25,11 @@ object DetectedRecurringMatch {
         return " $long ".contains(" $short ")
     }
 
-    private fun closeAmount(amount: Double, reference: Double, tolerance: Double) =
-        reference > 0 && abs(amount - reference) <= reference * tolerance
+    /** The saved payment (running or paused) whose name is this pattern's, if any. */
+    fun owner(detected: DetectedRecurringTransaction, saved: List<RecurringExpense>): RecurringExpense? =
+        saved.firstOrNull { namesMatch(detected.description, it.description) }
 
-    fun isCovered(detected: DetectedRecurringTransaction, saved: RecurringExpense): Boolean {
-        if (namesMatch(detected.description, saved.description)) return true
-        // A store can sell more than one subscription, so the amount has to agree too
-        if (detected.storeId != null && detected.storeId == saved.storeId &&
-            closeAmount(detected.averageAmount, saved.amount, 0.25)
-        ) return true
-        val interval = saved.frequency.daysInterval
-        val cadenceFits = abs(detected.cadenceDays - interval) <= maxOf(3, interval / 10)
-        return detected.suggestedCategory == saved.category && cadenceFits &&
-            closeAmount(detected.averageAmount, saved.amount, 0.10)
-    }
-
-    /** The patterns that no saved recurring payment (running or paused) covers. */
+    /** The patterns no saved payment owns. */
     fun unsaved(detected: List<DetectedRecurringTransaction>, saved: List<RecurringExpense>) =
-        detected.filter { pattern -> saved.none { isCovered(pattern, it) } }
+        detected.filter { owner(it, saved) == null }
 }

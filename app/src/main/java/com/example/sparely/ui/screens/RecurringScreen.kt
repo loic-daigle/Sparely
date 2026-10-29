@@ -211,7 +211,6 @@ fun RecurringExpensesScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
         ) {
             // Defensive: never count a detected pattern that already has a saved recurring payment
-            // (matched by more than the name, so renaming a saved one doesn't bring it back)
             val unsavedDetected = com.example.sparely.domain.logic.DetectedRecurringMatch.unsaved(detectedRecurring, recurringExpenses)
 
             // Bills waiting for their real amount come first: nothing else moves until they're confirmed.

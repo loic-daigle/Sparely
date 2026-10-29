@@ -82,6 +82,7 @@ class AddExpenseUseCase(
             storeId = input.storeId,
             paymentMethodId = input.paymentMethodId,
             isRecurring = input.isRecurring,
+            recurringExpenseId = input.recurringExpenseId,
             notes = input.notes,
             orderNumber = input.orderNumber,
             type = input.type.name
