@@ -972,8 +972,9 @@ class SparelyViewModel(
     private fun detectRecurringTransactions(expenses: List<Expense>): List<DetectedRecurringTransaction> {
         if (expenses.isEmpty()) return emptyList()
         val windowStart = LocalDate.now().minusDays(180)
+        // Expenses a saved recurring payment logged are already accounted for, whatever it's called now
         val grouped = expenses
-            .filter { !it.date.isBefore(windowStart) }
+            .filter { !it.date.isBefore(windowStart) && !it.isRecurring }
             .groupBy { it.description.trim().lowercase() }
         return grouped.values.mapNotNull { cluster ->
             if (cluster.size < 3) return@mapNotNull null
@@ -992,7 +993,8 @@ class SparelyViewModel(
                 averageAmount = averageAmount,
                 cadenceDays = roundedCadence,
                 lastOccurrence = sorted.last().date,
-                suggestedCategory = sorted.first().category
+                suggestedCategory = sorted.first().category,
+                storeId = cluster.mapNotNull { it.storeId }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
             )
         }
             .sortedBy { it.cadenceDays }
@@ -1003,12 +1005,9 @@ class SparelyViewModel(
         existingRecurring: List<RecurringExpense> = emptyList(),
         now: LocalDate = LocalDate.now()
     ): List<DetectedRecurringTransaction> {
-        val existingDescriptions = existingRecurring.map { it.description.trim().lowercase() }.toSet()
-        return filter { insight ->
+        return com.example.sparely.domain.logic.DetectedRecurringMatch.unsaved(this, existingRecurring).filter { insight ->
             val daysSinceLast = ChronoUnit.DAYS.between(insight.lastOccurrence, now).toInt()
-            val isStale = daysSinceLast > insight.cadenceDays + 7
-            val isAlreadyKnown = insight.description.trim().lowercase() in existingDescriptions
-            !isStale && !isAlreadyKnown
+            daysSinceLast <= insight.cadenceDays + 7
         }
     }
 

@@ -385,5 +385,7 @@ data class DetectedRecurringTransaction(
     val averageAmount: Double,
     val cadenceDays: Int,
     val lastOccurrence: LocalDate,
-    val suggestedCategory: ExpenseCategory
+    val suggestedCategory: ExpenseCategory,
+    // The store most of its expenses were at, so a renamed saved payment still covers it
+    val storeId: Long? = null
 )
