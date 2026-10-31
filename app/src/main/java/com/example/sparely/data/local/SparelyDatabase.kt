@@ -87,6 +87,7 @@ abstract class SparelyDatabase : RoomDatabase() {
 
         private fun buildDatabase(context: Context): SparelyDatabase {
             preserveDatabaseBeforeDowngrade(context)
+            restorePreservedDatabaseIfEmpty(context)
             return Room.databaseBuilder(
                 context,
                 SparelyDatabase::class.java,
@@ -118,6 +119,59 @@ abstract class SparelyDatabase : RoomDatabase() {
                 android.util.Log.w("SparelyDatabase", "Downgrade from v$storedVersion: data copied to *$suffix")
             } catch (e: Exception) {
                 android.util.Log.e("SparelyDatabase", "Could not check/preserve database before opening", e)
+            }
+        }
+
+        /** Rows that say the database holds the user's data, or -1 when it can't be read. */
+        private fun dataRows(path: String): Long = try {
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+            ).use { db ->
+                listOf("expenses", "smart_vaults", "recurring_expenses", "main_account_transactions").sumOf { table ->
+                    try {
+                        db.rawQuery("SELECT COUNT(*) FROM $table", null).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+                    } catch (e: Exception) {
+                        0L
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            -1L
+        }
+
+        /**
+         * The other half of [preserveDatabaseBeforeDowngrade]: once a version that can read the copy
+         * is installed again, and the database it would open is empty (what the downgrade left),
+         * put the copy back before Room opens it. Room then migrates it as usual. The empty
+         * database is kept aside too, so nothing is ever deleted.
+         */
+        private fun restorePreservedDatabaseIfEmpty(context: Context) {
+            try {
+                val dbFile = context.getDatabasePath(DATABASE_NAME)
+                val folder = dbFile.parentFile ?: return
+                val pattern = Regex(Regex.escape(dbFile.name) + "\\.v(\\d+)-(\\d+)\\.bak")
+                val copy = folder.listFiles().orEmpty()
+                    .mapNotNull { file -> pattern.matchEntire(file.name)?.let { m -> Triple(file, m.groupValues[1].toInt(), m.groupValues[2].toLong()) } }
+                    .filter { (_, version, _) -> version <= DATABASE_VERSION }
+                    .maxByOrNull { it.third } ?: return
+                if (dbFile.exists() && dataRows(dbFile.path) != 0L) return
+                if (dataRows(copy.first.path) <= 0L) return
+                val stamp = System.currentTimeMillis()
+                val suffix = copy.first.name.removePrefix(dbFile.name)
+                listOf("", "-wal", "-shm").forEach { ext ->
+                    val current = java.io.File(dbFile.path + ext)
+                    if (current.exists()) current.renameTo(java.io.File(dbFile.path + ext + ".empty-$stamp.bak"))
+                    val saved = java.io.File(dbFile.path + ext + suffix)
+                    if (saved.exists()) saved.copyTo(current, overwrite = true)
+                }
+                // Restored once: the copy is renamed so it isn't put back over newer data later
+                listOf("", "-wal", "-shm").forEach { ext ->
+                    val saved = java.io.File(dbFile.path + ext + suffix)
+                    if (saved.exists()) saved.renameTo(java.io.File(saved.path + ".restored"))
+                }
+                android.util.Log.w("SparelyDatabase", "Restored the data preserved before a downgrade (${copy.first.name})")
+            } catch (e: Exception) {
+                android.util.Log.e("SparelyDatabase", "Could not restore the preserved database", e)
             }
         }
 

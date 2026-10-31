@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.sparely.SparelyApplication
 import java.io.File
+import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -38,11 +39,26 @@ class AutoBackupWorker(
                 return Result.success()
             }
             
+            // An empty database (lost to a reinstall or a downgrade) must not push the last good
+            // backups out: only MAX_BACKUP_FILES are kept, so a few empty ones would replace them all
+            val backupDir = getBackupDirectory()
+            val savingsRepository = app.container.savingsRepository
+            val hasData = savingsRepository.observeExpenses().first().isNotEmpty() ||
+                savingsRepository.observeAllSmartVaults().first().isNotEmpty() ||
+                savingsRepository.observeMainAccountTransactions().first().isNotEmpty() ||
+                savingsRepository.observeRecurringExpenses().first().isNotEmpty()
+            val hasEarlierBackups = backupDir.listFiles { file ->
+                file.isFile && file.name.startsWith("sparely_backup_") && file.name.endsWith(".json")
+            }?.isNotEmpty() == true
+            if (!hasData && hasEarlierBackups) {
+                Log.w(TAG, "No data to back up; keeping the earlier backups as they are")
+                return Result.success()
+            }
+
             // Export data to JSON
             val json = backupRepository.exportData()
-            
+
             // Create backup file
-            val backupDir = getBackupDirectory()
             val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
             val backupFile = File(backupDir, "sparely_backup_$timestamp.json")
             
