@@ -94,6 +94,8 @@ abstract class SparelyDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .addMigrations(*ALL_MIGRATIONS)
+                // A damaged file is copied aside before Android replaces it with an empty one
+                .openHelperFactory(PreservingOpenHelperFactory())
                 .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
         }

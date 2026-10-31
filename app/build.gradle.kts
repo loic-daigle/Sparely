@@ -124,6 +124,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.sqlite.framework)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.compose.foundation.layout)
