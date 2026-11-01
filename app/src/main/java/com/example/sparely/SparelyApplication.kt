@@ -13,6 +13,8 @@ class SparelyApplication : Application() {
         AppStrings.init(this)
         NotificationHelper.ensureChannels(this)
         container = DefaultAppContainer(this)
+        // A copy of the data every day, whatever the auto backup setting (SafetyBackups)
+        container.autoBackupScheduler.scheduleSafetyBackup()
     }
 
     override fun attachBaseContext(base: Context) {

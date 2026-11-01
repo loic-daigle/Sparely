@@ -2592,4 +2592,8 @@
         <item quantity="other">%d conseils</item>
     </plurals>
     <string name="insights_hero_in_30_days">%1$s dans votre compte dans 30 jours</string>
+    <string name="recovery_title">Vos données semblent avoir disparu</string>
+    <string name="recovery_desc">Une sauvegarde du %1$s contient %2$d dépenses et %3$d coffres. La restaurer ? Rien n\'est supprimé : vous pourrez encore importer une autre sauvegarde ensuite.</string>
+    <string name="recovery_restore">Restaurer</string>
+    <string name="recovery_later">Plus tard</string>
 </resources>

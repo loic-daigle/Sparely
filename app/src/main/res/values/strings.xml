@@ -2595,4 +2595,8 @@
         <item quantity="other">%d tips</item>
     </plurals>
     <string name="insights_hero_in_30_days">%1$s in your account in 30 days</string>
+    <string name="recovery_title">Your data seems to be missing</string>
+    <string name="recovery_desc">A backup from %1$s has %2$d expenses and %3$d vaults. Restore it? Nothing is deleted: you can still import another backup afterwards.</string>
+    <string name="recovery_restore">Restore</string>
+    <string name="recovery_later">Not now</string>
 </resources>

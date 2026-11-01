@@ -250,9 +250,43 @@ class SparelyViewModel(
         val recurringPaidRecords: List<com.example.sparely.data.local.RecurringExpensePaidEntity> = emptyList()
     )
 
+    /**
+     * A backup to offer back when the app opens on an empty database while a backup with data
+     * exists: the data was lost (a damaged file, a downgrade), not deleted on purpose.
+     */
+    private val _recoveryOffer = MutableStateFlow<com.example.sparely.data.backup.SafetyBackups.Summary?>(null)
+    val recoveryOffer: StateFlow<com.example.sparely.data.backup.SafetyBackups.Summary?> = _recoveryOffer.asStateFlow()
+
+    private val recoveryPrefs by lazy {
+        container.context.getSharedPreferences("data_recovery", android.content.Context.MODE_PRIVATE)
+    }
+
+    private suspend fun checkForLostData() {
+        if (com.example.sparely.data.backup.SafetyBackups.databaseHasData(container)) return
+        val candidate = com.example.sparely.data.backup.SafetyBackups.recoveryCandidate(container.context) ?: return
+        // "Not now" on this backup: not asked again for it, only for a newer one
+        if (recoveryPrefs.getString("dismissed", null) == candidate.file.name) return
+        _recoveryOffer.value = candidate
+    }
+
+    fun dismissRecovery() {
+        _recoveryOffer.value?.let { recoveryPrefs.edit().putString("dismissed", it.file.name).apply() }
+        _recoveryOffer.value = null
+    }
+
+    fun restoreRecovery() {
+        val offer = _recoveryOffer.value ?: return
+        _recoveryOffer.value = null
+        safeLaunch {
+            container.backupRepository.restoreData(offer.file.readText())
+            _uiState.update { it.copy(errorMessage = AppStrings.get(R.string.restore_success, "Backup restored")) }
+        }
+    }
+
     init {
         // Clears frozen amounts left behind by older versions before they're shown
         viewModelScope.launch(dispatcher + errorHandler) { savingsRepository.syncFrozenFunds() }
+        viewModelScope.launch(dispatcher + errorHandler) { checkForLostData() }
         // Initial load for paged expenses
         loadMoreExpenses()
 
@@ -1285,6 +1319,7 @@ fun refundExpense(expenseId: Long, refundAmount: Double, refundedItemIds: List<L
 
     fun resetHistory(clearVaults: Boolean = false) {
         viewModelScope.launch(dispatcher + errorHandler) {
+            com.example.sparely.data.backup.SafetyBackups.saveBefore(container, "before-reset")
             savingsRepository.clearExpenses()
             savingsRepository.clearTransfers()
             if (clearVaults) {

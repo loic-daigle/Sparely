@@ -548,6 +548,7 @@ class SettingsViewModel(
 
     fun resetHistory(clearVaults: Boolean = false) {
         viewModelScope.launch(dispatcher + errorHandler) {
+            com.example.sparely.data.backup.SafetyBackups.saveBefore(container, "before-reset")
             savingsRepository.clearExpenses()
             savingsRepository.clearTransfers()
             if (clearVaults) {
@@ -566,6 +567,7 @@ class SettingsViewModel(
     private suspend fun pruneHistory(retention: ExpenseHistoryRetention) {
         if (retention == ExpenseHistoryRetention.INDEFINITELY) return
         val months = retention.months ?: return
+        com.example.sparely.data.backup.SafetyBackups.saveBefore(container, "before-retention")
         val cutoff = LocalDate.now().minusMonths(months.toLong())
         savingsRepository.deleteExpensesBefore(cutoff)
     }
@@ -611,6 +613,8 @@ class SettingsViewModel(
                     inputStream.bufferedReader().use { it.readText() }
                 }
                 if (json != null) {
+                    // What's there now is kept as a backup first, in case the file wasn't the right one
+                    com.example.sparely.data.backup.SafetyBackups.saveBefore(container, "before-import")
                     backupRepository.restoreData(json)
                     // Reminders live outside the database, so wishes that are still in their reflection
                     // time need their "do you still want it?" notification scheduled again.

@@ -189,6 +189,42 @@ fun SparelyApp(
         }
     }
 
+    // The data is gone but a backup has it: offer it back (SafetyBackups)
+    val recoveryOffer by viewModel.recoveryOffer.collectAsStateWithLifecycle()
+    recoveryOffer?.let { offer ->
+        com.example.sparely.ui.components.SparelyDialogSheet(
+            onDismissRequest = viewModel::dismissRecovery,
+            icon = {
+                com.example.sparely.ui.theme.MaterialSymbolIcon(
+                    icon = com.example.sparely.ui.theme.MaterialSymbols.HISTORY,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text(stringResource(R.string.recovery_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.recovery_desc,
+                        offer.savedAt.format(com.example.sparely.ui.utils.LocalDates.mediumDateTime),
+                        offer.expenses,
+                        offer.vaults
+                    )
+                )
+            },
+            confirmButton = {
+                com.example.sparely.ui.components.SparelyButton(onClick = viewModel::restoreRecovery) {
+                    Text(stringResource(R.string.recovery_restore))
+                }
+            },
+            dismissButton = {
+                com.example.sparely.ui.components.SparelyTextButton(onClick = viewModel::dismissRecovery) {
+                    Text(stringResource(R.string.recovery_later))
+                }
+            }
+        )
+    }
+
     if (uiState.isLoading) {
         // Persisted state (including onboardingCompleted) hasn't loaded yet; avoid flashing onboarding.
         Box(

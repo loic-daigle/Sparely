@@ -22,8 +22,7 @@ class AutoBackupScheduler(private val context: Context) {
     companion object {
         private const val TAG = "AutoBackupScheduler"
         private const val WORK_NAME = "auto_backup_work"
-        private const val BACKUP_DIR_NAME = "backups"
-        private const val MAX_BACKUP_FILES = 5 // Keep last 5 backups
+        private const val SAFETY_WORK_NAME = "safety_backup_daily"
     }
 
     /**
@@ -72,19 +71,8 @@ class AutoBackupScheduler(private val context: Context) {
                 val backupRepository = app.container.backupRepository
                 val preferencesRepository = app.container.preferencesRepository
                 
-                // Export data to JSON
-                val json = backupRepository.exportData()
-                
-                // Create backup file
-                val backupDir = getBackupDirectory(context)
-                val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
-                val backupFile = File(backupDir, "sparely_backup_$timestamp.json")
-                
-                backupFile.writeText(json)
-                
-                // Clean up old backups
-                cleanupOldBackups(backupDir)
-                
+                val backupFile = com.example.sparely.data.backup.SafetyBackups.write(context, backupRepository.exportData())
+
                 // Update last backup timestamp
                 preferencesRepository.updateLastAutoBackupTimestamp(System.currentTimeMillis())
                 
@@ -102,40 +90,26 @@ class AutoBackupScheduler(private val context: Context) {
         }
     }
     
+    /** The backup folder (see [com.example.sparely.data.backup.SafetyBackups]). */
+    fun getBackupDirectory(context: Context): File = com.example.sparely.data.backup.SafetyBackups.directory(context)
+
+    /** Existing backup files, newest first. */
+    fun getBackupFiles(context: Context): List<File> = com.example.sparely.data.backup.SafetyBackups.files(context)
+
     /**
-     * Get the backup directory, creating it if necessary.
+     * The daily safety backup: runs every day whatever the auto backup setting says, so there is
+     * always a recent copy to fall back on. It skips the day when the database is empty.
      */
-    fun getBackupDirectory(context: Context): File {
-        val backupDir = File(context.getExternalFilesDir(null), BACKUP_DIR_NAME)
-        if (!backupDir.exists()) {
-            backupDir.mkdirs()
-        }
-        return backupDir
-    }
-    
-    /**
-     * Get list of existing backup files, sorted by date (newest first).
-     */
-    fun getBackupFiles(context: Context): List<File> {
-        val backupDir = getBackupDirectory(context)
-        return backupDir.listFiles { file -> 
-            file.isFile && file.name.startsWith("sparely_backup_") && file.name.endsWith(".json")
-        }?.sortedByDescending { it.lastModified() } ?: emptyList()
-    }
-    
-    /**
-     * Clean up old backups, keeping only the most recent MAX_BACKUP_FILES.
-     */
-    private fun cleanupOldBackups(backupDir: File) {
-        val backupFiles = backupDir.listFiles { file ->
-            file.isFile && file.name.startsWith("sparely_backup_") && file.name.endsWith(".json")
-        }?.sortedByDescending { it.lastModified() } ?: return
-        
-        if (backupFiles.size > MAX_BACKUP_FILES) {
-            backupFiles.drop(MAX_BACKUP_FILES).forEach { file ->
-                Log.d(TAG, "Deleting old backup: ${file.name}")
-                file.delete()
-            }
-        }
+    fun scheduleSafetyBackup() {
+        val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(1, TimeUnit.DAYS)
+            .setInputData(workDataOf(AutoBackupWorker.KEY_SAFETY to true))
+            .setInitialDelay(15, TimeUnit.MINUTES)
+            .addTag("safety_backup")
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            SAFETY_WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 }

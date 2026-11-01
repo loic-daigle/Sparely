@@ -5,97 +5,54 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.sparely.SparelyApplication
-import java.io.File
-import kotlinx.coroutines.flow.first
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import com.example.sparely.data.backup.SafetyBackups
 
 /**
- * WorkManager worker for performing automatic backups in the background.
+ * WorkManager worker for performing automatic backups in the background. Run with
+ * [KEY_SAFETY] set, it's the daily safety backup, which runs whatever the auto backup setting is.
  */
 class AutoBackupWorker(
     context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
-    
+
     companion object {
         private const val TAG = "AutoBackupWorker"
-        private const val BACKUP_DIR_NAME = "backups"
-        private const val MAX_BACKUP_FILES = 5
+        const val KEY_SAFETY = "safety"
     }
-    
+
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting automatic backup")
-        
+
         return try {
             val app = applicationContext as SparelyApplication
             val backupRepository = app.container.backupRepository
             val preferencesRepository = app.container.preferencesRepository
-            
-            // Check if auto backup is still enabled
+            val safety = inputData.getBoolean(KEY_SAFETY, false)
+
+            // Check if auto backup is still enabled (the safety backup always runs)
             val settings = preferencesRepository.getSettingsSnapshot()
-            if (!settings.autoBackupEnabled) {
+            if (!safety && !settings.autoBackupEnabled) {
                 Log.d(TAG, "Auto backup disabled, skipping")
                 return Result.success()
             }
-            
-            // An empty database (lost to a reinstall or a downgrade) must not push the last good
-            // backups out: only MAX_BACKUP_FILES are kept, so a few empty ones would replace them all
-            val backupDir = getBackupDirectory()
-            val savingsRepository = app.container.savingsRepository
-            val hasData = savingsRepository.observeExpenses().first().isNotEmpty() ||
-                savingsRepository.observeAllSmartVaults().first().isNotEmpty() ||
-                savingsRepository.observeMainAccountTransactions().first().isNotEmpty() ||
-                savingsRepository.observeRecurringExpenses().first().isNotEmpty()
-            val hasEarlierBackups = backupDir.listFiles { file ->
-                file.isFile && file.name.startsWith("sparely_backup_") && file.name.endsWith(".json")
-            }?.isNotEmpty() == true
-            if (!hasData && hasEarlierBackups) {
+
+            // An empty database (lost to a reinstall, a downgrade or a damaged file) must not be
+            // backed up over the good copies; the app offers those back instead
+            val hasData = SafetyBackups.databaseHasData(app.container)
+            if (!hasData && SafetyBackups.files(applicationContext).isNotEmpty()) {
                 Log.w(TAG, "No data to back up; keeping the earlier backups as they are")
                 return Result.success()
             }
 
-            // Export data to JSON
-            val json = backupRepository.exportData()
-
-            // Create backup file
-            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
-            val backupFile = File(backupDir, "sparely_backup_$timestamp.json")
-            
-            backupFile.writeText(json)
-            
-            // Clean up old backups
-            cleanupOldBackups(backupDir)
-            
-            // Update last backup timestamp
+            val file = SafetyBackups.write(applicationContext, backupRepository.exportData())
             preferencesRepository.updateLastAutoBackupTimestamp(System.currentTimeMillis())
-            
-            Log.d(TAG, "Backup completed: ${backupFile.absolutePath}")
+
+            Log.d(TAG, "Backup completed: ${file.absolutePath}")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Backup failed", e)
             Result.retry()
-        }
-    }
-    
-    private fun getBackupDirectory(): File {
-        val backupDir = File(applicationContext.getExternalFilesDir(null), BACKUP_DIR_NAME)
-        if (!backupDir.exists()) {
-            backupDir.mkdirs()
-        }
-        return backupDir
-    }
-    
-    private fun cleanupOldBackups(backupDir: File) {
-        val backupFiles = backupDir.listFiles { file ->
-            file.isFile && file.name.startsWith("sparely_backup_") && file.name.endsWith(".json")
-        }?.sortedByDescending { it.lastModified() } ?: return
-        
-        if (backupFiles.size > MAX_BACKUP_FILES) {
-            backupFiles.drop(MAX_BACKUP_FILES).forEach { file ->
-                Log.d(TAG, "Deleting old backup: ${file.name}")
-                file.delete()
-            }
         }
     }
 }
