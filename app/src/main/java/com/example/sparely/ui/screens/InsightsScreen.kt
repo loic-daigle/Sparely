@@ -1037,7 +1037,7 @@ private fun InsightsHero(forecast: CashflowEngine.CashflowForecast) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column {
                 Text(
-                    stringResource(R.string.insights_safe_to_spend),
+                    stringResource(R.string.home_free_to_spend),
                     style = MaterialTheme.typography.labelLarge,
                     color = ink.copy(alpha = 0.8f)
                 )

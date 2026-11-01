@@ -666,6 +666,7 @@ class SparelyViewModel(
                         totalHisaBalance = totalHisaBalance,
                         totalUsableMoney = totalUsableMoney,
                         netUsableMoney = netUsableMoney,
+                        availableToSpend = cashflowForecast.safeToSpend,
                         pendingTransfersTotal = pendingTransfersTotal,
                         billsDueTotal = billsDueTotal,
                         creditCardOwed = creditCardOwed,

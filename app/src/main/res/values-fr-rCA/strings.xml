@@ -17,7 +17,7 @@
     <!-- Insight Hub Screen -->
     <string name="insights_projected_balance">Solde à 30 jours</string>
     <string name="insights_burn_rate">Dépenses quotidiennes</string>
-    <string name="insights_safe_to_spend">À dépenser</string>
+    <string name="insights_safe_to_spend">Disponible à dépenser</string>
     <string name="insights_runway">Autonomie</string>
     <string name="insights_days">jours</string>
     <string name="insights_spending_patterns">Habitudes de dépenses</string>

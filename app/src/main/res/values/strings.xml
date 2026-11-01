@@ -18,7 +18,7 @@
     <!-- Insight Hub Screen -->
     <string name="insights_projected_balance">Projected Month End</string>
     <string name="insights_burn_rate">Daily Burn Rate</string>
-    <string name="insights_safe_to_spend">Safe to Spend</string>
+    <string name="insights_safe_to_spend">Free to spend</string>
     <string name="insights_runway">Runway</string>
     <string name="insights_days">days</string>
     <string name="insights_spending_patterns">Spending Patterns</string>
@@ -1770,7 +1770,7 @@
     <string name="purchase_check_verdict_avoid_desc">Buying this now could make you miss a bill or run out of money.</string>
     <string name="purchase_check_without">Without</string>
     <string name="purchase_check_with">With purchase</string>
-    <string name="purchase_check_row_safe">Safe to spend</string>
+    <string name="purchase_check_row_safe">Free to spend</string>
     <string name="purchase_check_row_30_days">In 30 days</string>
     <string name="purchase_check_row_liquid">In your accounts</string>
     <string name="purchase_check_why">Why</string>
@@ -2000,7 +2000,7 @@
     <string name="asset_selector_no_match">Nothing matches your search</string>
     <string name="asset_selector_total">Total: %1$s</string>
     <string name="usable_money_reserved_min">Reserved (min. balance)</string>
-    <string name="usable_money_net">Net usable</string>
+    <string name="usable_money_net">Free to spend</string>
     <string name="asset_projection_title">Projected cost</string>
     <string name="asset_projection_desc">Estimated spending based on recurring and past expenses</string>
     <string name="asset_projection_vs_target">vs. target price</string>
@@ -2599,4 +2599,6 @@
     <string name="recovery_desc">A backup from %1$s has %2$d expenses and %3$d vaults. Restore it? Nothing is deleted: you can still import another backup afterwards.</string>
     <string name="recovery_restore">Restore</string>
     <string name="recovery_later">Not now</string>
+    <string name="usable_money_upcoming_bills">Bills in the next 30 days</string>
+    <string name="usable_money_cushion">Safety cushion</string>
 </resources>

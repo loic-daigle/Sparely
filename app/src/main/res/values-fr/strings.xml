@@ -17,7 +17,7 @@
     <!-- Insight Hub Screen -->
     <string name="insights_projected_balance">Solde à 30 jours</string>
     <string name="insights_burn_rate">Dépenses quotidiennes</string>
-    <string name="insights_safe_to_spend">À dépenser</string>
+    <string name="insights_safe_to_spend">Disponible à dépenser</string>
     <string name="insights_runway">Autonomie</string>
     <string name="insights_days">jours</string>
     <string name="insights_spending_patterns">Habitudes de dépenses</string>
@@ -1493,7 +1493,7 @@
     <string name="purchase_check_verdict_avoid_desc">L\'acheter maintenant pourrait vous faire manquer une facture ou vous laisser sans argent.</string>
     <string name="purchase_check_without">Sans</string>
     <string name="purchase_check_with">Avec l\'achat</string>
-    <string name="purchase_check_row_safe">À dépenser</string>
+    <string name="purchase_check_row_safe">Disponible à dépenser</string>
     <string name="purchase_check_row_30_days">Dans 30 jours</string>
     <string name="purchase_check_row_liquid">Dans vos comptes</string>
     <string name="purchase_check_why">Pourquoi</string>
@@ -1970,7 +1970,7 @@
     <string name="asset_selector_no_match">Aucun résultat</string>
     <string name="asset_selector_total">Total : %1$s</string>
     <string name="usable_money_reserved_min">Réservé (solde min.)</string>
-    <string name="usable_money_net">Net utilisable</string>
+    <string name="usable_money_net">Disponible à dépenser</string>
     <string name="asset_projection_title">Coût projeté</string>
     <string name="asset_projection_desc">Dépenses estimées selon les paiements récurrents et passés</string>
     <string name="asset_projection_vs_target">vs prix cible</string>
@@ -2596,4 +2596,6 @@
     <string name="recovery_desc">Une sauvegarde du %1$s contient %2$d dépenses et %3$d coffres. La restaurer ? Rien n\'est supprimé : vous pourrez encore importer une autre sauvegarde ensuite.</string>
     <string name="recovery_restore">Restaurer</string>
     <string name="recovery_later">Plus tard</string>
+    <string name="usable_money_upcoming_bills">Factures des 30 prochains jours</string>
+    <string name="usable_money_cushion">Coussin de sécurité</string>
 </resources>

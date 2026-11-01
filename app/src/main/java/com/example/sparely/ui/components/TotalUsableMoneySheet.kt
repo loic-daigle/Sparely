@@ -38,6 +38,8 @@ fun TotalUsableMoneyBottomSheet(
     pendingTransfers: Double,
     billsDue: Double = 0.0,
     creditCardOwed: Double = 0.0,
+    upcomingBills: Double = 0.0,
+    cushion: Double = 0.0,
     netUsable: Double,
     hisaAccounts: List<SavingsAccount>,
     onNavigateToMainAccount: () -> Unit,
@@ -56,7 +58,9 @@ fun TotalUsableMoneyBottomSheet(
         SetAside(stringResource(R.string.usable_money_reserved_wishes), wishlistReserved, MaterialSymbols.FAVORITE),
         SetAside(stringResource(R.string.usable_money_pending_transfers), pendingTransfers, MaterialSymbols.SWAP_HORIZ),
         SetAside(stringResource(R.string.usable_money_bills_due), billsDue, MaterialSymbols.RECEIPT),
-        SetAside(stringResource(R.string.usable_money_credit_cards), creditCardOwed, MaterialSymbols.CREDIT_CARD)
+        SetAside(stringResource(R.string.usable_money_credit_cards), creditCardOwed, MaterialSymbols.CREDIT_CARD),
+        SetAside(stringResource(R.string.usable_money_upcoming_bills), upcomingBills, MaterialSymbols.CALENDAR_MONTH),
+        SetAside(stringResource(R.string.usable_money_cushion), cushion, MaterialSymbols.SECURITY)
     ).filter { it.amount > 0.005 }
 
     SparelyBottomSheet(

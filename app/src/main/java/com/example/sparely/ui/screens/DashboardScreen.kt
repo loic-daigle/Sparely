@@ -178,7 +178,9 @@ fun DashboardScreen(
             pendingTransfers = uiState.pendingTransfersTotal,
             billsDue = uiState.billsDueTotal,
             creditCardOwed = uiState.creditCardOwed,
-            netUsable = uiState.netUsableMoney,
+            upcomingBills = uiState.cashflowForecast?.obligations30Days ?: 0.0,
+            cushion = uiState.cashflowForecast?.safetyBuffer ?: 0.0,
+            netUsable = uiState.availableToSpend,
             hisaAccounts = uiState.savingsAccounts.filter { !it.archived },
             onNavigateToMainAccount = onNavigateToMainAccount,
             onNavigateToAccount = { _ -> onManageSavingsAccounts() } // Fallback to list for now
@@ -258,7 +260,8 @@ fun DashboardScreen(
 
             item(key = "hero") {
                 HomeHero(
-                    usable = netUsable,
+                    usable = uiState.availableToSpend,
+                    lineStart = netUsable,
                     days = uiState.cashflowForecast?.dailyProjections.orEmpty(),
                     totalSaved = uiState.totalVaultBalance,
                     savingsRate = uiState.smartSavingSummary?.actualSavingsRate?.takeIf { uiState.settings.monthlyIncome > 0 },

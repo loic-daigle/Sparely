@@ -22,7 +22,10 @@ object CashflowEngine {
 
     data class CashflowForecast(
         val currentBalance: Double,
-        val safeToSpend: Double, // Available after reserving for upcoming obligations
+        // The one "available to spend" figure, everywhere in the app: liquid money minus what's set
+        // aside (minimum, wishes, pending transfers, bills due, cards), the bills of the next 30
+        // days and the safety cushion. Can go below zero, so the breakdown always adds up
+        val safeToSpend: Double,
         val projectedBalance30Days: Double,
         val dailyBurnRate: Double,
         val runwayDays: Int, // Days until balance hits zero
@@ -34,6 +37,8 @@ object CashflowEngine {
         val weeklyProjections: List<WeeklyProjection>,
         /** Cushion held back from safe-to-spend for spending that runs over the forecast. */
         val safetyBuffer: Double = 0.0,
+        /** The bills due in the next 30 days, taken off safe-to-spend. */
+        val obligations30Days: Double = 0.0,
         /** How the forecast did on past months; null until there is about two months of history. */
         val accuracy: ForecastAccuracy.Result? = null,
         /** The next 30 days one by one, for the home screen's money line. */
@@ -130,7 +135,7 @@ object CashflowEngine {
         val buffer = accuracy?.overspendP80?.coerceAtLeast(MIN_BUFFER)
             ?: (totalLiquidMoney * 0.10).coerceIn(MIN_BUFFER, 500.0)
         
-        val safeToSpend = (totalLiquidMoney - totalObligations30Days - buffer - reservedMoney).coerceAtLeast(0.0)
+        val safeToSpend = totalLiquidMoney - totalObligations30Days - buffer - reservedMoney
 
         // Calculate expected income in next 30 days
         val incomeIn30Days = calculateExpectedIncome(
@@ -207,6 +212,7 @@ object CashflowEngine {
             upcomingObligations = upcomingObligations,
             weeklyProjections = weeklyProjections,
             safetyBuffer = buffer,
+            obligations30Days = totalObligations30Days,
             accuracy = accuracy,
             dailyProjections = buildDailyProjections(
                 dailyBurn = dailyBurn,

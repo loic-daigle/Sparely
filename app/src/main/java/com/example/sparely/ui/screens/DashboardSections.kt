@@ -1056,6 +1056,8 @@ internal fun RepeatingPayments(insights: List<DetectedRecurringTransaction>, onA
 @Composable
 internal fun HomeHero(
     usable: Double,
+    // Where the money line starts: today's balance after what's set aside, before the coming bills
+    lineStart: Double = usable,
     days: List<com.example.sparely.domain.logic.CashflowEngine.DailyProjection>,
     totalSaved: Double,
     savingsRate: Double?,
@@ -1066,12 +1068,12 @@ internal fun HomeHero(
     val colors = MaterialTheme.colorScheme
     val onContainer = colors.onPrimaryContainer
     // The balance at the end of each day, starting from today's usable money
-    val balances = remember(usable, days) {
-        var running = usable
-        listOf(usable) + days.map { day -> running += day.change; running }
+    val balances = remember(lineStart, days) {
+        var running = lineStart
+        listOf(lineStart) + days.map { day -> running += day.change; running }
     }
     val lowIndex = balances.indices.minByOrNull { balances[it] } ?: 0
-    val low = balances.getOrElse(lowIndex) { usable }
+    val low = balances.getOrElse(lowIndex) { lineStart }
     val lowDate = days.getOrNull(lowIndex - 1)?.date ?: LocalDate.now()
     val lowIsTrouble = low < lowBalanceThreshold
 
