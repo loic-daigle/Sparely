@@ -224,7 +224,7 @@ fun InsightsScreen(
                         longTermHabits.forEachIndexed { index, habit ->
                             LongTermHabitRow(
                                 habit = habit,
-                                hasVault = vaultNames.any { it.equals(habit.label, ignoreCase = true) },
+                                hasVault = vaultNames.any { it.equals(habitVaultName(habit), ignoreCase = true) },
                                 shape = segmentedShape(index, longTermHabits.size),
                                 onSaveForIt = { onSaveForHabit(habit) }
                             )
@@ -1045,7 +1045,15 @@ private fun maxAndMinRange(max: Double, min: Double): Pair<Double, Double> {
     return Pair((min - padding).coerceAtLeast(0.0), max + padding)
 }
 
-/** "Every 2 years, in November" / "Every 14 months": how often a long-term habit comes back. */
+/** The name a vault for this habit gets (and is recognised by). */
+@Composable
+internal fun habitVaultName(habit: com.example.sparely.domain.logic.LongTermHabits.Habit): String = habitTitle(habit)
+
+/** A month's name in the phone's language ("novembre"). */
+private fun monthName(month: Int): String =
+    java.time.Month.of(month).getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, java.util.Locale.getDefault())
+
+/** "Every 2 years, between September and November" / "Every 14 months": how often a habit comes back. */
 @Composable
 internal fun habitRhythm(habit: com.example.sparely.domain.logic.LongTermHabits.Habit): String {
     val every = if (habit.intervalMonths % 12 == 0) {
@@ -1054,13 +1062,40 @@ internal fun habitRhythm(habit: com.example.sparely.domain.logic.LongTermHabits.
     } else {
         androidx.compose.ui.res.pluralStringResource(R.plurals.habit_every_months, habit.intervalMonths, habit.intervalMonths)
     }
-    val month = habit.month?.let {
-        java.time.Month.of(it).getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, java.util.Locale.getDefault())
+    val start = habit.seasonStart
+    val end = habit.seasonEnd
+    return when {
+        start == null || end == null -> every
+        start == end -> stringResource(R.string.habit_in_month, every, monthName(start))
+        else -> stringResource(R.string.habit_between_months, every, monthName(start), monthName(end))
     }
-    return if (month != null) stringResource(R.string.habit_in_month, every, month) else every
 }
 
-/** One long-term habit: what it is, how often and when next, about how much, and a way to save for it. */
+/** What a habit is called: its purchase's name, or "A big purchase" when it's a different thing each time. */
+@Composable
+internal fun habitTitle(habit: com.example.sparely.domain.logic.LongTermHabits.Habit): String =
+    habit.label ?: stringResource(R.string.habit_big_purchase)
+
+/** When the next one is expected: a month, or a season's first and last month. */
+@Composable
+private fun habitNext(habit: com.example.sparely.domain.logic.LongTermHabits.Habit): String {
+    val format = com.example.sparely.ui.utils.LocalDates.monthYear
+    return if (habit.nextExpectedEnd == habit.nextExpected) {
+        stringResource(R.string.habit_next, habit.nextExpected.atDay(1).format(format))
+    } else {
+        stringResource(
+            R.string.habit_next_between,
+            monthName(habit.nextExpected.monthValue),
+            habit.nextExpectedEnd.atDay(1).format(format)
+        )
+    }
+}
+
+/**
+ * One long-term habit: what it is (and, when it's a different thing each time, what those were),
+ * how often, whether this cycle's is done or when the next is expected, about how much, and a way
+ * to set money aside for it.
+ */
 @Composable
 private fun LongTermHabitRow(
     habit: com.example.sparely.domain.logic.LongTermHabits.Habit,
@@ -1071,7 +1106,8 @@ private fun LongTermHabitRow(
     val colors = MaterialTheme.colorScheme
     val today = java.time.LocalDate.now()
     val soon = habit.isDueSoon(today)
-    val categoryColor = com.example.sparely.ui.theme.getCategoryColor(habit.category)
+    val categoryColor = if (habit.label == null) colors.primary else com.example.sparely.ui.theme.getCategoryColor(habit.category)
+    val icon = if (habit.label == null) MaterialSymbols.SHOPPING_BAG else com.example.sparely.ui.theme.getCategoryIcon(habit.category)
     Surface(shape = shape, color = colors.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1082,25 +1118,23 @@ private fun LongTermHabitRow(
                         .background(categoryColor.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    MaterialSymbolIcon(icon = com.example.sparely.ui.theme.getCategoryIcon(habit.category), contentDescription = null, size = 22.dp, tint = categoryColor)
+                    MaterialSymbolIcon(icon = icon, contentDescription = null, size = 22.dp, tint = categoryColor)
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(habit.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(habitTitle(habit), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(habitRhythm(habit), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                    // This cycle's already made (when, how much), or when the next is expected
-                    val nextText = stringResource(
-                        R.string.habit_next,
-                        habit.nextExpected.atDay(1).format(com.example.sparely.ui.utils.LocalDates.monthYear)
-                    )
+                    // This cycle's already made (what, when, how much), or when the next is expected
+                    val next = habitNext(habit)
                     Text(
                         if (habit.doneThisCycle) {
                             stringResource(
                                 R.string.habit_done,
+                                habit.lastItem,
                                 habit.lastDate.format(com.example.sparely.ui.utils.LocalDates.monthYear),
                                 habit.lastAmount.formatCurrency(decimals = 0)
-                            ) + " · " + nextText
+                            ) + " · " + next
                         } else {
-                            nextText.replaceFirstChar { it.titlecase() }
+                            next.replaceFirstChar { it.titlecase() }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = when {
@@ -1110,10 +1144,28 @@ private fun LongTermHabitRow(
                         }
                     )
                 }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "≈ " + habit.averageAmount.formatCurrency(decimals = 0),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (habit.maxAmount - habit.minAmount > 1.0) {
+                        Text(
+                            stringResource(R.string.habit_range, habit.minAmount.formatCurrency(decimals = 0), habit.maxAmount.formatCurrency(decimals = 0)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            // A different thing each time: what those were
+            if (habit.label == null) {
                 Text(
-                    "≈ " + habit.averageAmount.formatCurrency(decimals = 0),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    habit.items.joinToString(" → "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 58.dp)
                 )
             }
             if (!hasVault) {

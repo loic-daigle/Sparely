@@ -40,7 +40,8 @@ class LongTermHabitsTest {
         )
         val habit = LongTermHabits.detect(history, today).single()
         assertEquals(24, habit.intervalMonths)
-        assertEquals(11, habit.month)
+        assertEquals(11, habit.seasonStart)
+        assertEquals(11, habit.seasonEnd)
         assertEquals(YearMonth.of(2026, 11), habit.nextExpected)
         assertEquals(2500.0, habit.averageAmount, 0.01)
         assertEquals("Ordinateur", habit.label)
@@ -64,6 +65,44 @@ class LongTermHabitsTest {
     }
 
     @Test
+    fun aBigPurchaseEveryTwoYearsWhateverItIs() {
+        // A 3D printer, a laptop, a CNC: different things and amounts, always late summer to fall
+        val history = everyday() + listOf(
+            expense(LocalDate.of(2022, 11, 12), 2000.0, ExpenseCategory.ENTERTAINMENT, "Imprimante 3D"),
+            expense(LocalDate.of(2024, 11, 3), 3500.0, ExpenseCategory.EDUCATION, "Laptop"),
+            expense(LocalDate.of(2026, 9, 2), 2000.0, ExpenseCategory.SHOPPING, "CNC")
+        )
+        val habit = LongTermHabits.detect(history, today).single()
+        assertEquals(LongTermHabits.Kind.BIG_PURCHASE, habit.kind)
+        assertEquals(null, habit.label)
+        assertEquals(listOf("Imprimante 3D", "Laptop", "CNC"), habit.items)
+        assertEquals(24, habit.intervalMonths)
+        assertEquals(9, habit.seasonStart)
+        assertEquals(11, habit.seasonEnd)
+        // This cycle's was the CNC; the next one is expected in the fall of 2028
+        assertTrue(habit.doneThisCycle)
+        assertEquals(YearMonth.of(2028, 9), habit.nextExpected)
+        assertEquals(YearMonth.of(2028, 11), habit.nextExpectedEnd)
+        assertEquals(2000.0, habit.minAmount, 0.01)
+        assertEquals(3500.0, habit.maxAmount, 0.01)
+    }
+
+    @Test
+    fun twoUnrelatedBigPurchasesAreNotAHabit() {
+        val history = everyday() + listOf(
+            expense(LocalDate.of(2024, 3, 1), 2500.0, ExpenseCategory.SHOPPING, "Divan"),
+            expense(LocalDate.of(2025, 11, 22), 2500.0, ExpenseCategory.TRAVEL, "Voyage")
+        )
+        assertTrue(LongTermHabits.detect(history, today).isEmpty())
+    }
+
+    @Test
+    fun seasonsCanWrapPastDecember() {
+        assertEquals(11 to 1, LongTermHabits.seasonOf(listOf(11, 1, 12)))
+        assertEquals(null, LongTermHabits.seasonOf(listOf(2, 8)))
+    }
+
+    @Test
     fun findsSeveralHabitsAtOnce() {
         val history = everyday() + listOf(
             expense(LocalDate.of(2022, 11, 18), 2400.0, name = "Ordinateur"),
@@ -72,7 +111,7 @@ class LongTermHabitsTest {
             expense(LocalDate.of(2025, 10, 20), 900.0, ExpenseCategory.TRANSPORTATION, "Pneus d'hiver")
         )
         val habits = LongTermHabits.detect(history, today)
-        assertEquals(setOf("Ordinateur", "Pneus d'hiver"), habits.map { it.label }.toSet())
+        assertEquals(setOf<String?>("Ordinateur", "Pneus d'hiver"), habits.map { it.label }.toSet())
         assertEquals(12, habits.first { it.label == "Pneus d'hiver" }.intervalMonths)
     }
 

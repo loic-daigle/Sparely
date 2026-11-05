@@ -604,7 +604,7 @@ private fun buildAttentionItems(
         .forEach { habit ->
             items += AttentionItem(
                 icon = MaterialSymbols.HISTORY,
-                title = stringResource(R.string.habit_att_title, habit.label),
+                title = stringResource(R.string.habit_att_title, habitTitle(habit)),
                 subtitle = stringResource(
                     R.string.habit_att_sub,
                     habitRhythm(habit),

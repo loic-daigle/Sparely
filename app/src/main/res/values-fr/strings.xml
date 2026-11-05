@@ -2600,7 +2600,7 @@
     <string name="usable_money_cushion">Coussin de sécurité</string>
     <string name="habit_header">Habitudes à long terme</string>
     <string name="habit_in_month">%1$s, en %2$s</string>
-    <string name="habit_next">prochaine vers %1$s</string>
+    <string name="habit_next">prochain vers %1$s</string>
     <string name="habit_save_for_it">Mettre de l\'argent de côté</string>
     <string name="habit_att_title">%1$s, d\'habitude vers cette période</string>
     <string name="habit_att_sub">%1$s · la dernière : %2$s</string>
@@ -2614,6 +2614,10 @@
         <item quantity="many">Tous les %d mois</item>
         <item quantity="other">Tous les %d mois</item>
     </plurals>
-    <string name="habit_done">Déjà faite : %1$s, %2$s</string>
+    <string name="habit_done">Déjà fait cette fois : %1$s, %2$s, %3$s</string>
     <string name="expense_history_only_note">Datée de plus de 2 mois : elle s\'ajoute à l\'historique et aux statistiques sans changer vos soldes ni mettre d\'argent de côté.</string>
+    <string name="habit_big_purchase">Un gros achat</string>
+    <string name="habit_between_months">%1$s, entre %2$s et %3$s</string>
+    <string name="habit_next_between">prochain entre %1$s et %2$s</string>
+    <string name="habit_range">de %1$s à %2$s</string>
 </resources>

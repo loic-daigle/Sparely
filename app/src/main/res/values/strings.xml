@@ -2615,6 +2615,10 @@
         <item quantity="one">Every month</item>
         <item quantity="other">Every %d months</item>
     </plurals>
-    <string name="habit_done">Already made: %1$s, %2$s</string>
+    <string name="habit_done">Done this time: %1$s, %2$s, %3$s</string>
     <string name="expense_history_only_note">Dated more than 2 months ago: added to the history and the stats without changing your balances or setting money aside.</string>
+    <string name="habit_big_purchase">A big purchase</string>
+    <string name="habit_between_months">%1$s, between %2$s and %3$s</string>
+    <string name="habit_next_between">next between %1$s and %2$s</string>
+    <string name="habit_range">%1$s to %2$s</string>
 </resources>

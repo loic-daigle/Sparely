@@ -1538,10 +1538,10 @@ private fun SparelyNavHost(
                 longTermHabits = uiState.longTermHabits,
                 vaultNames = uiState.smartVaults.filter { !it.archived }.map { it.name }.toSet(),
                 onSaveForHabit = { habit ->
-                    // A vault for it, due in the month it usually comes, so money is set aside ahead
+                    // A vault for it, due when its season starts, so money is set aside ahead
                     vaultViewModel.addSmartVault(
                         com.example.sparely.domain.model.SmartVault(
-                            name = habit.label,
+                            name = habit.label ?: context.getString(R.string.habit_big_purchase),
                             targetAmount = kotlin.math.ceil(habit.averageAmount / 50.0) * 50.0,
                             targetDate = habit.nextExpected.atDay(1)
                         )
