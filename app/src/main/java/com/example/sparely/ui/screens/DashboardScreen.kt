@@ -197,7 +197,8 @@ fun DashboardScreen(
         pendingVaultContributions = pendingVaultContributions,
         onNavigateToVaultTransfers = onNavigateToVaultTransfers,
         onNavigateToBudgets = onNavigateToBudgets,
-        onNavigateToRecurring = onNavigateToRecurring
+        onNavigateToRecurring = onNavigateToRecurring,
+        onNavigateToInsights = onNavigateToInsights
     )
     val lowBalanceWarning = uiState.cashflowForecast?.lowBalanceWarning
     val idleMoneyInsight = uiState.idleMoneyInsight
@@ -541,7 +542,8 @@ private fun buildAttentionItems(
     pendingVaultContributions: List<VaultContribution>,
     onNavigateToVaultTransfers: () -> Unit,
     onNavigateToBudgets: () -> Unit,
-    onNavigateToRecurring: () -> Unit
+    onNavigateToRecurring: () -> Unit,
+    onNavigateToInsights: () -> Unit
 ): List<AttentionItem> {
     val items = mutableListOf<AttentionItem>()
 
@@ -592,6 +594,25 @@ private fun buildAttentionItems(
                 amount = if (recurring.isVariableAmount) "≈ $amount" else amount,
                 tone = if (bill.daysUntilDue == 0) AttentionTone.WARNING else AttentionTone.INFO,
                 onClick = onNavigateToRecurring
+            )
+        }
+
+    // A big purchase that usually comes around this month or next (LongTermHabits)
+    val today = java.time.LocalDate.now()
+    uiState.longTermHabits
+        .filter { it.monthsUntil(today) in 0..1 }
+        .forEach { habit ->
+            items += AttentionItem(
+                icon = MaterialSymbols.HISTORY,
+                title = stringResource(R.string.habit_att_title, habit.label),
+                subtitle = stringResource(
+                    R.string.habit_att_sub,
+                    habitRhythm(habit),
+                    habit.lastDate.format(com.example.sparely.ui.utils.LocalDates.monthYear)
+                ),
+                amount = "≈ " + habit.averageAmount.formatCurrency(decimals = 0),
+                tone = AttentionTone.WARNING,
+                onClick = onNavigateToInsights
             )
         }
 

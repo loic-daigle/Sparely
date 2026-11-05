@@ -2598,4 +2598,20 @@
     <string name="recovery_later">Plus tard</string>
     <string name="usable_money_upcoming_bills">Factures des 30 prochains jours</string>
     <string name="usable_money_cushion">Coussin de sécurité</string>
+    <string name="habit_header">Habitudes à long terme</string>
+    <string name="habit_in_month">%1$s, en %2$s</string>
+    <string name="habit_next">prochaine vers %1$s</string>
+    <string name="habit_save_for_it">Mettre de l\'argent de côté</string>
+    <string name="habit_att_title">%1$s, d\'habitude vers cette période</string>
+    <string name="habit_att_sub">%1$s · la dernière : %2$s</string>
+    <plurals name="habit_every_years">
+        <item quantity="one">Chaque année</item>
+        <item quantity="many">Tous les %d ans</item>
+        <item quantity="other">Tous les %d ans</item>
+    </plurals>
+    <plurals name="habit_every_months">
+        <item quantity="one">Chaque mois</item>
+        <item quantity="many">Tous les %d mois</item>
+        <item quantity="other">Tous les %d mois</item>
+    </plurals>
 </resources>

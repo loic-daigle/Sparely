@@ -2601,4 +2601,18 @@
     <string name="recovery_later">Not now</string>
     <string name="usable_money_upcoming_bills">Bills in the next 30 days</string>
     <string name="usable_money_cushion">Safety cushion</string>
+    <string name="habit_header">Long-term habits</string>
+    <string name="habit_in_month">%1$s, in %2$s</string>
+    <string name="habit_next">next around %1$s</string>
+    <string name="habit_save_for_it">Set money aside for it</string>
+    <string name="habit_att_title">%1$s, usually around now</string>
+    <string name="habit_att_sub">%1$s · last one %2$s</string>
+    <plurals name="habit_every_years">
+        <item quantity="one">Every year</item>
+        <item quantity="other">Every %d years</item>
+    </plurals>
+    <plurals name="habit_every_months">
+        <item quantity="one">Every month</item>
+        <item quantity="other">Every %d months</item>
+    </plurals>
 </resources>

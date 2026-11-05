@@ -42,6 +42,7 @@ import com.example.sparely.ui.utils.formatPercent
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SparelyButton
 import com.sparely.app.R
+import com.example.sparely.ui.theme.warning
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.getValue
@@ -66,6 +67,10 @@ fun InsightsScreen(
     seasonalInsights: List<SmartInsightEngine.SeasonalInsight> = emptyList(),
     idleMoneyInsight: SmartInsightEngine.IdleMoneyInsight? = null,
     uniqueExpenses: List<SmartInsightEngine.UniqueExpenseInsight> = emptyList(),
+    longTermHabits: List<com.example.sparely.domain.logic.LongTermHabits.Habit> = emptyList(),
+    /** Names of the vaults already there, so a habit that has one isn't offered another. */
+    vaultNames: Set<String> = emptySet(),
+    onSaveForHabit: (com.example.sparely.domain.logic.LongTermHabits.Habit) -> Unit = {},
     onTransferToSavings: (amount: Double) -> Unit = {},
     onNavigateBack: () -> Unit,
     onAnomalyClick: (Expense) -> Unit = {},
@@ -204,6 +209,27 @@ fun InsightsScreen(
             if (uniqueExpenses.isNotEmpty()) {
                 item(key = "unique") {
                     UniqueExpensesCard(expenses = uniqueExpenses)
+                }
+            }
+            // Big purchases that come back every year or two (LongTermHabits)
+            if (longTermHabits.isNotEmpty()) {
+                item(key = "header_habits") {
+                    ExpressiveListHeader(
+                        title = stringResource(R.string.habit_header),
+                        icon = MaterialSymbols.HISTORY
+                    )
+                }
+                item(key = "habits") {
+                    Column(verticalArrangement = Arrangement.spacedBy(SegmentGap)) {
+                        longTermHabits.forEachIndexed { index, habit ->
+                            LongTermHabitRow(
+                                habit = habit,
+                                hasVault = vaultNames.any { it.equals(habit.label, ignoreCase = true) },
+                                shape = segmentedShape(index, longTermHabits.size),
+                                onSaveForIt = { onSaveForHabit(habit) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1017,6 +1043,75 @@ private fun CashflowChart(points: List<CashflowEngine.WeeklyProjection>, current
 private fun maxAndMinRange(max: Double, min: Double): Pair<Double, Double> {
     val padding = (max - min) * 0.1
     return Pair((min - padding).coerceAtLeast(0.0), max + padding)
+}
+
+/** "Every 2 years, in November" / "Every 14 months": how often a long-term habit comes back. */
+@Composable
+internal fun habitRhythm(habit: com.example.sparely.domain.logic.LongTermHabits.Habit): String {
+    val every = if (habit.intervalMonths % 12 == 0) {
+        val years = habit.intervalMonths / 12
+        androidx.compose.ui.res.pluralStringResource(R.plurals.habit_every_years, years, years)
+    } else {
+        androidx.compose.ui.res.pluralStringResource(R.plurals.habit_every_months, habit.intervalMonths, habit.intervalMonths)
+    }
+    val month = habit.month?.let {
+        java.time.Month.of(it).getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, java.util.Locale.getDefault())
+    }
+    return if (month != null) stringResource(R.string.habit_in_month, every, month) else every
+}
+
+/** One long-term habit: what it is, how often and when next, about how much, and a way to save for it. */
+@Composable
+private fun LongTermHabitRow(
+    habit: com.example.sparely.domain.logic.LongTermHabits.Habit,
+    hasVault: Boolean,
+    shape: androidx.compose.ui.graphics.Shape,
+    onSaveForIt: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val today = java.time.LocalDate.now()
+    val soon = habit.monthsUntil(today) in 0..1
+    val categoryColor = com.example.sparely.ui.theme.getCategoryColor(habit.category)
+    Surface(shape = shape, color = colors.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(categoryColor.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(icon = com.example.sparely.ui.theme.getCategoryIcon(habit.category), contentDescription = null, size = 22.dp, tint = categoryColor)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(habit.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        habitRhythm(habit) + " · " + stringResource(
+                            R.string.habit_next,
+                            habit.nextExpected.atDay(1).format(com.example.sparely.ui.utils.LocalDates.monthYear)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (soon) colors.warning else colors.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "≈ " + habit.averageAmount.formatCurrency(decimals = 0),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (!hasVault) {
+                com.example.sparely.ui.components.SparelyTonalButton(
+                    onClick = onSaveForIt,
+                    modifier = Modifier.padding(start = 58.dp),
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS, contentDescription = null, size = 18.dp) }
+                ) {
+                    Text(stringResource(R.string.habit_save_for_it))
+                }
+            }
+        }
+    }
 }
 
 /**

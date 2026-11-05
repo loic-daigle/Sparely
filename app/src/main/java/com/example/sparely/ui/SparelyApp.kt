@@ -1535,6 +1535,19 @@ private fun SparelyNavHost(
                 seasonalInsights = uiState.seasonalInsights,
                 idleMoneyInsight = uiState.idleMoneyInsight,
                 uniqueExpenses = uiState.uniqueExpenses,
+                longTermHabits = uiState.longTermHabits,
+                vaultNames = uiState.smartVaults.filter { !it.archived }.map { it.name }.toSet(),
+                onSaveForHabit = { habit ->
+                    // A vault for it, due in the month it usually comes, so money is set aside ahead
+                    vaultViewModel.addSmartVault(
+                        com.example.sparely.domain.model.SmartVault(
+                            name = habit.label,
+                            targetAmount = kotlin.math.ceil(habit.averageAmount / 50.0) * 50.0,
+                            targetDate = habit.nextExpected.atDay(1)
+                        )
+                    )
+                    navController.navigate(SparelyDestination.Vaults.route)
+                },
                 onTransferToSavings = { amount ->
                     // Create a pending contribution for the suggested idle money transfer
                     uiState.idleMoneyInsight?.suggestedVault?.id?.let { vaultId ->

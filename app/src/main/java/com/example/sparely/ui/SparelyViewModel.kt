@@ -667,6 +667,7 @@ class SparelyViewModel(
                         totalUsableMoney = totalUsableMoney,
                         netUsableMoney = netUsableMoney,
                         availableToSpend = cashflowForecast.safeToSpend,
+                        longTermHabits = com.example.sparely.domain.logic.LongTermHabits.detect(domainExpenses),
                         pendingTransfersTotal = pendingTransfersTotal,
                         billsDueTotal = billsDueTotal,
                         creditCardOwed = creditCardOwed,

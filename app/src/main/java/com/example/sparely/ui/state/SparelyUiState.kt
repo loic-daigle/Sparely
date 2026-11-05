@@ -89,6 +89,8 @@ data class SparelyUiState(
     val netUsableMoney: Double = 0.0,
     /** The "available to spend" shown everywhere: the forecast's safe-to-spend (see CashflowEngine). */
     val availableToSpend: Double = 0.0,
+    /** Big purchases that come back on a long rhythm (LongTermHabits), next expected first. */
+    val longTermHabits: List<com.example.sparely.domain.logic.LongTermHabits.Habit> = emptyList(),
     val pendingTransfersTotal: Double = 0.0,
     // Recurring bills that came due and are frozen until paid
     val billsDueTotal: Double = 0.0,
