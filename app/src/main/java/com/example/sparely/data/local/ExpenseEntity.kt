@@ -66,5 +66,8 @@ data class ExpenseEntity(
     val isIgnored: Boolean = false,
     // The recurring payment this expense belongs to, so renaming the payment keeps them together.
     // No foreign key: a deleted payment leaves its id here and the expense counts as unlinked again
-    val recurringExpenseId: Long? = null
+    val recurringExpenseId: Long? = null,
+    // Entered well after the fact (see AddExpenseUseCase.HISTORY_ONLY_AFTER_DAYS): part of the
+    // history and the stats, but it never changed a balance (main account, card, vault transfers)
+    val historyOnly: Boolean = false
 )

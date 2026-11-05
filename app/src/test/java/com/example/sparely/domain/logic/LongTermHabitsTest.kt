@@ -45,14 +45,50 @@ class LongTermHabitsTest {
         assertEquals(2500.0, habit.averageAmount, 0.01)
         assertEquals("Ordinateur", habit.label)
         assertEquals(0L, habit.monthsUntil(today))
+        assertTrue(habit.isDueSoon(today))
+    }
+
+    @Test
+    fun thisCyclesPurchaseAlreadyMadeEvenEarlyAndDearer() {
+        val history = everyday() + listOf(
+            expense(LocalDate.of(2022, 11, 18), 2400.0, name = "Ordinateur"),
+            expense(LocalDate.of(2024, 11, 22), 2600.0, name = "Ordinateur"),
+            // This time in September, and a bit more
+            expense(LocalDate.of(2026, 9, 10), 3100.0, name = "Laptop")
+        )
+        val habit = LongTermHabits.detect(history, today).single()
+        assertTrue(habit.doneThisCycle)
+        assertTrue(!habit.isDueSoon(today))
+        assertEquals(LocalDate.of(2026, 9, 10), habit.lastDate)
+        assertTrue(habit.nextExpected.isAfter(YearMonth.of(2028, 1)))
+    }
+
+    @Test
+    fun findsSeveralHabitsAtOnce() {
+        val history = everyday() + listOf(
+            expense(LocalDate.of(2022, 11, 18), 2400.0, name = "Ordinateur"),
+            expense(LocalDate.of(2024, 11, 22), 2600.0, name = "Ordinateur"),
+            expense(LocalDate.of(2024, 10, 15), 850.0, ExpenseCategory.TRANSPORTATION, "Pneus d'hiver"),
+            expense(LocalDate.of(2025, 10, 20), 900.0, ExpenseCategory.TRANSPORTATION, "Pneus d'hiver")
+        )
+        val habits = LongTermHabits.detect(history, today)
+        assertEquals(setOf("Ordinateur", "Pneus d'hiver"), habits.map { it.label }.toSet())
+        assertEquals(12, habits.first { it.label == "Pneus d'hiver" }.intervalMonths)
+    }
+
+    @Test
+    fun theSameStoreCountsEvenAtAnotherAmountOrCategory() {
+        val a = expense(LocalDate.of(2024, 11, 1), 2500.0, ExpenseCategory.SHOPPING, "Best Buy")
+        val b = expense(LocalDate.of(2026, 9, 1), 1200.0, ExpenseCategory.ENTERTAINMENT, "Best Buy")
+        assertTrue(LongTermHabits.sameThing(a, b))
     }
 
     @Test
     fun differentKindsOrAmountsAreNotAHabit() {
         val history = everyday() + listOf(
-            expense(LocalDate.of(2024, 11, 22), 2500.0, ExpenseCategory.SHOPPING),
-            expense(LocalDate.of(2025, 11, 22), 2500.0, ExpenseCategory.TRAVEL),
-            expense(LocalDate.of(2023, 3, 1), 900.0, ExpenseCategory.SHOPPING)
+            expense(LocalDate.of(2024, 11, 22), 2500.0, ExpenseCategory.SHOPPING, "Ordinateur"),
+            expense(LocalDate.of(2025, 11, 22), 2500.0, ExpenseCategory.TRAVEL, "Voyage"),
+            expense(LocalDate.of(2023, 3, 1), 900.0, ExpenseCategory.SHOPPING, "Divan")
         )
         assertTrue(LongTermHabits.detect(history, today).isEmpty())
     }

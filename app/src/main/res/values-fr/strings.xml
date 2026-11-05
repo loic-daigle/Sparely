@@ -2614,4 +2614,6 @@
         <item quantity="many">Tous les %d mois</item>
         <item quantity="other">Tous les %d mois</item>
     </plurals>
+    <string name="habit_done">Déjà faite : %1$s, %2$s</string>
+    <string name="expense_history_only_note">Datée de plus de 2 mois : elle s\'ajoute à l\'historique et aux statistiques sans changer vos soldes ni mettre d\'argent de côté.</string>
 </resources>

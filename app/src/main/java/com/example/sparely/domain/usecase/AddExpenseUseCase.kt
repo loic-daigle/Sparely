@@ -16,6 +16,7 @@ import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultArchivePrompt
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -31,6 +32,11 @@ class AddExpenseUseCase(
     private val savingsRepository: SavingsRepository,
     private val preferencesRepository: UserPreferencesRepository
 ) {
+
+    companion object {
+        /** A new expense dated more than this many days ago is history only (see [ExpenseEntity.historyOnly]). */
+        const val HISTORY_ONLY_AFTER_DAYS = 60L
+    }
 
     /** App state the expense is recorded against. */
     data class Context(
@@ -60,6 +66,9 @@ class AddExpenseUseCase(
         }
         val allocation = SavingsCalculator.calculateAllocation(input, recommendedPercentages, settings.riskLevel)
         val applied = recommendedPercentages.adjustWithinBudget()
+        // A new expense dated well in the past (entered for the history, the stats, long-term habits)
+        // is history only: the money left the account back then, so it changes no balance today
+        val historyOnly = input.id == null && input.date.isBefore(LocalDate.now().minusDays(HISTORY_ONLY_AFTER_DAYS))
         val entity = ExpenseEntity(
             id = input.id ?: 0L,
             description = input.description.trim().ifEmpty { "General purchase" },
@@ -83,6 +92,7 @@ class AddExpenseUseCase(
             paymentMethodId = input.paymentMethodId,
             isRecurring = input.isRecurring,
             recurringExpenseId = input.recurringExpenseId,
+            historyOnly = historyOnly,
             notes = input.notes,
             orderNumber = input.orderNumber,
             type = input.type.name
@@ -161,7 +171,7 @@ class AddExpenseUseCase(
                         )
                     }
                 }
-            } else if (input.deductFromMainAccount) {
+            } else if (input.deductFromMainAccount && !historyOnly) {
                 val paymentMethod = input.paymentMethodId?.let { id -> context.paymentMethods.find { it.id == id } }
                 // Credit card payments: SavingsRepository updates the card balance; the main
                 // account is NOT debited here.
@@ -182,7 +192,7 @@ class AddExpenseUseCase(
                 }
             }
 
-            val savingTaxPlans = SavingTaxEngine.calculate(
+            val savingTaxPlans = if (historyOnly) emptyList() else SavingTaxEngine.calculate(
                 SavingTaxEngine.Context(
                     expenseAmount = input.amount,
                     expenseDate = input.date,

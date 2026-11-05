@@ -1003,4 +1003,5 @@
     <string name="insights_hero_in_30_days">%1$s dans ton compte dans 30 jours</string>
     <string name="recovery_title">Tes données semblent avoir disparu</string>
     <string name="recovery_desc">Une sauvegarde du %1$s contient %2$d dépenses et %3$d coffres. La restaurer ? Rien n\'est supprimé : tu pourras encore importer une autre sauvegarde ensuite.</string>
+    <string name="expense_history_only_note">Datée de plus de 2 mois : elle s\'ajoute à l\'historique et aux statistiques sans changer tes soldes ni mettre d\'argent de côté.</string>
 </resources>

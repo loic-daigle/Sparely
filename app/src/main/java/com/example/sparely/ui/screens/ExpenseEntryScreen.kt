@@ -558,6 +558,16 @@ fun ExpenseEntryScreen(
                 }
             }
 
+            // A new expense dated well in the past only goes into the history (AddExpenseUseCase)
+            if (!isEditMode && selectedDate.isBefore(LocalDate.now().minusDays(com.example.sparely.domain.usecase.AddExpenseUseCase.HISTORY_ONLY_AFTER_DAYS))) {
+                Text(
+                    text = stringResource(R.string.expense_history_only_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             if (titleSuggestions.isNotEmpty()) {
                 TitleSuggestionRow(
                     suggestions = titleSuggestions,

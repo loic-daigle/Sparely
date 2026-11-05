@@ -600,7 +600,7 @@ private fun buildAttentionItems(
     // A big purchase that usually comes around this month or next (LongTermHabits)
     val today = java.time.LocalDate.now()
     uiState.longTermHabits
-        .filter { it.monthsUntil(today) in 0..1 }
+        .filter { it.isDueSoon(today) }
         .forEach { habit ->
             items += AttentionItem(
                 icon = MaterialSymbols.HISTORY,

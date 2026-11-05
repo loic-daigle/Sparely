@@ -22,6 +22,8 @@ data class Expense(
     val isRecurring: Boolean = false,
     // The saved recurring payment it belongs to (see ExpenseEntity.recurringExpenseId)
     val recurringExpenseId: Long? = null,
+    // Entered well after the fact: history only, it never changed a balance
+    val historyOnly: Boolean = false,
     val notes: String? = null,
     val refundedAmount: Double = 0.0,
     val isRefunded: Boolean = false,

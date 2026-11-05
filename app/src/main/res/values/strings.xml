@@ -2615,4 +2615,6 @@
         <item quantity="one">Every month</item>
         <item quantity="other">Every %d months</item>
     </plurals>
+    <string name="habit_done">Already made: %1$s, %2$s</string>
+    <string name="expense_history_only_note">Dated more than 2 months ago: added to the history and the stats without changing your balances or setting money aside.</string>
 </resources>

@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 /** Current schema version. Bump together with a new migration added to ALL_MIGRATIONS. */
-const val SPARELY_DATABASE_VERSION = 51
+const val SPARELY_DATABASE_VERSION = 52
 
 @Database(
     entities = [
@@ -1345,7 +1345,8 @@ abstract class SparelyDatabase : RoomDatabase() {
             MIGRATION_47_48,
             MIGRATION_48_49,
             MIGRATION_49_50,
-            MIGRATION_50_51
+            MIGRATION_50_51,
+            MIGRATION_51_52
             )
         }
 
@@ -1390,6 +1391,14 @@ abstract class SparelyDatabase : RoomDatabase() {
                         "WHERE lower(trim(r.description)) = lower(trim(expenses.description)) LIMIT 1) " +
                         "WHERE recurringExpenseId IS NULL"
                 )
+            }
+        }
+
+        val MIGRATION_51_52 = object : androidx.room.migration.Migration(51, 52) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Expenses entered long after the fact are history only: they never touch a balance.
+                // Existing ones keep counting as they always have
+                db.execSQL("ALTER TABLE expenses ADD COLUMN historyOnly INTEGER NOT NULL DEFAULT 0")
             }
         }
 

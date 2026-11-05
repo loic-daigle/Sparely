@@ -153,8 +153,12 @@ class SavingsRepository(
             val existing = expenseDao.findExpenseById(entity.id)
             if (existing != null) {
                 processExpenseResult(existing, reverse = true)
-                // Editing an expense keeps the recurring payment it belongs to; the form doesn't carry it
-                if (entity.recurringExpenseId == null) toSave = entity.copy(recurringExpenseId = existing.recurringExpenseId)
+                // Editing an expense keeps the recurring payment it belongs to and whether it's history
+                // only; the form carries neither
+                toSave = toSave.copy(
+                    recurringExpenseId = entity.recurringExpenseId ?: existing.recurringExpenseId,
+                    historyOnly = entity.historyOnly || existing.historyOnly
+                )
             }
         }
         // Apply new impact
@@ -214,6 +218,8 @@ class SavingsRepository(
     }
 
     private suspend fun processExpenseResult(expense: ExpenseEntity, reverse: Boolean) {
+        // Entered long after the fact: that card bill was paid long ago, the balance owed now is unchanged
+        if (expense.historyOnly) return
         val methodId = expense.paymentMethodId ?: return
         val method = paymentMethodDao.getPaymentMethodById(methodId) ?: return
         

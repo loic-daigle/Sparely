@@ -1070,7 +1070,7 @@ private fun LongTermHabitRow(
 ) {
     val colors = MaterialTheme.colorScheme
     val today = java.time.LocalDate.now()
-    val soon = habit.monthsUntil(today) in 0..1
+    val soon = habit.isDueSoon(today)
     val categoryColor = com.example.sparely.ui.theme.getCategoryColor(habit.category)
     Surface(shape = shape, color = colors.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1086,13 +1086,28 @@ private fun LongTermHabitRow(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(habit.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(habitRhythm(habit), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    // This cycle's already made (when, how much), or when the next is expected
+                    val nextText = stringResource(
+                        R.string.habit_next,
+                        habit.nextExpected.atDay(1).format(com.example.sparely.ui.utils.LocalDates.monthYear)
+                    )
                     Text(
-                        habitRhythm(habit) + " · " + stringResource(
-                            R.string.habit_next,
-                            habit.nextExpected.atDay(1).format(com.example.sparely.ui.utils.LocalDates.monthYear)
-                        ),
+                        if (habit.doneThisCycle) {
+                            stringResource(
+                                R.string.habit_done,
+                                habit.lastDate.format(com.example.sparely.ui.utils.LocalDates.monthYear),
+                                habit.lastAmount.formatCurrency(decimals = 0)
+                            ) + " · " + nextText
+                        } else {
+                            nextText.replaceFirstChar { it.titlecase() }
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (soon) colors.warning else colors.onSurfaceVariant
+                        color = when {
+                            habit.doneThisCycle -> colors.success
+                            soon -> colors.warning
+                            else -> colors.onSurfaceVariant
+                        }
                     )
                 }
                 Text(
