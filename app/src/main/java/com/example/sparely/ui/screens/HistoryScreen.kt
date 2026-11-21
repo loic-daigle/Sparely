@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
@@ -79,11 +80,13 @@ fun HistoryScreen(
     // Opens an expense's own page (docs/DESIGN.md §6)
     onOpenExpense: (Long) -> Unit = {}
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var categoryFilter by remember { mutableStateOf<ExpenseCategory?>(null) }
-    var dateFilter by remember { mutableStateOf(DateRangeFilter.LAST_30_DAYS) }
-    var customStartDate by remember { mutableStateOf<LocalDate?>(null) }
-    var customEndDate by remember { mutableStateOf<LocalDate?>(null) }
+    // Saved with the page, so opening an expense and coming back keeps the filters (and with them
+    // the same list, so the list's own saved scroll position still points at the same rows)
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var categoryFilter by rememberSaveable { mutableStateOf<ExpenseCategory?>(null) }
+    var dateFilter by rememberSaveable { mutableStateOf(DateRangeFilter.LAST_30_DAYS) }
+    var customStartDate by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+    var customEndDate by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     
     // Expand/collapse detail
     var expandedExpenseId by remember { mutableStateOf<Long?>(null) }
@@ -97,7 +100,8 @@ fun HistoryScreen(
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var highlightedExpenseId by remember { mutableStateOf(highlightExpenseId) }
+    // Saved too: once the highlighted expense was shown, coming back doesn't jump to it again
+    var highlightedExpenseId by rememberSaveable { mutableStateOf(highlightExpenseId) }
 
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
     var expenseToRefund by remember { mutableStateOf<Expense?>(null) }
