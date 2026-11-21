@@ -87,7 +87,11 @@ fun VaultTransfersScreen(
         return
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Rows can't be swiped while the list scrolls, nor just after (SwipeGuard)
+    val rowSwipeEnabled = com.example.sparely.ui.components.rememberRowSwipeEnabled(listState)
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
@@ -144,6 +148,7 @@ fun VaultTransfersScreen(
                         shape = if (isLastOfGroup && index == groups.size - 1) {
                             RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
                         } else RoundedCornerShape(6.dp),
+                        swipeEnabled = rowSwipeEnabled,
                         onDone = { onApproveGroup(listOf(transfer.id)) },
                         onCancel = { onCancelContribution(transfer.id) },
                         onClick = { editing = transfer }
@@ -391,6 +396,7 @@ private fun DestinationRow(
 private fun TransferRow(
     transfer: VaultContribution,
     shape: androidx.compose.ui.graphics.Shape,
+    swipeEnabled: Boolean = true,
     onDone: () -> Unit,
     onCancel: () -> Unit,
     onClick: () -> Unit
@@ -403,7 +409,7 @@ private fun TransferRow(
     // offered): confirmValueChange could fire more than once, and currentValue changes mid-drag, where
     // snapping back is cancelled by the finger still down. It snaps back before acting, with a stable
     // callback (a new one would make the box call it again)
-    val swipe = rememberSwipeToDismissBoxState()
+    val swipe = rememberSwipeToDismissBoxState(positionalThreshold = com.example.sparely.ui.components.RowSwipeThreshold)
     val swipeScope = rememberCoroutineScope()
     val currentOnDone by rememberUpdatedState(onDone)
     val currentOnCancel by rememberUpdatedState(onCancel)
@@ -421,6 +427,7 @@ private fun TransferRow(
     }
     SwipeToDismissBox(
         state = swipe,
+        gesturesEnabled = swipeEnabled,
         onDismiss = onSwiped,
         modifier = Modifier.padding(top = 2.dp),
         backgroundContent = {

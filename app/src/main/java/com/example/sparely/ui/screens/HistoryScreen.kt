@@ -99,6 +99,8 @@ fun HistoryScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
+    // Rows can't be swiped while the list scrolls, nor just after (SwipeGuard)
+    val rowSwipeEnabled = com.example.sparely.ui.components.rememberRowSwipeEnabled(listState)
     val scope = rememberCoroutineScope()
     // Saved too: once the highlighted expense was shown, coming back doesn't jump to it again
     var highlightedExpenseId by rememberSaveable { mutableStateOf(highlightExpenseId) }
@@ -399,7 +401,7 @@ fun HistoryScreen(
                     // before acting, so a page that's left and come back to (the swipe state is saved)
                     // finds it at rest. The callback is kept stable: a new one would make the box call
                     // it again while still swiped
-                    val swipeState = rememberSwipeToDismissBoxState()
+                    val swipeState = rememberSwipeToDismissBoxState(positionalThreshold = com.example.sparely.ui.components.RowSwipeThreshold)
                     val swipeScope = rememberCoroutineScope()
                     val currentExpense by rememberUpdatedState(expense)
                     val currentOnDuplicate by rememberUpdatedState(onDuplicateExpense)
@@ -419,6 +421,7 @@ fun HistoryScreen(
                         state = swipeState,
                         enableDismissFromStartToEnd = !isSelectionMode,
                         enableDismissFromEndToStart = !isSelectionMode,
+                        gesturesEnabled = rowSwipeEnabled,
                         onDismiss = onSwiped,
                         modifier = Modifier.padding(top = if (isFirst) 0.dp else 2.dp),
                         backgroundContent = {
